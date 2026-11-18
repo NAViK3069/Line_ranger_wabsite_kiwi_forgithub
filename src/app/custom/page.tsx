@@ -14,6 +14,8 @@ import { usePro } from '@/contexts/ProContext'
 const CUSTOM_ITEMS = [
   { href: '/lobby', label: 'Lobby', icon: 'photo_camera', iconClass: 'text-cyan-400', borderClass: 'border-cyan-400/30' },
   { href: '/custom-gacha-ranger', label: 'Gacha Ranger', icon: 'auto_awesome', iconClass: 'text-yellow-400', borderClass: 'border-yellow-400/30' },
+  // Video Studio = ANME (จัดฉาก + เล่นสกิล + ส่งออก MP4) — ดู src/anme/
+  { href: '/custom-video', label: 'Video Studio', icon: 'movie', iconClass: 'text-pink-400', borderClass: 'border-pink-400/30' },
 ]
 
 export default function CustomPage() {

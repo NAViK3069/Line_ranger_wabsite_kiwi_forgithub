@@ -26,6 +26,7 @@ Cloudflare Worker (ฟรี)  worker/
 | `src/lib/db.ts` | "ฐานข้อมูล" แบบไฟล์ JSON ที่หน้าตาเหมือน Prisma (ใช้ตอน build เท่านั้น) |
 | `content/` | ข้อมูลที่แอดมินแก้: ตู้กาชา, top40, หน้า About |
 | `worker/` | Cloudflare Worker |
+| `src/anme/` | Video Studio (`/custom-video`) — โคลนจากโปรเจค Line_ranger_ANME · CSS แก้ที่ `styles.src.css` แล้วรัน `node scripts/scope-anme-css.cjs` |
 
 ## รันในเครื่อง
 

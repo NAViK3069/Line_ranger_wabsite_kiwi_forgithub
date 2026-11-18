@@ -217,6 +217,22 @@ async function loadGearFromDB(): Promise<void> {
       }
     }
 
+    // ── static build: "DB" เป็นไฟล์ JSON ในเครื่อง อ่านทั้งตารางได้ฟรี ──
+    // ต้องโหลดไว้ก่อน เพราะ withTopGear() (เกียร์ยอดนิยมใต้ชื่อในหน้า /meta) อ่านจาก gearMemCache เท่านั้น
+    if (!redis) {
+      const rows = await prisma.rangerGear.findMany()
+      for (const r of rows) {
+        gearMemCache.set(r.id, {
+          data: r.gearData as GearRanking,
+          topSets: r.topSets as GearSet[],
+          sampled: r.sampled,
+          fetchedAt: new Date(r.fetchedAt).getTime(),
+        })
+      }
+      console.log(`[PvpScraper] Loaded ${rows.length} gear entries from file DB ✓`)
+      return
+    }
+
     // ── Redis ว่างเปล่า → ไม่ดึง DB ทั้งตารางแล้ว ──
     // เดิม findMany() ดึง ranger_gear ทั้งตาราง (~28MB / 7,979 แถว) ทุกครั้งที่ Redis miss
     // และฟังก์ชันนี้รันตอนโหลดโมดูล = ทุก cold start ของ Vercel → ตัวกิน Neon transfer อันดับ 1

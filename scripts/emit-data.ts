@@ -22,6 +22,9 @@ import { dataFile, emptyFallback, gearEffectsFile, gearUsersFile, itemCodeFromIc
 const ROOT = process.cwd()
 const OUT = path.join(ROOT, 'public', 'data')
 const CONTENT_ONLY = process.argv.includes('--content-only')
+// --only=leagues,gear (คั่นด้วย ,) → เขียนเฉพาะส่วนนั้น: global | leagues | gear | rangers | evolve | res
+const ONLY = new Set((process.argv.find(a => a.startsWith('--only='))?.slice(7) ?? '').split(',').filter(Boolean))
+const want = (section: string) => ONLY.size === 0 || ONLY.has(section)
 const CONCURRENCY = 16
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -121,6 +124,7 @@ async function emitGameData() {
   console.log(`[emit] game data — ${rangerIds.length} rangers, ${gearRows.length} gears, ${LEAGUES.length} leagues`)
 
   // ── ไฟล์รวม (ไม่มีพารามิเตอร์) ──
+  if (want('global')) {
   console.log('[emit] global files')
   await emit(await route('ranger-book'), '/api/ranger-book')
   await emit(await route('gear-book'), '/api/gear-book')
@@ -136,7 +140,10 @@ async function emitGameData() {
   const sfx = await route('ranger-skill-effects')
   for (const lang of ['en', 'th']) await emit(sfx, `/api/ranger-skill-effects?lang=${lang}`)
 
+  }
+
   // ── ต่อลีค ──
+  if (want('leagues')) {
   console.log('[emit] leagues')
   const rangersRoute = await route('meta/rangers')
   const gearRanking = await route('meta/gear-ranking')
@@ -164,7 +171,10 @@ async function emitGameData() {
     }
   }
 
+  }
+
   // ── ต่อเกียร์: effects ทุกระดับ 0–5 ──
+  if (want('gear')) {
   console.log('[emit] gear effects')
   const codes = [...new Set(gearRows.map((g: any) => itemCodeFromIconUrl(g.iconUrl)).filter(Boolean) as string[])]
   await pool(codes, async (code) => {
@@ -175,7 +185,10 @@ async function emitGameData() {
   const spec = await route('gear/spec-plus/[id]')
   await pool(codes, code => emit(spec, `/api/gear/spec-plus/${code}`, { id: code }), 'spec-plus')
 
+  }
+
   // ── ต่อเรนเจอร์ ──
+  if (want('rangers')) {
   console.log('[emit] per-ranger files')
   const stats = await route('meta/ranger-stats')
   const talents = await route('ranger/talents/[id]')
@@ -191,9 +204,10 @@ async function emitGameData() {
     await emit(projectile, `/api/ranger/projectile/${e}`, { id })
     for (const lg of LEAGUES) await emit(usage, `/api/ranger/usage-ranking/${e}?league=${lg.value}`, { id })
   }, 'rangers')
+  }
 
-  await emitEvolve(rangerIds)
-  await emitResRoot()
+  if (want('evolve')) await emitEvolve(rangerIds)
+  if (want('res')) await emitResRoot()
 }
 
 // ── สายวิวัฒนาการ: ต้องถาม lerico getRanger ทีละตัว → เก็บผลไว้ใน .data/db/evolve-chains.json
@@ -274,8 +288,8 @@ async function emitResRoot() {
 async function main() {
   const t0 = Date.now()
   fs.mkdirSync(OUT, { recursive: true })
-  await emitContent()
-  if (!CONTENT_ONLY) await emitGameData()
+  if (ONLY.size === 0 || ONLY.has('content')) await emitContent()
+  if (!CONTENT_ONLY && !(ONLY.size === 1 && ONLY.has('content'))) await emitGameData()
   console.log(`\n[emit] เสร็จ ${((Date.now() - t0) / 1000).toFixed(0)}s — เขียน ${written} ไฟล์, ข้าม ${skipped}, ล้มเหลว ${failed}`)
   const { flushDb } = await import('../src/lib/db')
   flushDb()

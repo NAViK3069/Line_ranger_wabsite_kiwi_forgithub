@@ -139,7 +139,7 @@ export default function AboutMePage() {
       <p className="text-gray-400 text-sm mb-6">ตั้งค่าโปรไฟล์และข้อมูลเจ้าของเว็บ</p>
 
       {/* Profile Image */}
-      <div className="card-glass rounded-2xl p-6 mb-6">
+      <div className="card-glass rounded-2xl p-4 sm:p-6 mb-6">
         <h2 className="text-lg font-bold text-white mb-4">รูปโปรไฟล์</h2>
         <div
           onClick={() => imgRef.current?.click()}
@@ -171,7 +171,7 @@ export default function AboutMePage() {
       </div>
 
       {/* Basic Info */}
-      <div className="card-glass rounded-2xl p-6 mb-6">
+      <div className="card-glass rounded-2xl p-4 sm:p-6 mb-6">
         <h2 className="text-lg font-bold text-white mb-4">ข้อมูลพื้นฐาน</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -240,7 +240,7 @@ export default function AboutMePage() {
       </div>
 
       {/* Links */}
-      <div className="card-glass rounded-2xl p-6 mb-6">
+      <div className="card-glass rounded-2xl p-4 sm:p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white">ลิงก์อื่น ๆ</h2>
           <button
@@ -256,21 +256,22 @@ export default function AboutMePage() {
         )}
 
         <div className="space-y-3">
+          {/* มือถือ: [ชื่อลิงก์][✕] แล้ว URL เต็มความกว้างบรรทัดล่าง / sm: แถวเดียวแบบเดิม */}
           {links.map((link, idx) => (
-            <div key={idx} className="flex gap-3 items-center">
+            <div key={idx} className="flex flex-wrap sm:flex-nowrap gap-2 sm:gap-3 items-center pb-3 border-b border-white/5 last:pb-0 last:border-0 sm:pb-0 sm:border-0">
               <input
                 type="text"
                 value={link.label}
                 onChange={(e) => updateLink(idx, 'label', e.target.value)}
                 placeholder="ชื่อลิงก์ เช่น YouTube"
-                className={inputClass + ' flex-1'}
+                className={inputClass + ' flex-1 min-w-0'}
               />
               <input
                 type="url"
                 value={link.url}
                 onChange={(e) => updateLink(idx, 'url', e.target.value)}
                 placeholder="https://..."
-                className={inputClass + ' flex-[2]'}
+                className={inputClass + ' order-3 sm:order-none basis-full sm:basis-auto sm:flex-[2] min-w-0'}
               />
               <button
                 onClick={() => removeLink(idx)}

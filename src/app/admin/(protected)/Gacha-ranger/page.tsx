@@ -451,22 +451,23 @@ export default function AdminPoolsPage() {
   if (view === 'list') {
     return (
       <div>
-        <div className="flex items-center justify-between mb-8">
+        {/* มือถือ: ชื่อหน้าอยู่บน ปุ่มสองปุ่มเรียงแถวล่างเต็มความกว้าง / sm ขึ้นไป: แบบเดิม */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-black text-white mb-1">จัดการ Gacha Pool</h1>
+            <h1 className="text-2xl sm:text-3xl font-black text-white mb-1">จัดการ Gacha Pool</h1>
             <p className="text-gray-400 text-sm">สร้าง แก้ไข หรือเปิด/ปิดตู้กาชา</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
             <button
               onClick={() => { resetForm(); setPoolMode('normal'); setView('add') }}
-              className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold rounded-xl transition-all flex items-center gap-2"
+              className="justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold rounded-xl transition-all flex items-center gap-2"
             >
               <span className="material-icons-round text-sm">add</span>
               เพิ่มตู้กาชา
             </button>
             <button
               onClick={() => { resetForm(); setPoolMode('frog'); setView('add') }}
-              className="px-5 py-2.5 bg-gradient-to-r from-green-700 to-teal-700 hover:from-green-600 hover:to-teal-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2"
+              className="justify-center whitespace-nowrap px-3 sm:px-5 py-2.5 bg-gradient-to-r from-green-700 to-teal-700 hover:from-green-600 hover:to-teal-600 text-white font-semibold rounded-xl transition-all flex items-center gap-2"
             >
               <span className="material-icons-round text-sm">add</span>
               ตู้กาชากบ
@@ -630,21 +631,21 @@ export default function AdminPoolsPage() {
   // ─────────────────────────────────────────────────
   return (
     <div>
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-8">
+      {/* Header — มือถือ: ปุ่มบันทึกลงไปเต็มความกว้างบรรทัดล่าง / sm ขึ้นไป: แถวเดียวแบบเดิม */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-3 mb-6 sm:mb-8">
         <button
           onClick={() => { setView('list'); resetForm() }}
           className="text-gray-400 hover:text-white transition-colors flex items-center gap-1"
         >
           <span className="material-icons-round text-sm">arrow_back</span>กลับ
         </button>
-        <h1 className="text-3xl font-black text-white">
+        <h1 className="text-2xl sm:text-3xl font-black text-white">
           {view === 'edit' ? 'แก้ไขตู้กาชา' : poolMode === 'frog' ? 'เพิ่มตู้กาชากบใหม่' : 'เพิ่มตู้กาชาใหม่'}
         </h1>
         <button
           onClick={save}
           disabled={saving}
-          className="ml-auto px-5 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-green-900/30"
+          className="w-full sm:w-auto sm:ml-auto justify-center whitespace-nowrap px-5 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-green-900/30"
         >
           {saving
             ? <><span className="material-icons-round animate-spin text-sm">refresh</span>กำลังบันทึก...</>
@@ -655,7 +656,7 @@ export default function AdminPoolsPage() {
       <div className="space-y-6">
 
         {/* ① ชื่อ */}
-        <div className="card-glass p-6">
+        <div className="card-glass p-4 sm:p-6">
           <label className="block text-sm text-gray-400 mb-2">① ชื่อตู้กาชา</label>
           <input
             type="text"
@@ -667,7 +668,7 @@ export default function AdminPoolsPage() {
         </div>
 
         {/* ② Banner */}
-        <div className="card-glass p-6">
+        <div className="card-glass p-4 sm:p-6">
           <label className="block text-sm text-gray-400 mb-3">② รูป Banner ตู้กาชา</label>
           <div
             onClick={() => bannerRef.current?.click()}
@@ -687,7 +688,7 @@ export default function AdminPoolsPage() {
         </div>
 
         {/* ③ อัตราสุ่ม */}
-        <div className="card-glass p-6">
+        <div className="card-glass p-4 sm:p-6">
           <label className="block text-sm text-gray-400 mb-3">③ ข้อมูลอัตราสุ่ม</label>
 
           <div className="space-y-3">
@@ -727,28 +728,28 @@ export default function AdminPoolsPage() {
         )}
 
         {/* ─── เรนเจอร์การันตี (Pity) ─── */}
-        {poolMode !== 'frog' && (<div className="card-glass p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
+        {poolMode !== 'frog' && (<div className="card-glass p-4 sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="material-icons-round text-yellow-400">stars</span>
               <h3 className="text-white font-bold text-lg">
                 จัดการเรนเจอร์การันตี
                 <span className="text-gray-400 font-normal text-sm ml-2">{guaranteedRangers.length} รายการ</span>
               </h3>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => {
                   const text = guaranteedRangers.map(r => `{"${r.name}","${r.grade}"}`).join('\n')
                   navigator.clipboard.writeText(text).then(() => { setGuarCopied(true); setTimeout(() => setGuarCopied(false), 2000) })
                 }}
                 disabled={guaranteedRangers.length === 0}
-                className="px-3 py-1.5 text-xs bg-blue-500/20 border border-blue-500/30 text-blue-400 rounded-lg hover:bg-blue-500/30 disabled:opacity-40 transition-colors flex items-center gap-1"
+                className="whitespace-nowrap px-3 py-1.5 text-xs bg-blue-500/20 border border-blue-500/30 text-blue-400 rounded-lg hover:bg-blue-500/30 disabled:opacity-40 transition-colors flex items-center gap-1"
               >
                 <span className="material-icons-round text-sm">{guarCopied ? 'check' : 'content_copy'}</span>
                 {guarCopied ? 'คัดลอกแล้ว!' : 'คัดลอก'}
               </button>
-              <button onClick={addGuarRow} className="px-3 py-1.5 text-xs bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 rounded-lg hover:bg-yellow-500/30 transition-colors flex items-center gap-1">
+              <button onClick={addGuarRow} className="whitespace-nowrap px-3 py-1.5 text-xs bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 rounded-lg hover:bg-yellow-500/30 transition-colors flex items-center gap-1">
                 <span className="material-icons-round text-sm">add</span>เพิ่มแถว
               </button>
             </div>
@@ -779,7 +780,7 @@ export default function AdminPoolsPage() {
             <div className="text-center py-8 text-gray-600 text-sm">ยังไม่มีเรนเจอร์การันตี — กด &quot;เพิ่มแถว&quot; หรือวาง text code ด้านบน</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[600px]">
                 <thead>
                   <tr className="border-b border-white/10 text-left">
                     <th className="pb-3 text-gray-400 text-xs font-medium w-8">#</th>
@@ -854,16 +855,16 @@ export default function AdminPoolsPage() {
 
         {/* ─── ตารางผลลัพธ์ (แก้ไขได้) ─── */}
         {results && (
-          <div className="card-glass p-6">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
+          <div className="card-glass p-4 sm:p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="material-icons-round text-green-400">check_circle</span>
                 <h3 className="text-white font-bold text-lg">
                   ข้อมูลอัตราสุ่ม
                   <span className="text-gray-400 font-normal text-sm ml-2">{results.length} รายการ</span>
                 </h3>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {/* ── ปุ่มคัดลอกตาราง ── */}
                 <button
                   onClick={() => {
@@ -873,7 +874,7 @@ export default function AdminPoolsPage() {
                       setTimeout(() => setCopied(false), 2000)
                     })
                   }}
-                  className="px-3 py-1.5 text-xs bg-blue-500/20 border border-blue-500/30 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors flex items-center gap-1"
+                  className="whitespace-nowrap px-3 py-1.5 text-xs bg-blue-500/20 border border-blue-500/30 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors flex items-center gap-1"
                 >
                   <span className="material-icons-round text-sm">{copied ? 'check' : 'content_copy'}</span>
                   {copied ? 'คัดลอกแล้ว!' : 'คัดลอก'}
@@ -881,7 +882,7 @@ export default function AdminPoolsPage() {
                 {/* ── ปุ่ม Test ── */}
                 <button
                   onClick={() => setIsTest(!isTest)}
-                  className={`px-3 py-1.5 text-xs rounded-lg border transition-colors flex items-center gap-1 ${isTest ? 'bg-orange-500/30 border-orange-500/50 text-orange-300' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'}`}
+                  className={`whitespace-nowrap px-3 py-1.5 text-xs rounded-lg border transition-colors flex items-center gap-1 ${isTest ? 'bg-orange-500/30 border-orange-500/50 text-orange-300' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'}`}
                 >
                   <span className="material-icons-round text-sm">{isTest ? 'science' : 'radio_button_unchecked'}</span>
                   Test
@@ -889,30 +890,30 @@ export default function AdminPoolsPage() {
                 {/* ── Radio: ไม่มีป้าย / ตู้ใหม่ / ตู้อีเว้นท์ ── */}
                 <button
                   onClick={() => setBadge(badge === 'new' ? 'none' : 'new')}
-                  className={`px-3 py-1.5 text-xs rounded-lg border transition-colors flex items-center gap-1 ${badge === 'new' ? 'bg-red-500/30 border-red-500/50 text-red-300' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'}`}
+                  className={`whitespace-nowrap px-3 py-1.5 text-xs rounded-lg border transition-colors flex items-center gap-1 ${badge === 'new' ? 'bg-red-500/30 border-red-500/50 text-red-300' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'}`}
                 >
                   <span className="material-icons-round text-sm">{badge === 'new' ? 'fiber_new' : 'radio_button_unchecked'}</span>
                   ตู้ใหม่
                 </button>
                 <button
                   onClick={() => setBadge(badge === 'event' ? 'none' : 'event')}
-                  className={`px-3 py-1.5 text-xs rounded-lg border transition-colors flex items-center gap-1 ${badge === 'event' ? 'bg-yellow-500/30 border-yellow-500/50 text-yellow-300' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'}`}
+                  className={`whitespace-nowrap px-3 py-1.5 text-xs rounded-lg border transition-colors flex items-center gap-1 ${badge === 'event' ? 'bg-yellow-500/30 border-yellow-500/50 text-yellow-300' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'}`}
                 >
                   <span className="material-icons-round text-sm">{badge === 'event' ? 'event' : 'radio_button_unchecked'}</span>
                   ตู้อีเว้นท์
                 </button>
                 {/* ตู้เก่าที่ดาวค้างผิด (หรือเรนเจอร์ที่เพิ่งปลดร่าง) กดอันนี้เติมใหม่จาก Ranger Book ได้ทั้งตาราง */}
-                <button onClick={refillStars} className="px-3 py-1.5 text-xs bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 rounded-lg hover:bg-cyan-500/30 transition-colors flex items-center gap-1">
+                <button onClick={refillStars} className="whitespace-nowrap px-3 py-1.5 text-xs bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 rounded-lg hover:bg-cyan-500/30 transition-colors flex items-center gap-1">
                   <span className="material-icons-round text-sm">auto_fix_high</span>เติมดาวจาก Ranger Book
                 </button>
-                <button onClick={addRow} className="px-3 py-1.5 text-xs bg-green-500/20 border border-green-500/30 text-green-400 rounded-lg hover:bg-green-500/30 transition-colors flex items-center gap-1">
+                <button onClick={addRow} className="whitespace-nowrap px-3 py-1.5 text-xs bg-green-500/20 border border-green-500/30 text-green-400 rounded-lg hover:bg-green-500/30 transition-colors flex items-center gap-1">
                   <span className="material-icons-round text-sm">add</span>เพิ่มแถว
                 </button>
               </div>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[600px]">
                 <thead>
                   <tr className="border-b border-white/10 text-left">
                     <th className="pb-3 text-gray-400 text-xs font-medium w-8">#</th>

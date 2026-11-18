@@ -114,6 +114,15 @@ export default function AdminNav({ username }: AdminNavProps) {
         {/* Build status + User info + Logout */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <BuildStatus />
+          {/* กลับหน้าเว็บปกติ (ยังล็อกอินค้างไว้ — กลับมา /admin ได้โดยไม่ต้องล็อกอินใหม่) */}
+          <Link
+            href="/"
+            title="กลับไปหน้าเว็บ"
+            className="whitespace-nowrap flex items-center gap-1 px-3 py-1.5 text-sm bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white rounded-lg transition-colors"
+          >
+            <span className="material-icons-round text-sm">home</span>
+            <span className="hidden sm:inline lg:hidden">หน้าเว็บ</span>
+          </Link>
           {/* ชื่อผู้ใช้ย้ายไปอยู่ใน title ของปุ่มออกจากระบบ — แถบนี้กว้างแค่ 1152px ใส่ทุกอย่างไม่พอ */}
           <button
             onClick={() => { logout(); router.push('/') }}

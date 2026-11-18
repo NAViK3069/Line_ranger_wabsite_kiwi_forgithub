@@ -1,0 +1,102 @@
+// ====================================================
+// รวมข้อมูลเกียร์ของทั้งลีค — ใช้ร่วมกันระหว่างตัว refresh รายวัน (pvpScraper) กับ API route
+//
+// เหตุผล: เดิม /api/meta/gear-ranking และ /api/meta/gear-detail อ่าน rangerGear ทั้งลีคจาก Neon
+// ทุกครั้งที่แคช Redis (7 วัน) หมด = ปลุก compute ตอนไหนของวันก็ได้ และข้อมูลค้างได้ถึง 7 วัน
+// ตอนนี้ตัว refresh รายวันคำนวณผลจากข้อมูลที่เพิ่ง scrape (อยู่ใน memory แล้ว) แล้วเขียน Redis ทับให้เลย
+// ส่วน route สร้างผลจาก gearBatch ใน Redis แทน DB → เส้นทางสาธารณะไม่แตะ Neon ในการใช้งานปกติ
+// ====================================================
+
+export interface GearItem {
+  slot: string
+  name: string
+  iconUrl: string
+  grade: number | null
+  count: number
+}
+
+export interface GearRanking {
+  WPN: GearItem[]
+  AMR: GearItem[]
+  ACC: GearItem[]
+}
+
+/** แถวเกียร์ของเรนเจอร์หนึ่งตัวในลีค — รูปเดียวกับทั้งแถว DB และค่าใน gearBatch */
+export interface RangerGearRow {
+  rangerId: string
+  gearData: GearRanking
+  sampled: number
+}
+
+/** gearBatch ใน Redis: { [rangerId]: { data, topSets, sampled, fetchedAt } } → แถวแบบเดียวกับ DB */
+export function rowsFromGearBatch(
+  batch: Record<string, { data: GearRanking; sampled: number }>,
+): RangerGearRow[] {
+  return Object.entries(batch).map(([rangerId, v]) => ({ rangerId, gearData: v.data, sampled: v.sampled }))
+}
+
+/** อันดับเกียร์ทั้งลีค (หน้า Meta แท็บเกียร์) */
+export function aggregateGearRanking(
+  rows: RangerGearRow[],
+  gradeOf: (itemCode: string) => number | null,
+): { gears: GearItem[]; totalSampled: number } {
+  const gearMap = new Map<string, GearItem>()
+  let totalSampled = 0
+  for (const row of rows) {
+    totalSampled += row.sampled
+    for (const slot of ['WPN', 'AMR', 'ACC'] as const) {
+      for (const item of row.gearData?.[slot] ?? []) {
+        const existing = gearMap.get(item.iconUrl)
+        if (existing) {
+          existing.count += item.count
+        } else {
+          // grade เป็น null (ข้อมูลเก่า) → หาจากรหัสเกียร์ในชื่อไฟล์ไอคอนแทน
+          const grade = item.grade ?? (() => {
+            const m = item.iconUrl.match(/\/gear_icon\/(.+)_icon\.png$/)
+            return m ? gradeOf(m[1]) : null
+          })()
+          gearMap.set(item.iconUrl, { slot, name: item.name, iconUrl: item.iconUrl, grade, count: item.count })
+        }
+      }
+    }
+  }
+  return { gears: Array.from(gearMap.values()).sort((a, b) => b.count - a.count), totalSampled }
+}
+
+export interface GearDetailRanger {
+  rangerId: string
+  name: string
+  imageUrl: string
+  slot: string
+  count: number
+  sampled: number
+  pct: number
+}
+
+/** เรนเจอร์ที่ใส่เกียร์ชิ้นนี้ในลีค (ป๊อปอัพรายละเอียดเกียร์) */
+export function gearDetailRangers(
+  rows: RangerGearRow[],
+  iconUrl: string,
+  nameOf: (rangerId: string) => string,
+): GearDetailRanger[] {
+  const out: GearDetailRanger[] = []
+  for (const row of rows) {
+    if (row.sampled === 0) continue
+    for (const slot of ['WPN', 'AMR', 'ACC'] as const) {
+      const found = (row.gearData?.[slot] ?? []).find(item => item.iconUrl === iconUrl)
+      if (found) {
+        out.push({
+          rangerId: row.rangerId,
+          name: nameOf(row.rangerId),
+          imageUrl: `https://rangers.lerico.net/res/${row.rangerId}/${row.rangerId}-thum.png`,
+          slot,
+          count: found.count,
+          sampled: row.sampled,
+          pct: (found.count / row.sampled) * 100,
+        })
+        break   // เรนเจอร์หนึ่งตัวมีเกียร์ชิ้นหนึ่งได้แค่ช่องเดียว
+      }
+    }
+  }
+  return out.sort((a, b) => b.count - a.count || b.pct - a.pct)
+}

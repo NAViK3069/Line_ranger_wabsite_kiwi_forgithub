@@ -1,0 +1,39 @@
+# ===================================
+# ไฟล์ที่ห้าม Upload ขึ้น GitHub
+# ===================================
+
+# Claude Code (เฉพาะเครื่องนี้)
+.claude/
+
+# Dependencies
+node_modules/
+
+# Next.js build output
+/.next/
+/out/
+
+# Environment files (ความลับจริงอยู่ใน Worker Secrets / GitHub — ไฟล์พวกนี้มีแค่ค่าสำหรับรันในเครื่อง)
+.env
+.env.local
+.env.*.local
+
+# ข้อมูลเกมที่สร้างอัตโนมัติ — เก็บใน branch `data` โดย workflow Daily Data (ไม่ใช่ใน main)
+/.data/
+/public/data/
+
+# Worker
+worker/node_modules/
+worker/.wrangler/
+worker/.dev.vars
+
+# Logs / OS / editor
+npm-debug.log*
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/settings.json
+.idea/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts

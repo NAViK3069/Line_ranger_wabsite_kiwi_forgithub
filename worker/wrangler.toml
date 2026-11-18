@@ -1,0 +1,24 @@
+# Cloudflare Worker ของ Line Ranger Kiwi
+# deploy:  cd worker && npx wrangler deploy
+# ความลับ (ตั้งครั้งเดียว ไม่อยู่ใน repo):
+#   npx wrangler secret put ADMIN_PASSWORD
+#   npx wrangler secret put SESSION_SECRET
+#   npx wrangler secret put GITHUB_TOKEN
+name = "line-ranger-kiwi"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+
+[vars]
+ADMIN_USERNAME = "admin"
+GITHUB_REPO = "NAViK3069/Line_ranger_wabsite_kiwi_forgithub"
+GITHUB_BRANCH = "main"
+# โดเมนที่เรียก /admin/* ได้ (คั่นด้วย ,) — ใส่โดเมนจริงเพิ่มเมื่อซื้อแล้ว
+ALLOWED_ORIGINS = "http://localhost:3000"
+# ช่วงที่ยังไม่มีโดเมน: Worker เสิร์ฟหน้าเว็บจาก GitHub Pages ที่รากของ *.workers.dev ให้ด้วย
+# (มีโดเมนแล้ว ลบบรรทัดนี้ทิ้ง แล้ว deploy ใหม่)
+PAGES_ORIGIN = "https://navik3069.github.io/Line_ranger_wabsite_kiwi_forgithub"
+
+# เมื่อมีโดเมนแล้ว เปิดส่วนนี้เพื่อให้ Worker อยู่ที่ api.<โดเมน> (ได้ edge cache ด้วย)
+# [[routes]]
+# pattern = "api.example.com"
+# custom_domain = true

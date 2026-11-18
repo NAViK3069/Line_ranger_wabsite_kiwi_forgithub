@@ -1,0 +1,629 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ====================================================
+   Global Styles สำหรับ Line Ranger Gacha Website
+   ==================================================== */
+
+/* ── Badge Bounce Animation ── */
+@keyframes badge-bounce {
+  0%, 100%   { transform: translateY(0) scale(1); }
+  6%         { transform: translateY(-7px) scale(1.15); }
+  12%        { transform: translateY(0) scale(1); }
+  18%        { transform: translateY(-4px) scale(1.08); }
+  24%        { transform: translateY(0) scale(1); }
+}
+.animate-badge-bounce {
+  animation: badge-bounce 3s ease-in-out infinite;
+}
+
+/* ── Line Ranger Bold Font ── */
+@font-face {
+  font-family: 'LineBold';
+  src: url('/fonts/linebold.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── ภาษาไทยตัวเล็กอ่านยาก → ขยายเฉพาะใน Ranger Detail / Gear Popup ──
+   เพิ่ม class .lr-detail-zone ที่ root ของ popup เพื่อ scope การบูส
+   หน้าอื่นๆ (ตาราง meta, ranger-book, gear-book) ไม่กระทบเลย
+*/
+html[data-lang="th"] .lr-detail-zone .text-xs {
+  font-size: 0.875rem;
+}
+html[data-lang="th"] .lr-detail-zone .text-sm {
+  font-size: 1rem;
+}
+html[data-lang="th"] .lr-detail-zone .text-\[11px\] {
+  font-size: 13px !important;
+}
+html[data-lang="th"] .lr-detail-zone .text-\[9px\] {
+  font-size: 12px !important;
+}
+
+/* ── คำอธิบาย skill/ability tooltip — ขยายเฉพาะ desktop ──
+   มือถือ: inherit 11px จาก tooltip parent (ไม่เปลี่ยน)
+   Desktop ภาษาอื่น: 13px
+   Desktop ไทย: 16px (ใหญ่กว่าภาษาอื่น) */
+@media (min-width: 640px) {
+  .lr-tt-desc {
+    font-size: 13px;
+  }
+  html[data-lang="th"] .lr-tt-desc {
+    font-size: 16px;
+  }
+}
+
+:root {
+  /* สีหลัก */
+  --color-gold: #FFD700;
+  --color-orange: #FF6B2B;
+  --color-dark: #1A0A2E;
+  --color-purple: #6B21A8;
+  /* Font */
+  --font-line: 'LineBold', sans-serif;
+}
+
+/* Background gradient ธีม Line Ranger */
+body {
+  background-color: var(--color-dark);
+  color: white;
+  /* ภาษาไทย: Inter, ภาษาอังกฤษ: LineBold */
+  font-family: 'LineBold', 'Inter', sans-serif;
+}
+
+/* ใช้ LineBold กับ heading, ปุ่ม, label ทุกที่ที่เป็น ASCII */
+h1, h2, h3, h4, h5, h6,
+button,
+.font-bold, .font-black, .font-semibold {
+  font-family: 'LineBold', 'Inter', sans-serif;
+}
+
+/* Gradient text สำหรับหัวข้อ */
+@layer utilities {
+  .text-gradient-gold {
+    @apply bg-gradient-to-r from-yellow-300 via-yellow-500 to-orange-400 bg-clip-text text-transparent;
+  }
+
+  .text-gradient-purple {
+    @apply bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent;
+  }
+
+  /* Card แบบ Glassmorphism */
+  .card-glass {
+    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl;
+  }
+
+  /* Shimmer effect สำหรับ loading */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.1) 50%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Glow effect */
+  .glow-gold {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+  }
+
+  .glow-purple {
+    box-shadow: 0 0 20px rgba(107, 33, 168, 0.5);
+  }
+
+  /* Font utility — บังคับใช้ LineBold (สำหรับตัวเลข/ภาษาอังกฤษ) */
+  .font-line {
+    font-family: 'LineBold', 'Inter', sans-serif;
+  }
+}
+
+/* ====================================================
+   Animated gold/orange/red flowing border — ใช้กับป้ายโฆษณา
+   • p-[3px] ที่ตัว wrapper คือความหนาของกรอบ
+   • gradient ยาว 300% แล้ว pan ตำแหน่งวนไปเรื่อยๆ = ดูเหมือนไฟวน
+   ==================================================== */
+.beta-sparkle {
+  background: linear-gradient(90deg, #a855f7, #6366f1, #38bdf8, #a855f7, #6366f1, #a855f7);
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: betaShimmer 2.5s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(129, 140, 248, 0.6));
+  display: inline-block;
+}
+@keyframes betaShimmer {
+  0% { background-position: 0% center; }
+  100% { background-position: 300% center; }
+}
+
+.banner-glow-border {
+  background: linear-gradient(90deg, #ffd700, #ff8c00, #ff3b00, #ff8c00, #ffd700, #ffd700);
+  background-size: 300% 100%;
+  animation: bannerBorderFlow 3s linear infinite;
+}
+@keyframes bannerBorderFlow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+
+/* ====================================================
+   Gacha Ranger Card — เลียนแบบโค้ดเก่า gacha-ranger.css
+   ==================================================== */
+
+/* กล่องแต่ละตัวละคร */
+.result-ranger {
+  position: relative;
+  width: 120px;
+  height: 146px;
+  margin: 25px 10px 10px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+/* แสงหมุนพื้นหลัง — ใช้ BacklightCanvas (canvas element) */
+.light-effect {
+  position: absolute;
+  bottom: -10px;
+  width: 190px !important;
+  height: 190px !important;
+  max-width: none !important;
+  display: block;
+  z-index: 0;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* GearCard — desktop */
+.gear-card {
+  margin: -15px 10px 10px;
+}
+
+/* GearCard — mobile */
+@media (max-width: 768px) {
+  /* 5+1 card: ให้สูงใกล้เคียง desktop */
+  .gear-card.result-ranger-mob {
+    height: 140px;
+    margin: 0 3px;
+  }
+  /* 1-roll card: lock ขนาดเท่า desktop แทนที่จะ stretch 50% */
+  .gear-card.result-ranger {
+    width: 120px;
+    height: 146px;
+    margin: -15px 10px 10px;
+  }
+  .gear-card.result-ranger .light-effect {
+    width: 170px !important;
+    height: 170px !important;
+    bottom: -20px;
+  }
+  .gear-card.result-ranger-mob .light-effect {
+    bottom: -5px;
+  }
+  /* gear image: ใหญ่ขึ้น + ขยับขึ้น บนมือถือ (1-roll result) */
+  .gear-card.result-ranger .gear-img {
+    width: 82px !important;
+    height: 82px !important;
+    bottom: 52px !important;
+  }
+  /* stars: กว้างขึ้น + ขยับขึ้นตาม (1-roll result) */
+  .gear-card.result-ranger .gear-stars {
+    width: 78% !important;
+    bottom: 40px !important;
+  }
+  /* Chest popup: chest-card-wrap ใช้ 190px (ใหญ่), select-chest-item ใช้ 140px (กระชับ) */
+  .chest-card-wrap .gear-card.result-ranger {
+    height: 190px !important;
+  }
+  .select-chest-item .gear-card.result-ranger {
+    height: 140px !important;
+  }
+  /* chest-card-wrap gear img/stars/badge — ใหญ่กว่า select-chest-item */
+  .chest-card-wrap .gear-card.result-ranger .gear-img {
+    width: 110px !important;
+    height: 110px !important;
+    bottom: 72px !important;
+  }
+  .select-chest-item .gear-card.result-ranger .gear-img {
+    width: 96px !important;
+    height: 96px !important;
+    bottom: 62px !important;
+  }
+  .chest-card-wrap .gear-card.result-ranger .gear-stars {
+    width: 88% !important;
+    bottom: 56px !important;
+  }
+  .select-chest-item .gear-card.result-ranger .gear-stars {
+    width: 84% !important;
+    bottom: 48px !important;
+  }
+  .chest-card-wrap .gear-card.result-ranger .gear-badge {
+    width: 7rem !important;
+    bottom: 0px !important;
+  }
+  .select-chest-item .gear-card.result-ranger .gear-badge {
+    width: 6.5rem !important;
+    bottom: 0px !important;
+  }
+}
+
+/* GearCard — light effect เล็กกว่า ranger */
+.gear-card .light-effect {
+  width: 170px !important;
+  height: 170px !important;
+  bottom: -20px;
+}
+
+/* ฐานที่ตัวละครยืนอยู่ */
+.ranger-base {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: auto;
+  z-index: 1;
+}
+
+/* รูปตัวละคร (หรือ text placeholder) */
+.ranger-img {
+  position: absolute;
+  bottom: 0;
+  width: auto;
+  height: auto;
+  max-width: none !important;  /* override Tailwind img max-width:100% */
+  transform: scale(0.56);
+  transform-origin: bottom center;
+  z-index: 2;
+  margin-bottom: 32%;
+}
+
+/* ดาวระดับ */
+.ranger-star {
+  position: absolute;
+  bottom: 0;
+  width: 70%;
+  height: auto;
+  z-index: 3;
+  transform: translateY(-38%);
+}
+
+/* Badge ธาตุ — มุมขวาล่างของการ์ด ทับบนสุด (เล็กกว่า star) */
+.ranger-element-badge {
+  position: absolute;
+  left: 0px;
+  bottom: 49px;
+  width: 27px;
+  height: 27px;
+  z-index: 4;
+  pointer-events: none;
+}
+@media (max-width: 768px) {
+  .ranger-element-badge {
+    position: absolute;
+    left: 0;
+    bottom: 40px;
+    width: 23px;
+    height: 23px;
+    z-index: 4;
+    pointer-events: none;
+  }
+  /* ผลสุ่ม 1 Time (50 Ruby) — การ์ดเดี่ยวใหญ่กว่าปกติ ใช้ .result-ranger ตรงๆ (ไม่ใช่ .result-ranger-mob) */
+  .result-ranger .ranger-element-badge {
+    z-index: 4;
+    pointer-events: none;
+    width: 38px;
+    height: 38px;
+    position: absolute;
+    bottom: 66px;
+    left: 0px;
+  }
+}
+
+/* Container ผลสุ่ม — desktop */
+.gacha-result-space {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  width: 60%;
+  margin: 0 auto;
+  min-height: 200px;
+}
+
+/* Container สำหรับ 7-roll แบบ 2 แถว (4+3) บน desktop */
+.gacha-result-space-grid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  margin: 0 auto;
+  min-height: 200px;
+}
+.gacha-result-space-grid .gacha-row {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ── Mobile: 1-roll layout ── */
+@media (max-width: 768px) {
+  .gacha-result-space {
+    width: 100%;
+    gap: 22px;
+    margin-top: 5%;
+  }
+
+  /* ทำให้ result-ranger บนมือถือมีขนาดเท่ากับ result-ranger-mob */
+  .result-ranger {
+    width: 50%;
+    height: 150px;
+    margin: 40px 2px 0;
+    transform: none;
+  }
+
+  .result-ranger .light-effect {
+    bottom: -10px;
+    width: 245px !important;
+    height: 245px !important;
+  }
+
+  .result-ranger .ranger-base {
+    width: 130%;
+    height: auto;
+    transform: none;
+  }
+
+  .result-ranger .ranger-img {
+    transform: scale(0.65) translateY(-1px);
+    transform-origin: bottom center;
+  }
+
+  .result-ranger .ranger-star {
+    transform: translateY(-30%);
+    width: 80%;
+  }
+}
+
+/* ── Mobile: Chest popup card — แยกจาก 1-roll โดยใช้ขนาดคงที่ ──
+   ปรับสัดส่วน (width:height + ranger-img scale) ให้ตรงกับ .result-ranger ปกติ (สุ่ม 1 Time) ทุกอย่าง
+   ค่าเดิม height 178px + scale 0.75 ทำให้ตัวละครดูยืด/สูงเกินกล่องเทียบกับของปกติ */
+@media (max-width: 768px) {
+  .chest-card-wrap {
+    width: 100%;
+  }
+  .chest-card-wrap .result-ranger {
+    width: 145px;
+    height: 127px;   /* เดิม 178px — คำนวณจากอัตราส่วน height:width ของ .result-ranger ปกติ (~0.877) */
+    margin: 20px auto 0;
+  }
+  .chest-card-wrap .result-ranger .light-effect {
+    /* สเกลตามอัตราส่วนเดียวกับ .result-ranger ปกติ (245px ต่อการ์ดสูง 150px → การ์ดนี้สูง 127px) */
+    width: 213px !important;
+    height: 213px !important;
+    bottom: -9px;
+  }
+  .chest-card-wrap .result-ranger .ranger-base {
+    width: 130%;
+  }
+  .chest-card-wrap .result-ranger .ranger-img {
+    transform: scale(0.65) translateY(-1px);   /* เดิม 0.75 — ให้เท่ากับ .result-ranger ปกติ */
+    transform-origin: bottom center;
+  }
+  .chest-card-wrap .result-ranger .ranger-star {
+    transform: translateY(-30%);
+    width: 80%;
+  }
+  /* badge ธาตุ — สเกลตามอัตราส่วนเดียวกับ .result-ranger ปกติ (ไม่ใช้ค่า 38px ของ 1-roll ตรงๆ เพราะกล่องเล็กกว่า) */
+  .chest-card-wrap .result-ranger .ranger-element-badge {
+    z-index: 4;
+    pointer-events: none;
+    width: 32px;
+    height: 32px;
+    position: absolute;
+    bottom: 56px;
+    left: 0px;
+  }
+}
+
+/* ── Mobile: Select Chest list card — แถวละ 1 ตัว ──
+   ปรับสัดส่วนให้ตรงกับ .result-ranger ปกติเหมือนกัน (เดิม height 150px สูงเกินสัดส่วนสำหรับ width 120px) */
+@media (max-width: 768px) {
+  .select-chest-list {
+    flex-direction: column;
+    align-items: center;
+  }
+  .select-chest-item {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .select-chest-item .result-ranger {
+    width: 120px;
+    height: 105px;   /* เดิม 150px — คำนวณจากอัตราส่วน height:width ของ .result-ranger ปกติ (~0.877) */
+    margin: 20px auto 0;
+  }
+  .select-chest-item .result-ranger .light-effect {
+    /* สเกลตามอัตราส่วนเดียวกับ .result-ranger ปกติ (245px ต่อการ์ดสูง 150px → การ์ดนี้สูง 105px) */
+    width: 177px !important;
+    height: 177px !important;
+    bottom: -7px;
+  }
+  .select-chest-item .result-ranger .ranger-base {
+    width: 130%;
+  }
+  .select-chest-item .result-ranger .ranger-img {
+    transform: scale(0.65) translateY(-1px);
+    transform-origin: bottom center;
+  }
+  .select-chest-item .result-ranger .ranger-star {
+    transform: translateY(-30%);
+    width: 80%;
+  }
+  .select-chest-item .result-ranger .ranger-element-badge {
+    z-index: 4;
+    pointer-events: none;
+    width: 27px;
+    height: 27px;
+    position: absolute;
+    bottom: 46px;
+    left: 0px;
+  }
+}
+
+/* ── Mobile: 7-roll 3+3+1 layout ── */
+.gacha-result-mobile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin-top: 0px;
+  padding-top: 0px;
+}
+.gacha-result-mobile .gacha-row {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-bottom: 10px;
+}
+/* เฉพาะตู้เรนเจอร์ — เพิ่ม margin-top ระหว่างแถว */
+.gacha-result-mobile-ranger .gacha-row {
+  justify-content: center;
+  width: 100%;
+  margin-top: 20px;
+  margin-bottom: 25px;
+  display: flex;
+}
+
+/* ── การ์ดมือถือ (แยกจาก result-ranger ของ desktop โดยสิ้นเชิง) ── */
+.result-ranger-mob {
+  position: relative;
+  width: 30%;
+  height: 90px;
+  margin: 0 2px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+.result-ranger-mob .light-effect {
+  width: 150px !important;
+  height: 150px !important;
+  bottom: -10px;
+}
+.result-ranger-mob .ranger-base {
+  position: absolute;
+  bottom: 0;
+  width: 110%;
+  height: auto;
+  z-index: 1;
+}
+.result-ranger-mob .ranger-img {
+  position: absolute;
+  bottom: 0;
+  width: auto;
+  height: auto;
+  max-width: none !important;
+  transform: scale(0.4) translateY(-1px);
+  transform-origin: bottom center;
+  z-index: 2;
+  margin-bottom: 32%;
+}
+.result-ranger-mob .ranger-star {
+  position: absolute;
+  bottom: 0;
+  width: 80%;
+  height: auto;
+  z-index: 3;
+  transform: translateY(-30%);
+}
+
+@keyframes bounce-mob {
+  0%   { opacity: 0; transform: scale(0.8); }
+  60%  { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.animate-bounce-mob {
+  animation: bounce-mob 0.4s ease forwards;
+}
+
+/* Animation สำหรับ light effect */
+@keyframes gacha-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes gacha-pulse {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 0.65; }
+}
+
+/* bounce-in สำหรับ card เมื่อออกมา */
+@keyframes bounce-in-card {
+  0%   { transform: scale(0.8); opacity: 0; }
+  60%  { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+.animate-bounce-in {
+  animation: bounce-in-card 0.4s ease forwards;
+}
+
+/* mobile bounce-in ต้อง scale ต่างกัน */
+@media (max-width: 768px) {
+  @keyframes bounce-in-card {
+    0%   { transform: scale(0.5); opacity: 0; }
+    60%  { transform: scale(0.77); opacity: 1; }
+    100% { transform: scale(0.7); }
+  }
+}
+
+/* Bounce ต่ำ สำหรับกล่อง chest popup */
+@keyframes bounce-low {
+  0%, 100% { transform: translateY(0); animation-timing-function: cubic-bezier(0.8, 0, 1, 1); }
+  50%       { transform: translateY(-8px); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+}
+.animate-bounce-low {
+  animation: bounce-low 0.9s infinite;
+}
+
+/* Scrollbar custom — โปร่งโดย default, ค่อยๆ โผล่เมื่อ hover */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+  transition: background-color 0.4s ease;
+}
+
+/* เมื่อเมาส์ hover บน element ที่เลื่อนได้ — ค่อยๆ โผล่สีอ่อนๆ */
+*:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+}
+*:hover::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.4s ease;
+}
+*:hover {
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}

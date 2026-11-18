@@ -1,0 +1,89 @@
+name: Deploy
+
+# build เว็บแบบ static แล้ว deploy ขึ้น GitHub Pages
+# รันเมื่อ: push ขึ้น main (รวมถึงตอนแอดมินกดบันทึก — Worker commit ให้), หลัง "Daily Data" เสร็จ, หรือกดรันเอง
+#
+# ตั้งค่าที่ GitHub → Settings → Secrets and variables → Actions → Variables:
+#   WORKER_URL     เช่น https://api.example.com  (หรือ https://line-ranger-kiwi.xxx.workers.dev)
+#   SITE_URL       เช่น https://example.com
+#   CUSTOM_DOMAIN  เช่น example.com              (เว้นว่างได้ถ้ายังไม่มีโดเมน)
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'worker/**'
+      - '**.md'
+  workflow_run:
+    workflows: ['Daily Data']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load game data (branch `data`)
+        run: |
+          if git ls-remote --exit-code --heads origin data >/dev/null; then
+            git fetch --depth=1 origin data
+            mkdir -p public/data .data
+            git archive FETCH_HEAD public-data | tar -x -C "$RUNNER_TEMP"
+            cp -r "$RUNNER_TEMP/public-data/." public/data/
+            git archive FETCH_HEAD db | tar -x -C .data
+            echo "loaded $(find public/data -type f | wc -l) data files"
+          else
+            echo "::warning::ยังไม่มี branch data — เว็บจะไม่มีข้อมูลเกมจนกว่า Daily Data จะรันเสร็จ"
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      # ข้อมูลที่แอดมินแก้ (gacha / top40 / about) — สร้างใหม่จาก content/*.json ทุกครั้ง (ไม่กี่วินาที)
+      - name: Emit content JSON
+        run: npx tsx scripts/emit-data.ts --content-only
+
+      - name: Build (static export)
+        run: npx next build
+        env:
+          NEXT_PUBLIC_WORKER_URL: ${{ vars.WORKER_URL }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.SITE_URL }}
+
+      - name: Custom domain + no Jekyll
+        run: |
+          touch out/.nojekyll
+          if [ -n "${{ vars.CUSTOM_DOMAIN }}" ]; then echo "${{ vars.CUSTOM_DOMAIN }}" > out/CNAME; fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,74 @@
+name: Daily Data
+
+# ดึงข้อมูลเกมใหม่ทุกวัน (แทน cron ของ Vercel + Neon + Redis เดิม)
+#   1. sync Ranger Book + Gear Book จาก lerico/warmycat
+#   2. scrape อันดับ PvP ทุกลีค
+#   3. เขียนข้อมูลทั้งหมดเป็นไฟล์ JSON (public/data)
+#   4. เก็บผลไว้ใน branch `data` (commit เดียว เขียนทับทุกวัน — repo ไม่บวม)
+# จากนั้น workflow "Deploy" จะ build เว็บด้วยข้อมูลชุดใหม่เอง (on: workflow_run)
+
+on:
+  schedule:
+    - cron: '0 0 * * *'   # ทุกวัน 00:00 UTC = 07:00 น. เวลาไทย
+  workflow_dispatch:       # กดรันเองได้ที่ GitHub → Actions หรือปุ่ม Sync ในหน้าแอดมิน
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data
+  cancel-in-progress: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore previous data (branch `data`)
+        run: |
+          if git ls-remote --exit-code --heads origin data >/dev/null; then
+            git fetch --depth=1 origin data
+            mkdir -p .data
+            git archive FETCH_HEAD db | tar -x -C .data
+            echo "restored: $(ls .data/db | tr '\n' ' ')"
+          else
+            echo "ยังไม่มี branch data — เริ่มจากศูนย์"
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Sync Ranger Book + Gear Book
+        run: npx tsx scripts/sync-rangers.ts
+        continue-on-error: true
+
+      - name: Refresh PvP rankings (all leagues)
+        run: npx tsx scripts/refresh-pvp.ts
+        continue-on-error: true
+
+      - name: Emit static JSON (public/data)
+        run: npx tsx scripts/emit-data.ts
+
+      - name: Save to branch `data`
+        run: |
+          set -e
+          DIR="$RUNNER_TEMP/data-branch"
+          mkdir -p "$DIR"
+          cp -r .data/db "$DIR/db"
+          cp -r public/data "$DIR/public-data"
+          cd "$DIR"
+          git init -q -b data
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -q -m "data: $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q --force "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data
+          echo "pushed $(find public-data -type f | wc -l) files"

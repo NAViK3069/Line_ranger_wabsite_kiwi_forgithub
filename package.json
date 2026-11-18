@@ -1,0 +1,39 @@
+{
+  "name": "line-ranger-website-kiwi",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "serve": "npx --yes serve@14.2.4 out -l 3000",
+    "lint": "next lint",
+    "data:sync": "tsx scripts/sync-rangers.ts",
+    "data:pvp": "tsx scripts/refresh-pvp.ts",
+    "data:emit": "tsx scripts/emit-data.ts",
+    "data:emit:content": "tsx scripts/emit-data.ts --content-only",
+    "check:talents": "tsx scripts/check-talent-coverage.ts"
+  },
+  "dependencies": {
+    "canvas-confetti": "^1.9.4",
+    "framer-motion": "^11.3.8",
+    "gifenc": "^1.0.3",
+    "mp4-muxer": "^5.2.2",
+    "next": "^16.2.2",
+    "react": "^18",
+    "react-dom": "^18",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.0.1",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.5",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "tsx": "^4.22.0",
+    "typescript": "^5"
+  }
+}

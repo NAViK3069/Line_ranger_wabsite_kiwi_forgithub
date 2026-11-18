@@ -13,7 +13,7 @@ ADMIN_USERNAME = "admin"
 GITHUB_REPO = "NAViK3069/Line_ranger_wabsite_kiwi_forgithub"
 GITHUB_BRANCH = "main"
 # โดเมนที่เรียก /admin/* ได้ (คั่นด้วย ,) — ใส่โดเมนจริงเพิ่มเมื่อซื้อแล้ว
-ALLOWED_ORIGINS = "http://localhost:3000"
+ALLOWED_ORIGINS = "http://localhost:3000,https://line-ranger-kiwi.kiwi-navik3069.workers.dev"
 # ช่วงที่ยังไม่มีโดเมน: Worker เสิร์ฟหน้าเว็บจาก GitHub Pages ที่รากของ *.workers.dev ให้ด้วย
 # (มีโดเมนแล้ว ลบบรรทัดนี้ทิ้ง แล้ว deploy ใหม่)
 PAGES_ORIGIN = "https://navik3069.github.io/Line_ranger_wabsite_kiwi_forgithub"

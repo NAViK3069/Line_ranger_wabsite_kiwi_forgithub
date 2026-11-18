@@ -3,12 +3,12 @@
 //
 // หน้าที่ (ทุกอย่างที่ static site บน GitHub Pages ทำเองไม่ได้):
 //   1. GET  /lerico/<path>        proxy ไป rangers.lerico.net (ต้นทางไม่มี CORS) + cache ที่ edge
-//   2. POST /admin/login          ล็อกอินแอดมิน → token (HMAC, หมดอายุ 12 ชม.)
-//   3. GET  /admin/me             เช็คว่า token ยังใช้ได้
-//   4. GET  /admin/file?path=     อ่านไฟล์ล่าสุดใน repo (content/*.json)
-//   5. POST /admin/commit         commit ไฟล์หลายไฟล์ทีเดียวขึ้น GitHub → Actions build เว็บใหม่เอง
-//   6. POST /admin/dispatch       สั่งรัน workflow (เช่น sync ข้อมูลเกมทันที)
-//   7. GET  /admin/runs           สถานะ workflow ล่าสุด (โชว์ในหน้าแอดมินว่า build เสร็จหรือยัง)
+//   2. POST /api/admin/login          ล็อกอินแอดมิน → token (HMAC, หมดอายุ 12 ชม.)
+//   3. GET  /api/admin/me             เช็คว่า token ยังใช้ได้
+//   4. GET  /api/admin/file?path=     อ่านไฟล์ล่าสุดใน repo (content/*.json)
+//   5. POST /api/admin/commit         commit ไฟล์หลายไฟล์ทีเดียวขึ้น GitHub → Actions build เว็บใหม่เอง
+//   6. POST /api/admin/dispatch       สั่งรัน workflow (เช่น sync ข้อมูลเกมทันที)
+//   7. GET  /api/admin/runs           สถานะ workflow ล่าสุด (โชว์ในหน้าแอดมินว่า build เสร็จหรือยัง)
 //
 // ความลับทั้งหมดเก็บเป็น Worker Secret (ไม่อยู่ใน repo):
 //   ADMIN_PASSWORD, SESSION_SECRET, GITHUB_TOKEN
@@ -189,7 +189,7 @@ async function commitFiles(env: Env, message: string, files: CommitFile[]): Prom
 }
 
 async function admin(req: Request, url: URL, env: Env, cors: Record<string, string>): Promise<Response> {
-  const route = url.pathname.slice('/admin'.length)
+  const route = url.pathname.slice('/api/admin'.length)
 
   if (route === '/login' && req.method === 'POST') {
     const { username, password } = await req.json() as { username?: string; password?: string }
@@ -274,7 +274,8 @@ export default {
       return lericoProxy(req, url, ctx)
     }
 
-    if (url.pathname.startsWith('/admin/')) {
+    // API แอดมินอยู่ใต้ /api/admin/ — ห้ามใช้ /admin/ เพราะชนกับหน้าเว็บแอดมินตอน Worker เสิร์ฟหน้าเว็บด้วย
+    if (url.pathname.startsWith('/api/admin/')) {
       const cors = corsHeaders(env, req)
       if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
       try {

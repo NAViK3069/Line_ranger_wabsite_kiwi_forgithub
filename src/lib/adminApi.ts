@@ -2,8 +2,8 @@
 // Admin API (ฝั่ง browser) — แทน /api/admin/* เดิมที่เคยรันบนเซิร์ฟเวอร์ Next.js
 //
 // เว็บเป็น static site จึงไม่มีฐานข้อมูล ข้อมูลที่แอดมินแก้อยู่ใน content/*.json ใน repo
-//   อ่าน  → Worker /admin/file   (อ่านไฟล์ล่าสุดจาก GitHub — ไม่ใช่ของที่ deploy ไว้ ซึ่งอาจยังเก่า)
-//   เขียน → Worker /admin/commit (commit ขึ้น GitHub → Actions build เว็บใหม่ภายใน ~2–5 นาที)
+//   อ่าน  → Worker /api/admin/file   (อ่านไฟล์ล่าสุดจาก GitHub — ไม่ใช่ของที่ deploy ไว้ ซึ่งอาจยังเก่า)
+//   เขียน → Worker /api/admin/commit (commit ขึ้น GitHub → Actions build เว็บใหม่ภายใน ~2–5 นาที)
 //
 // adminFetch('/api/admin/...') คืน Response หน้าตาเดียวกับ route เดิม หน้าแอดมินจึงแทบไม่ต้องแก้
 // ====================================================
@@ -30,7 +30,7 @@ export function logout() {
 export async function login(username: string, password: string): Promise<{ ok: boolean; error?: string }> {
   if (!WORKER_URL) return { ok: false, error: 'ยังไม่ได้ตั้งค่า NEXT_PUBLIC_WORKER_URL' }
   try {
-    const res = await fetch(`${WORKER_URL}/admin/login`, {
+    const res = await fetch(`${WORKER_URL}/api/admin/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
@@ -63,18 +63,18 @@ async function worker(path: string, init: RequestInit = {}): Promise<Response> {
 /** เช็ค token กับ Worker จริง (ใช้ตอนเปิดหน้าแอดมิน) */
 export async function verifySession(): Promise<boolean> {
   if (!getSession()) return false
-  try { return (await worker('/admin/me')).ok } catch { return false }
+  try { return (await worker('/api/admin/me')).ok } catch { return false }
 }
 
 export interface WorkflowRun { name: string; status: string; conclusion: string | null; event: string; createdAt: string; updatedAt: string; url: string }
 export async function getRuns(): Promise<WorkflowRun[]> {
-  const res = await worker('/admin/runs')
+  const res = await worker('/api/admin/runs')
   if (!res.ok) return []
   return ((await res.json()) as { runs: WorkflowRun[] }).runs
 }
 
 export async function dispatchWorkflow(workflow: 'data.yml' | 'deploy.yml'): Promise<{ ok: boolean; error?: string }> {
-  const res = await worker('/admin/dispatch', { method: 'POST', body: JSON.stringify({ workflow }) })
+  const res = await worker('/api/admin/dispatch', { method: 'POST', body: JSON.stringify({ workflow }) })
   return res.ok ? { ok: true } : { ok: false, error: ((await res.json()) as { error?: string }).error }
 }
 
@@ -83,7 +83,7 @@ export async function dispatchWorkflow(workflow: 'data.yml' | 'deploy.yml'): Pro
 type Row = Record<string, unknown> & { id: string }
 
 async function readContent<T>(name: string): Promise<T> {
-  const res = await worker(`/admin/file?path=${encodeURIComponent(`content/${name}.json`)}`)
+  const res = await worker(`/api/admin/file?path=${encodeURIComponent(`content/${name}.json`)}`)
   if (!res.ok) throw new Error(`อ่าน content/${name}.json ไม่ได้ (${res.status})`)
   return res.json() as Promise<T>
 }
@@ -91,7 +91,7 @@ async function readContent<T>(name: string): Promise<T> {
 interface PendingFile { path: string; content: string; encoding?: 'utf-8' | 'base64' }
 
 async function commit(message: string, files: PendingFile[]): Promise<void> {
-  const res = await worker('/admin/commit', { method: 'POST', body: JSON.stringify({ message, files }) })
+  const res = await worker('/api/admin/commit', { method: 'POST', body: JSON.stringify({ message, files }) })
   if (!res.ok) throw new Error(((await res.json()) as { error?: string }).error ?? `บันทึกไม่สำเร็จ (${res.status})`)
   try { window.dispatchEvent(new CustomEvent('lr:admin-committed')) } catch { /* SSR */ }
 }

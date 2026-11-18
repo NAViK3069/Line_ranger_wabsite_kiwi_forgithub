@@ -65,7 +65,7 @@ GitHub repo → Settings → Secrets and variables → Actions → **Variables**
    - `npx wrangler deploy`
    - GitHub Variable `WORKER_URL` = `https://api.โดเมน` → Run workflow Deploy
 6. (แนะนำ) Cloudflare → โดเมน → **Security → WAF → Rate limiting rules** → สร้าง rule:
-   URI Path contains `/admin/login` → 10 requests / 1 minute → Block (กันเดารหัสผ่าน)
+   URI Path contains `/api/admin/login` → 10 requests / 1 minute → Block (กันเดารหัสผ่าน)
 
 ## ปิดของเก่า (หลังเว็บใหม่ใช้งานได้แล้ว)
 - Vercel: ลบ project

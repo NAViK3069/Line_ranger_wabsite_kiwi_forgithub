@@ -5,6 +5,8 @@ const config: Config = {
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    // หน้ากาชาย้ายมาอยู่ที่ src/views (ตัว route จริงใน src/app แค่ import เข้าไป) — ต้องสแกนด้วย ไม่งั้นคลาสหาย
+    "./src/views/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {

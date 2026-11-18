@@ -97,7 +97,16 @@ export function emptyFallback(pathname: string, q: URLSearchParams): unknown {
     if (p[1] === 'awakening') return { rangerId: decodeURIComponent(p[2] ?? ''), abilities: [] }
   }
   if (p[0] === 'gear' && p[1] === 'spec-plus') return { hasSpec: false }
-  void q
+  // เรนเจอร์ที่ไม่มีใครใช้ในลีคนั้น (เช่นกดเปลี่ยนร่างใน Evolution ไปร่างที่ไม่ติดอันดับ)
+  // ไม่มีไฟล์ — คืนผลแบบเดียวกับ getRangerDetail() เดิม: ผู้ใช้ 0 คน ไม่มีเกียร์
+  if (p[0] === 'meta' && p[1] === 'ranger-detail') {
+    const id = q.get('id') ?? ''
+    return {
+      id, name: id, imageUrl: `${LERICO_ORIGIN}/res/${id}/${id}-thum.png`,
+      gear: { WPN: [], AMR: [], ACC: [] }, topSets: [],
+      gearFromCache: false, gearLoading: false, usersInLeague: 0, gearSampled: 0,
+    }
+  }
   return undefined
 }
 

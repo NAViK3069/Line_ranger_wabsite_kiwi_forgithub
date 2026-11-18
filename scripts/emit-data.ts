@@ -155,7 +155,7 @@ async function emitGameData() {
     await emit(gearRanking, `/api/meta/gear-ranking?league=${lg.value}`)
     const lgRow = leagueRows.find((r: any) => r.id === lg.value)
     const ranked: string[] = (lgRow?.data ?? []).map((r: any) => r.id)
-    await pool(ranked, id => emit(rangerDetail, `/api/meta/ranger-detail?id=${encodeURIComponent(id)}&league=${lg.value}`), `ranger-detail L${lg.value}`)
+    await pool(ranked, id => emit(rangerDetail, `/api/meta/ranger-detail?id=${encodeURIComponent(id)}&league=${lg.value}`, undefined, { allowEmpty: true }), `ranger-detail L${lg.value}`)
 
     // เรนเจอร์ที่ใช้เกียร์แต่ละชิ้น (gear-detail แบบไม่ใช่ effectsOnly)
     const rows = rangerGear.filter((r: any) => r.league === lg.value)

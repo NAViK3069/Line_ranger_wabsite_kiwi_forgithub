@@ -264,6 +264,8 @@ export default function RangerDetailPopup({
 
   useEffect(() => {
     setGearPage(0)
+    // ล้าง error ของร่างก่อนหน้า — ไม่งั้นกดเปลี่ยนร่างใน Evolution แล้วข้อความเก่าค้างทั้งที่โหลดสำเร็จ
+    setError('')
     const fetchDetail = async () => {
       try {
         const res = await apiFetch(`/api/meta/ranger-detail?id=${encodeURIComponent(viewId)}&league=${league}`)

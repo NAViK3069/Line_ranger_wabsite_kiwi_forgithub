@@ -47,8 +47,11 @@ postcss([plugin]).process(css, { from: src, to: out }).then(result => {
   const header = `/* สร้างอัตโนมัติจาก styles.src.css โดย scripts/scope-anme-css.cjs — อย่าแก้ไฟล์นี้ตรงๆ */\n` +
     // ยกเลิก Tailwind preflight ในกล่อง ANME (ANME ออกแบบบนค่าเริ่มต้นของเบราว์เซอร์ ไม่ใช่ preflight)
     // specificity (0,1,0): ชนะ preflight (button = 0,0,1) แต่แพ้กฎของ ANME (.anme-root .btn = 0,2,0 / .anme-root button = 0,1,1)
-    // ไม่แตะลูกของ svg — fill/stroke ที่เขียนเป็น attribute ของไอคอนต้องอยู่ครบ
-    `.anme-root :where(*:not(svg *)) { all: revert; }\n` +
+    // ไม่แตะ svg ทั้งตัวและลูก — fill="none" / stroke="currentColor" ที่เขียนเป็น attribute ของไอคอน
+    // ถ้าโดน all: revert จะถูกล้างเป็นค่าเริ่มต้น (fill ดำ, ไม่มีเส้น) → ไอคอนกลายเป็นก้อนสีดำ
+    `.anme-root :where(*:not(svg, svg *)) { all: revert; }\n` +
+    // svg: คืนเฉพาะ display / vertical-align ที่ preflight เปลี่ยน (preflight ตั้ง svg เป็น display:block)
+    `.anme-root :where(svg) { display: revert; vertical-align: revert; }\n` +
     // all: revert ไปล้าง display:none ของ attribute hidden ด้วย (ช่องเลือกไฟล์ที่ซ่อนไว้โผล่) → บังคับกลับ
     `.anme-root [hidden] { display: none !important; }\n`
   fs.writeFileSync(out, header + result.css)

@@ -1,5 +1,6 @@
 /* สร้างอัตโนมัติจาก styles.src.css โดย scripts/scope-anme-css.cjs — อย่าแก้ไฟล์นี้ตรงๆ */
-.anme-root :where(*:not(svg *)) { all: revert; }
+.anme-root :where(*:not(svg, svg *)) { all: revert; }
+.anme-root :where(svg) { display: revert; vertical-align: revert; }
 .anme-root [hidden] { display: none !important; }
 @font-face { font-family: 'LineBold'; src: url('/fonts/linebold.ttf') format('truetype'); font-display: swap; }
 

@@ -85,6 +85,15 @@ export default function RootLayout({
             })
           }}
         />
+        {/* สถิติคนเข้าเว็บ — Cloudflare Web Analytics (ไม่ใช้คุกกี้ ไม่เก็บข้อมูลส่วนตัว)
+            ใส่ token ที่ GitHub Variable CF_BEACON_TOKEN · ไม่ได้ตั้ง = ไม่โหลดสคริปต์ */}
+        {process.env.NEXT_PUBLIC_CF_BEACON_TOKEN && (
+          <script
+            defer
+            src="https://static.cloudflareinsights.com/beacon.min.js"
+            data-cf-beacon={JSON.stringify({ token: process.env.NEXT_PUBLIC_CF_BEACON_TOKEN })}
+          />
+        )}
       </head>
       <body className="min-h-screen bg-lr-dark antialiased">
         <LanguageProvider>

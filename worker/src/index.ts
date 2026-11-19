@@ -25,6 +25,11 @@ export interface Env {
   ALLOWED_ORIGINS: string
   /** (ชั่วคราว ก่อนมีโดเมน) เช่น https://navik3069.github.io/Line_ranger_wabsite_kiwi_forgithub */
   PAGES_ORIGIN?: string
+  /** สถิติคนเข้าเว็บ (Cloudflare Web Analytics) — token สิทธิ์ Account Analytics: Read (secret) */
+  CF_API_TOKEN?: string
+  CF_ACCOUNT_ID?: string
+  /** (ไม่บังคับ) site tag ของ Web Analytics — ถ้าบัญชีมีหลายเว็บ */
+  CF_RUM_SITE_TAG?: string
 }
 
 const LERICO = 'https://rangers.lerico.net'
@@ -239,6 +244,10 @@ async function admin(req: Request, url: URL, env: Env, cors: Record<string, stri
     return json({ ok: true }, 200, cors)
   }
 
+  if (route === '/analytics' && req.method === 'GET') {
+    return analytics(url, env, cors)
+  }
+
   if (route === '/runs' && req.method === 'GET') {
     const data = await ghJson<{ workflow_runs: Array<Record<string, unknown>> }>(env, `/repos/${env.GITHUB_REPO}/actions/runs?per_page=6`)
     return json({
@@ -250,6 +259,85 @@ async function admin(req: Request, url: URL, env: Env, cors: Record<string, stri
   }
 
   return json({ error: 'Not found' }, 404, cors)
+}
+
+// ── สถิติคนเข้าเว็บ: Cloudflare Web Analytics (RUM) ผ่าน GraphQL Analytics API ──
+// แบ่งช่วงเวลาเป็นก้อนละ ≤ 30 วัน (จำกัดช่วงต่อคำขอ) แล้วรวมผล · cache ที่ edge 10 นาที
+
+interface RumRow { count: number; sum?: { visits?: number }; dimensions: Record<string, string> }
+type Top = { name: string; views: number; visits: number }
+
+const RUM_QUERY = `query($acc: String!, $filter: AccountRumPageloadEventsAdaptiveGroupsFilter_InputObject) {
+  viewer { accounts(filter: { accountTag: $acc }) {
+    daily: rumPageloadEventsAdaptiveGroups(filter: $filter, limit: 100, orderBy: [date_ASC]) { count sum { visits } dimensions { date } }
+    pages: rumPageloadEventsAdaptiveGroups(filter: $filter, limit: 20, orderBy: [count_DESC]) { count sum { visits } dimensions { name: requestPath } }
+    refs: rumPageloadEventsAdaptiveGroups(filter: $filter, limit: 20, orderBy: [count_DESC]) { count sum { visits } dimensions { name: refererHost } }
+    countries: rumPageloadEventsAdaptiveGroups(filter: $filter, limit: 20, orderBy: [count_DESC]) { count sum { visits } dimensions { name: countryName } }
+    devices: rumPageloadEventsAdaptiveGroups(filter: $filter, limit: 10, orderBy: [count_DESC]) { count sum { visits } dimensions { name: deviceType } }
+  } }
+}`
+
+async function analytics(url: URL, env: Env, cors: Record<string, string>): Promise<Response> {
+  if (!env.CF_API_TOKEN || !env.CF_ACCOUNT_ID) return json({ error: 'not_configured' }, 503, cors)
+  const days = [7, 30, 90].includes(Number(url.searchParams.get('days'))) ? Number(url.searchParams.get('days')) : 30
+
+  const cacheKey = new Request(`https://analytics.cache/${env.CF_ACCOUNT_ID}/${days}`)
+  const cache = caches.default
+  const hit = await cache.match(cacheKey)
+  if (hit) return new Response(hit.body, { headers: { 'Content-Type': 'application/json', ...cors } })
+
+  const DAY = 86400000
+  const end = Date.now()
+  const start = end - days * DAY
+  const chunks: [number, number][] = []
+  for (let a = start; a < end; a += 30 * DAY) chunks.push([a, Math.min(a + 30 * DAY, end)])
+
+  const daily = new Map<string, { views: number; visits: number }>()
+  const tops: Record<'pages' | 'refs' | 'countries' | 'devices', Map<string, Top>> = { pages: new Map(), refs: new Map(), countries: new Map(), devices: new Map() }
+
+  for (const [a, b] of chunks) {
+    const and: Record<string, unknown>[] = [{ datetime_geq: new Date(a).toISOString() }, { datetime_lt: new Date(b).toISOString() }]
+    if (env.CF_RUM_SITE_TAG) and.push({ siteTag: env.CF_RUM_SITE_TAG })
+    const res = await fetch('https://api.cloudflare.com/client/v4/graphql', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${env.CF_API_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: RUM_QUERY, variables: { acc: env.CF_ACCOUNT_ID, filter: { AND: and } } }),
+    })
+    const data = await res.json() as { data?: { viewer?: { accounts?: Record<string, RumRow[]>[] } }; errors?: { message: string }[] }
+    if (!res.ok || data.errors?.length) {
+      return json({ error: data.errors?.map(e => e.message).join('; ') || `Cloudflare ${res.status}` }, 502, cors)
+    }
+    const acc = data.data?.viewer?.accounts?.[0] ?? {}
+    for (const r of acc.daily ?? []) {
+      const d = daily.get(r.dimensions.date) ?? { views: 0, visits: 0 }
+      d.views += r.count; d.visits += r.sum?.visits ?? 0
+      daily.set(r.dimensions.date, d)
+    }
+    for (const k of Object.keys(tops) as (keyof typeof tops)[]) {
+      for (const r of acc[k] ?? []) {
+        const name = r.dimensions.name || ''
+        const t = tops[k].get(name) ?? { name, views: 0, visits: 0 }
+        t.views += r.count; t.visits += r.sum?.visits ?? 0
+        tops[k].set(name, t)
+      }
+    }
+  }
+
+  // ทุกวันในช่วง (วันที่ไม่มีคนเข้า = 0) เรียงจากเก่า→ใหม่
+  const series: { date: string; views: number; visits: number }[] = []
+  for (let t = start; t <= end; t += DAY) {
+    const date = new Date(t).toISOString().slice(0, 10)
+    if (series.at(-1)?.date === date) continue
+    series.push({ date, ...(daily.get(date) ?? { views: 0, visits: 0 }) })
+  }
+  const top = (m: Map<string, Top>, n = 10) => [...m.values()].sort((x, y) => y.views - x.views).slice(0, n)
+  const body = JSON.stringify({
+    days, generatedAt: new Date().toISOString(), series,
+    totals: { views: series.reduce((s, d) => s + d.views, 0), visits: series.reduce((s, d) => s + d.visits, 0) },
+    pages: top(tops.pages), referrers: top(tops.refs), countries: top(tops.countries), devices: top(tops.devices, 5),
+  })
+  await cache.put(cacheKey, new Response(body, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=600' } }))
+  return new Response(body, { headers: { 'Content-Type': 'application/json', ...cors } })
 }
 
 // ── (ชั่วคราว) เสิร์ฟเว็บจาก GitHub Pages ───────────────

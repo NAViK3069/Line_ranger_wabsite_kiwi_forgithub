@@ -23,6 +23,13 @@ interface MenuItem {
 
 const SECTIONS: { title: string; hint: string; items: MenuItem[] }[] = [
   {
+    title: 'สถิติ',
+    hint: 'จาก Cloudflare Web Analytics — ไม่ใช้คุกกี้',
+    items: [
+      { href: '/admin/analytics', icon: 'insights', title: 'สถิติคนเข้าเว็บ', description: 'กราฟคนเข้ารายวัน หน้าที่เปิดบ่อย คนมาจากไหน ประเทศ และอุปกรณ์', kind: 'view', tone: 'text-sky-300' },
+    ],
+  },
+  {
     title: 'เนื้อหาบนเว็บ',
     hint: 'แก้แล้วกดบันทึก — หน้าเว็บจริงจะอัปเดตภายใน 2–5 นาที',
     items: [

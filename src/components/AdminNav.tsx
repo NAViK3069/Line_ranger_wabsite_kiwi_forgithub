@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { href: '/admin/Gacha-Gear',   icon: 'shield',         label: 'Gacha เกียร์'   },
   { href: '/admin/tierlist',     icon: 'leaderboard',    label: 'Tier List'       },
   { href: '/admin/top40-legend', icon: 'emoji_events',   label: 'Top 40'          },
+  { href: '/admin/analytics',    icon: 'insights',       label: 'สถิติ'            },
 ]
 
 function BuildStatus() {

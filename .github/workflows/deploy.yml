@@ -7,6 +7,7 @@ name: Deploy
 #   WORKER_URL     เช่น https://api.example.com  (หรือ https://line-ranger-kiwi.xxx.workers.dev)
 #   SITE_URL       เช่น https://example.com
 #   CUSTOM_DOMAIN  เช่น example.com              (เว้นว่างได้ถ้ายังไม่มีโดเมน)
+#   CF_BEACON_TOKEN  token สคริปต์ Cloudflare Web Analytics (เว้นว่างได้ = ไม่นับสถิติ)
 
 on:
   push:
@@ -67,6 +68,8 @@ jobs:
         env:
           NEXT_PUBLIC_WORKER_URL: ${{ vars.WORKER_URL }}
           NEXT_PUBLIC_SITE_URL: ${{ vars.SITE_URL }}
+          # Cloudflare Web Analytics (token ของสคริปต์นับคนเข้า — ไม่ใช่ความลับ) · เว้นว่างได้
+          NEXT_PUBLIC_CF_BEACON_TOKEN: ${{ vars.CF_BEACON_TOKEN }}
 
       - name: Custom domain + no Jekyll
         run: |

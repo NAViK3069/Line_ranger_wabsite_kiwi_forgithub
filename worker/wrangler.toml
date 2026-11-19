@@ -14,6 +14,8 @@ workers_dev = false
 ADMIN_USERNAME = "admin"
 GITHUB_REPO = "NAViK3069/Line_ranger_wabsite_kiwi_forgithub"
 GITHUB_BRANCH = "main"
+# สถิติคนเข้าเว็บ (Cloudflare Web Analytics) — ต้องตั้ง secret CF_API_TOKEN ด้วย (สิทธิ์ Account Analytics: Read)
+CF_ACCOUNT_ID = "24b63abc82564f67cf4ab5e97b324e7e"
 # โดเมนที่เรียก /api/admin/* ได้ (คั่นด้วย ,)
 ALLOWED_ORIGINS = "http://localhost:3000,https://ranger-kiwi.com,https://www.ranger-kiwi.com"
 # หน้าเว็บอยู่ที่ GitHub Pages (ranger-kiwi.com) แล้ว — Worker ไม่ต้องเสิร์ฟหน้าเว็บ จึงไม่ใส่ PAGES_ORIGIN

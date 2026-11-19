@@ -169,7 +169,15 @@ export default function TierListStudio() {
   const [picking, setPicking] = useState(false)
   /** เรนเจอร์ที่เปิดดูรายละเอียด (ป๊อปอัปเดียวกับ Ranger Book) */
   const [detailId, setDetailId] = useState<string | null>(null)
-  /** เมนูคลิกขวา (PC): ลอยข้างเมาส์ · x/y = ตำแหน่งที่คลิก */
+  /** PC = อุปกรณ์ที่มีเมาส์ → คลิกเรนเจอร์ = เมนูลอยข้างเมาส์ · มือถือ/แท็บเล็ต = แตะแล้วขึ้นแถบล่าง */
+  const [isPC, setIsPC] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(hover: hover) and (pointer: fine)')
+    const on = () => setIsPC(mq.matches)
+    on(); mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+  /** เมนูลอยข้างเมาส์ (PC: คลิกซ้ายหรือคลิกขวา) · x/y = ตำแหน่งที่คลิก */
   const [ctx, setCtx] = useState<{ id: string; x: number; y: number } | null>(null)
   const ctxRef = useRef<HTMLDivElement>(null)
   // ดันเมนูให้อยู่ในจอเสมอ (วัดขนาดจริงหลัง render แล้วค่อยวาง)
@@ -188,7 +196,12 @@ export default function TierListStudio() {
   useEffect(() => {
     if (!ctx) return
     const close = () => setCtx(null)
-    const onDown = (e: PointerEvent) => { if (!ctxRef.current?.contains(e.target as Node)) close() }
+    const onDown = (e: PointerEvent) => {
+      const t = e.target as Element
+      if (ctxRef.current?.contains(t)) return
+      if (t.closest?.(`[data-item="${CSS.escape(ctx.id)}"]`)) return // คลิกตัวเดิม → ให้ onItemClick ปิดเมนูเอง
+      close()
+    }
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
     window.addEventListener('pointerdown', onDown, true)
     window.addEventListener('keydown', onKey)
@@ -202,11 +215,17 @@ export default function TierListStudio() {
     }
   }, [ctx])
   /** คลิกขวาที่เรนเจอร์: เปิดเมนูลอยเฉพาะอุปกรณ์ที่มีเมาส์ (มือถือกดค้าง = ลาก ไม่เปิดเมนู) */
+  /** เปิดเมนูลอยที่ตำแหน่งเมาส์ (กดด้วยคีย์บอร์ด = กลางรูป) */
+  const openCtx = (e: React.MouseEvent, id: string) => {
+    let x = e.clientX, y = e.clientY
+    if (e.detail === 0 && !x && !y) { const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); x = r.left + r.width / 2; y = r.top + r.height / 2 }
+    setSelected(null)
+    setCtx({ id, x, y })
+  }
+  /** คลิกขวาที่เรนเจอร์: PC เปิดเมนูลอย · มือถือไม่ทำอะไร (กดค้าง = ลาก) */
   const onItemContextMenu = (e: React.MouseEvent, id: string) => {
     e.preventDefault()
-    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
-    setSelected(null)
-    setCtx({ id, x: e.clientX, y: e.clientY })
+    if (isPC) openCtx(e, id)
   }
   const [pickerView, setPickerView] = useState<PickerView>(PICKER_VIEW_DEFAULT)
   const [confirm, setConfirm] = useState<null | 'clear' | 'tiers' | 'delete' | 'reset'>(null)
@@ -271,8 +290,10 @@ export default function TierListStudio() {
   const addRanger = (id: string) => {
     if (!board) return
     const z = zoneOf(board, id)
-    if (z) { setSelected(id); flash(T('มีเรนเจอร์ตัวนี้อยู่แล้ว', 'Already on the board')); return }
+    // PC ไม่มีแถบล่าง → ไม่ต้องเลือกค้างไว้ (คลิกที่ตัวเรนเจอร์เพื่อเปิดเมนูเอง)
+    if (z) { if (!isPC) setSelected(id); flash(T('มีเรนเจอร์ตัวนี้อยู่แล้ว', 'Already on the board')); return }
     update(b => { b.pool.unshift(id); b.removed = (b.removed ?? []).filter(x => x !== id); return b })
+    if (isPC) { flash(T('เพิ่มลงคลังแล้ว — คลิกที่ตัวเรนเจอร์เพื่อจัดเทียร์', 'Added to the pool — click it to place it')); return }
     setSelected(id)
     flash(T('เพิ่มลงคลังแล้ว — แตะเทียร์ด้านล่างเพื่อจัด', 'Added — tap a tier below to place it'))
   }
@@ -363,8 +384,9 @@ export default function TierListStudio() {
     window.addEventListener('touchcancel', end)
   }
 
-  const onItemClick = (id: string) => {
+  const onItemClick = (e: React.MouseEvent, id: string) => {
     if (suppressClick.current) return
+    if (isPC) { if (ctx?.id === id) setCtx(null); else openCtx(e, id); return }
     setSelected(s => (s === id ? null : id))
   }
   /** มีตัวที่เลือกอยู่ แล้วแตะพื้นที่ของเทียร์/คลัง = ย้ายไปที่นั่น */
@@ -424,7 +446,7 @@ export default function TierListStudio() {
       title={nameOf(id)}
       onPointerDown={e => onItemPointerDown(e, id)}
       onTouchStart={e => onItemTouchStart(e, id)}
-      onClick={() => onItemClick(id)}
+      onClick={e => onItemClick(e, id)}
       onContextMenu={e => onItemContextMenu(e, id)}
     >
       <CardFace id={id} info={book[id]} alt={nameOf(id)} />
@@ -509,12 +531,14 @@ export default function TierListStudio() {
         {renderZone(POOL, board.pool)}
       </div>
       <p className="tl-tip">
-        <span className="material-icons-round">touch_app</span>
-        {T('แตะเรนเจอร์เพื่อเลือก แล้วกดเทียร์ด้านล่าง · คอมลากวางได้เลย · มือถือกดค้างแล้วลาก', 'Tap a ranger, then a tier below · drag & drop on desktop · long-press to drag on phones')}
+        <span className="material-icons-round">{isPC ? 'mouse' : 'touch_app'}</span>
+        {isPC
+          ? T('คลิกเรนเจอร์เพื่อเปิดเมนู (ย้ายเทียร์ · ดูรายละเอียด · กลับคลัง · ลบ) · ลากวางเพื่อย้ายได้เลย', 'Click a ranger for its menu (move tier · info · pool · remove) · drag & drop to move')
+          : T('แตะเรนเจอร์เพื่อเลือก แล้วกดเทียร์ด้านล่าง · กดค้างแล้วลากเพื่อย้าย', 'Tap a ranger, then a tier below · long-press and drag to move')}
       </p>
 
       {/* แถบล่าง: ตัวที่เลือก → ย้ายไปเทียร์ */}
-      {selected && !detailId && (
+      {selected && !detailId && !isPC && (
         <div className="tl-dock">
           <div className="tl-dock-top">
             {/* eslint-disable-next-line @next/next/no-img-element */}

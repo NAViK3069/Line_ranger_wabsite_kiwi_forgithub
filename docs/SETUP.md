@@ -50,6 +50,8 @@ GitHub repo → Settings → Secrets and variables → Actions → **Variables**
 
 ## ส่วนที่ 3 — โดเมน (เมื่อซื้อแล้ว)
 
+> โดเมนที่ใช้: **ranger-kiwi.com** (ซื้อที่ Cloudflare 2026-11-19) · Worker = `api.ranger-kiwi.com` (ตั้งไว้แล้วใน wrangler.toml)
+
 1. Cloudflare Dashboard → **Domain Registration → Register Domains** → ซื้อโดเมน (ราคาทุน)
    (ถ้าซื้อที่อื่น: Cloudflare → Add a site → ทำตามที่บอกให้เปลี่ยน nameserver)
 2. Cloudflare → โดเมน → **DNS → Records** → เพิ่ม:
@@ -61,7 +63,9 @@ GitHub repo → Settings → Secrets and variables → Actions → **Variables**
 4. GitHub Variables: `CUSTOM_DOMAIN` = โดเมน, `SITE_URL` = `https://โดเมน`
 5. Worker ใช้โดเมนย่อย `api.โดเมน` (ได้ cache ที่ edge ด้วย):
    - แก้ `worker/wrangler.toml` → เปิดส่วน `[[routes]]` ใส่ `api.โดเมน`
-   - เพิ่ม `https://โดเมน` ใน `ALLOWED_ORIGINS` และ **ลบบรรทัด `PAGES_ORIGIN`** (ไม่ต้องเสิร์ฟหน้าเว็บผ่าน Worker แล้ว)
+   - เพิ่ม `https://โดเมน` ใน `ALLOWED_ORIGINS`
+   - **เก็บ `PAGES_ORIGIN` ไว้ได้**: พอ GitHub Pages ใช้ Custom domain แล้ว GitHub ตอบ 301 ไปโดเมนใหม่
+     Worker ส่ง redirect ต่อ → ลิงก์เก่า `*.workers.dev` พาคนไปโดเมนใหม่เอง
    - `npx wrangler deploy`
    - GitHub Variable `WORKER_URL` = `https://api.โดเมน` → Run workflow Deploy
 6. (แนะนำ) Cloudflare → โดเมน → **Security → WAF → Rate limiting rules** → สร้าง rule:

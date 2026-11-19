@@ -398,17 +398,21 @@ export async function loadDemo() {
   const { emptyScene } = await import('./scene')
   replaceScene(emptyScene(L('ฉากตัวอย่าง', 'Demo scene')))
   updateScene(s => { s.background.stage = 'battle05'; s.background.kind = 'stage' }, false)
-  const hero = await addLericoRanger('u1147e-benimaru', { tag: 'ally' })
-  const foe = await addLericoRanger('u1148e-souei', { tag: 'enemy' })
+  // ฉากตัวอย่างของเว็บ Line Ranger Kiwi: Brown (ฝ่ายเรา) ปะทะ Moon (ศัตรู)
+  const hero = await addLericoRanger('u1277e-brown', { tag: 'ally' })
+  const foe = await addLericoRanger('u1487e-moon', { tag: 'enemy' })
   if (!hero || !foe) return
   // รอให้ตัวละครโหลดเสร็จก่อนจะสร้างสกิล (ต้องรู้ชื่อท่า)
   await new Promise<void>(res => {
     const check = () => { const ok = [hero, foe].every(id => { const a = getState().scene.actors.find(x => x.id === id); return a && assets.get(a.assetId) }); if (ok) { off(); res() } }
     const off = assets.subscribe(check); check()
   })
-  addSkill(hero, 'skill1', 0.5)
-  const c = getState().scene.cues.find(x => x.type === 'skill') as SkillCue | undefined
-  if (c) patchSkill(c.id, k => { k.banner = L('สกิลพิเศษ!', 'Special Skill!') }, false)
+  // ใช้สกิล 1 ถ้ามี ไม่งั้นท่าแรกที่ตัวนี้มี · ไม่ใส่ป้ายข้อความสกิล (banner)
+  const heroActor = getState().scene.actors.find(x => x.id === hero)
+  const heroRt = heroActor ? assets.get(heroActor.assetId) : undefined
+  const presets = heroRt?.kind === 'ranger' ? skillPresets(heroRt) : []
+  const key = presets.find(p => p.key === 'skill1')?.key ?? presets[0]?.key
+  if (key) addSkill(hero, key, 0.5)
   select({ kind: 'none' })
   setState({ time: 0, playing: true })
 }

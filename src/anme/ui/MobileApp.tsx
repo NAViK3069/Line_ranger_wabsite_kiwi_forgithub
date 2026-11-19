@@ -118,7 +118,7 @@ function MobileTransport({ full, onFull }: { full: boolean; onFull: () => void }
   return (
     <div className="m-transport">
       <div className="m-time"><b>{fmt(time)}</b><span> / {fmt(duration)}</span></div>
-      <button className="m-play" onClick={() => setState({ playing: !playing })} aria-label={playing ? L('หยุด', 'Pause') : L('เล่น', 'Play')}>
+      <button className={'m-play' + (playing ? ' on' : '')} onClick={() => setState({ playing: !playing })} aria-label={playing ? L('หยุด', 'Pause') : L('เล่น', 'Play')}>
         <Icon name={playing ? 'pause' : 'play'} size={22} />
       </button>
       <div className="m-tr-right">

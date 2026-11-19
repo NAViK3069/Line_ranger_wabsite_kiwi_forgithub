@@ -108,8 +108,8 @@ input, select { font: inherit; color: inherit; }
 .btn.wide { width: 100%; margin: 4px 0; }
 .btn.big { height: 42px; padding: 0 22px; font-size: 15px; border-radius: 12px; }
 .btn.primary {
-  color: #061018; font-weight: 600; border: none;
-  background: linear-gradient(135deg, #4ff0ff, #2fa7ff);
+  color: #fff; font-weight: 600; border: none; text-shadow: 0 1px 2px rgba(0, 40, 80, 0.45);
+  background: linear-gradient(135deg, #22c6ee, #1a7fe3);
   box-shadow: 0 4px 18px rgba(51, 200, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 .btn.primary:hover { filter: brightness(1.1); box-shadow: 0 6px 26px rgba(51, 200, 255, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.5); }
@@ -123,8 +123,8 @@ input, select { font: inherit; color: inherit; }
 .ibtn.on { color: var(--cyan); background: rgba(51, 225, 255, 0.12); border-color: rgba(51, 225, 255, 0.3); }
 .ibtn.danger:hover { color: var(--red); background: rgba(255, 84, 112, 0.12); }
 .ibtn.tiny { width: 22px; height: 22px; border-radius: 6px; }
-.ibtn.play { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #4ff0ff, #2fa7ff); color: #04111a; box-shadow: 0 0 20px rgba(51, 200, 255, 0.4); }
-.ibtn.play:hover { filter: brightness(1.12); color: #04111a; }
+.ibtn.play { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #22c6ee, #1a7fe3); color: #fff; box-shadow: 0 0 20px rgba(51, 200, 255, 0.4); }
+.ibtn.play:hover { filter: brightness(1.12); color: #fff; }
 .ibtn.play.on { background: linear-gradient(135deg, var(--gold), #ff7a2f); box-shadow: 0 0 20px rgba(255, 160, 50, 0.5); }
 
 /* ── library ── */
@@ -395,6 +395,12 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px;
 .tl-row.drop-after { box-shadow: inset 0 -2px 0 var(--gold); }
 .tl-row.drop-before .tl-label, .tl-row.drop-after .tl-label { box-shadow: inherit; }
 .tl-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+/* ทั้งกล่องชื่อเป็นที่จับลากเลเยอร์ — ไม่ให้ลากแล้วกลายเป็นคลุมข้อความ */
+.tl-label { user-select: none; -webkit-user-select: none; }
+.tl-label.draggable { cursor: grab; touch-action: none; }
+.tl-label.draggable:active { cursor: grabbing; }
+.tl-label.draggable:hover .grip { color: var(--cyan); }
+.tl-label button { cursor: pointer; }
 .tag-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
 .tag-dot.tag-ally { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
 .tag-dot.tag-enemy { background: var(--red); box-shadow: 0 0 6px var(--red); }
@@ -516,8 +522,8 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px;
 .m-title span.dirty { color: var(--gold); }
 .m-export {
   flex: none; display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: 999px;
-  border: none; font-weight: 600; font-size: 13px; color: #04111a;
-  background: linear-gradient(135deg, #4ff0ff, #2fa7ff); box-shadow: 0 4px 16px rgba(51, 200, 255, 0.35);
+  border: none; font-weight: 600; font-size: 13px; color: #fff; text-shadow: 0 1px 2px rgba(0, 40, 80, 0.45);
+  background: linear-gradient(135deg, #22c6ee, #1a7fe3); box-shadow: 0 4px 16px rgba(51, 200, 255, 0.35);
 }
 .m-export:active { filter: brightness(0.92); }
 
@@ -537,9 +543,10 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px;
 .m-time b { color: var(--m-text); font-weight: 600; }
 .m-time span { color: var(--m-sub); }
 .m-play {
-  width: 46px; height: 46px; border-radius: 50%; border: none; display: grid; place-items: center; color: #04111a;
-  background: #fff; box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
+  width: 48px; height: 48px; border-radius: 50%; border: none; display: grid; place-items: center; color: #fff;
+  background: linear-gradient(135deg, #22c6ee, #1a7fe3); box-shadow: 0 0 18px rgba(51, 200, 255, 0.4);
 }
+.m-play.on { background: linear-gradient(135deg, var(--gold), #ff7a2f); box-shadow: 0 0 18px rgba(255, 160, 50, 0.45); }
 .m-play:active { transform: scale(0.94); }
 .m-tr-right { display: flex; justify-content: flex-end; gap: 0; }
 .m-tr-right .m-icon { width: 38px; }

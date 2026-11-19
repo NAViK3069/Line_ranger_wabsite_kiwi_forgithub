@@ -234,9 +234,14 @@ export function Timeline() {
             return (
               <div key={r.id} {...(isLayer ? { 'data-layer': r.id } : {})}
                 className={'tl-row' + (isSel ? ' sel' : '') + (r.visible ? '' : ' hidden-row') + (drag?.id === r.id ? ' dragging' : '') + (dropBefore ? ' drop-before' : '') + (dropAfter ? ' drop-after' : '')}>
-                <div className="tl-label" style={{ width: LABEL_W }} onClick={() => isLayer && select({ kind: 'actor', id: r.id })}>
+                {/* ลากตรงไหนของกล่องก็ย้ายเลเยอร์ได้ (ชื่อ / เลข / ⋮⋮) — ยกเว้นปุ่มข้างใน (ซ่อน/แสดง, เพิ่มเสียง)
+                    dragRow เรียก preventDefault → ไม่เกิดการลากเลือกข้อความ · แตะเฉยๆ (ไม่ขยับ) = เลือกตัวละครเหมือนเดิม */}
+                <div className={'tl-label' + (isLayer ? ' draggable' : '')} style={{ width: LABEL_W }}
+                  title={isLayer ? L('ลากเพื่อย้ายเลเยอร์ (บน = อยู่หน้า)', 'Drag to reorder layers (top = front)') : undefined}
+                  onPointerDown={e => { if (isLayer && !(e.target as HTMLElement).closest('button')) dragRow(e, r.id) }}
+                  onClick={() => isLayer && select({ kind: 'actor', id: r.id })}>
                   {isLayer
-                    ? <span className="grip" title={L('ลากเพื่อย้ายเลเยอร์ (บน = อยู่หน้า)', 'Drag to reorder layers (top = front)')} onPointerDown={e => dragRow(e, r.id)}>⋮⋮</span>
+                    ? <span className="grip">⋮⋮</span>
                     : <span className="grip ghost" />}
                   {isLayer && <span className="layer-no" title={L('ลำดับเลเยอร์ (1 = หน้าสุด)', 'Layer order (1 = front)')}>{ri + 1}</span>}
                   <span className={'tag-dot tag-' + r.tag} />

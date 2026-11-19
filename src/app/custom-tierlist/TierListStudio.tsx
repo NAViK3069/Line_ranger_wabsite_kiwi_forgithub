@@ -45,11 +45,16 @@ const thumb = (id: string) => `https://rangers.lerico.net/res/${id}/${id}-thum.p
 
 // ── การ์ดเรนเจอร์: พื้นหลังธาตุ + กรอบตามร่าง/ดาว + วงกลมธาตุมุมซ้ายล่าง + ดาวบนขอบบน ──
 
-interface RangerInfo { name: string; element?: string; grade?: number; evolution?: string }
+interface RangerInfo { name: string; element?: string; grade?: number; evolution?: string; type?: string }
 const ELEMENTS = ['water', 'wood', 'fire', 'light', 'dark']
 const hasElement = (e?: string): e is string => !!e && ELEMENTS.includes(e)
 const bgSrc = (e: string) => `/tierlist/bg-${e}.png`
 const elSrc = (e: string) => `/tierlist/el-${e}.png`
+/** ชนิดเรนเจอร์ (มุมขวาล่าง) — รูปชุดเดียวกับตัวกรองในหน้าอื่น */
+const TYPE_SRC: Record<string, string> = { STR: '/gacha/images/Str.png', AGI: '/gacha/images/Agi.png', INT: '/gacha/images/Int.png' }
+const typeSrc = (t?: string) => (t && TYPE_SRC[t.toUpperCase()]) || null
+/** ขนาดวงกลมธาตุ / ไอคอนชนิด เทียบกับการ์ด (ต้องตรงกับ .tl-el / .tl-type ใน tierlist.css) */
+const BADGE = 0.27
 
 type FrameKind = 'gold' | 'hyper' | 'ultra' | 'brown'
 /** 4 ดาวลงมา = น้ำตาล · ไฮเปอร์ = ชมพู · อัลตร้า = ฟ้าเขียว · ร่างธรรมดา/9 ดาว = ทอง */
@@ -93,6 +98,8 @@ function CardFace({ id, info, alt }: { id: string; info?: RangerInfo; alt: strin
       </span>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {el && <img className="tl-el" src={elSrc(el)} alt="" draggable={false} />}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {typeSrc(info?.type) && <img className="tl-type" src={typeSrc(info?.type)!} alt={info?.type} draggable={false} />}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {stars && <img className="tl-stars" src={stars} alt={`${info?.grade ?? ''}★`} draggable={false} />}
     </>
@@ -187,7 +194,7 @@ export default function TierListStudio() {
   // ชื่อเรนเจอร์ (ใช้ใน title / แถบเลือก) — จาก ranger-book ชุดเดียวกับตัวเลือก
   useEffect(() => {
     apiFetch('/api/ranger-book').then(r => r.json()).then((d: { rangers?: ({ id: string } & RangerInfo)[] }) => {
-      setBook(Object.fromEntries((d.rangers ?? []).map(r => [r.id, { name: r.name, element: r.element, grade: r.grade, evolution: r.evolution }])))
+      setBook(Object.fromEntries((d.rangers ?? []).map(r => [r.id, { name: r.name, element: r.element, grade: r.grade, evolution: r.evolution, type: r.type }])))
     }).catch(() => {})
   }, [])
   const nameOf = (id: string) => tRanger(id, book[id]?.name ?? id)
@@ -614,7 +621,8 @@ const BG_DIM = 0.2
 
 /** กรอบ + พื้นหลังธาตุ + รูป + วงกลมธาตุ + ดาว ลงแคนวาส (หน้าตาเดียวกับการ์ดบนหน้าเว็บ) */
 function drawCard(ctx: CanvasRenderingContext2D, x: number, y: number, S: number, info: RangerInfo | undefined,
-  img: HTMLImageElement | null, bg: HTMLImageElement | null, badge: HTMLImageElement | null, starImg: HTMLImageElement | null) {
+  img: HTMLImageElement | null, bg: HTMLImageElement | null, badge: HTMLImageElement | null, starImg: HTMLImageElement | null,
+  typeImg: HTMLImageElement | null) {
   const kind = frameOf(info), F = Math.round(S * 0.07), R = S * 0.14
   // กรอบ
   ctx.save()
@@ -652,7 +660,12 @@ function drawCard(ctx: CanvasRenderingContext2D, x: number, y: number, S: number
   }
   ctx.restore()
   // วงกลมธาตุ มุมซ้ายล่าง
-  if (badge) { const B = S * 0.34; ctx.drawImage(badge, x, y + S - B, B, B) }
+  const B = S * BADGE
+  ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 3; ctx.shadowOffsetY = 1
+  if (badge) ctx.drawImage(badge, x, y + S - B, B, B)
+  // ชนิดเรนเจอร์ มุมขวาล่าง
+  if (typeImg) ctx.drawImage(typeImg, x + S - B, y + S - B, B, B)
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
   // ดาว บนขอบบน
   if (starImg) {
     const w = S * STAR_W, h = w * (starImg.height / starImg.width)
@@ -685,6 +698,7 @@ async function renderBoard(b: Board, book: Record<string, RangerInfo>): Promise<
   const badges = new Map(await Promise.all(els.map(async e => [e, await loadImage(elSrc(e))] as const)))
   const starFiles = [...new Set(ids.map(id => starSrc(book[id])).filter((x): x is string => !!x))]
   const starImgs = new Map(await Promise.all(starFiles.map(async f => [f, await loadImage(f)] as const)))
+  const typeImgs = new Map(await Promise.all(Object.entries(TYPE_SRC).map(async ([k, f]) => [k, await loadImage(f)] as const)))
 
   let y = PAD + TITLE_H
   b.tiers.forEach((t, i) => {
@@ -700,7 +714,7 @@ async function renderBoard(b: Board, book: Record<string, RangerInfo>): Promise<
       const cx = PAD + LABEL + GAP + (k % perRow) * (CELL + GAP)
       const cy = y + GAP + Math.floor(k / perRow) * (CELL + GAP)
       const info = book[id], e = info?.element ?? ''
-      drawCard(ctx, cx, cy, CELL, info, imgs.get(id) ?? null, bgs.get(e) ?? null, badges.get(e) ?? null, starImgs.get(starSrc(info) ?? '') ?? null)
+      drawCard(ctx, cx, cy, CELL, info, imgs.get(id) ?? null, bgs.get(e) ?? null, badges.get(e) ?? null, starImgs.get(starSrc(info) ?? '') ?? null, typeImgs.get((info?.type ?? '').toUpperCase()) ?? null)
     })
     y += h + 4
   })

@@ -5,7 +5,7 @@
 import Link from 'next/link'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import ProTitle from '@/components/ProTitle'
-import LobbyLink from '@/components/LobbyLink'
+import HomeMenu from '@/components/HomeMenu'
 import ResFolderLink from '@/components/ResFolderLink'
 
 export default function HomePage() {
@@ -72,52 +72,9 @@ export default function HomePage() {
           </a>
         </div>
 
-        {/* CTA Buttons — Row 1
-            ปุ่มทุกใบกว้างเท่ากัน (sm:w-60) สองแถวจึงเรียงเป็นคอลัมน์ตรงกันพอดี
-            ถ้าแถวล่างมีแค่ 2 ปุ่ม (ยังไม่ปลดล็อค Beta) ก็ยังจัดกลางสมมาตรอยู่ */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          {/* Gacha Ranger + Gacha Gear รวมเป็นปุ่มเดียว — สลับ Ranger/Gear ด้วยแท็บบนหน้า Gacha */}
-          <Link
-            href="/gacha-ranger"
-            className="w-full sm:w-60 px-4 py-4 bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold text-lg rounded-2xl hover:opacity-90 transition-all hover:scale-105 active:scale-95 shadow-lg glow-gold flex items-center justify-center gap-2"
-          >
-            <span className="material-icons-round text-lg">auto_awesome</span>
-            Gacha Simulator
-          </Link>
-          <Link
-            href="/custom-tierlist"
-            className="w-full sm:w-60 px-4 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-lg rounded-2xl hover:opacity-90 transition-all hover:scale-105 active:scale-95 shadow-lg flex items-center justify-center gap-2"
-          >
-            <span className="material-icons-round text-lg">leaderboard</span>
-            Tier List
-          </Link>
-          <Link
-            href="/meta"
-            className="w-full sm:w-60 px-4 py-4 card-glass text-white font-bold text-lg rounded-2xl hover:bg-white/10 transition-all hover:scale-105 active:scale-95 border border-yellow-500/30 flex items-center justify-center gap-2"
-          >
-            <span style={{ filter: 'sepia(1) saturate(3) hue-rotate(5deg) brightness(1.2)' }}>⚔️</span>
-            Meta Ranger
-          </Link>
-        </div>
-
-        {/* CTA Buttons — Row 2 (Books) */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center mt-4">
-          <Link
-            href="/ranger-book"
-            className="w-full sm:w-60 px-4 py-4 card-glass text-white font-bold text-lg rounded-2xl hover:bg-white/10 transition-all hover:scale-105 active:scale-95 border border-yellow-400/30 flex items-center justify-center gap-2"
-          >
-            <span className="material-icons-round text-yellow-400 text-lg">menu_book</span>
-            Ranger Book
-          </Link>
-          <Link
-            href="/gear-book"
-            className="w-full sm:w-60 px-4 py-4 card-glass text-white font-bold text-lg rounded-2xl hover:bg-white/10 transition-all hover:scale-105 active:scale-95 border border-purple-400/30 flex items-center justify-center gap-2"
-          >
-            <span className="material-icons-round text-purple-400 text-lg">inventory_2</span>
-            Gear Book
-          </Link>
-          {/* โผล่เฉพาะคนที่ปลดล็อค Beta แล้ว (ตัดสินฝั่ง client จึงแยกเป็นคอมโพเนนต์) */}
-          <LobbyLink />
+        {/* เมนูหลัก — 6 ช่องเท่ากัน (ดู src/components/HomeMenu.tsx) */}
+        <div className="flex justify-center">
+          <HomeMenu />
         </div>
 
       </div>

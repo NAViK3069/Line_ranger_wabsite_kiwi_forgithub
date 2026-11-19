@@ -20,7 +20,12 @@ import { apiFetch, proxyFile } from '@/lib/staticApi'
 // ── ข้อมูล ──────────────────────────────────────────────
 
 interface Tier { id: string; label: string; bg: string; fg: string; items: string[] }
-interface Board { title: string; tiers: Tier[]; pool: string[] }
+/**
+ * meta    = ชุดเรนเจอร์แนะนำ (Meta PVP) ล่าสุดที่บอร์ดนี้ซิงก์ไว้ — ใช้เทียบว่า Meta วันนี้เปลี่ยนไหม
+ * removed = ตัวแนะนำที่ผู้เล่นลบทิ้งเอง (ซิงก์รายวันจะไม่เอากลับมา จนกว่าจะกด Reset)
+ * metaOff = กด Delete all แล้ว → หยุดซิงก์ตัวแนะนำ จนกว่าจะกด Reset
+ */
+interface Board { title: string; tiers: Tier[]; pool: string[]; meta?: string[]; removed?: string[]; metaOff?: boolean }
 
 const STORE_KEY = 'lr:tierlist:v1'
 const POOL = 'pool'
@@ -64,6 +69,23 @@ async function defaultPool(): Promise<string[]> {
   return out
 }
 
+/**
+ * ซิงก์ตัวแนะนำกับ Meta ล่าสุด (ข้อมูล Meta อัปเดตวันละครั้ง) — ผู้เล่นกดรีเองไม่ได้
+ * - ตัวที่จัดลงเทียร์แล้ว: อยู่ที่เดิม
+ * - คลัง: ตัวแนะนำชุดใหม่ (เรียงตาม Meta) ตามด้วยตัวที่ผู้เล่นเพิ่มเอง · ตัวที่หลุด Meta ออกจากคลัง
+ */
+function syncMeta(b: Board, fresh: string[]): Board {
+  if (b.metaOff || !fresh.length) return b
+  if (b.meta && b.meta.join() === fresh.join()) return b
+  const oldMeta = new Set(b.meta ?? b.pool) // บอร์ดเก่าที่ยังไม่มี meta: ถือว่าคลังทั้งหมดคือตัวแนะนำ
+  const freshSet = new Set(fresh)
+  const placed = new Set(b.tiers.flatMap(t => t.items))
+  const removed = new Set(b.removed ?? [])
+  const userAdded = b.pool.filter(id => !oldMeta.has(id) && !freshSet.has(id))
+  const pool = [...fresh.filter(id => !placed.has(id) && !removed.has(id)), ...userAdded]
+  return { ...b, pool, meta: fresh }
+}
+
 function loadBoard(): Board | null {
   try {
     const b = JSON.parse(localStorage.getItem(STORE_KEY) ?? 'null') as Board | null
@@ -93,13 +115,16 @@ export default function TierListStudio() {
   const resetBoard = useCallback(async () => {
     setLoading(true)
     const pool = await defaultPool().catch(() => [] as string[])
-    setBoard({ title: 'Line Rangers Tier List', tiers: freshTiers(), pool })
+    setBoard({ title: 'Line Rangers Tier List', tiers: freshTiers(), pool, meta: pool, removed: [], metaOff: false })
     setSelected(null)
     setLoading(false)
   }, [])
   useEffect(() => {
     const saved = loadBoard()
-    if (saved) { setBoard(saved); setLoading(false) } else resetBoard()
+    if (!saved) { resetBoard(); return }
+    setBoard(saved); setLoading(false)
+    // Meta อัปเดตทุกวัน → เทียบชุดแนะนำล่าสุดแล้วซิงก์คลังให้เอง
+    if (!saved.metaOff) defaultPool().then(fresh => setBoard(b => (b ? syncMeta(b, fresh) : b))).catch(() => {})
   }, [resetBoard])
   useEffect(() => { if (board) try { localStorage.setItem(STORE_KEY, JSON.stringify(board)) } catch { /* เต็ม */ } }, [board])
 
@@ -130,7 +155,11 @@ export default function TierListStudio() {
   }, [])
 
   const removeItem = (id: string) => {
-    update(b => { b.pool = b.pool.filter(x => x !== id); b.tiers.forEach(t => { t.items = t.items.filter(x => x !== id) }); return b })
+    update(b => {
+      b.pool = b.pool.filter(x => x !== id); b.tiers.forEach(t => { t.items = t.items.filter(x => x !== id) })
+      if (b.meta?.includes(id)) b.removed = [...new Set([...(b.removed ?? []), id])]
+      return b
+    })
     setSelected(null)
   }
 
@@ -138,7 +167,7 @@ export default function TierListStudio() {
     if (!board) return
     const z = zoneOf(board, id)
     if (z) { setSelected(id); flash(T('มีเรนเจอร์ตัวนี้อยู่แล้ว', 'Already on the board')); return }
-    update(b => { b.pool.unshift(id); return b })
+    update(b => { b.pool.unshift(id); b.removed = (b.removed ?? []).filter(x => x !== id); return b })
     setSelected(id)
     flash(T('เพิ่มลงคลังแล้ว — แตะเทียร์ด้านล่างเพื่อจัด', 'Added — tap a tier below to place it'))
   }
@@ -266,7 +295,7 @@ export default function TierListStudio() {
       b.title = 'Line Rangers Tier List'
       return b
     })
-    if (confirm === 'delete') update(b => { b.pool = []; b.tiers.forEach(t => { t.items = [] }); return b })
+    if (confirm === 'delete') update(b => { b.pool = []; b.tiers.forEach(t => { t.items = [] }); b.metaOff = true; return b })
     if (confirm === 'reset') resetBoard()
     setConfirm(null)
     setSelected(null)
@@ -365,7 +394,7 @@ export default function TierListStudio() {
         <span className="material-icons-round">inventory_2</span>
         <b>{T('เรนเจอร์', 'Rangers')}</b>
         <span className="tl-count">{board.pool.length}</span>
-        <span className="tl-sub">{T('จาก Meta PVP · Legend · Users ≥ 2', 'from Meta PVP · Legend · Users ≥ 2')}</span>
+        <span className="tl-sub">{board.metaOff ? T('ปิดตัวแนะนำอยู่ · กดรีเซ็ตเพื่อเอากลับมา', 'Recommendations off · Reset to bring them back') : T('จาก Meta PVP · Legend · Users ≥ 2 · อัปเดตทุกวัน', 'from Meta PVP · Legend · Users ≥ 2 · updates daily')}</span>
       </div>
       <div className={'tl-pool' + (drag?.zone === POOL ? ' over' : '')} data-zone={POOL} onClick={e => onZoneClick(e, POOL)}>
         {loading && <div className="tl-empty"><span className="material-icons-round animate-spin">autorenew</span></div>}
@@ -448,6 +477,7 @@ export default function TierListStudio() {
             {confirm === 'clear' && T('ย้ายเรนเจอร์ทุกตัวในตารางกลับไปที่คลัง (แถวและสีเทียร์ยังอยู่)', 'Moves every ranger in the tiers back to the pool (rows and colours stay)')}
             {confirm === 'tiers' && T('ตารางกลับเป็นแถว S A B C D สีเดิม และชื่อตารางเริ่มต้น เรนเจอร์ในตารางกลับไปที่คลัง (เรนเจอร์ที่เพิ่มเองไม่หาย)', 'The table goes back to S A B C D rows, default colours and the default title. Placed rangers go back to the pool (rangers you added are kept)')}
             {confirm === 'delete' && T('ลบเรนเจอร์ทั้งหมดทั้งในตารางและคลัง เหลือตารางเปล่าให้เพิ่มเองทีละตัว', 'Removes every ranger from the tiers and the pool, leaving an empty board to fill yourself')}
+            {confirm === 'delete' && <><br />{T('ตัวแนะนำจาก Meta จะไม่กลับมาเองอีก จนกว่าจะกดรีเซ็ต', 'Meta recommendations stop coming back until you press Reset')}</>}
             {confirm === 'reset' && T('กลับไปเป็นค่าเริ่มต้น: แถว S A B C D และเรนเจอร์จาก Meta PVP ลีค Legend ล่าสุด', 'Back to the defaults: S A B C D rows and the latest Meta PVP Legend rangers')}
           </p>
           <div className="tl-confirm-btns">

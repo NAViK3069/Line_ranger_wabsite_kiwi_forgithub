@@ -1,6 +1,39 @@
 {
   "id": "main",
   "title": "Line Rangers Tier List",
-  "tiers": [],
-  "updatedAt": null
+  "tiers": [
+    {
+      "label": "S",
+      "bg": "#ff7f7f",
+      "fg": "#1a1a1a",
+      "items": [
+        "u1556e-af"
+      ]
+    },
+    {
+      "label": "A",
+      "bg": "#ffbf7f",
+      "fg": "#1a1a1a",
+      "items": []
+    },
+    {
+      "label": "B",
+      "bg": "#ffdf7f",
+      "fg": "#1a1a1a",
+      "items": []
+    },
+    {
+      "label": "C",
+      "bg": "#bfff7f",
+      "fg": "#1a1a1a",
+      "items": []
+    },
+    {
+      "label": "D",
+      "bg": "#7fbfff",
+      "fg": "#1a1a1a",
+      "items": []
+    }
+  ],
+  "updatedAt": "2026-11-19T10:56:10.909Z"
 }

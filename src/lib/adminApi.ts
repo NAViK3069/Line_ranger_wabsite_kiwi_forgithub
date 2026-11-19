@@ -260,6 +260,30 @@ async function top40Api(method: string, body: Record<string, unknown>): Promise<
   return json({ error: 'Method not allowed' }, 405)
 }
 
+// ── Tier List ค่าเริ่มต้น (หน้า /custom-tierlist) ──────────
+// เก็บแค่แถว (ชื่อ/สี/เรนเจอร์ในแถว) + ชื่อตาราง — คลังด้านล่างของผู้ใช้มาจาก Meta PVP เสมอ
+
+async function tierlistApi(method: string, body: Record<string, unknown>): Promise<Response> {
+  const empty = { id: 'main', title: 'Line Rangers Tier List', tiers: [], updatedAt: null }
+  const cur = await readContent<Record<string, unknown>>('tierlist').catch(() => empty)
+  if (method === 'GET') return json(cur)
+  if (method === 'PUT') {
+    const tiers = (Array.isArray(body.tiers) ? body.tiers : []).map(t => {
+      const r = (t ?? {}) as Record<string, unknown>
+      return {
+        label: String(r.label ?? '').slice(0, 40),
+        bg: String(r.bg ?? '#ff7f7f'),
+        fg: String(r.fg ?? '#1a1a1a'),
+        items: (Array.isArray(r.items) ? r.items : []).filter((x): x is string => typeof x === 'string' && /^[\w-]{1,80}$/.test(x)),
+      }
+    })
+    const next = { id: 'main', title: String(body.title ?? '').slice(0, 60) || empty.title, tiers, updatedAt: now() }
+    await commit('admin: update default Tier List', [contentFile('tierlist', next)])
+    return json(next)
+  }
+  return json({ error: 'Method not allowed' }, 405)
+}
+
 // ── Top 40 Legend จาก lerico สดๆ (ย้ายมาจาก /api/admin/top40-legend/fresh) ──
 
 async function top40Fresh(): Promise<Response> {
@@ -314,6 +338,7 @@ export async function adminFetch(input: string, init: RequestInit = {}): Promise
     if (p[0] === 'gacha' && p[1] === 'gear-pools') return await poolsApi(GEAR, p.slice(2), method, body)
     if (p[0] === 'site-profile') return await siteProfileApi(method, body)
     if (p[0] === 'top40') return await top40Api(method, body)
+    if (p[0] === 'tierlist') return await tierlistApi(method, body)
     if (p[0] === 'top40-legend' && p[1] === 'fresh') return await top40Fresh()
     if (p[0] === 'gear-book') return await apiFetch('/api/gear-book')
     if (p[0] === 'ranger-book' && p[1] === 'sync' && method === 'POST') {

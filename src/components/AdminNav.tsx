@@ -14,11 +14,11 @@ interface AdminNavProps {
   username: string
 }
 
+// เมนูที่ใช้บ่อย — Ranger Book / Gear Book / Lobby / About เข้าจากการ์ดในหน้า Admin Panel
 const NAV_ITEMS = [
   { href: '/admin/Gacha-ranger', icon: 'casino',         label: 'Gacha เรนเจอร์' },
   { href: '/admin/Gacha-Gear',   icon: 'shield',         label: 'Gacha เกียร์'   },
-  { href: '/admin/ranger-book',  icon: 'menu_book',      label: 'Ranger Book'     },
-  { href: '/admin/gear-book',    icon: 'inventory_2',    label: 'Gear Book'       },
+  { href: '/admin/tierlist',     icon: 'leaderboard',    label: 'Tier List'       },
   { href: '/admin/top40-legend', icon: 'emoji_events',   label: 'Top 40'          },
 ]
 
@@ -105,8 +105,9 @@ export default function AdminNav({ username }: AdminNavProps) {
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
         {/* Logo + Nav Links (จอกว้าง ≥ 1024px) */}
         <div className="flex items-center gap-4 min-w-0">
-          <Link href="/admin" className="shrink-0 whitespace-nowrap text-lg font-black text-gradient-purple">
-            🛡️ Admin Panel
+          <Link href="/admin" className="shrink-0 whitespace-nowrap flex items-center gap-2 text-lg font-black text-gradient-purple" title="หน้าหลักแอดมิน">
+            <span className="material-icons-round text-purple-300 text-xl">admin_panel_settings</span>
+            Admin Panel
           </Link>
           <div className="hidden lg:flex items-center gap-1 text-sm">{links}</div>
         </div>

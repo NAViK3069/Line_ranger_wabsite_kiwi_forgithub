@@ -111,6 +111,8 @@ async function emitContent() {
 
   const profile = content('site-profile')
   writeFile(dataFile('/api/site-profile', new URLSearchParams())!, profile)
+  // เทียร์ลิสต์ที่แอดมินจัด = ค่าเริ่มต้นของหน้า /custom-tierlist
+  writeFile(dataFile('/api/tierlist', new URLSearchParams())!, content('tierlist'))
 }
 
 // ── ข้อมูลเกม (scrape อัตโนมัติ) ─────────────────────────────────

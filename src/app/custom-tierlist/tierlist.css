@@ -37,6 +37,18 @@
 .tl-btn.primary { background: linear-gradient(135deg, #f59e0b, #f97316); border-color: transparent; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
 .tl-btn.accent { background: linear-gradient(135deg, #22c6ee, #1a7fe3); border-color: transparent; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
 .tl-btn.danger { color: #ff8b9c; border-color: rgba(255, 84, 112, 0.35); background: rgba(255, 84, 112, 0.08); }
+/* หลังบ้าน: ปุ่มเผยแพร่ + แถบสถานะ (ยังไม่เผยแพร่ / ตรงกับที่เผยแพร่) */
+.tl-btn.publish { background: linear-gradient(135deg, #22c55e, #059669); border-color: transparent; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+.tl-admin-bar {
+  display: flex; align-items: center; gap: 10px; margin: -2px 0 12px; padding: 10px 12px; border-radius: 12px;
+  background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.3); color: #bbf7d0;
+}
+.tl-admin-bar .material-icons-round { font-size: 22px; color: #4ade80; }
+.tl-admin-bar div { display: flex; flex-direction: column; min-width: 0; }
+.tl-admin-bar b { font-size: 13.5px; color: #fff; }
+.tl-admin-bar span:not(.material-icons-round) { font-size: 12px; color: #9ca3af; }
+.tl-admin-bar.dirty { background: rgba(251, 191, 36, 0.08); border-color: rgba(251, 191, 36, 0.35); }
+.tl-admin-bar.dirty .material-icons-round { color: #fbbf24; }
 
 /* ตาราง */
 .tl-board { border-radius: 14px; overflow: hidden; border: 1px solid var(--tl-line); background: #111216; }

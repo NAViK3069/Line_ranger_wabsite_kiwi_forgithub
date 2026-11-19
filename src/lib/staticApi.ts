@@ -53,6 +53,7 @@ export function dataFile(pathname: string, q: URLSearchParams): string | null {
     case 'ranger-abilities': return 'ranger-abilities.json'
     case 'custom-assets': return 'custom-assets.json'
     case 'site-profile': return 'site-profile.json'
+    case 'tierlist': return 'tierlist.json'
     case 'lerico':
       return b === 'ranger-names' || b === 'equip-names' ? `lerico/${b}.json` : null
     case 'translations':

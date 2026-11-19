@@ -16,6 +16,7 @@ import { createPortal } from 'react-dom'
 import RangerPicker, { PICKER_VIEW_DEFAULT, type PickerView } from '../lobby/RangerPicker'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { apiFetch, proxyFile } from '@/lib/staticApi'
+import { adminFetch } from '@/lib/adminApi'
 import GachaRangerDetailPopup from '@/components/GachaRangerDetailPopup'
 
 // ── ข้อมูล ──────────────────────────────────────────────
@@ -26,7 +27,17 @@ interface Tier { id: string; label: string; bg: string; fg: string; items: strin
  * removed = ตัวแนะนำที่ผู้เล่นลบทิ้งเอง (ซิงก์รายวันจะไม่เอากลับมา จนกว่าจะกด Reset)
  * metaOff = กด Delete all แล้ว → หยุดซิงก์ตัวแนะนำ จนกว่าจะกด Reset
  */
-interface Board { title: string; tiers: Tier[]; pool: string[]; meta?: string[]; removed?: string[]; metaOff?: boolean }
+interface Board {
+  title: string; tiers: Tier[]; pool: string[]; meta?: string[]; removed?: string[]; metaOff?: boolean
+  /** updatedAt ของเทียร์ลิสต์แอดมินที่บอร์ดนี้สร้างมาจาก (null = ไม่มีของแอดมิน) */
+  base?: string | null
+  /** ผู้ใช้แก้บอร์ดเองแล้ว — false = ยังเป็นของแอดมินล้วน จะตามของแอดมินที่อัปเดตใหม่ให้เอง */
+  edited?: boolean
+}
+
+/** เทียร์ลิสต์ที่แอดมินจัด (content/tierlist.json → /data/tierlist.json) */
+interface PublishedTierList { title?: string; tiers?: { label: string; bg: string; fg: string; items: string[] }[]; updatedAt?: string | null }
+const DEFAULT_TITLE = 'Line Rangers Tier List'
 
 const STORE_KEY = 'lr:tierlist:v1'
 const POOL = 'pool'
@@ -107,6 +118,24 @@ function CardFace({ id, info, alt }: { id: string; info?: RangerInfo; alt: strin
   )
 }
 const freshTiers = (): Tier[] => DEFAULT_TIERS.map(t => ({ ...t, id: uid(), items: [] }))
+/** แถวของแอดมิน (withItems = เอาเรนเจอร์มาด้วย) — ไม่มีของแอดมินก็ใช้ S A B C D */
+function tiersFrom(pub: PublishedTierList | null, withItems: boolean): Tier[] {
+  if (!pub?.tiers?.length) return freshTiers()
+  return pub.tiers.map(t => ({
+    id: uid(), label: String(t.label ?? ''), bg: t.bg || '#ff7f7f', fg: t.fg || '#1a1a1a',
+    items: withItems && Array.isArray(t.items) ? [...new Set(t.items.filter(x => typeof x === 'string'))] : [],
+  }))
+}
+/** บอร์ดเริ่มต้น = แถวที่แอดมินจัด + คลังจาก Meta (ตัดตัวที่แอดมินวางไว้แล้วออก) */
+function buildDefault(pub: PublishedTierList | null, metaPool: string[]): Board {
+  const tiers = tiersFrom(pub, true)
+  const placed = new Set<string>()
+  for (const t of tiers) t.items = t.items.filter(id => (placed.has(id) ? false : (placed.add(id), true)))
+  return {
+    title: pub?.title || DEFAULT_TITLE, tiers, pool: metaPool.filter(id => !placed.has(id)),
+    meta: metaPool, removed: [], metaOff: false, base: pub?.updatedAt ?? null, edited: false,
+  }
+}
 
 interface MetaRanger { id: string; name: string; count: number; totalCount: number }
 
@@ -159,7 +188,9 @@ function loadBoard(): Board | null {
 
 // ── หน้าหลัก ────────────────────────────────────────────
 
-export default function TierListStudio() {
+export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 'admin' }) {
+  /** admin = หน้าจัดเทียร์ลิสต์เริ่มต้นในหลังบ้าน (ไม่เก็บลงเครื่อง · มีปุ่มเผยแพร่) */
+  const isAdmin = mode === 'admin'
   const { lang, tRanger } = useLanguage()
   const T = useCallback((th: string, en: string) => (lang === 'th' ? th : en), [lang])
   const [board, setBoard] = useState<Board | null>(null)
@@ -236,21 +267,65 @@ export default function TierListStudio() {
   const flash = useCallback((m: string) => { setToast(m); window.setTimeout(() => setToast(t => (t === m ? null : t)), 2200) }, [])
 
   // ── โหลด / บันทึก ──
+  /** เทียร์ลิสต์ของแอดมินที่โหลดมาล่าสุด (ใช้ตอน Reset / Reset table) */
+  const pubRef = useRef<PublishedTierList | null>(null)
+  const [published, setPublished] = useState<PublishedTierList | null>(null)
+  const [publishing, setPublishing] = useState(false)
+  // แอดมินอ่านไฟล์ล่าสุดจาก GitHub (ของที่ deploy อาจยังเก่า) · ผู้ใช้อ่านไฟล์ที่ build ไว้
+  const loadPublished = useCallback(async (): Promise<PublishedTierList | null> => {
+    try {
+      const r = isAdmin ? await adminFetch('/api/admin/tierlist') : await apiFetch('/api/tierlist')
+      const d = r.ok ? await r.json() as PublishedTierList : null
+      pubRef.current = d; setPublished(d)
+      return d
+    } catch { return null }
+  }, [isAdmin])
   const resetBoard = useCallback(async () => {
     setLoading(true)
-    const pool = await defaultPool().catch(() => [] as string[])
-    setBoard({ title: 'Line Rangers Tier List', tiers: freshTiers(), pool, meta: pool, removed: [], metaOff: false })
+    const [pool, pub] = await Promise.all([defaultPool().catch(() => [] as string[]), loadPublished()])
+    setBoard(buildDefault(pub, pool))
     setSelected(null)
     setLoading(false)
-  }, [])
+  }, [loadPublished])
   useEffect(() => {
+    if (isAdmin) { resetBoard(); return }
     const saved = loadBoard()
     if (!saved) { resetBoard(); return }
     setBoard(saved); setLoading(false)
-    // Meta อัปเดตทุกวัน → เทียบชุดแนะนำล่าสุดแล้วซิงก์คลังให้เอง
-    if (!saved.metaOff) defaultPool().then(fresh => setBoard(b => (b ? syncMeta(b, fresh) : b))).catch(() => {})
-  }, [resetBoard])
-  useEffect(() => { if (board) try { localStorage.setItem(STORE_KEY, JSON.stringify(board)) } catch { /* เต็ม */ } }, [board])
+    loadPublished().then(pub => {
+      // ยังไม่ได้แก้เอง + แอดมินเผยแพร่ฉบับใหม่ → เปลี่ยนเป็นฉบับใหม่ให้เลย
+      // (บอร์ดรุ่นเก่าที่ไม่มี edited ถือว่าแก้เองแล้ว ไม่ไปทับ)
+      if (saved.edited === false && (pub?.updatedAt ?? null) !== (saved.base ?? null)) { resetBoard(); return }
+      // Meta อัปเดตทุกวัน → เทียบชุดแนะนำล่าสุดแล้วซิงก์คลังให้เอง
+      if (!saved.metaOff) defaultPool().then(fresh => setBoard(b => (b ? syncMeta(b, fresh) : b))).catch(() => {})
+    })
+  }, [resetBoard, loadPublished, isAdmin])
+  useEffect(() => { if (board && !isAdmin) try { localStorage.setItem(STORE_KEY, JSON.stringify(board)) } catch { /* เต็ม */ } }, [board, isAdmin])
+  // แอดมินแก้แล้วยังไม่เผยแพร่ → เตือนก่อนปิดหน้า
+  useEffect(() => {
+    if (!isAdmin || !board?.edited) return
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [isAdmin, board?.edited])
+  /** เผยแพร่เป็นเทียร์ลิสต์เริ่มต้นของทุกคน (commit content/tierlist.json → build เว็บใหม่) */
+  const publish = async () => {
+    if (!board) return
+    setPublishing(true)
+    try {
+      const r = await adminFetch('/api/admin/tierlist', {
+        method: 'PUT',
+        body: JSON.stringify({ title: board.title, tiers: board.tiers.map(({ label, bg, fg, items }) => ({ label, bg, fg, items })) }),
+      })
+      const d = await r.json() as PublishedTierList & { error?: string }
+      if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`)
+      pubRef.current = d; setPublished(d)
+      setBoard(b => (b ? { ...b, edited: false, base: d.updatedAt ?? null } : b))
+      flash(T('เผยแพร่แล้ว — หน้าเว็บจะอัปเดตใน 2–5 นาที', 'Published — the site updates in 2–5 minutes'))
+    } catch (err) {
+      flash(T('เผยแพร่ไม่สำเร็จ: ', 'Publish failed: ') + (err instanceof Error ? err.message : ''))
+    } finally { setPublishing(false) }
+  }
 
   // ชื่อเรนเจอร์ (ใช้ใน title / แถบเลือก) — จาก ranger-book ชุดเดียวกับตัวเลือก
   useEffect(() => {
@@ -261,7 +336,8 @@ export default function TierListStudio() {
   const nameOf = (id: string) => tRanger(id, book[id]?.name ?? id)
 
   // ── แก้บอร์ด ──
-  const update = (fn: (b: Board) => Board) => setBoard(b => (b ? fn(structuredClone(b)) : b))
+  // ทุกการแก้ของผู้ใช้ผ่านตรงนี้ → ติดธง edited (ซิงก์ Meta / โหลดของแอดมินใช้ setBoard ตรงๆ ไม่ติดธง)
+  const update = (fn: (b: Board) => Board) => setBoard(b => (b ? { ...fn(structuredClone(b)), edited: true } : b))
   const zoneOf = (b: Board, id: string) => (b.pool.includes(id) ? POOL : b.tiers.find(t => t.items.includes(id))?.id ?? null)
 
   /** ย้ายเรนเจอร์ไปโซน (เทียร์ / คลัง) ที่ตำแหน่ง index (ไม่ใส่ = ท้ายสุด) */
@@ -418,8 +494,9 @@ export default function TierListStudio() {
     // รีเซ็ตตาราง = แถว/ชื่อ/สี/ชื่อตารางกลับเป็นค่าเริ่มต้น · เรนเจอร์ในตารางกลับคลังทั้งหมด (คลังไม่ถูกโหลดใหม่)
     if (confirm === 'tiers') update(b => {
       b.pool = [...b.tiers.flatMap(t => t.items), ...b.pool]
-      b.tiers = freshTiers()
-      b.title = 'Line Rangers Tier List'
+      // ผู้ใช้: กลับเป็นแถว/สี/ชื่อของแอดมิน (ว่าง) · แอดมิน: กลับเป็น S A B C D
+      b.tiers = isAdmin ? freshTiers() : tiersFrom(pubRef.current, false)
+      b.title = (!isAdmin && pubRef.current?.title) || DEFAULT_TITLE
       return b
     })
     if (confirm === 'delete') update(b => { b.pool = []; b.tiers.forEach(t => { t.items = [] }); b.metaOff = true; return b })
@@ -484,14 +561,37 @@ export default function TierListStudio() {
           <button className="tl-btn" onClick={() => setConfirm('tiers')}>
             <span className="material-icons-round">format_color_reset</span>{T('รีเซ็ตตาราง', 'Reset table')}
           </button>
-          <button className="tl-btn danger" onClick={() => setConfirm('delete')}>
-            <span className="material-icons-round">delete_sweep</span>{T('ลบทั้งหมด', 'Delete all')}
-          </button>
+          {!isAdmin && (
+            <button className="tl-btn danger" onClick={() => setConfirm('delete')}>
+              <span className="material-icons-round">delete_sweep</span>{T('ลบทั้งหมด', 'Delete all')}
+            </button>
+          )}
           <button className="tl-btn" onClick={() => setConfirm('reset')}>
-            <span className="material-icons-round">restart_alt</span>{T('รีเซ็ต', 'Reset')}
+            <span className="material-icons-round">{isAdmin ? 'cloud_download' : 'restart_alt'}</span>
+            {isAdmin ? T('โหลดฉบับที่เผยแพร่', 'Load published') : T('รีเซ็ต', 'Reset')}
           </button>
+          {isAdmin && (
+            <button className="tl-btn publish" onClick={publish} disabled={publishing}>
+              <span className={'material-icons-round' + (publishing ? ' animate-spin' : '')}>{publishing ? 'autorenew' : 'publish'}</span>
+              {publishing ? T('กำลังเผยแพร่...', 'Publishing...') : T('เผยแพร่', 'Publish')}
+            </button>
+          )}
         </div>
       </div>
+
+      {isAdmin && (
+        <div className={'tl-admin-bar' + (board.edited ? ' dirty' : '')}>
+          <span className="material-icons-round">{board.edited ? 'edit_note' : 'check_circle'}</span>
+          <div>
+            <b>{board.edited ? T('มีการแก้ไขที่ยังไม่เผยแพร่', 'Unpublished changes') : T('ตรงกับฉบับที่เผยแพร่อยู่', 'Matches the published version')}</b>
+            <span>
+              {published?.updatedAt
+                ? T('เผยแพร่ล่าสุด ', 'Last published ') + new Date(published.updatedAt).toLocaleString(lang === 'th' ? 'th-TH' : 'en-GB')
+                : T('ยังไม่เคยเผยแพร่ — ผู้ใช้จะเห็นแถว S A B C D ว่าง', 'Never published — visitors see empty S A B C D rows')}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* ตารางเทียร์ */}
       <div className="tl-board">
@@ -645,13 +745,17 @@ export default function TierListStudio() {
 
       {/* ยืนยัน */}
       {confirm && (
-        <Sheet title={confirm === 'clear' ? T('ล้างตาราง?', 'Clear all tiers?') : confirm === 'tiers' ? T('รีเซ็ตตั้งค่าตาราง?', 'Reset the table settings?') : confirm === 'delete' ? T('ลบเรนเจอร์ทั้งหมด?', 'Delete every ranger?') : T('รีเซ็ตทั้งหมด?', 'Reset everything?')} onClose={() => setConfirm(null)}>
+        <Sheet title={confirm === 'clear' ? T('ล้างตาราง?', 'Clear all tiers?') : confirm === 'tiers' ? T('รีเซ็ตตั้งค่าตาราง?', 'Reset the table settings?') : confirm === 'delete' ? T('ลบเรนเจอร์ทั้งหมด?', 'Delete every ranger?') : isAdmin ? T('โหลดฉบับที่เผยแพร่?', 'Load the published version?') : T('รีเซ็ตทั้งหมด?', 'Reset everything?')} onClose={() => setConfirm(null)}>
           <p className="tl-confirm-text">
             {confirm === 'clear' && T('ย้ายเรนเจอร์ทุกตัวในตารางกลับไปที่คลัง (แถวและสีเทียร์ยังอยู่)', 'Moves every ranger in the tiers back to the pool (rows and colours stay)')}
-            {confirm === 'tiers' && T('ตารางกลับเป็นแถว S A B C D สีเดิม และชื่อตารางเริ่มต้น เรนเจอร์ในตารางกลับไปที่คลัง (เรนเจอร์ที่เพิ่มเองไม่หาย)', 'The table goes back to S A B C D rows, default colours and the default title. Placed rangers go back to the pool (rangers you added are kept)')}
+            {confirm === 'tiers' && (isAdmin
+              ? T('ตารางกลับเป็นแถว S A B C D สีเดิม และชื่อตารางเริ่มต้น เรนเจอร์ในตารางกลับไปที่คลัง', 'The table goes back to S A B C D rows, default colours and the default title. Placed rangers go back to the pool')
+              : T('ตารางกลับเป็นแถว ชื่อ และสีตามที่แอดมินตั้งไว้ (แถวว่าง) เรนเจอร์ในตารางกลับไปที่คลัง (เรนเจอร์ที่เพิ่มเองไม่หาย)', 'The table goes back to the rows, labels and colours set by the admin (empty). Placed rangers go back to the pool (rangers you added are kept)'))}
             {confirm === 'delete' && T('ลบเรนเจอร์ทั้งหมดทั้งในตารางและคลัง เหลือตารางเปล่าให้เพิ่มเองทีละตัว', 'Removes every ranger from the tiers and the pool, leaving an empty board to fill yourself')}
             {confirm === 'delete' && <><br />{T('ตัวแนะนำจาก Meta จะไม่กลับมาเองอีก จนกว่าจะกดรีเซ็ต', 'Meta recommendations stop coming back until you press Reset')}</>}
-            {confirm === 'reset' && T('กลับไปเป็นค่าเริ่มต้น: แถว S A B C D และเรนเจอร์จาก Meta PVP ลีค Legend ล่าสุด', 'Back to the defaults: S A B C D rows and the latest Meta PVP Legend rangers')}
+            {confirm === 'reset' && (isAdmin
+              ? T('ทิ้งที่แก้ไว้ แล้วโหลดเทียร์ลิสต์ที่เผยแพร่อยู่ตอนนี้กลับมา', 'Discard your changes and load the tier list that is published now')
+              : T('กลับไปเป็นค่าเริ่มต้น: เทียร์ลิสต์ที่แอดมินจัดไว้ และเรนเจอร์จาก Meta PVP ลีค Legend ล่าสุด', 'Back to the defaults: the tier list arranged by the admin and the latest Meta PVP Legend rangers'))}
           </p>
           <div className="tl-confirm-btns">
             <button className="tl-btn" onClick={() => setConfirm(null)}>{T('ยกเลิก', 'Cancel')}</button>

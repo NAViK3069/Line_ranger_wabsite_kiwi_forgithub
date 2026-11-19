@@ -11,7 +11,7 @@
 //   บันทึกอัตโนมัติในเบราว์เซอร์ (localStorage) · ดาวน์โหลดเป็นรูป PNG (วาดลง canvas เอง)
 // ====================================================
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import RangerPicker, { PICKER_VIEW_DEFAULT, type PickerView } from '../lobby/RangerPicker'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -169,6 +169,45 @@ export default function TierListStudio() {
   const [picking, setPicking] = useState(false)
   /** เรนเจอร์ที่เปิดดูรายละเอียด (ป๊อปอัปเดียวกับ Ranger Book) */
   const [detailId, setDetailId] = useState<string | null>(null)
+  /** เมนูคลิกขวา (PC): ลอยข้างเมาส์ · x/y = ตำแหน่งที่คลิก */
+  const [ctx, setCtx] = useState<{ id: string; x: number; y: number } | null>(null)
+  const ctxRef = useRef<HTMLDivElement>(null)
+  // ดันเมนูให้อยู่ในจอเสมอ (วัดขนาดจริงหลัง render แล้วค่อยวาง)
+  useLayoutEffect(() => {
+    const el = ctxRef.current
+    if (!ctx || !el) return
+    // offsetWidth/Height = ขนาดจริงไม่โดน scale ของแอนิเมชันตอนเปิด (getBoundingClientRect จะได้เล็กกว่า)
+    const m = 8, w = el.offsetWidth, h = el.offsetHeight
+    const left = Math.max(m, Math.min(ctx.x + 4, window.innerWidth - w - m))
+    const top = ctx.y + 4 + h > window.innerHeight - m ? Math.max(m, ctx.y - h - 4) : ctx.y + 4
+    el.style.left = `${left}px`; el.style.top = `${top}px`
+    el.style.transformOrigin = `${ctx.x - left}px ${ctx.y - top}px`
+    el.style.visibility = 'visible'
+  }, [ctx])
+  // ปิดเมนูเมื่อคลิกที่อื่น / กด Esc / เลื่อนหน้า / ย่อขยายจอ
+  useEffect(() => {
+    if (!ctx) return
+    const close = () => setCtx(null)
+    const onDown = (e: PointerEvent) => { if (!ctxRef.current?.contains(e.target as Node)) close() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
+    window.addEventListener('pointerdown', onDown, true)
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('pointerdown', onDown, true)
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [ctx])
+  /** คลิกขวาที่เรนเจอร์: เปิดเมนูลอยเฉพาะอุปกรณ์ที่มีเมาส์ (มือถือกดค้าง = ลาก ไม่เปิดเมนู) */
+  const onItemContextMenu = (e: React.MouseEvent, id: string) => {
+    e.preventDefault()
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
+    setSelected(null)
+    setCtx({ id, x: e.clientX, y: e.clientY })
+  }
   const [pickerView, setPickerView] = useState<PickerView>(PICKER_VIEW_DEFAULT)
   const [confirm, setConfirm] = useState<null | 'clear' | 'tiers' | 'delete' | 'reset'>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -380,13 +419,13 @@ export default function TierListStudio() {
       key={id}
       type="button"
       data-item={id}
-      className={'tl-item' + (selected === id ? ' sel' : '') + (drag?.id === id ? ' ghosted' : '')}
+      className={'tl-item' + (selected === id || ctx?.id === id ? ' sel' : '') + (drag?.id === id ? ' ghosted' : '')}
       style={{ background: frameCss(frameOf(book[id])) }}
       title={nameOf(id)}
       onPointerDown={e => onItemPointerDown(e, id)}
       onTouchStart={e => onItemTouchStart(e, id)}
       onClick={() => onItemClick(id)}
-      onContextMenu={e => e.preventDefault()}
+      onContextMenu={e => onItemContextMenu(e, id)}
     >
       <CardFace id={id} info={book[id]} alt={nameOf(id)} />
     </button>
@@ -499,6 +538,33 @@ export default function TierListStudio() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* เมนูคลิกขวา (PC) */}
+      {ctx && createPortal(
+        <div ref={ctxRef} className="tl-ctx" style={{ left: ctx.x, top: ctx.y, visibility: 'hidden' }} role="menu" onContextMenu={e => e.preventDefault()}>
+          <div className="tl-ctx-head">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={thumb(ctx.id)} alt="" />
+            <b>{nameOf(ctx.id)}</b>
+          </div>
+          <div className="tl-ctx-tiers">
+            {board.tiers.map(t => (
+              <button key={t.id} role="menuitem" className={zoneOf(board, ctx.id) === t.id ? 'here' : ''} style={{ background: t.bg, color: t.fg }}
+                title={T(`ย้ายไป ${t.label}`, `Move to ${t.label}`)} onClick={() => { moveItem(ctx.id, t.id); setCtx(null) }}>{t.label || '·'}</button>
+            ))}
+          </div>
+          <button role="menuitem" className="tl-ctx-item" onClick={() => { setDetailId(ctx.id); setCtx(null) }}>
+            <span className="material-icons-round">visibility</span>{T('ดูรายละเอียด', 'Info')}
+          </button>
+          <button role="menuitem" className="tl-ctx-item" disabled={zoneOf(board, ctx.id) === POOL} onClick={() => { moveItem(ctx.id, POOL, 0); setCtx(null) }}>
+            <span className="material-icons-round">inventory_2</span>{T('กลับคลัง', 'Pool')}
+          </button>
+          <button role="menuitem" className="tl-ctx-item danger" onClick={() => { removeItem(ctx.id); setCtx(null) }}>
+            <span className="material-icons-round">delete</span>{T('ลบ', 'Remove')}
+          </button>
+        </div>,
+        document.body,
       )}
 
       {/* ป๊อปอัปรายละเอียด — portal ไป body โดยไม่ห่อชั้น z-index (ห่อแล้วป๊อปอัปเลือกเกียร์ z-70 จะไปอยู่ข้างหลัง)

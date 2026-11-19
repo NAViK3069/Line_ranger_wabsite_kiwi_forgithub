@@ -1,2 +1,6 @@
-// หน้า /gacha-ranger — ตัวหน้าอยู่ที่ src/views/gacha/RangerPoolList.tsx
-export { default } from '@/views/gacha/RangerPoolList'
+// หน้า /gacha-ranger — Gacha Simulator แท็บ Ranger (ตัวหน้าอยู่ที่ src/views/gacha/GachaSimulator.tsx)
+import GachaSimulator from '@/views/gacha/GachaSimulator'
+
+export default function GachaRangerPage() {
+  return <GachaSimulator initial="ranger" />
+}

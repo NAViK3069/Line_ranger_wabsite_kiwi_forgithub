@@ -1,7 +1,7 @@
 'use client'
 
 // ====================================================
-// /custom-tierlist — จัดเทียร์ลิสต์เรนเจอร์ (เมนู Custom → Tier List)
+// /custom-tierlist — จัดเทียร์ลิสต์เรนเจอร์ (ปุ่ม Tier List บนหน้าแรก / เมนู Custom)
 // ตัวหน้าอยู่ใน TierListStudio.tsx · สไตล์อยู่ใน tierlist.css
 // ====================================================
 
@@ -17,9 +17,10 @@ export default function CustomTierListPage() {
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 bg-[#1A0A2E]/95 backdrop-blur-md border-b border-white/10">
         <div className="max-w-6xl mx-auto px-4 h-12 flex items-center gap-3">
-          <Link href="/custom" className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm transition-colors">
+          {/* Tier List อยู่บนหน้าแรกแล้ว → ย้อนกลับไปหน้าแรก (ไม่ใช่เมนู Custom) */}
+          <Link href="/" className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm transition-colors">
             <span className="material-icons-round text-base">arrow_back</span>
-            <span className="hidden sm:inline">{tStat('Back to Custom')}</span>
+            <span className="hidden sm:inline">{tStat('Back')}</span>
           </Link>
           <span className="text-white/20">|</span>
           <span className="material-icons-round text-lg text-amber-300">leaderboard</span>

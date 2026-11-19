@@ -98,12 +98,26 @@ function RecentBuilds() {
     return () => clearTimeout(t)
   }, [running, runs, load])
 
+  // แถบพับได้: ปิดอยู่ก็เห็นสถานะรอบล่าสุดในบรรทัดเดียว · กดเพื่อดูรายการ
+  const latest = runs?.[0]
+  const lst = latest ? runStatus(latest) : null
   return (
-    <section className="card-glass rounded-2xl p-4 sm:p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="material-icons-round text-gray-300">history</span>
-        <h2 className="font-bold text-white">การอัปเดตเว็บล่าสุด</h2>
-        <button onClick={load} className="ml-auto text-xs text-gray-400 hover:text-white flex items-center gap-1" title="โหลดใหม่">
+    <details className="group card-glass rounded-2xl border border-white/10">
+      <summary className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
+        <span className="material-icons-round text-gray-300 text-xl">history</span>
+        <span className="font-semibold text-white text-sm whitespace-nowrap">การอัปเดตเว็บล่าสุด</span>
+        {latest && lst && (
+          <span className={`hidden sm:flex items-center gap-1 text-xs ${lst.cls} min-w-0`}>
+            <span className={`material-icons-round text-base ${lst.spin ? 'animate-spin' : ''}`}>{lst.icon}</span>
+            <span className="truncate">{lst.label} · {timeAgo(latest.updatedAt)}</span>
+          </span>
+        )}
+        {latest && lst && <span className={`sm:hidden material-icons-round text-base ${lst.cls} ${lst.spin ? 'animate-spin' : ''}`}>{lst.icon}</span>}
+        <span className="material-icons-round ml-auto text-gray-400 transition-transform group-open:rotate-180">expand_more</span>
+      </summary>
+      <div className="px-4 pb-3">
+      <div className="flex justify-end -mt-1 mb-1">
+        <button onClick={load} className="text-xs text-gray-400 hover:text-white flex items-center gap-1" title="โหลดใหม่">
           <span className="material-icons-round text-base">refresh</span>รีเฟรช
         </button>
       </div>
@@ -130,19 +144,20 @@ function RecentBuilds() {
           })}
         </ul>
       )}
-    </section>
+      </div>
+    </details>
   )
 }
 
 export default function AdminDashboardPage() {
   return (
-    <div className="space-y-8">
-      {/* หัว + การอัปเดตเว็บล่าสุด */}
-      <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
-        <section className="rounded-2xl p-5 sm:p-6 border border-purple-400/25 bg-gradient-to-br from-purple-500/15 via-fuchsia-500/5 to-transparent flex flex-col justify-center">
-          <h1 className="text-2xl sm:text-3xl font-black text-white">Admin Panel</h1>
-          <p className="text-gray-300 mt-1">จัดการเนื้อหาของเว็บ Line Ranger Kiwi</p>
-        </section>
+    <div className="space-y-7">
+      {/* หัวเล็กๆ + แถบการอัปเดตเว็บล่าสุด (พับได้) */}
+      <div className="space-y-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-black text-white leading-tight">Admin Panel</h1>
+          <p className="text-sm text-gray-400">จัดการเนื้อหาของเว็บ Line Ranger Kiwi</p>
+        </div>
         <RecentBuilds />
       </div>
 

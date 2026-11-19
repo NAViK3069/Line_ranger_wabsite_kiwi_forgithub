@@ -61,7 +61,7 @@ export function newAnimCue(actorId: string, start: number, clip: string): AnimCu
 }
 
 export function newMoveCue(actorId: string, start: number, to: Vec, clip: string | null = 'walk'): MoveCue {
-  return { id: uid('c'), type: 'move', actorId, start, to: { ...to }, duration: 1, ease: 'easeInOut', clip }
+  return { id: uid('c'), type: 'move', actorId, start, to: { ...to }, duration: 1, ease: 'linear', clip } // ค่าเริ่มต้น Linear (ความเร็วคงที่) — ปรับใน Inspector ได้
 }
 
 export function newShowCue(actorId: string, start: number, duration = 2): ShowCue {

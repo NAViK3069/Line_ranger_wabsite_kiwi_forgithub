@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import RangerPicker, { PICKER_VIEW_DEFAULT, type PickerView } from '@/app/lobby/RangerPicker'
+import { UPCOMING_RANGERS } from '@/lib/upcomingRangers'
 import { useLanguage } from '@/contexts/LanguageContext'
 import {
   addLericoRanger, addMediaActor, addSoundCue, addUploadedRanger, loadNames, uploadAudio, uploadMedia, uploadSequence, type RangerName,
@@ -95,6 +96,7 @@ export function RangersTab() {
         <RangerPicker
           title={tStat('Pick a ranger')}
           allowAll
+          extraRows={UPCOMING_RANGERS}
           view={pickerView}
           onViewChange={next => setPickerView(v => ({ ...v, ...next }))}
           onPick={r => { setPicking(false); add(r.id) }}

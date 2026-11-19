@@ -125,9 +125,11 @@ interface Props {
   onViewChange: (next: Partial<PickerView>) => void
   onPick: (r: RangerRow) => void
   onClose: () => void
+  /** เรนเจอร์ที่ยังไม่อยู่ใน Ranger Book (ตัวใหม่) — แสดงต่อท้ายพร้อมป้าย NEW · ถ้า Book มีแล้วใช้ของ Book */
+  extraRows?: RangerRow[]
 }
 
-export default function RangerPicker({ title, allowAll = false, minGrade = 0, view, onViewChange, onPick, onClose }: Props) {
+export default function RangerPicker({ title, allowAll = false, minGrade = 0, view, onViewChange, onPick, onClose, extraRows }: Props) {
   const { lang, tRanger, tStat } = useLanguage()
   const [rows, setRows] = useState<RangerRow[]>(bookCache ?? [])
   const [loading, setLoading] = useState(!bookCache)
@@ -142,6 +144,12 @@ export default function RangerPicker({ title, allowAll = false, minGrade = 0, vi
     onViewChange({ page: typeof p === 'function' ? p(page) : p })
 
   useEffect(() => { loadRangerBook().then(r => { setRows(r); setLoading(false) }) }, [])
+  // ตัวใหม่ที่ Book ยังไม่มี (ไม่ซ้ำกับของ Book)
+  const extraIds = useMemo(() => {
+    const inBook = new Set(rows.map(r => r.id))
+    return new Set((extraRows ?? []).filter(r => !inBook.has(r.id)).map(r => r.id))
+  }, [rows, extraRows])
+  const allRows = useMemo(() => (extraIds.size ? [...rows, ...(extraRows ?? []).filter(r => extraIds.has(r.id))] : rows), [rows, extraRows, extraIds])
 
   // ค้นหาข้ามภาษา: อยู่โหมด EN แล้วพิมพ์ไทย → ค่อยไปดึงชุดชื่อไทยมาเทียบ
   useEffect(() => {
@@ -168,7 +176,7 @@ export default function RangerPicker({ title, allowAll = false, minGrade = 0, vi
   // ลำดับเดียวกับ Ranger Book: ตัวใหม่อยู่ก่อน (sortOrder มากไปน้อย)
   // ส่วนตัวพิเศษ (sortOrder > 2000 เช่นเรนเจอร์ทดสอบ/ตัวระบบ) ถูกดันไปท้ายสุดทั้งก้อน
   const filtered = useMemo(() => {
-    let list = rows
+    let list = allRows
       .filter(r => allowAll || RANGER_ID_RE.test(r.id))
       .filter(r => !minGrade || (r.grade ?? 0) >= minGrade)
       .sort((a, b) => {
@@ -191,7 +199,7 @@ export default function RangerPicker({ title, allowAll = false, minGrade = 0, vi
     if (filters.roles.length > 0)      list = list.filter(r => r.role != null && filters.roles.includes(r.role))
     if (filters.elements.length > 0)   list = list.filter(r => filters.elements.includes(r.element ?? 'none'))
     return list
-  }, [rows, allowAll, minGrade, search, filters, altNames, tRanger])
+  }, [allRows, allowAll, minGrade, search, filters, altNames, tRanger])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages - 1)
@@ -314,6 +322,9 @@ export default function RangerPicker({ title, allowAll = false, minGrade = 0, vi
                     className="rounded-xl p-1.5 border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/25 active:scale-95 transition-all"
                   >
                     <div className="w-full aspect-square flex items-center justify-center relative">
+                      {extraIds.has(r.id) && (
+                        <span className="absolute top-0 right-0 z-10 px-1 rounded bg-pink-500 text-[9px] font-black leading-[14px] text-white shadow" title="ตัวใหม่ — ยังไม่มีข้อมูลใน Ranger Book">NEW</span>
+                      )}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={thumb(r.id)} alt={r.name}

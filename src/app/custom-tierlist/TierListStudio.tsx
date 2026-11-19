@@ -70,11 +70,17 @@ const WOOD_BANDS: [string, number, number][] = [['#6e4320', 0, 3], ['#8d5a31', 3
 const frameCss = (k: FrameKind) => k === 'wood'
   ? `repeating-linear-gradient(100deg, ${WOOD_BANDS.map(([c, x, w]) => `${c} ${x}px ${x + w}px`).join(', ')})`
   : `linear-gradient(135deg, ${FRAME_STOPS[k].map((c, i, a) => `${c} ${Math.round((i / (a.length - 1)) * 100)}%`).join(', ')})`
-const STAR_PATH = 'M12 1.5l3.1 6.6 7.2.9-5.3 5 1.4 7.1L12 17.6l-6.4 3.5 1.4-7.1-5.3-5 7.2-.9z'
+/** รูปดาวชุดเดียวกับหน้ากาชา: ธรรมดา = ทอง · ไฮเปอร์ = # (ชมพู) · อัลตร้า = + (ฟ้า) · 9 ดาวมีแบบเดียว */
+function starSrc(info?: RangerInfo): string | null {
+  const g = Math.max(0, Math.min(9, info?.grade ?? 0))
+  if (!g) return null
+  const mark = g >= 9 ? '' : info?.evolution === 'hyper' ? '#' : info?.evolution === 'ultra' ? '+' : ''
+  return `/gacha/images/${encodeURIComponent(`${g}${mark}star`)}.png`
+}
 
 function CardFace({ id, info, alt }: { id: string; info?: RangerInfo; alt: string }) {
   const el = hasElement(info?.element) ? info!.element! : null
-  const stars = Math.max(0, Math.min(9, info?.grade ?? 0))
+  const stars = starSrc(info)
   return (
     <>
       <span className="tl-card" style={el ? { backgroundImage: `url(${bgSrc(el)})` } : undefined}>
@@ -83,11 +89,8 @@ function CardFace({ id, info, alt }: { id: string; info?: RangerInfo; alt: strin
       </span>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {el && <img className="tl-el" src={elSrc(el)} alt="" draggable={false} />}
-      {stars > 0 && (
-        <span className="tl-stars" aria-label={`${stars} stars`}>
-          {Array.from({ length: stars }, (_, i) => <svg key={i} viewBox="0 0 24 24"><path d={STAR_PATH} /></svg>)}
-        </span>
-      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {stars && <img className="tl-stars" src={stars} alt={`${info?.grade ?? ''}★`} draggable={false} />}
     </>
   )
 }
@@ -600,6 +603,11 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
   })
 }
 
+/** ขนาดรูปดาวเทียบกับการ์ด (ต้องตรงกับ .tl-stars ใน tierlist.css) */
+const STAR_W = 0.96, STAR_LIFT = 0.07
+/** ความมืดที่ทับพื้นหลังธาตุ (ต้องตรงกับ .tl-card::before ใน tierlist.css) */
+const BG_DIM = 0.2
+
 let woodCache: HTMLCanvasElement | null = null
 /** ลายไม้ (ทำครั้งเดียว) ให้ตรงกับ repeating-linear-gradient ของ CSS */
 function woodTile() {
@@ -612,7 +620,7 @@ function woodTile() {
 
 /** กรอบ + พื้นหลังธาตุ + รูป + วงกลมธาตุ + ดาว ลงแคนวาส (หน้าตาเดียวกับการ์ดบนหน้าเว็บ) */
 function drawCard(ctx: CanvasRenderingContext2D, x: number, y: number, S: number, info: RangerInfo | undefined,
-  img: HTMLImageElement | null, bg: HTMLImageElement | null, badge: HTMLImageElement | null) {
+  img: HTMLImageElement | null, bg: HTMLImageElement | null, badge: HTMLImageElement | null, starImg: HTMLImageElement | null) {
   const kind = frameOf(info), F = Math.round(S * 0.07), R = S * 0.14
   // กรอบ
   ctx.save()
@@ -633,29 +641,25 @@ function drawCard(ctx: CanvasRenderingContext2D, x: number, y: number, S: number
   ctx.save()
   ctx.beginPath(); ctx.roundRect(ix, iy, IS, IS, Math.max(2, R - F)); ctx.clip()
   ctx.fillStyle = '#2b2e38'; ctx.fillRect(ix, iy, IS, IS)
-  if (bg) ctx.drawImage(bg, ix - IS * 0.04, iy - IS * 0.04, IS * 1.08, IS * 1.08)
+  if (bg) {
+    ctx.drawImage(bg, ix - IS * 0.04, iy - IS * 0.04, IS * 1.08, IS * 1.08)
+    ctx.fillStyle = `rgba(0,0,0,${BG_DIM})`; ctx.fillRect(ix, iy, IS, IS) // พื้นหลังมืดลงนิดหน่อย
+  }
   if (img) {
     const k = Math.min(IS / img.width, IS / img.height)
     const w = img.width * k, h = img.height * k
+    // เงาอ่อนๆ ใต้ตัวเรนเจอร์ (ตรงกับ drop-shadow ของ .tl-card img)
+    ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = S * 0.035 * 2; ctx.shadowOffsetY = S * 0.02
     ctx.drawImage(img, ix + (IS - w) / 2, iy + (IS - h) / 2, w, h)
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
   }
   ctx.restore()
   // วงกลมธาตุ มุมซ้ายล่าง
   if (badge) { const B = S * 0.34; ctx.drawImage(badge, x + S * 0.01, y + S - B - S * 0.01, B, B) }
   // ดาว บนขอบบน
-  const n = Math.max(0, Math.min(9, info?.grade ?? 0))
-  if (n) {
-    const st = S * 0.135, step = st * 0.78, total = st + step * (n - 1)
-    const star = new Path2D(STAR_PATH)
-    for (let i = 0; i < n; i++) {
-      ctx.save()
-      ctx.translate(x + (S - total) / 2 + i * step, y - st * 0.18)
-      ctx.scale(st / 24, st / 24)
-      ctx.lineJoin = 'round'; ctx.lineWidth = 3.2; ctx.strokeStyle = '#5a3500'; ctx.stroke(star)
-      const g = ctx.createLinearGradient(0, 2, 0, 22); g.addColorStop(0, '#fff6a8'); g.addColorStop(0.5, '#ffd23a'); g.addColorStop(1, '#f39a0b')
-      ctx.fillStyle = g; ctx.fill(star)
-      ctx.restore()
-    }
+  if (starImg) {
+    const w = S * STAR_W, h = w * (starImg.height / starImg.width)
+    ctx.drawImage(starImg, x + (S - w) / 2, y - S * STAR_LIFT, w, h)
   }
 }
 
@@ -682,6 +686,8 @@ async function renderBoard(b: Board, book: Record<string, RangerInfo>): Promise<
   const els = [...new Set(ids.map(id => book[id]?.element).filter(hasElement))]
   const bgs = new Map(await Promise.all(els.map(async e => [e, await loadImage(bgSrc(e))] as const)))
   const badges = new Map(await Promise.all(els.map(async e => [e, await loadImage(elSrc(e))] as const)))
+  const starFiles = [...new Set(ids.map(id => starSrc(book[id])).filter((x): x is string => !!x))]
+  const starImgs = new Map(await Promise.all(starFiles.map(async f => [f, await loadImage(f)] as const)))
 
   let y = PAD + TITLE_H
   b.tiers.forEach((t, i) => {
@@ -697,7 +703,7 @@ async function renderBoard(b: Board, book: Record<string, RangerInfo>): Promise<
       const cx = PAD + LABEL + GAP + (k % perRow) * (CELL + GAP)
       const cy = y + GAP + Math.floor(k / perRow) * (CELL + GAP)
       const info = book[id], e = info?.element ?? ''
-      drawCard(ctx, cx, cy, CELL, info, imgs.get(id) ?? null, bgs.get(e) ?? null, badges.get(e) ?? null)
+      drawCard(ctx, cx, cy, CELL, info, imgs.get(id) ?? null, bgs.get(e) ?? null, badges.get(e) ?? null, starImgs.get(starSrc(info) ?? '') ?? null)
     })
     y += h + 4
   })

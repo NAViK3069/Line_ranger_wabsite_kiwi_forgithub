@@ -126,6 +126,74 @@ function tiersFrom(pub: PublishedTierList | null, withItems: boolean): Tier[] {
     items: withItems && Array.isArray(t.items) ? [...new Set(t.items.filter(x => typeof x === 'string'))] : [],
   }))
 }
+// ── ไฟล์ .txt (นำเข้า / ส่งออก) ─────────────────────────
+// อ่าน/แก้ด้วยมือได้:
+//   Line Ranger Kiwi Tier List v1
+//   title: ชื่อตาราง
+//   tier: S | #ff7f7f | #1a1a1a      ← ชื่อแถว | สีพื้น | สีตัวหนังสือ
+//   u1646e-jessica   # ชื่อเรนเจอร์ (หลัง # คือหมายเหตุ ไม่ถูกอ่าน)
+//   pool:                              ← เรนเจอร์ในคลัง (ไม่ใส่ก็ได้)
+// รับไฟล์ JSON {title, tiers:[{label,bg,fg,items}], pool} ด้วย
+const TXT_HEADER = 'Line Ranger Kiwi Tier List v1'
+/** รหัสเรนเจอร์ เช่น u1646e-jessica / g999-labirinth (ต้องมี - เสมอ กันคำอื่นหลุดเข้ามา) */
+const ID_RE = /^[a-z0-9]+-[\w-]{1,80}$/i
+const COLOR_RE = /^#[0-9a-f]{3,8}$/i
+interface ParsedTierList { title?: string; tiers: { label: string; bg: string; fg: string; items: string[] }[]; pool: string[] }
+
+function boardToText(b: Board, nameOf: (id: string) => string): string {
+  const line = (id: string) => { const n = nameOf(id); return n && n !== id ? `${id}   # ${n}` : id }
+  const out = [TXT_HEADER, '# https://ranger-kiwi.com/custom-tierlist', `title: ${b.title}`, '']
+  for (const t of b.tiers) {
+    out.push(`tier: ${t.label.replace(/[|\r\n]+/g, ' ')} | ${t.bg} | ${t.fg}`, ...t.items.map(line), '')
+  }
+  if (b.pool.length) out.push('pool:', ...b.pool.map(line), '')
+  return out.join('\n')
+}
+
+function parseTierText(raw: string): ParsedTierList | null {
+  const text = raw.replace(/^\uFEFF/, '').trim()
+  const seen = new Set<string>()
+  const take = (id: unknown) => (typeof id === 'string' && ID_RE.test(id) && !seen.has(id) ? (seen.add(id), true) : false)
+  if (text.startsWith('{')) {
+    try {
+      const j = JSON.parse(text) as { title?: unknown; tiers?: unknown; pool?: unknown }
+      const tiers = (Array.isArray(j.tiers) ? j.tiers : []).map(t => {
+        const r = (t ?? {}) as Record<string, unknown>
+        return {
+          label: String(r.label ?? '').slice(0, 40),
+          bg: COLOR_RE.test(String(r.bg)) ? String(r.bg) : '#ff7f7f',
+          fg: COLOR_RE.test(String(r.fg)) ? String(r.fg) : '#1a1a1a',
+          items: (Array.isArray(r.items) ? r.items : []).filter(take) as string[],
+        }
+      })
+      const pool = (Array.isArray(j.pool) ? j.pool : []).filter(take) as string[]
+      return tiers.length ? { title: typeof j.title === 'string' ? j.title.slice(0, 60) : undefined, tiers, pool } : null
+    } catch { return null }
+  }
+  const res: ParsedTierList = { tiers: [], pool: [] }
+  let cur: string[] | null = null
+  for (const rawLine of text.split(/\r?\n/)) {
+    const ln = rawLine.trim()
+    if (!ln || ln.startsWith('#') || ln === TXT_HEADER) continue
+    let m = ln.match(/^title\s*:\s*(.*)$/i)
+    if (m) { res.title = m[1].trim().slice(0, 60); continue }
+    m = ln.match(/^tier\s*:\s*(.*)$/i)
+    if (m) {
+      const parts = m[1].split('|').map(x => x.trim())
+      const fg = parts.length >= 3 && COLOR_RE.test(parts[parts.length - 1]) ? parts.pop()! : '#1a1a1a'
+      const bg = parts.length >= 2 && COLOR_RE.test(parts[parts.length - 1]) ? parts.pop()! : '#ff7f7f'
+      const tier = { label: parts.join(' | ').slice(0, 40), bg, fg, items: [] as string[] }
+      res.tiers.push(tier)
+      cur = tier.items
+      continue
+    }
+    if (/^pool\s*:?$/i.test(ln)) { cur = res.pool; continue }
+    const id = ln.split(/\s+/)[0]
+    if (take(id)) (cur ?? res.pool).push(id)
+  }
+  return res.tiers.length ? res : null
+}
+
 /** บอร์ดเริ่มต้น = แถวที่แอดมินจัด + คลังจาก Meta (ตัดตัวที่แอดมินวางไว้แล้วออก) */
 function buildDefault(pub: PublishedTierList | null, metaPool: string[]): Board {
   const tiers = tiersFrom(pub, true)
@@ -259,7 +327,10 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
     if (isPC) openCtx(e, id)
   }
   const [pickerView, setPickerView] = useState<PickerView>(PICKER_VIEW_DEFAULT)
-  const [confirm, setConfirm] = useState<null | 'clear' | 'tiers' | 'delete' | 'reset'>(null)
+  const [confirm, setConfirm] = useState<null | 'clear' | 'tiers' | 'delete' | 'reset' | 'import'>(null)
+  /** ไฟล์ที่เลือกนำเข้า (รอยืนยัน) */
+  const pendingImport = useRef<{ data: ParsedTierList; name: string } | null>(null)
+  const importInput = useRef<HTMLInputElement>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -489,6 +560,49 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
     } finally { setExporting(false) }
   }
 
+  /** ส่งออกเป็นไฟล์ .txt (แถว + เรนเจอร์ในแถว + คลัง) */
+  const exportTxt = () => {
+    if (!board) return
+    const blob = new Blob(['\uFEFF' + boardToText(board, nameOf)], { type: 'text/plain;charset=utf-8' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `${(board.title || 'tier-list').replace(/[^\p{L}\p{N}_\- ]+/gu, '').trim() || 'tier-list'}.txt`
+    a.click()
+    window.setTimeout(() => URL.revokeObjectURL(a.href), 4000)
+    flash(T('ส่งออกไฟล์แล้ว', 'File exported'))
+  }
+  /** เลือกไฟล์ → อ่าน → ถามยืนยันก่อนแทนที่ตาราง */
+  const onImportFile = async (file: File | undefined) => {
+    if (importInput.current) importInput.current.value = ''
+    if (!file) return
+    if (file.size > 512 * 1024) { flash(T('ไฟล์ใหญ่เกินไป', 'The file is too large')); return }
+    const parsed = parseTierText(await file.text())
+    // ตัดรหัสที่ไม่มีใน Ranger Book (พิมพ์ผิด / ไฟล์เก่า) — ถ้ายังโหลดรายชื่อไม่เสร็จก็รับไว้ก่อน
+    const known = (id: string) => !Object.keys(book).length || !!book[id]
+    const data: ParsedTierList | null = parsed && { ...parsed, tiers: parsed.tiers.map(t => ({ ...t, items: t.items.filter(known) })), pool: parsed.pool.filter(known) }
+    if (!data) { flash(T('อ่านไฟล์ไม่ได้ — ต้องเป็นไฟล์ที่ส่งออกจากหน้านี้', 'Could not read the file — use a file exported from this page')); return }
+    pendingImport.current = { data, name: file.name }
+    setConfirm('import')
+  }
+  const applyImport = () => {
+    const p = pendingImport.current?.data
+    if (!p) return
+    update(b => {
+      const before = [...b.tiers.flatMap(t => t.items), ...b.pool]
+      const tiers = p.tiers.map(t => ({ id: uid(), label: t.label, bg: t.bg, fg: t.fg, items: [...t.items] }))
+      const placed = new Set(tiers.flatMap(t => t.items))
+      b.tiers = tiers
+      if (p.title) b.title = p.title
+      // คลัง = ของในไฟล์ + ของเดิมทั้งหมด (ตัวที่ไม่ได้อยู่ในแถวใหม่กลับมาที่คลัง) — ไม่มีตัวไหนหาย
+      b.pool = [...new Set([...p.pool, ...before])].filter(id => !placed.has(id))
+      b.removed = (b.removed ?? []).filter(id => !placed.has(id) && !p.pool.includes(id))
+      return b
+    })
+    const n = p.tiers.reduce((k, t) => k + t.items.length, 0)
+    flash(T(`นำเข้าแล้ว: ${p.tiers.length} แถว · ${n} เรนเจอร์`, `Imported: ${p.tiers.length} rows · ${n} rangers`))
+    pendingImport.current = null
+  }
+
   const doConfirm = () => {
     if (confirm === 'clear') update(b => { b.pool = [...b.tiers.flatMap(t => t.items), ...b.pool]; b.tiers.forEach(t => { t.items = [] }); return b })
     // รีเซ็ตตาราง = แถว/ชื่อ/สี/ชื่อตารางกลับเป็นค่าเริ่มต้น · เรนเจอร์ในตารางกลับคลังทั้งหมด (คลังไม่ถูกโหลดใหม่)
@@ -501,6 +615,7 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
     })
     if (confirm === 'delete') update(b => { b.pool = []; b.tiers.forEach(t => { t.items = [] }); b.metaOff = true; return b })
     if (confirm === 'reset') resetBoard()
+    if (confirm === 'import') applyImport()
     setConfirm(null)
     setSelected(null)
   }
@@ -552,6 +667,13 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
           <button className="tl-btn primary" onClick={() => setPicking(true)}>
             <span className="material-icons-round">person_add</span>{T('เพิ่มเรนเจอร์', 'Add ranger')}
           </button>
+          <button className="tl-btn" onClick={exportTxt} title={T('ส่งออกเป็นไฟล์ .txt เก็บไว้หรือแชร์ให้คนอื่น', 'Export as a .txt file to keep or share')}>
+            <span className="material-icons-round">file_download</span>{T('ส่งออก .txt', 'Export .txt')}
+          </button>
+          <button className="tl-btn" onClick={() => importInput.current?.click()} title={T('นำเข้าไฟล์ .txt ที่ส่งออกจากหน้านี้', 'Import a .txt file exported from this page')}>
+            <span className="material-icons-round">upload_file</span>{T('นำเข้า', 'Import')}
+          </button>
+          <input ref={importInput} type="file" accept=".txt,.json,text/plain,application/json" hidden onChange={e => onImportFile(e.target.files?.[0])} />
           <button className="tl-btn accent" onClick={exportPng} disabled={exporting}>
             <span className={'material-icons-round' + (exporting ? ' animate-spin' : '')}>{exporting ? 'autorenew' : 'download'}</span>{T('บันทึกเป็นรูป', 'Save image')}
           </button>
@@ -745,8 +867,16 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
 
       {/* ยืนยัน */}
       {confirm && (
-        <Sheet title={confirm === 'clear' ? T('ล้างตาราง?', 'Clear all tiers?') : confirm === 'tiers' ? T('รีเซ็ตตั้งค่าตาราง?', 'Reset the table settings?') : confirm === 'delete' ? T('ลบเรนเจอร์ทั้งหมด?', 'Delete every ranger?') : isAdmin ? T('โหลดฉบับที่เผยแพร่?', 'Load the published version?') : T('รีเซ็ตทั้งหมด?', 'Reset everything?')} onClose={() => setConfirm(null)}>
+        <Sheet title={confirm === 'import' ? T('นำเข้าเทียร์ลิสต์?', 'Import this tier list?') : confirm === 'clear' ? T('ล้างตาราง?', 'Clear all tiers?') : confirm === 'tiers' ? T('รีเซ็ตตั้งค่าตาราง?', 'Reset the table settings?') : confirm === 'delete' ? T('ลบเรนเจอร์ทั้งหมด?', 'Delete every ranger?') : isAdmin ? T('โหลดฉบับที่เผยแพร่?', 'Load the published version?') : T('รีเซ็ตทั้งหมด?', 'Reset everything?')} onClose={() => setConfirm(null)}>
           <p className="tl-confirm-text">
+            {confirm === 'import' && pendingImport.current && (() => {
+              const d = pendingImport.current.data
+              const n = d.tiers.reduce((k, t) => k + t.items.length, 0)
+              return T(
+                `ไฟล์ ${pendingImport.current.name}: ${d.tiers.length} แถว · ${n} เรนเจอร์ — แทนที่แถวในตารางตอนนี้ เรนเจอร์เดิมที่ไม่อยู่ในไฟล์จะกลับไปที่คลัง`,
+                `${pendingImport.current.name}: ${d.tiers.length} rows · ${n} rangers — replaces the current rows. Rangers not in the file go back to the pool`,
+              )
+            })()}
             {confirm === 'clear' && T('ย้ายเรนเจอร์ทุกตัวในตารางกลับไปที่คลัง (แถวและสีเทียร์ยังอยู่)', 'Moves every ranger in the tiers back to the pool (rows and colours stay)')}
             {confirm === 'tiers' && (isAdmin
               ? T('ตารางกลับเป็นแถว S A B C D สีเดิม และชื่อตารางเริ่มต้น เรนเจอร์ในตารางกลับไปที่คลัง', 'The table goes back to S A B C D rows, default colours and the default title. Placed rangers go back to the pool')
@@ -759,7 +889,7 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
           </p>
           <div className="tl-confirm-btns">
             <button className="tl-btn" onClick={() => setConfirm(null)}>{T('ยกเลิก', 'Cancel')}</button>
-            <button className={'tl-btn ' + (confirm === 'clear' || confirm === 'tiers' ? 'primary' : 'danger')} onClick={doConfirm}>{T('ยืนยัน', 'Confirm')}</button>
+            <button className={'tl-btn ' + (confirm === 'clear' || confirm === 'tiers' || confirm === 'import' ? 'primary' : 'danger')} onClick={doConfirm}>{T('ยืนยัน', 'Confirm')}</button>
           </div>
         </Sheet>
       )}

@@ -7,20 +7,16 @@
 name = "line-ranger-kiwi"
 main = "src/index.ts"
 compatibility_date = "2025-06-01"
-# ต้องระบุเอง: พอมี [[routes]] แล้ว wrangler จะปิด *.workers.dev ให้อัตโนมัติ (error 1042)
-# เปิดไว้เพื่อให้ลิงก์เก่า line-ranger-kiwi.kiwi-navik3069.workers.dev ยังพาคนไปโดเมนใหม่ได้
-workers_dev = true
+# ปิดลิงก์เก่า *.workers.dev — Worker ใช้ api.ranger-kiwi.com อย่างเดียว
+workers_dev = false
 
 [vars]
 ADMIN_USERNAME = "admin"
 GITHUB_REPO = "NAViK3069/Line_ranger_wabsite_kiwi_forgithub"
 GITHUB_BRANCH = "main"
 # โดเมนที่เรียก /api/admin/* ได้ (คั่นด้วย ,)
-ALLOWED_ORIGINS = "http://localhost:3000,https://ranger-kiwi.com,https://www.ranger-kiwi.com,https://line-ranger-kiwi.kiwi-navik3069.workers.dev"
-# ลิงก์เก่า *.workers.dev: Worker ดึงหน้าเว็บจาก GitHub Pages มาให้
-# พอ GitHub Pages ตั้ง Custom domain = ranger-kiwi.com แล้ว GitHub จะตอบ 301 ไป ranger-kiwi.com
-# และ Worker ส่ง redirect นั้นต่อ → คนที่เปิดลิงก์เก่าถูกพาไปโดเมนใหม่เอง (เก็บบรรทัดนี้ไว้เพื่อการนี้)
-PAGES_ORIGIN = "https://navik3069.github.io/Line_ranger_wabsite_kiwi_forgithub"
+ALLOWED_ORIGINS = "http://localhost:3000,https://ranger-kiwi.com,https://www.ranger-kiwi.com"
+# หน้าเว็บอยู่ที่ GitHub Pages (ranger-kiwi.com) แล้ว — Worker ไม่ต้องเสิร์ฟหน้าเว็บ จึงไม่ใส่ PAGES_ORIGIN
 
 # Worker อยู่ที่ api.ranger-kiwi.com (Cloudflare สร้าง DNS + ใบรับรองให้ตอน deploy · ได้ edge cache ด้วย)
 [[routes]]

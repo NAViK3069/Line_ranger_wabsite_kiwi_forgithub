@@ -50,7 +50,7 @@ GitHub repo → Settings → Secrets and variables → Actions → **Variables**
 
 ## ส่วนที่ 3 — โดเมน (เมื่อซื้อแล้ว)
 
-> โดเมนที่ใช้: **ranger-kiwi.com** (ซื้อที่ Cloudflare 2026-11-19) · Worker = `api.ranger-kiwi.com` (ตั้งไว้แล้วใน wrangler.toml)
+> โดเมนที่ใช้: **ranger-kiwi.com** (ซื้อที่ Cloudflare 2026-11-19) · Worker = `api.ranger-kiwi.com` (ตั้งไว้แล้วใน wrangler.toml) · ลิงก์เก่า `*.workers.dev` ปิดแล้ว
 
 1. Cloudflare Dashboard → **Domain Registration → Register Domains** → ซื้อโดเมน (ราคาทุน)
    (ถ้าซื้อที่อื่น: Cloudflare → Add a site → ทำตามที่บอกให้เปลี่ยน nameserver)
@@ -64,8 +64,9 @@ GitHub repo → Settings → Secrets and variables → Actions → **Variables**
 5. Worker ใช้โดเมนย่อย `api.โดเมน` (ได้ cache ที่ edge ด้วย):
    - แก้ `worker/wrangler.toml` → เปิดส่วน `[[routes]]` ใส่ `api.โดเมน`
    - เพิ่ม `https://โดเมน` ใน `ALLOWED_ORIGINS`
-   - **เก็บ `PAGES_ORIGIN` ไว้ได้**: พอ GitHub Pages ใช้ Custom domain แล้ว GitHub ตอบ 301 ไปโดเมนใหม่
-     Worker ส่ง redirect ต่อ → ลิงก์เก่า `*.workers.dev` พาคนไปโดเมนใหม่เอง
+   - ลบ `PAGES_ORIGIN` และตั้ง `workers_dev = false` (ปิดลิงก์ `*.workers.dev` — ใช้แค่ `api.โดเมน`)
+     ⚠ ถ้าอยากเก็บลิงก์เก่าไว้ให้พาคนไปโดเมนใหม่: `workers_dev = true` + เก็บ `PAGES_ORIGIN`
+     (พอมี `[[routes]]` แล้ว wrangler ปิด workers.dev ให้เองถ้าไม่ได้ระบุ → error 1042)
    - `npx wrangler deploy`
    - GitHub Variable `WORKER_URL` = `https://api.โดเมน` → Run workflow Deploy
 6. (แนะนำ) Cloudflare → โดเมน → **Security → WAF → Rate limiting rules** → สร้าง rule:

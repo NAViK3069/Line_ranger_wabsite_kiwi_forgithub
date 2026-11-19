@@ -24,7 +24,8 @@ export async function loadSprites(plistBuffer: ArrayBuffer, pngBlob: Blob): Prom
   const sprites: SpriteMap = {}
   const frames = plistData.frames || {}
 
-  for (const [name, info] of Object.entries<{ textureRect?: string; frame?: string; textureRotated?: boolean; rotated?: boolean }>(frames)) {
+  const aliasOf: [string, string][] = []
+  for (const [name, info] of Object.entries<{ textureRect?: string; frame?: string; textureRotated?: boolean; rotated?: boolean; aliases?: unknown }>(frames)) {
     const rectStr = info.textureRect || info.frame || ''
     // บาง plist เขียนเลขทศนิยม ({{98.0,322.0},{99.0,99.0}} เช่น u415e-riza) — ต้องจับทศนิยมด้วย
     // ไม่งั้น "98.0" แตกเป็น 98 กับ 0 ทำให้ค่าเลื่อนผิดช่อง → ความสูง 0 → createImageBitmap พังทั้งตัว
@@ -45,7 +46,11 @@ export async function loadSprites(plistBuffer: ArrayBuffer, pngBlob: Blob): Prom
       bitmap = await createImageBitmap(atlas, ax, ay, fw, fh)
     }
     sprites[name] = { bitmap, w: fw, h: fh }
+    // ชิ้นที่ซ้ำกันถูกเก็บไว้ชื่อเดียว (เช่น "_18x41_2.png") แล้วใส่ชื่ออื่นไว้ใน aliases ("_18x41.png")
+    // แต่ .sam อ้างด้วยชื่อใน aliases → ต้องผูกชื่อนั้นเข้ากับภาพเดียวกันด้วย ไม่งั้นชิ้นนั้นหายไป (u415u-riza)
+    if (Array.isArray(info.aliases)) for (const a of info.aliases) if (typeof a === 'string' && a) aliasOf.push([a, name])
   }
+  for (const [alias, name] of aliasOf) if (!sprites[alias]) sprites[alias] = sprites[name]
   // คืน atlas (ไม่ต้องเก็บ — sprites มี bitmap ของตัวเองแล้ว)
   atlas.close()
   return sprites

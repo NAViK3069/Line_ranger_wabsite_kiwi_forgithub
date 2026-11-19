@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "name": "Demo scene",
+  "width": 1280,
+  "height": 720,
+  "duration": 9,
+  "fps": 30,
+  "groundY": 560,
+  "background": { "kind": "stage", "color": "#0b1020", "gradient": ["#1b2550", "#06070d"], "stage": "battle05", "assetId": null, "fit": "height", "scale": 1, "offsetX": 0, "offsetY": 0, "scrollX": 0, "dim": 0, "blur": 0 },
+  "assets": [
+    { "id": "rngle6ysbr", "type": "ranger", "source": "lerico", "rangerId": "u1277e-brown", "form": "body", "name": "Darkpaw Brown" },
+    { "id": "r2ptl7nsfe", "type": "ranger", "source": "lerico", "rangerId": "u1487e-moon", "form": "body", "name": "Shogun Moon" }
+  ],
+  "actors": [
+    { "id": "azqizgusfe", "name": "Shogun Moon", "assetId": "r2ptl7nsfe", "tag": "enemy", "x": 785, "y": 560, "scale": 1, "flip": true, "rotation": 0, "opacity": 1, "blend": "source-over", "visible": true, "locked": false, "idleClip": "idle", "hiddenParts": [], "loop": true, "muted": true, "speed": 1 },
+    { "id": "am0yxyosbr", "name": "Darkpaw Brown", "assetId": "rngle6ysbr", "tag": "ally", "x": 358, "y": 560, "scale": 1, "flip": false, "rotation": 0, "opacity": 1, "blend": "source-over", "visible": true, "locked": false, "idleClip": "idle", "hiddenParts": [], "loop": true, "muted": true, "speed": 1 }
+  ],
+  "cues": [
+    { "id": "csvcqrksna", "type": "skill", "actorId": "am0yxyosbr", "start": 3.4, "label": "Skill 1", "cast": ["s_attack_ready"], "release": "s_attack", "speed": 1, "castSpeedCap": null, "approach": { "enabled": false, "stopOffset": { "x": -140, "y": 0 }, "speed": 600, "returnHome": true }, "fx": null, "targetId": "azqizgusfe", "hitReact": true, "hitClip": "target", "flash": true, "banner": "", "sound": null },
+    { "id": "cdgsq92l6h", "type": "anim", "actorId": "am0yxyosbr", "start": 0, "clip": "idle", "speed": 1, "loop": false, "duration": 2 },
+    { "id": "c5i8i8tuzm", "type": "move", "actorId": "am0yxyosbr", "start": 1.3, "to": { "x": 601, "y": 560 }, "duration": 1, "ease": "linear", "clip": "walk" },
+    { "id": "cgupbfaui3", "type": "skill", "actorId": "am0yxyosbr", "start": 2.3, "label": "Attack", "cast": ["attack_ready"], "release": "attack", "speed": 1, "castSpeedCap": null, "approach": { "enabled": false, "stopOffset": { "x": -140, "y": 0 }, "speed": 600, "returnHome": true }, "fx": null, "targetId": "azqizgusfe", "hitReact": true, "hitClip": "target", "flash": true, "banner": "", "sound": null },
+    { "id": "cznbriw6u3", "type": "skill", "actorId": "am0yxyosbr", "start": 5.1, "label": "Skill 2", "cast": ["s2_attack_ready"], "release": "s2_attack", "speed": 1, "castSpeedCap": null, "approach": { "enabled": false, "stopOffset": { "x": -140, "y": 0 }, "speed": 600, "returnHome": true }, "fx": null, "targetId": null, "hitReact": true, "hitClip": "target", "flash": true, "banner": "", "sound": null }
+  ],
+  "depthSort": true,
+  "smooth": true
+}

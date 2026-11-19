@@ -395,26 +395,22 @@ export const CAMERA = CAMERA_ID
 // ── ฉากตัวอย่าง ──
 export async function loadDemo() {
   const { replaceScene } = await import('./store')
-  const { emptyScene } = await import('./scene')
-  replaceScene(emptyScene(L('ฉากตัวอย่าง', 'Demo scene')))
-  updateScene(s => { s.background.stage = 'battle05'; s.background.kind = 'stage' }, false)
-  // ฉากตัวอย่างของเว็บ Line Ranger Kiwi: Brown (ฝ่ายเรา) ปะทะ Moon (ศัตรู)
-  const hero = await addLericoRanger('u1277e-brown', { tag: 'ally' })
-  const foe = await addLericoRanger('u1487e-moon', { tag: 'enemy' })
-  if (!hero || !foe) return
-  // รอให้ตัวละครโหลดเสร็จก่อนจะสร้างสกิล (ต้องรู้ชื่อท่า)
-  await new Promise<void>(res => {
-    const check = () => { const ok = [hero, foe].every(id => { const a = getState().scene.actors.find(x => x.id === id); return a && assets.get(a.assetId) }); if (ok) { off(); res() } }
+  // ฉากตัวอย่างของเว็บ Line Ranger Kiwi (เจ้าของเว็บจัดไว้เอง — src/anme/engine/demoScene.json):
+  // Darkpaw Brown (ฝ่ายเรา) ยืน → เดินเข้าหา → โจมตี → สกิล 1 → สกิล 2 ใส่ Shogun Moon (ศัตรู) · ฉาก battle05 · 9 วิ
+  // แก้ฉากตัวอย่าง: จัดฉากในสตูดิโอ → เมนู "ส่งออกไฟล์ฉาก (.json)" → แทนที่ไฟล์นี้
+  const { default: demo } = await import('./demoScene.json')
+  const scene = structuredClone(demo) as unknown as Scene
+  scene.name = L('ฉากตัวอย่าง', 'Demo scene')
+  replaceScene(scene)
+  // รอไฟล์อนิเมชันของเรนเจอร์โหลดครบก่อนค่อยเล่น (สูงสุด 20 วิ — เน็ตช้าก็ยังเปิดฉากได้ แค่ไม่เล่นเอง)
+  const ready = await new Promise<boolean>(res => {
+    const ids = scene.assets.filter(a => a.type === 'ranger').map(a => a.id)
+    const timer = setTimeout(() => { off(); res(false) }, 20000)
+    const check = () => { if (ids.every(id => assets.get(id))) { clearTimeout(timer); off(); res(true) } }
     const off = assets.subscribe(check); check()
   })
-  // ใช้สกิล 1 ถ้ามี ไม่งั้นท่าแรกที่ตัวนี้มี · ไม่ใส่ป้ายข้อความสกิล (banner)
-  const heroActor = getState().scene.actors.find(x => x.id === hero)
-  const heroRt = heroActor ? assets.get(heroActor.assetId) : undefined
-  const presets = heroRt?.kind === 'ranger' ? skillPresets(heroRt) : []
-  const key = presets.find(p => p.key === 'skill1')?.key ?? presets[0]?.key
-  if (key) addSkill(hero, key, 0.5)
   select({ kind: 'none' })
-  setState({ time: 0, playing: true })
+  setState({ time: 0, playing: ready })
 }
 
 // ── เสียง ──

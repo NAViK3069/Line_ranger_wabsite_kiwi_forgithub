@@ -43,6 +43,15 @@ function BuildStatus() {
     return () => { window.removeEventListener('lr:admin-committed', onCommit); if (timer) clearInterval(timer) }
   }, [refresh])
 
+  // กำลัง build อยู่ (เปิดหน้ามาตอน build ค้างอยู่ / build จาก Daily Data) → เช็คซ้ำทุก 15 วินาทีจนเสร็จ
+  // เดิมเช็คถี่แค่หลังกดบันทึก ป้ายเลยหมุนค้างจนกว่าจะกด F5
+  const running = !!run && run.status !== 'completed'
+  useEffect(() => {
+    if (!running) return
+    const t = setTimeout(refresh, 15000)
+    return () => clearTimeout(t)
+  }, [running, run, refresh])
+
   if (!run) return null
   const busy = run.status !== 'completed'
   const ok = run.conclusion === 'success'

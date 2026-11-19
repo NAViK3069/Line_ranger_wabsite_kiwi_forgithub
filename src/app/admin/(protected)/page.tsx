@@ -2,7 +2,6 @@
 
 // ====================================================
 // Admin Dashboard — หน้าหลักของหลังบ้าน
-// • อธิบายว่าการแก้ไขขึ้นเว็บยังไง (บันทึก → GitHub → build ~2–5 นาที)
 // • การ์ดเมนูแบ่งกลุ่ม: เนื้อหาบนเว็บ / ข้อมูลเกม / เครื่องมือ
 // • รายการ build ล่าสุด อ่านง่าย (สถานะ + ที่มา + เวลา)
 // เพิ่มเมนูใหม่ที่ SECTIONS ที่เดียว (เมนูที่ใช้บ่อยใส่ใน AdminNav ด้วย)
@@ -84,6 +83,13 @@ function RecentBuilds() {
     const t = setInterval(load, 30000)
     return () => clearInterval(t)
   }, [load])
+  // มีรอบที่ยังทำงานอยู่ → เช็คถี่ขึ้น (15 วินาที) ให้สถานะเปลี่ยนเป็นสำเร็จเองโดยไม่ต้องรีเฟรช
+  const running = !!runs?.some(r => r.status !== 'completed')
+  useEffect(() => {
+    if (!running) return
+    const t = setTimeout(load, 15000)
+    return () => clearTimeout(t)
+  }, [running, runs, load])
 
   return (
     <section className="card-glass rounded-2xl p-4 sm:p-5">
@@ -124,30 +130,11 @@ function RecentBuilds() {
 export default function AdminDashboardPage() {
   return (
     <div className="space-y-8">
-      {/* หัว + อธิบายวิธีที่การแก้ไขขึ้นเว็บ */}
+      {/* หัว + การอัปเดตเว็บล่าสุด */}
       <div className="grid gap-4 lg:grid-cols-[1fr_380px]">
-        <section className="rounded-2xl p-5 sm:p-6 border border-purple-400/25 bg-gradient-to-br from-purple-500/15 via-fuchsia-500/5 to-transparent">
+        <section className="rounded-2xl p-5 sm:p-6 border border-purple-400/25 bg-gradient-to-br from-purple-500/15 via-fuchsia-500/5 to-transparent flex flex-col justify-center">
           <h1 className="text-2xl sm:text-3xl font-black text-white">Admin Panel</h1>
           <p className="text-gray-300 mt-1">จัดการเนื้อหาของเว็บ Line Ranger Kiwi</p>
-          <ol className="mt-5 grid gap-3 sm:grid-cols-3">
-            {[
-              { icon: 'edit', title: '1. แก้ไข', text: 'เลือกเมนูด้านล่าง แล้วแก้ข้อมูล' },
-              { icon: 'save', title: '2. บันทึก', text: 'กดบันทึก/เผยแพร่ ระบบเก็บลง GitHub' },
-              { icon: 'cloud_done', title: '3. ขึ้นเว็บ', text: 'เว็บจริงอัปเดตเองใน 2–5 นาที' },
-            ].map(s => (
-              <li key={s.title} className="flex sm:flex-col gap-3 sm:gap-2 rounded-xl bg-black/20 border border-white/10 p-3">
-                <span className="material-icons-round text-purple-300 text-2xl">{s.icon}</span>
-                <div>
-                  <p className="font-bold text-white text-sm">{s.title}</p>
-                  <p className="text-xs text-gray-400 leading-relaxed">{s.text}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-          <p className="mt-4 text-xs text-gray-400 flex items-start gap-1.5">
-            <span className="material-icons-round text-sm text-sky-300 mt-px">info</span>
-            ป้ายสถานะมุมขวาบนบอกว่าเว็บกำลังอัปเดตอยู่หรือเสร็จแล้ว — เขียว = อัปเดตแล้ว · เหลือง = กำลัง build · แดง = มีปัญหา (กดดูรายละเอียดได้)
-          </p>
         </section>
         <RecentBuilds />
       </div>

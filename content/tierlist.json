@@ -6,9 +6,7 @@
       "label": "S",
       "bg": "#ff7f7f",
       "fg": "#1a1a1a",
-      "items": [
-        "u1556e-af"
-      ]
+      "items": []
     },
     {
       "label": "A",
@@ -35,5 +33,5 @@
       "items": []
     }
   ],
-  "updatedAt": "2026-11-19T10:56:10.909Z"
+  "updatedAt": "2026-11-19T11:09:32.501Z"
 }

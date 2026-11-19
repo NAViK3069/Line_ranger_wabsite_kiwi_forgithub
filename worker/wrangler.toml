@@ -7,6 +7,9 @@
 name = "line-ranger-kiwi"
 main = "src/index.ts"
 compatibility_date = "2025-06-01"
+# ต้องระบุเอง: พอมี [[routes]] แล้ว wrangler จะปิด *.workers.dev ให้อัตโนมัติ (error 1042)
+# เปิดไว้เพื่อให้ลิงก์เก่า line-ranger-kiwi.kiwi-navik3069.workers.dev ยังพาคนไปโดเมนใหม่ได้
+workers_dev = true
 
 [vars]
 ADMIN_USERNAME = "admin"

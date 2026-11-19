@@ -376,7 +376,7 @@
 .anme-root .dur-input { width: 56px; height: 26px; border-radius: 7px; border: 1px solid var(--line2); background: var(--bg0); padding: 0 6px; }
 .anme-root .tl-scroll { flex: 1; overflow: auto; position: relative; }
 .anme-root .tl-inner { position: relative; min-height: 100%; }
-.anme-root .tl-ruler { display: flex; position: sticky; top: 0; z-index: 3; height: 24px; background: #0a0e1c; border-bottom: 1px solid var(--line); cursor: ew-resize; }
+.anme-root .tl-ruler { display: flex; position: sticky; top: 0; z-index: 7; height: 24px; background: #0a0e1c; border-bottom: 1px solid var(--line); cursor: ew-resize; }
 .anme-root .tl-corner { position: sticky; left: 0; z-index: 2; background: #0a0e1c; border-right: 1px solid var(--line); flex: none; }
 .anme-root .tl-ticks { position: relative; height: 100%; flex: none; }
 .anme-root .tick { position: absolute; top: 14px; bottom: 0; width: 1px; background: rgba(130, 160, 255, 0.2); }
@@ -386,7 +386,7 @@
 .anme-root .tl-row { display: flex; height: 34px; border-bottom: 1px solid rgba(130, 160, 255, 0.06); }
 .anme-root .tl-row.sel { background: rgba(51, 225, 255, 0.04); }
 .anme-root .tl-row.hidden-row { opacity: 0.45; }
-.anme-root .tl-label { position: sticky; left: 0; z-index: 2; flex: none; display: flex; align-items: center; gap: 7px; padding: 0 6px 0 10px; background: #0b1020; border-right: 1px solid var(--line); cursor: pointer; }
+.anme-root .tl-label { position: sticky; left: 0; z-index: 6; flex: none; display: flex; align-items: center; gap: 7px; padding: 0 6px 0 10px; background: #0b1020; border-right: 1px solid var(--line); cursor: pointer; }
 .anme-root .tl-row.sel .tl-label { background: #0f1830; box-shadow: inset 3px 0 0 var(--cyan); }
 .anme-root .grip { flex: none; width: 12px; margin-left: -4px; color: rgba(160, 180, 230, 0.75); font-size: 12px; letter-spacing: -3px; cursor: grab; user-select: none; touch-action: none; }
 .anme-root .grip:hover { color: var(--cyan); }
@@ -399,6 +399,10 @@
 .anme-root .tl-row.drop-after { box-shadow: inset 0 -2px 0 var(--gold); }
 .anme-root .tl-row.drop-before .tl-label, .anme-root .tl-row.drop-after .tl-label { box-shadow: inherit; }
 .anme-root .tl-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+/* ชั้นของไทม์ไลน์: บล็อก/จุดกระทบ (≤2) < กล่องชื่อเลเยอร์ (6) < ไม้บรรทัด (7) < เส้นเวลา (8)
+   เส้นเวลาซ่อนเองเมื่อเลื่อนไปอยู่ใต้กล่องชื่อ (Timeline.tsx) · ลากในไทม์ไลน์ไม่คลุมข้อความ */
+.anme-root .timeline { user-select: none; -webkit-user-select: none; }
+.anme-root .timeline input, .anme-root .timeline select { user-select: text; -webkit-user-select: text; }
 /* ทั้งกล่องชื่อเป็นที่จับลากเลเยอร์ — ไม่ให้ลากแล้วกลายเป็นคลุมข้อความ */
 .anme-root .tl-label { user-select: none; -webkit-user-select: none; }
 .anme-root .tl-label.draggable { cursor: grab; touch-action: none; }
@@ -432,7 +436,7 @@
 .anme-root .cue-impact { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; transform: rotate(45deg); background: #fff; box-shadow: 0 0 6px #ff4fd8, 0 0 0 2px #ff4fd8; z-index: 1; }
 .anme-root .cue-resize { position: absolute; right: 0; top: 0; bottom: 0; width: 8px; cursor: ew-resize; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35)); z-index: 2; }
 .anme-root .hit-marker { position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; transform: rotate(45deg); background: var(--red); box-shadow: 0 0 8px var(--red); pointer-events: none; }
-.anme-root .playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); pointer-events: none; z-index: 4; }
+.anme-root .playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); pointer-events: none; z-index: 8; }
 .anme-root .playhead-cap { position: sticky; top: 0; width: 12px; height: 12px; margin-left: -5px; background: var(--cyan); clip-path: polygon(0 0, 100% 0, 100% 55%, 50% 100%, 0 55%); }
 
 /* ── toast / modal ── */
@@ -666,3 +670,7 @@
   .anme-root .toasts { top: calc(60px + env(safe-area-inset-top)); width: calc(100vw - 24px); }
   .anme-root .toast { max-width: 100%; }
 }
+
+/* ห้ามเลือกข้อความทั้งสตูดิโอ ยกเว้นช่องพิมพ์ (scripts/scope-anme-css.cjs) */
+.anme-root, .anme-root *:not(input):not(textarea):not(select):not([contenteditable="true"]) { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.anme-root input, .anme-root textarea, .anme-root [contenteditable="true"] { user-select: text; -webkit-user-select: text; }

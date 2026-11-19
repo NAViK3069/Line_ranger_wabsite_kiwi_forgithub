@@ -45,6 +45,8 @@ export function Timeline() {
   const [drag, setDrag] = useState<{ id: string; to: number } | null>(null)
   const [ins, setIns] = useState<{ id: string; before: boolean } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  // ระยะเลื่อนแนวนอน — ใช้ซ่อนเส้นเวลาเมื่อมันเลื่อนไปอยู่ใต้กล่องชื่อเลเยอร์ (ไม่ให้วาดทะลุ)
+  const [scrollX, setScrollX] = useState(0)
   const tl = timelineOf(scene)
   const width = Math.max(scene.duration, sceneEnd(scene, tl) + 1) * pps + 80
 
@@ -208,7 +210,7 @@ export function Timeline() {
           <input type="range" min={30} max={400} value={pps} onChange={e => setPps(+e.target.value)} title={L('ซูมไทม์ไลน์', 'Timeline zoom')} />
         </div>
       </div>
-      <div className="tl-scroll" ref={scrollRef}>
+      <div className="tl-scroll" ref={scrollRef} onScroll={e => setScrollX(e.currentTarget.scrollLeft)}>
         <div className="tl-inner" style={{ width: width + LABEL_W }}>
           <div className="tl-ruler" onPointerDown={scrub}>
             <div className="tl-corner" style={{ width: LABEL_W }} />
@@ -283,7 +285,7 @@ export function Timeline() {
               </div>
             )
           })}
-          <div className="playhead" style={{ left: LABEL_W + time * pps }}><div className="playhead-cap" /></div>
+          {time * pps >= scrollX - 1 && <div className="playhead" style={{ left: LABEL_W + time * pps }}><div className="playhead-cap" /></div>}
         </div>
       </div>
     </div>

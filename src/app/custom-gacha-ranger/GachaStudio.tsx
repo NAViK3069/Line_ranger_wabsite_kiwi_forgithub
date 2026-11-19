@@ -13,7 +13,7 @@
 // ต้องปลดล็อค Beta/Pro เหมือน /lobby (ด่านอยู่ในนี้)
 // ====================================================
 
-import { proxyFile, fetchSamList } from '@/lib/staticApi'
+import { proxyFile, fetchSamList, corsImage } from '@/lib/staticApi'
 import { apiFetch } from '@/lib/staticApi'
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -203,6 +203,7 @@ function measureInk(im: HTMLImageElement): { x0: number; x1: number } | undefine
 function loadImg(src: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const el = new Image()
+    corsImage(el, src) // รูปผ่าน Worker ต้องโหลดแบบ CORS ไม่งั้นเซฟรูปไม่ได้ (canvas tainted)
     el.onload = () => resolve(el)
     el.onerror = () => resolve(null)
     el.src = src

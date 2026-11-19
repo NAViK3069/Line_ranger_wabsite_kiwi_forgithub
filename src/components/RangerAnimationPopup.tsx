@@ -7,7 +7,7 @@
 // • Cleanup memory เมื่อปิด popup (sprites.bitmap.close())
 // ====================================================
 
-import { proxyFile, fetchSamList } from '@/lib/staticApi'
+import { proxyFile, fetchSamList, corsImage } from '@/lib/staticApi'
 import { apiFetch } from '@/lib/staticApi'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -685,6 +685,7 @@ const BATTLE_STAGES = [
 function loadBgImage(url: string): Promise<HTMLImageElement | null> {
   return new Promise(resolve => {
     const img = new Image()
+    corsImage(img, url) // ฉากผ่าน Worker ต้องโหลดแบบ CORS ไม่งั้นส่งออก PNG/วิดีโอไม่ได้ (canvas tainted)
     img.onload = () => resolve(img)
     img.onerror = () => resolve(null)
     img.src = url

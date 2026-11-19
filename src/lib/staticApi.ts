@@ -17,6 +17,16 @@ export const LERICO_ORIGIN = 'https://rangers.lerico.net'
 /** URL ของ Cloudflare Worker (ตั้งใน .env.local / GitHub Actions variable) */
 export const WORKER_URL = (process.env.NEXT_PUBLIC_WORKER_URL ?? '').replace(/\/+$/, '')
 
+/**
+ * รูปที่โหลดผ่าน Worker (api.<โดเมน>) อยู่คนละโดเมนกับหน้าเว็บ → ต้องตั้ง crossOrigin = 'anonymous'
+ * ไม่งั้นเบราว์เซอร์ไม่ใช้หัว CORS ที่ Worker ส่งมา แล้ว canvas ที่วาดรูปนี้จะถูก taint
+ * (toDataURL / toBlob / getImageData ใช้ไม่ได้ — "Tainted canvases may not be exported")
+ * ตั้งเฉพาะ URL ของ Worker: รูปจาก lerico ตรงๆ ไม่มีหัว CORS ถ้าตั้งไปจะโหลดไม่ขึ้นเลย
+ */
+export function corsImage(el: HTMLImageElement, src: string): void {
+  if (WORKER_URL && src.startsWith(WORKER_URL + '/')) el.crossOrigin = 'anonymous'
+}
+
 /** แปลง URL ของ rangers.lerico.net ให้วิ่งผ่าน Worker (ได้ CORS header + cache ที่ edge) */
 export function lericoProxy(url: string): string {
   if (!url.startsWith(LERICO_ORIGIN)) return url

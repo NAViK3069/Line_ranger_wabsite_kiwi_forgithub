@@ -6,7 +6,7 @@
 // ====================================================
 
 import { adminFetch } from '@/lib/adminApi'
-import { lericoProxy } from '@/lib/staticApi'
+import { lericoProxy, corsImage } from '@/lib/staticApi'
 import { useRef, useState, useCallback, useEffect } from 'react'
 
 interface RangerStat {
@@ -30,6 +30,7 @@ function proxyUrl(url: string) {
 async function loadImg(src: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const img = new Image()
+    corsImage(img, src) // รูปผ่าน Worker ต้องโหลดแบบ CORS ไม่งั้นบันทึกเป็นรูปไม่ได้ (canvas tainted)
     img.onload = () => resolve(img)
     img.onerror = () => resolve(null)
     img.src = src

@@ -82,7 +82,7 @@ export default function TierListStudio() {
   const [editing, setEditing] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
   const [pickerView, setPickerView] = useState<PickerView>(PICKER_VIEW_DEFAULT)
-  const [confirm, setConfirm] = useState<null | 'clear' | 'delete' | 'reset'>(null)
+  const [confirm, setConfirm] = useState<null | 'clear' | 'tiers' | 'delete' | 'reset'>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -259,6 +259,13 @@ export default function TierListStudio() {
 
   const doConfirm = () => {
     if (confirm === 'clear') update(b => { b.pool = [...b.tiers.flatMap(t => t.items), ...b.pool]; b.tiers.forEach(t => { t.items = [] }); return b })
+    // รีเซ็ตตาราง = แถว/ชื่อ/สี/ชื่อตารางกลับเป็นค่าเริ่มต้น · เรนเจอร์ในตารางกลับคลังทั้งหมด (คลังไม่ถูกโหลดใหม่)
+    if (confirm === 'tiers') update(b => {
+      b.pool = [...b.tiers.flatMap(t => t.items), ...b.pool]
+      b.tiers = freshTiers()
+      b.title = 'Line Rangers Tier List'
+      return b
+    })
     if (confirm === 'delete') update(b => { b.pool = []; b.tiers.forEach(t => { t.items = [] }); return b })
     if (confirm === 'reset') resetBoard()
     setConfirm(null)
@@ -317,6 +324,9 @@ export default function TierListStudio() {
           </button>
           <button className="tl-btn" onClick={() => setConfirm('clear')} disabled={placedCount === 0}>
             <span className="material-icons-round">move_down</span>{T('ล้างตาราง', 'Clear tiers')}
+          </button>
+          <button className="tl-btn" onClick={() => setConfirm('tiers')}>
+            <span className="material-icons-round">format_color_reset</span>{T('รีเซ็ตตาราง', 'Reset table')}
           </button>
           <button className="tl-btn danger" onClick={() => setConfirm('delete')}>
             <span className="material-icons-round">delete_sweep</span>{T('ลบทั้งหมด', 'Delete all')}
@@ -433,15 +443,16 @@ export default function TierListStudio() {
 
       {/* ยืนยัน */}
       {confirm && (
-        <Sheet title={confirm === 'clear' ? T('ล้างตาราง?', 'Clear all tiers?') : confirm === 'delete' ? T('ลบเรนเจอร์ทั้งหมด?', 'Delete every ranger?') : T('รีเซ็ตทั้งหมด?', 'Reset everything?')} onClose={() => setConfirm(null)}>
+        <Sheet title={confirm === 'clear' ? T('ล้างตาราง?', 'Clear all tiers?') : confirm === 'tiers' ? T('รีเซ็ตตั้งค่าตาราง?', 'Reset the table settings?') : confirm === 'delete' ? T('ลบเรนเจอร์ทั้งหมด?', 'Delete every ranger?') : T('รีเซ็ตทั้งหมด?', 'Reset everything?')} onClose={() => setConfirm(null)}>
           <p className="tl-confirm-text">
             {confirm === 'clear' && T('ย้ายเรนเจอร์ทุกตัวในตารางกลับไปที่คลัง (แถวและสีเทียร์ยังอยู่)', 'Moves every ranger in the tiers back to the pool (rows and colours stay)')}
+            {confirm === 'tiers' && T('ตารางกลับเป็นแถว S A B C D สีเดิม และชื่อตารางเริ่มต้น เรนเจอร์ในตารางกลับไปที่คลัง (เรนเจอร์ที่เพิ่มเองไม่หาย)', 'The table goes back to S A B C D rows, default colours and the default title. Placed rangers go back to the pool (rangers you added are kept)')}
             {confirm === 'delete' && T('ลบเรนเจอร์ทั้งหมดทั้งในตารางและคลัง เหลือตารางเปล่าให้เพิ่มเองทีละตัว', 'Removes every ranger from the tiers and the pool, leaving an empty board to fill yourself')}
             {confirm === 'reset' && T('กลับไปเป็นค่าเริ่มต้น: แถว S A B C D และเรนเจอร์จาก Meta PVP ลีค Legend ล่าสุด', 'Back to the defaults: S A B C D rows and the latest Meta PVP Legend rangers')}
           </p>
           <div className="tl-confirm-btns">
             <button className="tl-btn" onClick={() => setConfirm(null)}>{T('ยกเลิก', 'Cancel')}</button>
-            <button className={'tl-btn ' + (confirm === 'clear' ? 'primary' : 'danger')} onClick={doConfirm}>{T('ยืนยัน', 'Confirm')}</button>
+            <button className={'tl-btn ' + (confirm === 'clear' || confirm === 'tiers' ? 'primary' : 'danger')} onClick={doConfirm}>{T('ยืนยัน', 'Confirm')}</button>
           </div>
         </Sheet>
       )}

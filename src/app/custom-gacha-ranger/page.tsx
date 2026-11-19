@@ -22,7 +22,7 @@ export default function CustomGachaRangerPage() {
           </Link>
           <span className="text-white/20">|</span>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/gacha/images/LogoKiwi.png" alt="Kiwi" className="h-6 w-6 object-contain" />
+          <img src="/gacha/images/LogoKiwi-48.webp" alt="Kiwi" width={50} height={48} className="h-6 w-6 object-contain" />
           <span className="text-sm font-bold text-white">
             <span className="hidden sm:inline">Line Ranger </span>Kiwi
           </span>

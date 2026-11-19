@@ -630,3 +630,8 @@ button,
 
 /* Gacha Simulator: banner จางเข้าตอนสลับแท็บ Ranger/Gear */
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* ไอคอน Material: กว้าง 1em เสมอ — ก่อนฟอนต์ไอคอนโหลด ชื่อไอคอน (เช่น "person") จะโผล่เป็นตัวหนังสือยาว
+   ดันปุ่มให้กว้างแล้วหดตอนฟอนต์มา (หน้าขยับตอน F5) · ตัวไอคอนจริงกว้าง 1em อยู่แล้ว หน้าตาจึงไม่เปลี่ยน */
+/* อยู่ใน @layer base → คลาส Tailwind (hidden, w-*, text-*) ยังชนะเสมอ · display มาจากสไตล์ของ Google อยู่แล้ว */
+@layer base { .material-icons-round { width: 1em; flex-shrink: 0; overflow: hidden; } }

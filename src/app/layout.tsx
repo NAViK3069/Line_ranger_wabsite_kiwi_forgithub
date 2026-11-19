@@ -71,6 +71,9 @@ export default function RootLayout({
           rel="stylesheet"
           href="https://fonts.googleapis.com/icon?family=Material+Icons+Round"
         />
+        {/* โหลดฟอนต์หัวข้อ (LineBold) ตั้งแต่ต้น — ไม่งั้นหัวข้อขึ้นเป็นฟอนต์สำรองก่อนแล้วค่อยเปลี่ยน (กระพริบตอน F5) */}
+        <link rel="preload" href="/fonts/linebold.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
+        <link rel="preload" href="/gacha/images/LogoKiwi-160.webp" as="image" type="image/webp" />
         {/* JSON-LD: บอก Google ชื่อเว็บที่ถูกต้อง (แทน "Vercel") */}
         <script
           type="application/ld+json"

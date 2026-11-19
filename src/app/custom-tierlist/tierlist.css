@@ -1,0 +1,174 @@
+/* ====================================================
+   Tier List (/custom-tierlist) — ทุกกฎอยู่ใต้ .tl-page ไม่ไปยุ่งหน้าอื่น
+   มือถือก่อน (mobile first): ค่าเริ่มต้นคือจอแคบ แล้วขยายที่ ≥ 640px
+   ==================================================== */
+.tl-page {
+  --tl-cell: 56px;
+  --tl-label: 64px;
+  --tl-row-bg: #1c1d24;
+  --tl-line: rgba(255, 255, 255, 0.08);
+  color: #eef0f8;
+  padding-bottom: 150px; /* เว้นที่ให้แถบล่างตอนเลือกเรนเจอร์ */
+  -webkit-tap-highlight-color: transparent;
+}
+.tl-page[data-dragging] { cursor: grabbing; }
+.tl-page[data-dragging] * { user-select: none; -webkit-user-select: none; }
+
+.tl-loading { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 50vh; color: #9aa1b5; font-size: 14px; }
+
+/* หัว: ชื่อ + ปุ่ม */
+.tl-head { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.tl-title {
+  width: 100%; background: transparent; border: none; border-bottom: 2px solid transparent; color: #fff;
+  font-size: 20px; font-weight: 800; padding: 4px 2px; outline: none; transition: border-color 0.15s;
+}
+.tl-title:focus { border-bottom-color: #f59e0b; }
+.tl-actions { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; margin: 0 -12px; padding-left: 12px; padding-right: 12px; }
+.tl-actions::-webkit-scrollbar { display: none; }
+.tl-btn {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; padding: 0 14px;
+  border-radius: 12px; border: 1px solid var(--tl-line); background: #23252e; color: #e6e9f4; font-size: 13.5px; font-weight: 600;
+  white-space: nowrap; transition: background 0.15s, transform 0.1s;
+}
+.tl-btn .material-icons-round { font-size: 19px; }
+.tl-btn:hover:not(:disabled) { background: #2c2f3a; }
+.tl-btn:active:not(:disabled) { transform: scale(0.97); }
+.tl-btn:disabled { opacity: 0.4; }
+.tl-btn.primary { background: linear-gradient(135deg, #f59e0b, #f97316); border-color: transparent; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+.tl-btn.accent { background: linear-gradient(135deg, #22c6ee, #1a7fe3); border-color: transparent; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+.tl-btn.danger { color: #ff8b9c; border-color: rgba(255, 84, 112, 0.35); background: rgba(255, 84, 112, 0.08); }
+
+/* ตาราง */
+.tl-board { border-radius: 14px; overflow: hidden; border: 1px solid var(--tl-line); background: #111216; }
+.tl-row { display: flex; align-items: stretch; min-height: calc(var(--tl-cell) + 8px); border-bottom: 1px solid #000; background: var(--tl-row-bg); transition: background 0.15s; }
+.tl-row.over { background: #262a35; }
+.tl-row.can-drop .tl-items { cursor: pointer; }
+.tl-row.can-drop .tl-items:hover { background: rgba(255, 255, 255, 0.03); }
+.tl-label {
+  flex: none; width: var(--tl-label); display: grid; place-items: center; padding: 4px; border: none;
+  font-weight: 800; font-size: 20px; line-height: 1.1; text-align: center; word-break: break-word; cursor: pointer;
+}
+.tl-label span { display: block; max-width: 100%; overflow-wrap: anywhere; }
+.tl-label:active { filter: brightness(0.92); }
+.tl-items { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-content: flex-start; align-items: center; gap: 4px; padding: 4px; min-height: calc(var(--tl-cell) + 8px); }
+.tl-hint { color: rgba(255, 255, 255, 0.35); font-size: 12px; padding: 0 6px; align-self: center; }
+.tl-ctrl { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 32px; background: #0c0d10; }
+.tl-ctrl button { width: 32px; height: 24px; display: grid; place-items: center; border: none; background: transparent; color: #c9cede; }
+.tl-ctrl button .material-icons-round { font-size: 20px; }
+.tl-ctrl button:disabled { opacity: 0.25; }
+.tl-ctrl button:active:not(:disabled) { color: #fff; }
+.tl-add-row { width: 100%; height: 42px; display: flex; align-items: center; justify-content: center; gap: 6px; border: none; background: #15161b; color: #9aa1b5; font-size: 13px; font-weight: 600; }
+.tl-add-row:hover { color: #fff; background: #1b1d23; }
+
+/* รูปเรนเจอร์ */
+.tl-item {
+  position: relative; flex: none; width: var(--tl-cell); height: var(--tl-cell); padding: 0; border-radius: 10px; overflow: hidden;
+  border: 2px solid transparent; background: #2b2e38; cursor: grab; touch-action: manipulation;
+  -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; transition: transform 0.12s, border-color 0.12s, opacity 0.12s;
+}
+.tl-item img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; }
+.tl-item:hover { transform: translateY(-2px); }
+.tl-item.sel { border-color: #fbbf24; box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.35); transform: scale(1.06); z-index: 1; }
+.tl-item.ghosted { opacity: 0.3; }
+.tl-marker { flex: none; width: 4px; height: var(--tl-cell); border-radius: 2px; background: #fbbf24; box-shadow: 0 0 10px #fbbf24; }
+.tl-ghost {
+  position: fixed; z-index: 70; width: 72px; height: 72px; margin: -36px 0 0 -36px; border-radius: 12px; pointer-events: none;
+  background: #2b2e38; border: 2px solid #fbbf24; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55); object-fit: contain; transform: rotate(-4deg) scale(1.05);
+}
+
+/* คลัง */
+.tl-pool-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 18px 2px 8px; font-size: 15px; }
+.tl-pool-head .material-icons-round { color: #f59e0b; font-size: 20px; }
+.tl-count { padding: 1px 8px; border-radius: 999px; background: #2b2e38; font-size: 12px; font-weight: 700; color: #cfd4e4; }
+.tl-sub { width: 100%; font-size: 11.5px; color: #8b92a8; }
+.tl-pool {
+  display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; min-height: 90px; border-radius: 14px;
+  background: #15161b; border: 1px dashed rgba(255, 255, 255, 0.12); transition: background 0.15s, border-color 0.15s;
+}
+.tl-pool.over { background: #1d2029; border-color: #fbbf24; }
+.tl-empty { width: 100%; display: flex; align-items: center; justify-content: center; min-height: 72px; color: #8b92a8; font-size: 13px; text-align: center; padding: 0 12px; }
+.tl-tip { display: flex; align-items: flex-start; gap: 6px; margin: 10px 2px 0; font-size: 12px; color: #8b92a8; line-height: 1.45; }
+.tl-tip .material-icons-round { font-size: 16px; margin-top: 1px; }
+
+/* แถบล่าง (เลือกเรนเจอร์แล้ว) */
+.tl-dock {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
+  background: rgba(20, 21, 27, 0.97); backdrop-filter: blur(10px); border-top: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.45); animation: tlUp 0.2s cubic-bezier(.2, .8, .2, 1);
+}
+.tl-dock-top { display: flex; align-items: center; gap: 10px; max-width: 1100px; margin: 0 auto 8px; }
+.tl-dock-top img { width: 36px; height: 36px; border-radius: 8px; background: #2b2e38; object-fit: contain; }
+.tl-dock-top b { flex: 1; min-width: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-dock-x { width: 36px; height: 36px; border-radius: 10px; border: none; background: #262833; color: #fff; display: grid; place-items: center; }
+.tl-dock-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; max-width: 1100px; margin: 0 auto; }
+.tl-dock-row::-webkit-scrollbar { display: none; }
+.tl-dock-tier {
+  flex: none; min-width: 48px; height: 48px; padding: 0 10px; border-radius: 12px; border: 2px solid transparent;
+  font-size: 18px; font-weight: 800; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tl-dock-tier.here { border-color: #fff; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3); }
+.tl-dock-tier:active, .tl-dock-btn:active { transform: scale(0.95); }
+.tl-dock-btn {
+  flex: none; height: 48px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--tl-line); background: #262833; color: #e6e9f4;
+  display: flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 600;
+}
+.tl-dock-btn.here { border-color: #fff; }
+.tl-dock-btn.danger { color: #ff8b9c; border-color: rgba(255, 84, 112, 0.35); }
+
+/* แผงเลื่อนขึ้น (แก้เทียร์ / ยืนยัน) */
+.tl-sheet-back { position: fixed; inset: 0; z-index: 65; background: rgba(0, 0, 0, 0.55); display: flex; flex-direction: column; justify-content: flex-end; animation: tlFade 0.15s ease-out; }
+.tl-sheet {
+  width: 100%; max-height: 88dvh; display: flex; flex-direction: column; background: #17181e; border-radius: 20px 20px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: env(safe-area-inset-bottom); animation: tlUp 0.22s cubic-bezier(.2, .8, .2, 1);
+}
+.tl-sheet-head { position: relative; display: flex; align-items: center; justify-content: space-between; padding: 16px 10px 8px 18px; }
+.tl-sheet-head b { font-size: 16px; }
+.tl-sheet-head button { width: 38px; height: 38px; border-radius: 10px; border: none; background: transparent; color: #fff; display: grid; place-items: center; }
+.tl-grab { position: absolute; top: 7px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 2px; background: rgba(255, 255, 255, 0.22); }
+.tl-sheet-body { overflow-y: auto; padding: 4px 18px 18px; display: flex; flex-direction: column; gap: 14px; }
+.tl-edit-preview { height: 72px; border-radius: 14px; display: grid; place-items: center; font-size: 30px; font-weight: 800; padding: 0 12px; text-align: center; overflow-wrap: anywhere; }
+.tl-field { display: flex; flex-direction: column; gap: 6px; }
+.tl-field > span { font-size: 12.5px; color: #9aa1b5; font-weight: 600; }
+.tl-field input:not([type=color]) { height: 46px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.12); background: #0f1014; color: #fff; padding: 0 14px; font-size: 16px; outline: none; }
+.tl-field input:not([type=color]):focus { border-color: #f59e0b; }
+.tl-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 8px; }
+.tl-swatch { aspect-ratio: 1; border-radius: 10px; border: 2px solid rgba(255, 255, 255, 0.12); cursor: pointer; position: relative; display: grid; place-items: center; }
+.tl-swatch.on { border-color: #fff; box-shadow: 0 0 0 2px #f59e0b; }
+.tl-swatch.custom { background: conic-gradient(#ff5470, #ffd700, #3fd68f, #33e1ff, #a855f7, #ff5470); overflow: hidden; }
+.tl-swatch.custom input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.tl-swatch.custom .material-icons-round { font-size: 18px; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); pointer-events: none; }
+.tl-edit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tl-edit-actions .tl-btn { height: 46px; white-space: normal; line-height: 1.2; font-size: 12.5px; }
+.tl-confirm-text { color: #c4c9d8; font-size: 14px; line-height: 1.5; margin: 0; }
+.tl-confirm-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tl-confirm-btns .tl-btn { height: 48px; }
+
+.tl-toast {
+  position: fixed; left: 50%; bottom: calc(160px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 80;
+  padding: 10px 16px; border-radius: 12px; background: rgba(30, 32, 40, 0.97); border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff; font-size: 13px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); max-width: calc(100vw - 32px); text-align: center; animation: tlFade 0.15s;
+}
+@keyframes tlUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes tlFade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── จอกว้าง ── */
+@media (min-width: 640px) {
+  .tl-page { --tl-cell: 72px; --tl-label: 110px; padding-bottom: 130px; }
+  .tl-head { flex-direction: row; align-items: center; justify-content: space-between; }
+  .tl-title { font-size: 24px; flex: 1; min-width: 0; }
+  .tl-actions { flex-wrap: wrap; justify-content: flex-end; margin: 0; padding: 0; overflow: visible; }
+  .tl-label { font-size: 26px; }
+  .tl-ctrl { width: 64px; flex-direction: row; flex-wrap: wrap; align-content: center; gap: 0; }
+  .tl-ctrl button:first-child { width: 64px; height: 30px; }
+  .tl-ctrl button { width: 32px; height: 26px; }
+  .tl-sub { width: auto; margin-left: auto; }
+  .tl-sheet { max-width: 480px; margin: 0 auto; border-radius: 20px 20px 0 0; }
+  .tl-toast { bottom: 150px; }
+}
+@media (min-width: 1024px) {
+  .tl-page { --tl-cell: 80px; --tl-label: 120px; }
+  .tl-ctrl { width: 72px; }
+  .tl-ctrl button:first-child { width: 72px; height: 34px; }
+  .tl-ctrl button { width: 36px; height: 28px; }
+  .tl-ctrl button .material-icons-round { font-size: 22px; }
+}

@@ -16,6 +16,8 @@ const CUSTOM_ITEMS = [
   { href: '/custom-gacha-ranger', label: 'Gacha Ranger', icon: 'auto_awesome', iconClass: 'text-yellow-400', borderClass: 'border-yellow-400/30' },
   // Video Studio = ANME (จัดฉาก + เล่นสกิล + ส่งออก MP4) — ดู src/anme/
   { href: '/custom-video', label: 'Video Studio', icon: 'movie', iconClass: 'text-pink-400', borderClass: 'border-pink-400/30' },
+  // Tier List — จัดเทียร์เรนเจอร์ (ค่าเริ่มต้นจาก Meta PVP ลีค Legend) แล้วบันทึกเป็นรูป
+  { href: '/custom-tierlist', label: 'Tier List', icon: 'leaderboard', iconClass: 'text-amber-400', borderClass: 'border-amber-400/30' },
 ]
 
 export default function CustomPage() {

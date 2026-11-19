@@ -26,9 +26,12 @@ export async function loadSprites(plistBuffer: ArrayBuffer, pngBlob: Blob): Prom
 
   for (const [name, info] of Object.entries<{ textureRect?: string; frame?: string; textureRotated?: boolean; rotated?: boolean }>(frames)) {
     const rectStr = info.textureRect || info.frame || ''
-    const nums = rectStr.match(/\d+/g)?.map(Number)
+    // บาง plist เขียนเลขทศนิยม ({{98.0,322.0},{99.0,99.0}} เช่น u415e-riza) — ต้องจับทศนิยมด้วย
+    // ไม่งั้น "98.0" แตกเป็น 98 กับ 0 ทำให้ค่าเลื่อนผิดช่อง → ความสูง 0 → createImageBitmap พังทั้งตัว
+    const nums = rectStr.match(/\d+(?:\.\d+)?/g)?.map(n => Math.round(Number(n)))
     if (!nums || nums.length < 4) continue
     const [ax, ay, fw, fh] = nums
+    if (fw <= 0 || fh <= 0) continue // ชิ้นขนาดศูนย์ตัดไม่ได้ — ข้ามไป ไม่ให้ทั้งตัวโหลดไม่ขึ้น
     const rotated = !!(info.textureRotated || info.rotated)
 
     let bitmap: ImageBitmap

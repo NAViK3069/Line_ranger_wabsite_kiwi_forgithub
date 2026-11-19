@@ -475,7 +475,7 @@ export default function TierListStudio() {
       </p>
 
       {/* แถบล่าง: ตัวที่เลือก → ย้ายไปเทียร์ */}
-      {selected && (
+      {selected && !detailId && (
         <div className="tl-dock">
           <div className="tl-dock-top">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -501,17 +501,16 @@ export default function TierListStudio() {
         </div>
       )}
 
-      {/* ป๊อปอัปรายละเอียด — portal ไป body + ชั้นสูงกว่าแถบล่าง (.tl-dock z 60) */}
+      {/* ป๊อปอัปรายละเอียด — portal ไป body โดยไม่ห่อชั้น z-index (ห่อแล้วป๊อปอัปเลือกเกียร์ z-70 จะไปอยู่ข้างหลัง)
+          ซ้อนแบบเดียวกับ Ranger Book · ซ่อนแถบล่าง (.tl-dock z 60) ระหว่างเปิด ไม่ให้ทับป๊อปอัป (z 50) */}
       {detailId && createPortal(
-        <div style={{ position: 'relative', zIndex: 80 }}>
-          <GachaRangerDetailPopup
-            rangerId={detailId}
-            rangerName={book[detailId]?.name ?? detailId}
-            rangerImageUrl={thumb(detailId)}
-            mode="book"
-            onClose={() => setDetailId(null)}
-          />
-        </div>,
+        <GachaRangerDetailPopup
+          rangerId={detailId}
+          rangerName={book[detailId]?.name ?? detailId}
+          rangerImageUrl={thumb(detailId)}
+          mode="book"
+          onClose={() => setDetailId(null)}
+        />,
         document.body,
       )}
 

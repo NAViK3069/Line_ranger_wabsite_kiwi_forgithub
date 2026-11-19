@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
+import GachaTabs from './GachaTabs'
 
 interface PoolCard {
   id: string
@@ -43,12 +44,7 @@ export default function GachaGearPage() {
           <LanguageSwitcher />
         </div>
 
-        <div className="text-center mb-10">
-          <h1 className="text-4xl md:text-5xl font-black mb-2">
-            <span className="text-gradient-gold">Gacha Gear</span>
-          </h1>
-          <p className="text-gray-400">{tStat('Select banner to roll')}</p>
-        </div>
+        <GachaTabs current="gear" />
 
         {/* Loading */}
         {loading && (

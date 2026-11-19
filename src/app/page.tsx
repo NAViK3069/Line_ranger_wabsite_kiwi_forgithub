@@ -76,19 +76,20 @@ export default function HomePage() {
             ปุ่มทุกใบกว้างเท่ากัน (sm:w-60) สองแถวจึงเรียงเป็นคอลัมน์ตรงกันพอดี
             ถ้าแถวล่างมีแค่ 2 ปุ่ม (ยังไม่ปลดล็อค Beta) ก็ยังจัดกลางสมมาตรอยู่ */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          {/* Gacha Ranger + Gacha Gear รวมเป็นปุ่มเดียว — สลับ Ranger/Gear ด้วยแท็บบนหน้า Gacha */}
           <Link
             href="/gacha-ranger"
             className="w-full sm:w-60 px-4 py-4 bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold text-lg rounded-2xl hover:opacity-90 transition-all hover:scale-105 active:scale-95 shadow-lg glow-gold flex items-center justify-center gap-2"
           >
-            Gacha Ranger
             <span className="material-icons-round text-lg">auto_awesome</span>
+            Gacha Simulator
           </Link>
           <Link
-            href="/gacha-gear"
+            href="/custom-tierlist"
             className="w-full sm:w-60 px-4 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-lg rounded-2xl hover:opacity-90 transition-all hover:scale-105 active:scale-95 shadow-lg flex items-center justify-center gap-2"
           >
-            <span className="material-icons-round text-lg">settings</span>
-            Gacha Gear
+            <span className="material-icons-round text-lg">leaderboard</span>
+            Tier List
           </Link>
           <Link
             href="/meta"

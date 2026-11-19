@@ -75,18 +75,18 @@
 }
 /* พื้นหลังธาตุมืดลงนิดหน่อย (ต้องตรงกับ BG_DIM ใน TierListStudio.tsx) + เงาเรนเจอร์อ่อนๆ ให้ตัวเด่นจากพื้น */
 .tl-card { position: relative; }
-.tl-card::before { content: ''; position: absolute; inset: 0; background: rgba(0, 0, 0, 0.2); pointer-events: none; }
+.tl-card.has-el::before { content: ''; position: absolute; inset: 0; background: rgba(0, 0, 0, 0.2); pointer-events: none; }
 .tl-card img {
   position: relative; width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block;
   filter: drop-shadow(0 calc(var(--tl-cell) * 0.02) calc(var(--tl-cell) * 0.035) rgba(0, 0, 0, 0.55));
 }
 .tl-el {
-  position: absolute; left: 1%; bottom: 1%; width: 34%; height: 34%; pointer-events: none;
+  position: absolute; left: 0; bottom: 0; width: 34%; height: 34%; pointer-events: none;
   filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.6));
 }
 /* รูปดาวของเกม (/gacha/images/{n}[#|+]star.png) — ขนาด/ตำแหน่งตรงกับ STAR_W / STAR_LIFT ใน TierListStudio.tsx */
 .tl-stars {
-  position: absolute; left: 2%; top: calc(var(--tl-cell) * -0.07); width: 96%; height: auto; pointer-events: none;
+  position: absolute; left: 8%; top: calc(var(--tl-cell) * -0.06); width: 84%; height: auto; pointer-events: none;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
 }
 .tl-item:hover { transform: translateY(-2px); }

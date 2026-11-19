@@ -51,25 +51,29 @@ const hasElement = (e?: string): e is string => !!e && ELEMENTS.includes(e)
 const bgSrc = (e: string) => `/tierlist/bg-${e}.png`
 const elSrc = (e: string) => `/tierlist/el-${e}.png`
 
-type FrameKind = 'gold' | 'hyper' | 'ultra' | 'wood'
-/** 4 ดาวลงมา = ไม้ · ไฮเปอร์ = ชมพูม่วง · อัลตร้า = ฟ้า · ร่างธรรมดา/9 ดาว = ทอง */
+type FrameKind = 'gold' | 'hyper' | 'ultra' | 'brown'
+/** 4 ดาวลงมา = น้ำตาล · ไฮเปอร์ = ชมพู · อัลตร้า = ฟ้าเขียว · ร่างธรรมดา/9 ดาว = ทอง */
 function frameOf(info?: RangerInfo): FrameKind {
-  if (info?.grade && info.grade <= 4) return 'wood'
+  if (info?.grade && info.grade <= 4) return 'brown'
   if (info?.evolution === 'hyper') return 'hyper'
   if (info?.evolution === 'ultra') return 'ultra'
   return 'gold'
 }
-/** จุดสีของกรอบ (ใช้ทั้ง CSS และตอนวาดรูป PNG) */
-const FRAME_STOPS: Record<Exclude<FrameKind, 'wood'>, string[]> = {
-  gold: ['#fff6c4', '#f7cd4a', '#b9861a', '#ffe58a', '#c18e1f', '#fff0a8'],
-  hyper: ['#ffe1fb', '#f472d0', '#9d3fd6', '#f6a6ff', '#7a2fc2', '#ffd0f6'],
-  ultra: ['#e0fbff', '#5fd0ff', '#1f7ae0', '#a5ecff', '#1558b8', '#d6f6ff'],
+/**
+ * ธีมสีตามกรอบของเกม (ใช้ทั้ง CSS และตอนวาดรูป PNG)
+ * frame = จุดสีกรอบ (ไล่เฉียง 135°) · dark = พื้นหลังมืดของตัวที่ไม่มีธาตุ (บน → ล่าง)
+ */
+const THEMES: Record<FrameKind, { frame: string[]; dark: [string, string] }> = {
+  gold: { frame: ['#ffe36e', '#ffb300', '#f39800', '#ffd84d', '#e48a00'], dark: ['#3b3b3e', '#141416'] },
+  ultra: { frame: ['#b0fff9', '#1fe6e2', '#08bfcc', '#74f3ee', '#07a2b2'], dark: ['#2c2f72', '#0c0d2c'] },
+  hyper: { frame: ['#ffb8ef', '#ff30ca', '#de12a0', '#ff7fe0', '#bd0c87'], dark: ['#521046', '#1a0517'] },
+  brown: { frame: ['#8b5529', '#8b5529'], dark: ['#5f3a1b', '#2f1b0b'] },
 }
-/** ลายไม้: [สี, x เริ่ม, กว้าง] ในช่วงละ 11px */
-const WOOD_BANDS: [string, number, number][] = [['#6e4320', 0, 3], ['#8d5a31', 3, 2], ['#4f2f14', 5, 2], ['#7c4c27', 7, 4]]
-const frameCss = (k: FrameKind) => k === 'wood'
-  ? `repeating-linear-gradient(100deg, ${WOOD_BANDS.map(([c, x, w]) => `${c} ${x}px ${x + w}px`).join(', ')})`
-  : `linear-gradient(135deg, ${FRAME_STOPS[k].map((c, i, a) => `${c} ${Math.round((i / (a.length - 1)) * 100)}%`).join(', ')})`
+const stopsCss = (stops: string[]) => stops.map((c, i, a) => `${c} ${Math.round((i / (a.length - 1)) * 100)}%`).join(', ')
+const frameCss = (k: FrameKind) => `linear-gradient(135deg, ${stopsCss(THEMES[k].frame)})`
+/** แสงเงาเฉียงบนพื้นมืด (เหมือนกระจกในกรอบตัวอย่าง) */
+const SHEEN = 'linear-gradient(115deg, rgba(255,255,255,0) 40%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0) 64%)'
+const darkCss = (k: FrameKind) => `${SHEEN}, linear-gradient(180deg, ${THEMES[k].dark[0]}, ${THEMES[k].dark[1]})`
 /** รูปดาวชุดเดียวกับหน้ากาชา: ธรรมดา = ทอง · ไฮเปอร์ = # (ชมพู) · อัลตร้า = + (ฟ้า) · 9 ดาวมีแบบเดียว */
 function starSrc(info?: RangerInfo): string | null {
   const g = Math.max(0, Math.min(9, info?.grade ?? 0))
@@ -83,7 +87,7 @@ function CardFace({ id, info, alt }: { id: string; info?: RangerInfo; alt: strin
   const stars = starSrc(info)
   return (
     <>
-      <span className="tl-card" style={el ? { backgroundImage: `url(${bgSrc(el)})` } : undefined}>
+      <span className={'tl-card' + (el ? ' has-el' : '')} style={{ backgroundImage: el ? `url(${bgSrc(el)})` : darkCss(frameOf(info)) }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={thumb(id)} alt={alt} draggable={false} loading="lazy" />
       </span>
@@ -604,19 +608,9 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
 }
 
 /** ขนาดรูปดาวเทียบกับการ์ด (ต้องตรงกับ .tl-stars ใน tierlist.css) */
-const STAR_W = 0.96, STAR_LIFT = 0.07
+const STAR_W = 0.84, STAR_LIFT = 0.06
 /** ความมืดที่ทับพื้นหลังธาตุ (ต้องตรงกับ .tl-card::before ใน tierlist.css) */
 const BG_DIM = 0.2
-
-let woodCache: HTMLCanvasElement | null = null
-/** ลายไม้ (ทำครั้งเดียว) ให้ตรงกับ repeating-linear-gradient ของ CSS */
-function woodTile() {
-  if (woodCache) return woodCache
-  const c = document.createElement('canvas'); c.width = 11; c.height = 11
-  const g = c.getContext('2d')!
-  for (const [col, x0, w] of WOOD_BANDS) { g.fillStyle = col; g.fillRect(x0, 0, w, 11) }
-  return (woodCache = c)
-}
 
 /** กรอบ + พื้นหลังธาตุ + รูป + วงกลมธาตุ + ดาว ลงแคนวาส (หน้าตาเดียวกับการ์ดบนหน้าเว็บ) */
 function drawCard(ctx: CanvasRenderingContext2D, x: number, y: number, S: number, info: RangerInfo | undefined,
@@ -625,25 +619,28 @@ function drawCard(ctx: CanvasRenderingContext2D, x: number, y: number, S: number
   // กรอบ
   ctx.save()
   ctx.beginPath(); ctx.roundRect(x, y, S, S, R); ctx.clip()
-  if (kind === 'wood') {
-    const pat = ctx.createPattern(woodTile(), 'repeat')!
-    pat.setTransform(new DOMMatrix().translate(x, y).rotate(10))
-    ctx.fillStyle = pat
-  } else {
-    const g = ctx.createLinearGradient(x, y, x + S, y + S)
-    FRAME_STOPS[kind].forEach((c, i, a) => g.addColorStop(i / (a.length - 1), c))
-    ctx.fillStyle = g
-  }
+  const fg = ctx.createLinearGradient(x, y, x + S, y + S)
+  THEMES[kind].frame.forEach((c, i, a) => fg.addColorStop(i / (a.length - 1), c))
+  ctx.fillStyle = fg
   ctx.fillRect(x, y, S, S)
+  ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.beginPath(); ctx.roundRect(x + 0.75, y + 0.75, S - 1.5, S - 1.5, R); ctx.stroke()
   ctx.restore()
   // ด้านใน: พื้นหลังธาตุ + รูปเรนเจอร์
   const ix = x + F, iy = y + F, IS = S - F * 2
   ctx.save()
   ctx.beginPath(); ctx.roundRect(ix, iy, IS, IS, Math.max(2, R - F)); ctx.clip()
-  ctx.fillStyle = '#2b2e38'; ctx.fillRect(ix, iy, IS, IS)
   if (bg) {
     ctx.drawImage(bg, ix - IS * 0.04, iy - IS * 0.04, IS * 1.08, IS * 1.08)
     ctx.fillStyle = `rgba(0,0,0,${BG_DIM})`; ctx.fillRect(ix, iy, IS, IS) // พื้นหลังมืดลงนิดหน่อย
+  } else {
+    // ไม่มีธาตุ: พื้นมืดตามธีมกรอบ + แสงเฉียง (ตรงกับ darkCss)
+    const dg = ctx.createLinearGradient(ix, iy, ix, iy + IS)
+    dg.addColorStop(0, THEMES[kind].dark[0]); dg.addColorStop(1, THEMES[kind].dark[1])
+    ctx.fillStyle = dg; ctx.fillRect(ix, iy, IS, IS)
+    const a = (115 - 90) * Math.PI / 180, cx = ix + IS / 2, cy = iy + IS / 2, half = IS * 0.75
+    const sg = ctx.createLinearGradient(cx - Math.cos(a) * half, cy - Math.sin(a) * half, cx + Math.cos(a) * half, cy + Math.sin(a) * half)
+    sg.addColorStop(0.4, 'rgba(255,255,255,0)'); sg.addColorStop(0.5, 'rgba(255,255,255,0.09)'); sg.addColorStop(0.64, 'rgba(255,255,255,0)')
+    ctx.fillStyle = sg; ctx.fillRect(ix, iy, IS, IS)
   }
   if (img) {
     const k = Math.min(IS / img.width, IS / img.height)
@@ -655,7 +652,7 @@ function drawCard(ctx: CanvasRenderingContext2D, x: number, y: number, S: number
   }
   ctx.restore()
   // วงกลมธาตุ มุมซ้ายล่าง
-  if (badge) { const B = S * 0.34; ctx.drawImage(badge, x + S * 0.01, y + S - B - S * 0.01, B, B) }
+  if (badge) { const B = S * 0.34; ctx.drawImage(badge, x, y + S - B, B, B) }
   // ดาว บนขอบบน
   if (starImg) {
     const w = S * STAR_W, h = w * (starImg.height / starImg.width)

@@ -42,6 +42,55 @@ const FG_SWATCHES = ['#1a1a1a', '#ffffff', '#ffd700', '#ff4d4d', '#22d3ee', '#a8
 
 const uid = () => Math.random().toString(36).slice(2, 9)
 const thumb = (id: string) => `https://rangers.lerico.net/res/${id}/${id}-thum.png`
+
+// ── การ์ดเรนเจอร์: พื้นหลังธาตุ + กรอบตามร่าง/ดาว + วงกลมธาตุมุมซ้ายล่าง + ดาวบนขอบบน ──
+
+interface RangerInfo { name: string; element?: string; grade?: number; evolution?: string }
+const ELEMENTS = ['water', 'wood', 'fire', 'light', 'dark']
+const hasElement = (e?: string): e is string => !!e && ELEMENTS.includes(e)
+const bgSrc = (e: string) => `/tierlist/bg-${e}.png`
+const elSrc = (e: string) => `/tierlist/el-${e}.png`
+
+type FrameKind = 'gold' | 'hyper' | 'ultra' | 'wood'
+/** 4 ดาวลงมา = ไม้ · ไฮเปอร์ = ชมพูม่วง · อัลตร้า = ฟ้า · ร่างธรรมดา/9 ดาว = ทอง */
+function frameOf(info?: RangerInfo): FrameKind {
+  if (info?.grade && info.grade <= 4) return 'wood'
+  if (info?.evolution === 'hyper') return 'hyper'
+  if (info?.evolution === 'ultra') return 'ultra'
+  return 'gold'
+}
+/** จุดสีของกรอบ (ใช้ทั้ง CSS และตอนวาดรูป PNG) */
+const FRAME_STOPS: Record<Exclude<FrameKind, 'wood'>, string[]> = {
+  gold: ['#fff6c4', '#f7cd4a', '#b9861a', '#ffe58a', '#c18e1f', '#fff0a8'],
+  hyper: ['#ffe1fb', '#f472d0', '#9d3fd6', '#f6a6ff', '#7a2fc2', '#ffd0f6'],
+  ultra: ['#e0fbff', '#5fd0ff', '#1f7ae0', '#a5ecff', '#1558b8', '#d6f6ff'],
+}
+/** ลายไม้: [สี, x เริ่ม, กว้าง] ในช่วงละ 11px */
+const WOOD_BANDS: [string, number, number][] = [['#6e4320', 0, 3], ['#8d5a31', 3, 2], ['#4f2f14', 5, 2], ['#7c4c27', 7, 4]]
+const frameCss = (k: FrameKind) => k === 'wood'
+  ? `repeating-linear-gradient(100deg, ${WOOD_BANDS.map(([c, x, w]) => `${c} ${x}px ${x + w}px`).join(', ')})`
+  : `linear-gradient(135deg, ${FRAME_STOPS[k].map((c, i, a) => `${c} ${Math.round((i / (a.length - 1)) * 100)}%`).join(', ')})`
+const STAR_PATH = 'M12 1.5l3.1 6.6 7.2.9-5.3 5 1.4 7.1L12 17.6l-6.4 3.5 1.4-7.1-5.3-5 7.2-.9z'
+
+function CardFace({ id, info, alt }: { id: string; info?: RangerInfo; alt: string }) {
+  const el = hasElement(info?.element) ? info!.element! : null
+  const stars = Math.max(0, Math.min(9, info?.grade ?? 0))
+  return (
+    <>
+      <span className="tl-card" style={el ? { backgroundImage: `url(${bgSrc(el)})` } : undefined}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={thumb(id)} alt={alt} draggable={false} loading="lazy" />
+      </span>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {el && <img className="tl-el" src={elSrc(el)} alt="" draggable={false} />}
+      {stars > 0 && (
+        <span className="tl-stars" aria-label={`${stars} stars`}>
+          {Array.from({ length: stars }, (_, i) => <svg key={i} viewBox="0 0 24 24"><path d={STAR_PATH} /></svg>)}
+        </span>
+      )}
+    </>
+  )
+}
 const freshTiers = (): Tier[] => DEFAULT_TIERS.map(t => ({ ...t, id: uid(), items: [] }))
 
 interface MetaRanger { id: string; name: string; count: number; totalCount: number }
@@ -99,7 +148,7 @@ export default function TierListStudio() {
   const { lang, tRanger } = useLanguage()
   const T = useCallback((th: string, en: string) => (lang === 'th' ? th : en), [lang])
   const [board, setBoard] = useState<Board | null>(null)
-  const [names, setNames] = useState<Record<string, string>>({})
+  const [book, setBook] = useState<Record<string, RangerInfo>>({})
   const [selected, setSelected] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
@@ -130,11 +179,11 @@ export default function TierListStudio() {
 
   // ชื่อเรนเจอร์ (ใช้ใน title / แถบเลือก) — จาก ranger-book ชุดเดียวกับตัวเลือก
   useEffect(() => {
-    apiFetch('/api/ranger-book').then(r => r.json()).then((d: { rangers?: { id: string; name: string }[] }) => {
-      setNames(Object.fromEntries((d.rangers ?? []).map(r => [r.id, r.name])))
+    apiFetch('/api/ranger-book').then(r => r.json()).then((d: { rangers?: ({ id: string } & RangerInfo)[] }) => {
+      setBook(Object.fromEntries((d.rangers ?? []).map(r => [r.id, { name: r.name, element: r.element, grade: r.grade, evolution: r.evolution }])))
     }).catch(() => {})
   }, [])
-  const nameOf = (id: string) => tRanger(id, names[id] ?? id)
+  const nameOf = (id: string) => tRanger(id, book[id]?.name ?? id)
 
   // ── แก้บอร์ด ──
   const update = (fn: (b: Board) => Board) => setBoard(b => (b ? fn(structuredClone(b)) : b))
@@ -274,7 +323,7 @@ export default function TierListStudio() {
     if (!board) return
     setExporting(true)
     try {
-      const blob = await renderBoard(board)
+      const blob = await renderBoard(board, book)
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
       a.download = `${(board.title || 'tier-list').replace(/[^\p{L}\p{N}_\- ]+/gu, '').trim() || 'tier-list'}.png`
@@ -315,14 +364,14 @@ export default function TierListStudio() {
       type="button"
       data-item={id}
       className={'tl-item' + (selected === id ? ' sel' : '') + (drag?.id === id ? ' ghosted' : '')}
+      style={{ background: frameCss(frameOf(book[id])) }}
       title={nameOf(id)}
       onPointerDown={e => onItemPointerDown(e, id)}
       onTouchStart={e => onItemTouchStart(e, id)}
       onClick={() => onItemClick(id)}
       onContextMenu={e => e.preventDefault()}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={thumb(id)} alt={nameOf(id)} draggable={false} loading="lazy" />
+      <CardFace id={id} info={book[id]} alt={nameOf(id)} />
     </button>
   )
   const marker = (zone: string, i: number) => drag?.zone === zone && drag.index === i ? <span key={`m-${zone}-${i}`} className="tl-marker" /> : null
@@ -434,8 +483,9 @@ export default function TierListStudio() {
 
       {/* ภาพที่กำลังลาก */}
       {drag && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img className="tl-ghost" src={thumb(drag.id)} alt="" style={{ left: drag.x, top: drag.y }} />
+        <div className="tl-item tl-ghost" style={{ left: drag.x, top: drag.y, background: frameCss(frameOf(book[drag.id])) }}>
+          <CardFace id={drag.id} info={book[drag.id]} alt="" />
+        </div>
       )}
 
       {/* ตั้งค่าเทียร์ */}
@@ -550,8 +600,67 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
   })
 }
 
-async function renderBoard(b: Board): Promise<Blob> {
-  const W = 1200, PAD = 24, LABEL = 130, CELL = 96, GAP = 6, TITLE_H = b.title.trim() ? 70 : 0
+let woodCache: HTMLCanvasElement | null = null
+/** ลายไม้ (ทำครั้งเดียว) ให้ตรงกับ repeating-linear-gradient ของ CSS */
+function woodTile() {
+  if (woodCache) return woodCache
+  const c = document.createElement('canvas'); c.width = 11; c.height = 11
+  const g = c.getContext('2d')!
+  for (const [col, x0, w] of WOOD_BANDS) { g.fillStyle = col; g.fillRect(x0, 0, w, 11) }
+  return (woodCache = c)
+}
+
+/** กรอบ + พื้นหลังธาตุ + รูป + วงกลมธาตุ + ดาว ลงแคนวาส (หน้าตาเดียวกับการ์ดบนหน้าเว็บ) */
+function drawCard(ctx: CanvasRenderingContext2D, x: number, y: number, S: number, info: RangerInfo | undefined,
+  img: HTMLImageElement | null, bg: HTMLImageElement | null, badge: HTMLImageElement | null) {
+  const kind = frameOf(info), F = Math.round(S * 0.07), R = S * 0.14
+  // กรอบ
+  ctx.save()
+  ctx.beginPath(); ctx.roundRect(x, y, S, S, R); ctx.clip()
+  if (kind === 'wood') {
+    const pat = ctx.createPattern(woodTile(), 'repeat')!
+    pat.setTransform(new DOMMatrix().translate(x, y).rotate(10))
+    ctx.fillStyle = pat
+  } else {
+    const g = ctx.createLinearGradient(x, y, x + S, y + S)
+    FRAME_STOPS[kind].forEach((c, i, a) => g.addColorStop(i / (a.length - 1), c))
+    ctx.fillStyle = g
+  }
+  ctx.fillRect(x, y, S, S)
+  ctx.restore()
+  // ด้านใน: พื้นหลังธาตุ + รูปเรนเจอร์
+  const ix = x + F, iy = y + F, IS = S - F * 2
+  ctx.save()
+  ctx.beginPath(); ctx.roundRect(ix, iy, IS, IS, Math.max(2, R - F)); ctx.clip()
+  ctx.fillStyle = '#2b2e38'; ctx.fillRect(ix, iy, IS, IS)
+  if (bg) ctx.drawImage(bg, ix - IS * 0.04, iy - IS * 0.04, IS * 1.08, IS * 1.08)
+  if (img) {
+    const k = Math.min(IS / img.width, IS / img.height)
+    const w = img.width * k, h = img.height * k
+    ctx.drawImage(img, ix + (IS - w) / 2, iy + (IS - h) / 2, w, h)
+  }
+  ctx.restore()
+  // วงกลมธาตุ มุมซ้ายล่าง
+  if (badge) { const B = S * 0.34; ctx.drawImage(badge, x + S * 0.01, y + S - B - S * 0.01, B, B) }
+  // ดาว บนขอบบน
+  const n = Math.max(0, Math.min(9, info?.grade ?? 0))
+  if (n) {
+    const st = S * 0.135, step = st * 0.78, total = st + step * (n - 1)
+    const star = new Path2D(STAR_PATH)
+    for (let i = 0; i < n; i++) {
+      ctx.save()
+      ctx.translate(x + (S - total) / 2 + i * step, y - st * 0.18)
+      ctx.scale(st / 24, st / 24)
+      ctx.lineJoin = 'round'; ctx.lineWidth = 3.2; ctx.strokeStyle = '#5a3500'; ctx.stroke(star)
+      const g = ctx.createLinearGradient(0, 2, 0, 22); g.addColorStop(0, '#fff6a8'); g.addColorStop(0.5, '#ffd23a'); g.addColorStop(1, '#f39a0b')
+      ctx.fillStyle = g; ctx.fill(star)
+      ctx.restore()
+    }
+  }
+}
+
+async function renderBoard(b: Board, book: Record<string, RangerInfo>): Promise<Blob> {
+  const W = 1200, PAD = 24, LABEL = 130, CELL = 96, GAP = 8, TITLE_H = b.title.trim() ? 70 : 0
   const perRow = Math.floor((W - PAD * 2 - LABEL - GAP * 2) / (CELL + GAP))
   const heights = b.tiers.map(t => Math.max(1, Math.ceil(t.items.length / perRow)) * (CELL + GAP) + GAP)
   const H = PAD + TITLE_H + heights.reduce((a, h) => a + h + 4, 0) + PAD + 22
@@ -570,6 +679,9 @@ async function renderBoard(b: Board): Promise<Blob> {
 
   const ids = [...new Set(b.tiers.flatMap(t => t.items))]
   const imgs = new Map(await Promise.all(ids.map(async id => [id, await loadImage(proxyFile(thumb(id)))] as const)))
+  const els = [...new Set(ids.map(id => book[id]?.element).filter(hasElement))]
+  const bgs = new Map(await Promise.all(els.map(async e => [e, await loadImage(bgSrc(e))] as const)))
+  const badges = new Map(await Promise.all(els.map(async e => [e, await loadImage(elSrc(e))] as const)))
 
   let y = PAD + TITLE_H
   b.tiers.forEach((t, i) => {
@@ -584,16 +696,8 @@ async function renderBoard(b: Board): Promise<Blob> {
     t.items.forEach((id, k) => {
       const cx = PAD + LABEL + GAP + (k % perRow) * (CELL + GAP)
       const cy = y + GAP + Math.floor(k / perRow) * (CELL + GAP)
-      const img = imgs.get(id)
-      ctx.save()
-      ctx.beginPath(); ctx.roundRect(cx, cy, CELL, CELL, 10); ctx.clip()
-      ctx.fillStyle = '#2d3039'; ctx.fillRect(cx, cy, CELL, CELL)
-      if (img) {
-        const k2 = Math.min(CELL / img.width, CELL / img.height)
-        const iw = img.width * k2, ih = img.height * k2
-        ctx.drawImage(img, cx + (CELL - iw) / 2, cy + (CELL - ih) / 2, iw, ih)
-      }
-      ctx.restore()
+      const info = book[id], e = info?.element ?? ''
+      drawCard(ctx, cx, cy, CELL, info, imgs.get(id) ?? null, bgs.get(e) ?? null, badges.get(e) ?? null)
     })
     y += h + 4
   })

@@ -61,19 +61,39 @@
 .tl-add-row:hover { color: #fff; background: #1b1d23; }
 
 /* รูปเรนเจอร์ */
+/* การ์ด = กรอบ (พื้นหลังของปุ่ม: ทอง / ชมพูม่วง / ฟ้า / ไม้) → .tl-card (พื้นหลังธาตุ + รูป) · .tl-el มุมซ้ายล่าง · .tl-stars บนขอบบน */
 .tl-item {
-  position: relative; flex: none; width: var(--tl-cell); height: var(--tl-cell); padding: 0; border-radius: 10px; overflow: hidden;
-  border: 2px solid transparent; background: #2b2e38; cursor: grab; touch-action: manipulation;
-  -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; transition: transform 0.12s, border-color 0.12s, opacity 0.12s;
+  --f: calc(var(--tl-cell) * 0.07);
+  position: relative; flex: none; width: var(--tl-cell); height: var(--tl-cell); padding: var(--f); border: none;
+  border-radius: calc(var(--tl-cell) * 0.14); background: #2b2e38; cursor: grab; touch-action: manipulation;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45), 0 2px 5px rgba(0, 0, 0, 0.45);
+  -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; transition: transform 0.12s, box-shadow 0.12s, opacity 0.12s;
 }
-.tl-item img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; }
+.tl-card {
+  display: block; width: 100%; height: 100%; overflow: hidden; border-radius: calc(var(--tl-cell) * 0.14 - var(--f));
+  background: #2b2e38 center / 108% 108% no-repeat; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+.tl-card img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; }
+.tl-el {
+  position: absolute; left: 1%; bottom: 1%; width: 34%; height: 34%; pointer-events: none;
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.6));
+}
+.tl-stars {
+  position: absolute; left: 0; right: 0; top: calc(var(--tl-cell) * -0.025); display: flex; justify-content: center; pointer-events: none;
+}
+.tl-stars svg {
+  flex: none; width: calc(var(--tl-cell) * 0.135); height: calc(var(--tl-cell) * 0.135); overflow: visible;
+  fill: #ffd23a; stroke: #5a3500; stroke-width: 3.2px; stroke-linejoin: round; paint-order: stroke;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.4));
+}
+.tl-stars svg + svg { margin-left: calc(var(--tl-cell) * -0.03); }
 .tl-item:hover { transform: translateY(-2px); }
-.tl-item.sel { border-color: #fbbf24; box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.35); transform: scale(1.06); z-index: 1; }
+.tl-item.sel { box-shadow: 0 0 0 2px #17181d, 0 0 0 4px #fbbf24, 0 0 14px rgba(251, 191, 36, 0.6); transform: scale(1.06); z-index: 1; }
 .tl-item.ghosted { opacity: 0.3; }
 .tl-marker { flex: none; width: 4px; height: var(--tl-cell); border-radius: 2px; background: #fbbf24; box-shadow: 0 0 10px #fbbf24; }
 .tl-ghost {
-  position: fixed; z-index: 70; width: 72px; height: 72px; margin: -36px 0 0 -36px; border-radius: 12px; pointer-events: none;
-  background: #2b2e38; border: 2px solid #fbbf24; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55); object-fit: contain; transform: rotate(-4deg) scale(1.05);
+  position: fixed; z-index: 70; --tl-cell: 72px; margin: -36px 0 0 -36px; pointer-events: none;
+  box-shadow: 0 0 0 2px #fbbf24, 0 12px 30px rgba(0, 0, 0, 0.55); transform: rotate(-4deg) scale(1.05);
 }
 
 /* คลัง */
@@ -154,8 +174,8 @@
 /* ── จอกว้าง ── */
 @media (min-width: 640px) {
   .tl-page { --tl-cell: 72px; --tl-label: 110px; padding-bottom: 130px; }
-  .tl-head { flex-direction: row; align-items: center; justify-content: space-between; }
-  .tl-title { font-size: 24px; flex: 1; min-width: 0; }
+  .tl-head { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+  .tl-title { font-size: 24px; flex: 1 1 300px; min-width: 0; }
   .tl-actions { flex-wrap: wrap; justify-content: flex-end; margin: 0; padding: 0; overflow: visible; }
   .tl-label { font-size: 26px; }
   .tl-ctrl { width: 64px; flex-direction: row; flex-wrap: wrap; align-content: center; gap: 0; }

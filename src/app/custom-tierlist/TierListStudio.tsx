@@ -16,6 +16,7 @@ import { createPortal } from 'react-dom'
 import RangerPicker, { PICKER_VIEW_DEFAULT, type PickerView } from '../lobby/RangerPicker'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { apiFetch, proxyFile } from '@/lib/staticApi'
+import GachaRangerDetailPopup from '@/components/GachaRangerDetailPopup'
 
 // ── ข้อมูล ──────────────────────────────────────────────
 
@@ -54,7 +55,7 @@ const elSrc = (e: string) => `/tierlist/el-${e}.png`
 const TYPE_SRC: Record<string, string> = { STR: '/gacha/images/Str.png', AGI: '/gacha/images/Agi.png', INT: '/gacha/images/Int.png' }
 const typeSrc = (t?: string) => (t && TYPE_SRC[t.toUpperCase()]) || null
 /** ขนาดวงกลมธาตุ / ไอคอนชนิด เทียบกับการ์ด (ต้องตรงกับ .tl-el / .tl-type ใน tierlist.css) */
-const BADGE = 0.27
+const EL_BADGE = 0.31, TYPE_BADGE = 0.27
 
 type FrameKind = 'gold' | 'hyper' | 'ultra' | 'brown'
 /** 4 ดาวลงมา = น้ำตาล · ไฮเปอร์ = ชมพู · อัลตร้า = ฟ้าเขียว · ร่างธรรมดา/9 ดาว = ทอง */
@@ -166,6 +167,8 @@ export default function TierListStudio() {
   const [selected, setSelected] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
+  /** เรนเจอร์ที่เปิดดูรายละเอียด (ป๊อปอัปเดียวกับ Ranger Book) */
+  const [detailId, setDetailId] = useState<string | null>(null)
   const [pickerView, setPickerView] = useState<PickerView>(PICKER_VIEW_DEFAULT)
   const [confirm, setConfirm] = useState<null | 'clear' | 'tiers' | 'delete' | 'reset'>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -485,6 +488,9 @@ export default function TierListStudio() {
               <button key={t.id} className={'tl-dock-tier' + (selZone === t.id ? ' here' : '')} style={{ background: t.bg, color: t.fg }}
                 onClick={() => { moveItem(selected, t.id); setSelected(null) }}>{t.label || '·'}</button>
             ))}
+            <button className="tl-dock-btn" onClick={() => setDetailId(selected)} aria-label={T('ดูรายละเอียด', 'View details')} title={T('ดูรายละเอียด', 'View details')}>
+              <span className="material-icons-round">visibility</span>{T('ดู', 'Info')}
+            </button>
             <button className={'tl-dock-btn' + (selZone === POOL ? ' here' : '')} onClick={() => { moveItem(selected, POOL, 0); setSelected(null) }}>
               <span className="material-icons-round">inventory_2</span>{T('คลัง', 'Pool')}
             </button>
@@ -493,6 +499,20 @@ export default function TierListStudio() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* ป๊อปอัปรายละเอียด — portal ไป body + ชั้นสูงกว่าแถบล่าง (.tl-dock z 60) */}
+      {detailId && createPortal(
+        <div style={{ position: 'relative', zIndex: 80 }}>
+          <GachaRangerDetailPopup
+            rangerId={detailId}
+            rangerName={book[detailId]?.name ?? detailId}
+            rangerImageUrl={thumb(detailId)}
+            mode="book"
+            onClose={() => setDetailId(null)}
+          />
+        </div>,
+        document.body,
       )}
 
       {/* ภาพที่กำลังลาก */}
@@ -660,11 +680,11 @@ function drawCard(ctx: CanvasRenderingContext2D, x: number, y: number, S: number
   }
   ctx.restore()
   // วงกลมธาตุ มุมซ้ายล่าง
-  const B = S * BADGE
+  const EB = S * EL_BADGE, TB = S * TYPE_BADGE
   ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 3; ctx.shadowOffsetY = 1
-  if (badge) ctx.drawImage(badge, x, y + S - B, B, B)
+  if (badge) ctx.drawImage(badge, x, y + S - EB, EB, EB)
   // ชนิดเรนเจอร์ มุมขวาล่าง
-  if (typeImg) ctx.drawImage(typeImg, x + S - B, y + S - B, B, B)
+  if (typeImg) ctx.drawImage(typeImg, x + S - TB, y + S - TB, TB, TB)
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
   // ดาว บนขอบบน
   if (starImg) {

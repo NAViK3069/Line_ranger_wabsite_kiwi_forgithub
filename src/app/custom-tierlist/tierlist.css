@@ -81,7 +81,7 @@
   filter: drop-shadow(0 calc(var(--tl-cell) * 0.02) calc(var(--tl-cell) * 0.035) rgba(0, 0, 0, 0.55));
 }
 .tl-el {
-  position: absolute; left: 0; bottom: 0; width: 27%; height: 27%; pointer-events: none;
+  position: absolute; left: 0; bottom: 0; width: 31%; height: 31%; pointer-events: none;
   filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.6));
 }
 /* ชนิดเรนเจอร์ STR/AGI/INT มุมขวาล่าง (ขนาดเท่าวงกลมธาตุ = BADGE) */

@@ -11,9 +11,9 @@ import type { Scene } from '@/anme/engine/types'
 import { deleteProject, listProjects, loadProject, saveProjectData } from '@/anme/engine/storage'
 import { Icon, Num, Seg, Toggle } from './widgets'
 
-const safeName = (n: string) => n.replace(/[^\p{L}\p{N}_\- ]+/gu, '').trim().slice(0, 60) || 'scene'
+export const safeName = (n: string) => n.replace(/[^\p{L}\p{N}_\- ]+/gu, '').trim().slice(0, 60) || 'scene'
 
-async function saveProject(name: string) {
+export async function saveProject(name: string) {
   await saveProjectData(name, getState().scene)
   setState({ projectName: name, dirty: false })
 }
@@ -94,7 +94,7 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   )
 }
 
-function ResetModal({ onClose }: { onClose: () => void }) {
+export function ResetModal({ onClose }: { onClose: () => void }) {
   const opts: { kind: ResetKind; icon: 'reset' | 'film' | 'move' | 'layers'; title: string; desc: string; danger?: boolean }[] = [
     { kind: 'cues', icon: 'film', title: L('ล้างไทม์ไลน์', 'Clear timeline'), desc: L('ลบคิวทั้งหมด (สกิล ท่าทาง เดิน กล้อง เสียง) เก็บตัวละครไว้', 'Remove every cue (skills, clips, moves, camera, sound) — keep the actors') },
     { kind: 'positions', icon: 'move', title: L('จัดตำแหน่งใหม่', 'Reset positions'), desc: L('วางตัวละครกลับที่ตั้งต้น ขนาด ×1 หันหน้าตามฝ่าย และลบคิวกล้อง', 'Put actors back in default slots, scale ×1, face their side, remove camera cues') },
@@ -115,7 +115,7 @@ function ResetModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-function OpenModal({ onClose }: { onClose: () => void }) {
+export function OpenModal({ onClose }: { onClose: () => void }) {
   const [list, setList] = useState<{ name: string; at: number }[] | null>(null)
   const load = () => listProjects().then(setList).catch(() => setList([]))
   useEffect(() => { load() }, [])
@@ -139,7 +139,7 @@ function OpenModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-function ExportModal({ onClose }: { onClose: () => void }) {
+export function ExportModal({ onClose }: { onClose: () => void }) {
   const scene = useStore(s => s.scene)
   const muted = useStore(s => s.muted)
   const end = Math.max(0.5, Math.min(scene.duration, sceneEnd(scene, buildTimeline(scene)) + 0.6))

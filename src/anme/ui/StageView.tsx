@@ -30,7 +30,8 @@ export function useAssetsVersion() {
   return v
 }
 
-export function StageView() {
+/** pad = ระยะขอบรอบเวที (px) — มือถือส่ง 0 ให้พรีวิวเต็มความกว้างจอ */
+export function StageView({ pad = 24 }: { pad?: number } = {}) {
   const scene = useStore(s => s.scene)
   const time = useStore(s => s.time)
   const sel = useStore(s => s.sel)
@@ -43,7 +44,7 @@ export function StageView() {
   const [box, setBox] = useState({ w: 800, h: 450 })
   const [dragOver, setDragOver] = useState(false)
   const W = scene.width, H = scene.height
-  const k = Math.max(0.05, Math.min((box.w - 24) / W, (box.h - 24) / H))
+  const k = Math.max(0.05, Math.min((box.w - pad) / W, (box.h - pad) / H))
 
   useEffect(() => {
     const el = wrapRef.current!

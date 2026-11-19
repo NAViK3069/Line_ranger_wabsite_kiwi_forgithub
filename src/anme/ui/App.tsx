@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { L } from '@/anme/engine/i18n'
-import { Icon } from './widgets'
+import { useEffect, useState } from 'react'
+import { MobileApp } from './MobileApp'
 import { deleteSelection, duplicateSelection, patchActor } from '@/anme/engine/actions'
 import { getState, redo, setState, setTime, undo, useStore } from '@/anme/engine/store'
 import { Inspector } from './Inspector'
@@ -49,19 +48,17 @@ function Toasts() {
   )
 }
 
-// มือถือ (จอ ≤ 760px): แสดงทีละแผง สลับด้วยแถบแท็บใต้แถบบน — จอกว้างเห็นครบ 3 แผงเหมือนเดิม (CSS จัดการ)
-type MobilePanel = 'library' | 'stage' | 'inspector'
-
-function useMobilePanel() {
-  const [panel, setPanel] = useState<MobilePanel>('stage')
-  // เพิ่มตัวละคร/สื่อลงฉากจากแท็บคลัง → พากลับไปดูบนเวทีเอง (บนมือถือไม่งั้นมองไม่เห็นว่าเพิ่มแล้ว)
-  const actorCount = useStore(s => s.scene.actors.length)
-  const prev = useRef(actorCount)
+// มือถือ (จอ ≤ 760px) ใช้หน้าตาแบบแอปตัดต่อบนมือถือ (MobileApp) — จอกว้างกว่านั้นใช้ 3 แผงเดิมของ ANME
+const MOBILE_QUERY = '(max-width: 760px)'
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches)
   useEffect(() => {
-    if (actorCount > prev.current) setPanel(p => (p === 'library' ? 'stage' : p))
-    prev.current = actorCount
-  }, [actorCount])
-  return [panel, setPanel] as const
+    const mq = window.matchMedia(MOBILE_QUERY)
+    const on = () => setMobile(mq.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+  return mobile
 }
 
 export function App() {
@@ -69,23 +66,12 @@ export function App() {
   useStore(s => s.lang)
   usePlayback()
   useShortcuts()
-  const [panel, setPanel] = useMobilePanel()
-  const tabs: { id: MobilePanel; icon: 'sparkle' | 'film' | 'layers'; label: string }[] = [
-    { id: 'library', icon: 'sparkle', label: L('คลัง', 'Library') },
-    { id: 'stage', icon: 'film', label: L('เวที', 'Stage') },
-    { id: 'inspector', icon: 'layers', label: L('ตั้งค่า', 'Settings') },
-  ]
+  const mobile = useIsMobile()
+  if (mobile) return <><MobileApp /><Toasts /></>
   return (
     <div className="app">
       <TopBar />
-      <nav className="m-tabs">
-        {tabs.map(t => (
-          <button key={t.id} className={panel === t.id ? 'on' : ''} onClick={() => setPanel(t.id)}>
-            <Icon name={t.icon} size={14} /> {t.label}
-          </button>
-        ))}
-      </nav>
-      <div className={`main m-${panel}`}>
+      <div className="main">
         <Library />
         <main className="center"><StageView /></main>
         <Inspector />

@@ -56,7 +56,7 @@ async function loadRecent(): Promise<RangerName[]> {
 // สิ่งที่ค้นค้างไว้เก็บระดับโมดูล → สลับแท็บไปมาแล้วกลับมาเจอที่เดิม
 let pickerViewMemo: PickerView = PICKER_VIEW_DEFAULT
 
-function RangersTab() {
+export function RangersTab() {
   const [recent, setRecent] = useState<RangerName[]>([])
   const [tag, setTag] = useState<ActorTag>('ally')
   const [form, setForm] = useState<'body' | 'e-body'>('body')
@@ -126,7 +126,7 @@ function RangerGrid({ items, onPick }: { items: RangerName[]; onPick: (id: strin
 
 // ── สื่อ ──
 
-function MediaTab() {
+export function MediaTab() {
   const [items, setItems] = useState<UploadItem[]>([])
   const [fps, setFps] = useState(24)
   const [url, setUrl] = useState('')
@@ -231,7 +231,7 @@ const presetMaps = () => [{ url: '/maps/map1.jpg', name: L('แผนที่�
 const COLORS = ['#00b140', '#0047ff', '#000000', '#ffffff', '#0b1020', '#ff2d55']
 const GRADS: [string, string][] = [['#1b2550', '#06070d'], ['#ff8a3d', '#3a0b4f'], ['#53e0ff', '#0b2a66'], ['#2b0a3d', '#000000'], ['#ffe08a', '#ff5f6d']]
 
-function MapsTab() {
+export function MapsTab() {
   const bg = useStore(s => s.scene.background)
   const bgAsset = useStore(s => s.scene.assets.find(a => a.id === s.scene.background.assetId))
   const fileRef = useRef<HTMLInputElement>(null)

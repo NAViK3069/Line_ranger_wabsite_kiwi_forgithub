@@ -147,6 +147,10 @@ export function Icon({ name, size = 16 }: { name: keyof typeof ICONS; size?: num
 
 export const ICONS = {
   back: <path d="M15 18l-6-6 6-6" />,
+  more: <><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none" /></>,
+  expand: <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />,
+  shrink: <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />,
+  edit: <path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" />,
   play: <path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke="none" />,
   pause: <><rect x="6" y="4.5" width="4" height="15" rx="1" fill="currentColor" stroke="none" /><rect x="14" y="4.5" width="4" height="15" rx="1" fill="currentColor" stroke="none" /></>,
   stop: <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none" />,

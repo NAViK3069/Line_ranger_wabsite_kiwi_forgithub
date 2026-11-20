@@ -23,7 +23,10 @@
   font-size: 20px; font-weight: 800; padding: 4px 2px; outline: none; transition: border-color 0.15s;
 }
 .tl-title:focus { border-bottom-color: #f59e0b; }
-.tl-actions { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; margin: 0 -12px; padding-left: 12px; padding-right: 12px; }
+/* มือถือ: ปุ่มหลัก 3–4 ปุ่มแบ่งเต็มกว้างเท่าๆ กัน (ไม่ต้องเลื่อนซ้ายขวา) */
+.tl-actions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; }
+.tl-actions .tl-btn { min-width: 0; padding: 0 8px; gap: 4px; font-size: 12.5px; }
+.tl-actions .tl-btn > span:not(.material-icons-round) { overflow: hidden; text-overflow: ellipsis; }
 .tl-actions::-webkit-scrollbar { display: none; }
 .tl-btn {
   flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; padding: 0 14px;
@@ -56,11 +59,29 @@
 .tl-row.over { background: #262a35; }
 .tl-row.can-drop .tl-items { cursor: pointer; }
 .tl-row.can-drop .tl-items:hover { background: rgba(255, 255, 255, 0.03); }
+/* ป้ายเทียร์: พื้นไล่สี (สร้างจากสีที่เลือก — ดู labelGradient) + เงาวาวครึ่งบน + แถบแสงเฉียง + ขอบนูน */
 .tl-label {
-  flex: none; width: var(--tl-label); display: grid; place-items: center; padding: 4px; border: none;
+  position: relative; overflow: hidden; isolation: isolate;
+  flex: none; width: var(--tl-label); display: grid; place-items: center; padding: 4px 6px; border: none;
   font-weight: 800; font-size: 20px; line-height: 1.1; text-align: center; word-break: break-word; cursor: pointer;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.6), inset 0 -3px 0 rgba(0, 0, 0, 0.12), inset -1px 0 0 rgba(0, 0, 0, 0.2), inset 0 0 18px rgba(255, 255, 255, 0.12);
+  transition: filter 0.15s;
 }
-.tl-label span { display: block; max-width: 100%; overflow-wrap: anywhere; }
+.tl-label::before { /* เงาวาวครึ่งบน */
+  content: ''; position: absolute; inset: 0 0 45% 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0.06) 85%, rgba(255, 255, 255, 0));
+}
+.tl-label::after { /* แถบแสงเฉียง */
+  content: ''; position: absolute; top: -20%; bottom: -20%; left: 18%; width: 26%; z-index: -1; pointer-events: none;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0));
+  transform: skewX(-24deg);
+}
+/* ข้อความยาว: ขึ้นบรรทัดใหม่ ไม่เกิน 3 บรรทัด แล้วตัดเป็น "…" (เหมือนตอนบันทึกรูป) */
+.tl-label span {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+  max-width: 100%; overflow-wrap: anywhere;
+}
+.tl-label:hover { filter: brightness(1.08) saturate(1.1); }
 .tl-label:active { filter: brightness(0.92); }
 .tl-items { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-content: flex-start; align-items: center; gap: 4px; padding: 4px; min-height: calc(var(--tl-cell) + 8px); }
 .tl-hint { color: rgba(255, 255, 255, 0.35); font-size: 12px; padding: 0 6px; align-self: center; }
@@ -112,14 +133,33 @@
 .tl-marker { flex: none; width: 4px; height: var(--tl-cell); border-radius: 2px; background: #fbbf24; box-shadow: 0 0 10px #fbbf24; }
 .tl-ghost {
   position: fixed; z-index: 70; --tl-cell: 72px; margin: -36px 0 0 -36px; pointer-events: none;
-  box-shadow: 0 0 0 2px #fbbf24, 0 12px 30px rgba(0, 0, 0, 0.55); transform: rotate(-4deg) scale(1.05);
+  box-shadow: 0 0 0 2px #fbbf24, 0 12px 30px rgba(0, 0, 0, 0.55); transform: scale(1.06); /* ไม่เอียง — ยกขึ้นนิดเดียวให้รู้ว่ากำลังลาก */
 }
 
 /* คลัง */
 .tl-pool-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 18px 2px 8px; font-size: 15px; }
 .tl-pool-head .material-icons-round { color: #f59e0b; font-size: 20px; }
 .tl-count { padding: 1px 8px; border-radius: 999px; background: #2b2e38; font-size: 12px; font-weight: 700; color: #cfd4e4; }
-.tl-sub { width: 100%; font-size: 11.5px; color: #8b92a8; }
+.tl-sub { width: 100%; order: 5; font-size: 11.5px; color: #8b92a8; }
+/* ปุ่มเพิ่มเรนเจอร์ อยู่หัวคลัง ชิดขวา (มือถือ: บรรทัดเดียวกับ "เรนเจอร์ 39" · คำอธิบายลงบรรทัดถัดไป) */
+.tl-pool-add { margin-left: auto; height: 36px; padding: 0 12px; font-size: 13px; }
+/* เมนูรวมปุ่ม (ไฟล์ .txt / ล้าง-รีเซ็ต) */
+.tl-menu { display: flex; flex-direction: column; gap: 8px; }
+.tl-menu-item {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px; border-radius: 14px; text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.04); color: #eef0f8; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.tl-menu-item:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); }
+.tl-menu-item:active { transform: scale(0.99); }
+.tl-menu-item:disabled { opacity: 0.4; cursor: default; }
+.tl-menu-item > span:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tl-menu-item b { font-size: 15px; }
+.tl-menu-item small { font-size: 12px; color: #9aa1b5; line-height: 1.35; }
+.tl-menu-ico { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: rgba(56, 189, 248, 0.14); color: #7dd3fc; }
+.tl-menu-ico .material-icons-round { font-size: 22px; }
+.tl-menu-item.danger b { color: #ff8b9c; }
+.tl-menu-item.danger .tl-menu-ico { background: rgba(255, 84, 112, 0.14); color: #ff8b9c; }
 .tl-pool {
   display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; min-height: 90px; border-radius: 14px;
   background: #15161b; border: 1px dashed rgba(255, 255, 255, 0.12); transition: background 0.15s, border-color 0.15s;
@@ -224,12 +264,14 @@
   .tl-page { --tl-cell: 72px; --tl-label: 110px; padding-bottom: 130px; }
   .tl-head { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; }
   .tl-title { font-size: 24px; flex: 1 1 300px; min-width: 0; }
-  .tl-actions { flex-wrap: wrap; justify-content: flex-end; margin: 0; padding: 0; overflow: visible; }
+  .tl-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; }
+  .tl-actions .tl-btn { padding: 0 14px; gap: 6px; font-size: 13.5px; }
   .tl-label { font-size: 26px; }
   .tl-ctrl { width: 64px; flex-direction: row; flex-wrap: wrap; align-content: center; gap: 0; }
   .tl-ctrl button:first-child { width: 64px; height: 30px; }
   .tl-ctrl button { width: 32px; height: 26px; }
-  .tl-sub { width: auto; margin-left: auto; }
+  .tl-sub { width: auto; margin-left: auto; order: 0; }
+  .tl-pool-add { margin-left: 8px; }
   .tl-sheet { max-width: 480px; margin: 0 auto; border-radius: 20px 20px 0 0; }
   .tl-toast { bottom: 150px; }
 }

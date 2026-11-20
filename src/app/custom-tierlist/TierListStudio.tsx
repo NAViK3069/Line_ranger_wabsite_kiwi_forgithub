@@ -39,6 +39,77 @@ interface Board {
 interface PublishedTierList { title?: string; tiers?: { label: string; bg: string; fg: string; items: string[] }[]; updatedAt?: string | null }
 const DEFAULT_TITLE = 'Line Rangers Tier List'
 
+// ── สีไล่ระดับของป้ายเทียร์ (สร้างจากสีที่ผู้ใช้เลือก — ใช้ทั้งหน้าเว็บและตอนวาด PNG) ──
+function hexRgb(hex: string): [number, number, number] {
+  let h = hex.replace('#', '').trim()
+  if (h.length === 3) h = h.split('').map(c => c + c).join('')
+  const n = parseInt(h.slice(0, 6), 16)
+  return Number.isFinite(n) ? [(n >> 16) & 255, (n >> 8) & 255, n & 255] : [255, 127, 127]
+}
+function rgbHsl([r, g, b]: [number, number, number]): [number, number, number] {
+  r /= 255; g /= 255; b /= 255
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2
+  if (mx === mn) return [0, 0, l * 100]
+  const d = mx - mn, sat = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn)
+  const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4
+  return [h * 60, sat * 100, l * 100]
+}
+const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
+const hsl = (h: number, sat: number, l: number) => `hsl(${(((h % 360) + 360) % 360).toFixed(1)}, ${clamp(sat, 0, 100).toFixed(1)}%, ${clamp(l, 0, 100).toFixed(1)}%)`
+/**
+ * 3 จุดสีสดๆ จากสีที่เลือก: [บนซ้าย สว่าง+ขยับเฉดไปข้างหนึ่ง, สีหลักอิ่มขึ้น, ล่างขวา เข้มนิดๆ+ขยับเฉดอีกข้าง]
+ * (ไม่ผสมดำเหมือนเดิม — เดิมเหลืองกลายเป็นน้ำตาล ดูหม่น)
+ * สีเทา/ขาว/ดำ (ไม่มีเฉด) ไม่เร่งความอิ่ม
+ */
+export function labelStops(bg: string): [string, string, string] {
+  const [h, sat, l] = rgbHsl(hexRgb(bg))
+  const boost = sat < 8 ? 0 : 1
+  const s1 = sat + 28 * boost
+  return [
+    hsl(h - 14 * boost, s1 + 6, l + 12),
+    hsl(h, s1, l - 2),
+    hsl(h + 22 * boost, s1 + 10, l - 16),
+  ]
+}
+export const labelGradient = (bg: string) => {
+  const [a, b, c] = labelStops(bg)
+  return `linear-gradient(150deg, ${a} 0%, ${b} 52%, ${c} 100%)`
+}
+/** ตัวหนังสือสีเข้ม → เงาขาวจาง · ตัวหนังสือสีอ่อน → เงาดำ (อ่านง่ายบนพื้นไล่สี) */
+export function labelTextShadow(fg: string): string {
+  const [r, g, b] = hexRgb(fg)
+  return (r * 299 + g * 587 + b * 114) / 1000 > 140 ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.45)'
+}
+
+/** ตัดข้อความเป็นบรรทัดตามความกว้าง (ภาษาไทยตัดตามคำด้วย Intl.Segmenter) · เกิน maxLines → ใส่ "…" ท้ายบรรทัดสุดท้าย */
+function wrapLabel(ctx: CanvasRenderingContext2D, text: string, maxW: number, maxLines: number): string[] {
+  type Seg = { segment: string }
+  const Segmenter = (Intl as unknown as { Segmenter?: new (l: string, o: { granularity: string }) => { segment(t: string): Iterable<Seg> } }).Segmenter
+  const words: string[] = Segmenter ? [...new Segmenter('th', { granularity: 'word' }).segment(text)].map(x => x.segment) : text.split(/(\s+)/)
+  const lines: string[] = []
+  let cur = ''
+  const push = () => { lines.push(cur.trimEnd()); cur = '' }
+  for (const w of words) {
+    if (!cur && /^\s+$/.test(w)) continue
+    if (ctx.measureText(cur + w).width <= maxW) { cur += w; continue }
+    if (cur) push()
+    // คำเดียวยาวเกินบรรทัด → ตัดทีละตัวอักษร
+    let piece = ''
+    for (const ch of w.trimStart()) {
+      if (ctx.measureText(piece + ch).width > maxW && piece) { lines.push(piece); piece = '' }
+      piece += ch
+    }
+    cur = piece
+  }
+  if (cur.trim()) push()
+  if (lines.length <= maxLines) return lines
+  const out = lines.slice(0, maxLines)
+  let last = out[maxLines - 1]
+  while (last && ctx.measureText(last + '…').width > maxW) last = last.slice(0, -1)
+  out[maxLines - 1] = last.trimEnd() + '…'
+  return out
+}
+
 const STORE_KEY = 'lr:tierlist:v1'
 const POOL = 'pool'
 
@@ -330,6 +401,8 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
   const [confirm, setConfirm] = useState<null | 'clear' | 'tiers' | 'delete' | 'reset' | 'import'>(null)
   /** ไฟล์ที่เลือกนำเข้า (รอยืนยัน) */
   const pendingImport = useRef<{ data: ParsedTierList; name: string } | null>(null)
+  /** เมนูรวมปุ่ม: file = นำเข้า/ส่งออก .txt · manage = ล้าง/รีเซ็ต/ลบ */
+  const [menu, setMenu] = useState<null | 'file' | 'manage'>(null)
   const importInput = useRef<HTMLInputElement>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
@@ -663,34 +736,17 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
       <div className="tl-head">
         <input className="tl-title" value={board.title} maxLength={60} placeholder={T('ชื่อเทียร์ลิสต์', 'Tier list title')}
           onChange={e => { const v = e.target.value; update(b => { b.title = v; return b }) }} />
+        {/* ปุ่มหลักเหลือ 3 ปุ่ม (+ เผยแพร่ในหลังบ้าน) — ไฟล์ / ล้าง-รีเซ็ต กดแล้วค่อยเลือกในเมนู */}
         <div className="tl-actions">
-          <button className="tl-btn primary" onClick={() => setPicking(true)}>
-            <span className="material-icons-round">person_add</span>{T('เพิ่มเรนเจอร์', 'Add ranger')}
-          </button>
-          <button className="tl-btn" onClick={exportTxt} title={T('ส่งออกเป็นไฟล์ .txt เก็บไว้หรือแชร์ให้คนอื่น', 'Export as a .txt file to keep or share')}>
-            <span className="material-icons-round">file_download</span>{T('ส่งออก .txt', 'Export .txt')}
-          </button>
-          <button className="tl-btn" onClick={() => importInput.current?.click()} title={T('นำเข้าไฟล์ .txt ที่ส่งออกจากหน้านี้', 'Import a .txt file exported from this page')}>
-            <span className="material-icons-round">upload_file</span>{T('นำเข้า', 'Import')}
-          </button>
-          <input ref={importInput} type="file" accept=".txt,.json,text/plain,application/json" hidden onChange={e => onImportFile(e.target.files?.[0])} />
           <button className="tl-btn accent" onClick={exportPng} disabled={exporting}>
             <span className={'material-icons-round' + (exporting ? ' animate-spin' : '')}>{exporting ? 'autorenew' : 'download'}</span>{T('บันทึกเป็นรูป', 'Save image')}
           </button>
-          <button className="tl-btn" onClick={() => setConfirm('clear')} disabled={placedCount === 0}>
-            <span className="material-icons-round">move_down</span>{T('ล้างตาราง', 'Clear tiers')}
+          <button className="tl-btn" onClick={() => setMenu('file')} aria-haspopup="dialog">
+            <span className="material-icons-round">import_export</span>{T('ไฟล์ .txt', 'File .txt')}
           </button>
-          <button className="tl-btn" onClick={() => setConfirm('tiers')}>
-            <span className="material-icons-round">format_color_reset</span>{T('รีเซ็ตตาราง', 'Reset table')}
-          </button>
-          {!isAdmin && (
-            <button className="tl-btn danger" onClick={() => setConfirm('delete')}>
-              <span className="material-icons-round">delete_sweep</span>{T('ลบทั้งหมด', 'Delete all')}
-            </button>
-          )}
-          <button className="tl-btn" onClick={() => setConfirm('reset')}>
-            <span className="material-icons-round">{isAdmin ? 'cloud_download' : 'restart_alt'}</span>
-            {isAdmin ? T('โหลดฉบับที่เผยแพร่', 'Load published') : T('รีเซ็ต', 'Reset')}
+          <input ref={importInput} type="file" accept=".txt,.json,text/plain,application/json" hidden onChange={e => onImportFile(e.target.files?.[0])} />
+          <button className="tl-btn" onClick={() => setMenu('manage')} aria-haspopup="dialog">
+            <span className="material-icons-round">restart_alt</span>{T('ล้าง / รีเซ็ต', 'Clear / Reset')}
           </button>
           {isAdmin && (
             <button className="tl-btn publish" onClick={publish} disabled={publishing}>
@@ -719,7 +775,7 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
       <div className="tl-board">
         {board.tiers.map((t, i) => (
           <div key={t.id} className={'tl-row' + (drag?.zone === t.id ? ' over' : '') + (selected && selZone !== t.id ? ' can-drop' : '')}>
-            <button className="tl-label" style={{ background: t.bg, color: t.fg }} onClick={() => setEditing(t.id)} title={T('แก้ไขเทียร์', 'Edit tier')}>
+            <button className="tl-label" style={{ background: labelGradient(t.bg), color: t.fg, textShadow: `0 1px 0 ${labelTextShadow(t.fg)}` }} onClick={() => setEditing(t.id)} title={T('แก้ไขเทียร์', 'Edit tier')}>
               <span>{t.label || ' '}</span>
             </button>
             <div className="tl-items" data-zone={t.id} onClick={e => onZoneClick(e, t.id)}>
@@ -744,6 +800,9 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
         <b>{T('เรนเจอร์', 'Rangers')}</b>
         <span className="tl-count">{board.pool.length}</span>
         <span className="tl-sub">{board.metaOff ? T('ปิดตัวแนะนำอยู่ · กดรีเซ็ตเพื่อเอากลับมา', 'Recommendations off · Reset to bring them back') : T('จาก Meta PVP · Legend · Users ≥ 2 · อัปเดตทุกวัน', 'from Meta PVP · Legend · Users ≥ 2 · updates daily')}</span>
+        <button className="tl-btn primary tl-pool-add" onClick={() => setPicking(true)}>
+          <span className="material-icons-round">person_add</span>{T('เพิ่มเรนเจอร์', 'Add ranger')}
+        </button>
       </div>
       <div className={'tl-pool' + (drag?.zone === POOL ? ' over' : '')} data-zone={POOL} onClick={e => onZoneClick(e, POOL)}>
         {loading && <div className="tl-empty"><span className="material-icons-round animate-spin">autorenew</span></div>}
@@ -861,6 +920,56 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
               onClick={() => { update(b => { const t = b.tiers.find(x => x.id === editingTier.id)!; b.pool = [...t.items, ...b.pool]; b.tiers = b.tiers.filter(x => x.id !== t.id); return b }); setEditing(null) }}>
               <span className="material-icons-round">delete</span>{T('ลบแถวนี้', 'Delete this row')}
             </button>
+          </div>
+        </Sheet>
+      )}
+
+      {/* เมนูไฟล์ .txt */}
+      {menu === 'file' && (
+        <Sheet title={T('ไฟล์เทียร์ลิสต์ (.txt)', 'Tier list file (.txt)')} onClose={() => setMenu(null)}>
+          <div className="tl-menu">
+            <button className="tl-menu-item" onClick={() => { setMenu(null); exportTxt() }}>
+              <span className="tl-menu-ico"><span className="material-icons-round">file_download</span></span>
+              <span><b>{T('ส่งออก .txt', 'Export .txt')}</b><small>{T('บันทึกตารางเป็นไฟล์ เก็บไว้หรือส่งให้เพื่อน', 'Save the table as a file to keep or share')}</small></span>
+            </button>
+            <button className="tl-menu-item" onClick={() => { setMenu(null); importInput.current?.click() }}>
+              <span className="tl-menu-ico"><span className="material-icons-round">upload_file</span></span>
+              <span><b>{T('นำเข้า .txt', 'Import .txt')}</b><small>{T('เปิดไฟล์ที่ส่งออกจากหน้านี้ (ถามยืนยันก่อนแทนที่)', 'Open a file exported from this page (asks before replacing)')}</small></span>
+            </button>
+          </div>
+        </Sheet>
+      )}
+
+      {/* เมนูล้าง / รีเซ็ต / ลบ */}
+      {menu === 'manage' && (
+        <Sheet title={T('ล้าง / รีเซ็ต', 'Clear / Reset')} onClose={() => setMenu(null)}>
+          <div className="tl-menu">
+            <button className="tl-menu-item" disabled={placedCount === 0} onClick={() => { setMenu(null); setConfirm('clear') }}>
+              <span className="tl-menu-ico"><span className="material-icons-round">move_down</span></span>
+              <span><b>{T('ล้างตาราง', 'Clear tiers')}</b><small>{T('ย้ายเรนเจอร์ในตารางกลับคลัง แถวและสีอยู่เหมือนเดิม', 'Move every placed ranger back to the pool, rows stay')}</small></span>
+            </button>
+            <button className="tl-menu-item" onClick={() => { setMenu(null); setConfirm('tiers') }}>
+              <span className="tl-menu-ico"><span className="material-icons-round">format_color_reset</span></span>
+              <span><b>{T('รีเซ็ตตาราง', 'Reset table')}</b><small>{isAdmin ? T('แถวกลับเป็น S A B C D สีเดิม', 'Rows go back to S A B C D') : T('แถว ชื่อ สี กลับเป็นแบบที่แอดมินตั้งไว้', 'Rows, labels and colours go back to the admin\'s')}</small></span>
+            </button>
+            {!isAdmin && (
+              <button className="tl-menu-item" onClick={() => { setMenu(null); setConfirm('reset') }}>
+                <span className="tl-menu-ico"><span className="material-icons-round">restart_alt</span></span>
+                <span><b>{T('รีเซ็ตทั้งหมด', 'Reset everything')}</b><small>{T('กลับเป็นเทียร์ลิสต์ของแอดมิน + ตัวแนะนำจาก Meta ล่าสุด', 'Back to the admin tier list and the latest Meta picks')}</small></span>
+              </button>
+            )}
+            {isAdmin && (
+              <button className="tl-menu-item" onClick={() => { setMenu(null); setConfirm('reset') }}>
+                <span className="tl-menu-ico"><span className="material-icons-round">cloud_download</span></span>
+                <span><b>{T('โหลดฉบับที่เผยแพร่', 'Load published')}</b><small>{T('ทิ้งที่แก้ไว้ แล้วกลับไปฉบับที่เผยแพร่อยู่', 'Discard changes and go back to the published version')}</small></span>
+              </button>
+            )}
+            {!isAdmin && (
+              <button className="tl-menu-item danger" onClick={() => { setMenu(null); setConfirm('delete') }}>
+                <span className="tl-menu-ico"><span className="material-icons-round">delete_sweep</span></span>
+                <span><b>{T('ลบทั้งหมด', 'Delete all')}</b><small>{T('ลบเรนเจอร์ทุกตัวทั้งในตารางและคลัง', 'Remove every ranger from the tiers and the pool')}</small></span>
+              </button>
+            )}
           </div>
         </Sheet>
       )}
@@ -1047,12 +1156,29 @@ async function renderBoard(b: Board, book: Record<string, RangerInfo>): Promise<
   b.tiers.forEach((t, i) => {
     const h = heights[i]
     ctx.fillStyle = '#22242b'; ctx.fillRect(PAD, y, W - PAD * 2, h)
-    ctx.fillStyle = t.bg; ctx.fillRect(PAD, y, LABEL, h)
-    ctx.fillStyle = t.fg; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-    let size = 40
-    ctx.font = font(800, size)
-    while (ctx.measureText(t.label).width > LABEL - 16 && size > 14) { size -= 2; ctx.font = font(800, size) }
-    ctx.fillText(t.label, PAD + LABEL / 2, y + h / 2)
+    // ป้ายเทียร์: ไล่สี (สว่างบนซ้าย → เข้มล่างขวา) + เงาวาวครึ่งบน + แถบแสงเฉียง (หน้าตาเดียวกับหน้าเว็บ)
+    const [la, lb, lc] = labelStops(t.bg)
+    const lg = ctx.createLinearGradient(PAD, y, PAD + LABEL, y + h)
+    lg.addColorStop(0, la); lg.addColorStop(0.5, lb); lg.addColorStop(1, lc)
+    ctx.fillStyle = lg; ctx.fillRect(PAD, y, LABEL, h)
+    const gl = ctx.createLinearGradient(0, y, 0, y + h * 0.55)
+    gl.addColorStop(0, 'rgba(255,255,255,0.45)'); gl.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = gl; ctx.fillRect(PAD, y, LABEL, h * 0.55)
+    ctx.save(); ctx.beginPath(); ctx.rect(PAD, y, LABEL, h); ctx.clip()
+    ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.beginPath()
+    ctx.moveTo(PAD + LABEL * 0.55, y); ctx.lineTo(PAD + LABEL * 0.8, y); ctx.lineTo(PAD + LABEL * 0.25, y + h); ctx.lineTo(PAD, y + h); ctx.closePath(); ctx.fill()
+    ctx.restore()
+    ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(PAD, y + h - 3, LABEL, 3)
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fillRect(PAD, y, LABEL, 2)
+    // ข้อความ: ขนาดคงที่ · ยาว = ขึ้นบรรทัดใหม่ · เกินพื้นที่ = "…"
+    const FS = 40, LH = Math.round(FS * 1.12)
+    ctx.font = font(800, FS); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    const maxLines = Math.max(1, Math.min(3, Math.floor((h - 12) / LH)))
+    const lines = wrapLabel(ctx, t.label, LABEL - 16, maxLines)
+    ctx.shadowColor = labelTextShadow(t.fg); ctx.shadowOffsetY = 1.5; ctx.shadowBlur = 0
+    ctx.fillStyle = t.fg
+    lines.forEach((ln, k) => ctx.fillText(ln, PAD + LABEL / 2, y + h / 2 + (k - (lines.length - 1) / 2) * LH))
+    ctx.shadowColor = 'transparent'; ctx.shadowOffsetY = 0
     t.items.forEach((id, k) => {
       const cx = PAD + LABEL + GAP + (k % perRow) * (CELL + GAP)
       const cy = y + GAP + Math.floor(k / perRow) * (CELL + GAP)

@@ -14,6 +14,10 @@ import { useLanguage } from '@/contexts/LanguageContext'
 interface Item {
   href: string
   icon: string
+  /** รูปไอคอน (public/home-icons/*.webp) — มี = ใช้รูปแทนไอคอน Material */
+  img?: string
+  /** ขยายรูปเพิ่ม (รูปที่มีขอบใสเยอะ/รูปกว้าง จะดูเล็กกว่าตัวอื่น) */
+  imgScale?: string
   title: string
   th: string
   en: string
@@ -27,27 +31,27 @@ interface Item {
 
 const ITEMS: Item[] = [
   {
-    href: '/gacha-ranger', icon: 'auto_awesome', title: 'Gacha Simulator',
+    href: '/gacha-ranger', img: '/home-icons/gacha.webp', icon: 'auto_awesome', title: 'Gacha Simulator',
     th: 'สุ่มตู้เรนเจอร์และเกียร์', en: 'Ranger & gear banners',
     iconBg: 'from-amber-300 to-orange-500', hover: 'hover:border-amber-400/60 hover:shadow-[0_10px_30px_-12px_rgba(251,191,36,0.55)]', glow: 'bg-amber-400',
   },
   {
-    href: '/custom-tierlist', icon: 'leaderboard', title: 'Tier List',
+    href: '/custom-tierlist', img: '/home-icons/tierlist.webp', icon: 'leaderboard', title: 'Tier List',
     th: 'จัดอันดับเรนเจอร์ของคุณ', en: 'Rank your rangers',
     iconBg: 'from-sky-400 to-blue-600', hover: 'hover:border-sky-400/60 hover:shadow-[0_10px_30px_-12px_rgba(56,189,248,0.55)]', glow: 'bg-sky-400',
   },
   {
-    href: '/meta', icon: 'military_tech', title: 'Meta Ranger',
+    href: '/meta', img: '/home-icons/meta.webp', imgScale: 'scale-[1.3]', icon: 'military_tech', title: 'Meta Ranger',
     th: 'อันดับ PVP ลีค Legend', en: 'Top PVP Legend picks',
     iconBg: 'from-rose-400 to-red-600', hover: 'hover:border-rose-400/60 hover:shadow-[0_10px_30px_-12px_rgba(251,113,133,0.55)]', glow: 'bg-rose-400',
   },
   {
-    href: '/ranger-book', icon: 'menu_book', title: 'Ranger Book',
+    href: '/ranger-book', img: '/home-icons/ranger-book.webp', icon: 'menu_book', title: 'Ranger Book',
     th: 'ข้อมูลเรนเจอร์ทุกตัว', en: 'Every ranger & stats',
     iconBg: 'from-emerald-400 to-teal-600', hover: 'hover:border-emerald-400/60 hover:shadow-[0_10px_30px_-12px_rgba(52,211,153,0.55)]', glow: 'bg-emerald-400',
   },
   {
-    href: '/gear-book', icon: 'inventory_2', title: 'Gear Book',
+    href: '/gear-book', img: '/home-icons/gear-book.webp', icon: 'inventory_2', title: 'Gear Book',
     th: 'ข้อมูลเกียร์ทุกชิ้น', en: 'Every gear piece',
     iconBg: 'from-violet-400 to-purple-600', hover: 'hover:border-violet-400/60 hover:shadow-[0_10px_30px_-12px_rgba(167,139,250,0.55)]', glow: 'bg-violet-400',
   },
@@ -72,9 +76,20 @@ export default function HomeMenu() {
         >
           {/* แสงจางมุมขวาบน (ตอนชี้) */}
           <span aria-hidden className={`pointer-events-none absolute -top-8 -right-8 w-24 h-24 rounded-full blur-2xl opacity-0 group-hover:opacity-25 transition-opacity ${it.glow}`} />
-          <span className={`relative shrink-0 w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br ${it.iconBg} flex items-center justify-center shadow-lg shadow-black/30 ring-1 ring-white/20`}>
-            <span className="material-icons-round text-white text-[22px] sm:text-2xl drop-shadow">{it.icon}</span>
-          </span>
+          {it.img ? (
+            // รูปไอคอนของเกม — ไม่มีกรอบ ให้ตัวรูปเด่นเอง · ขยายนิดตอนชี้
+            <span className="relative shrink-0 w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center">
+              <span className={`flex items-center justify-center w-full h-full ${it.imgScale ?? ''}`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={it.img} alt="" width={56} height={56} decoding="async"
+                  className="max-w-full max-h-full object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.45)] transition-transform duration-200 group-hover:scale-110" />
+              </span>
+            </span>
+          ) : (
+            <span className={`relative shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br ${it.iconBg} flex items-center justify-center shadow-lg shadow-black/30 ring-1 ring-white/20`}>
+              <span className="material-icons-round text-white text-[26px] sm:text-[28px] drop-shadow">{it.icon}</span>
+            </span>
+          )}
           <span className="relative min-w-0 flex-1">
             <span className="block font-bold text-white text-[15px] sm:text-base leading-tight whitespace-nowrap truncate">{it.title}</span>
             <span className="block text-xs text-gray-400 mt-1 leading-snug line-clamp-2">{lang === 'th' ? it.th : it.en}</span>

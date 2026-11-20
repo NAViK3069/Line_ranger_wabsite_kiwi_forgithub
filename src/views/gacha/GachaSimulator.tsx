@@ -28,16 +28,16 @@ interface PoolCard {
 }
 
 const KINDS: Record<Kind, {
-  path: string; api: string; label: string; icon: string; activeCls: string
+  path: string; api: string; label: string; icon: string; img: string; activeCls: string
   bg: string; emptyIcon: string; countIcon: string; unit: string; count: (p: PoolCard) => number
 }> = {
   ranger: {
-    path: '/gacha-ranger', api: '/api/gacha/pools', label: 'Gacha Ranger', icon: 'auto_awesome',
+    path: '/gacha-ranger', api: '/api/gacha/pools', label: 'Gacha Ranger', icon: 'auto_awesome', img: '/home-icons/gacha.webp',
     activeCls: 'from-yellow-400 to-orange-500 text-black', bg: 'from-purple-900/60 to-pink-900/60',
     emptyIcon: 'casino', countIcon: 'people', unit: 'Ranger', count: p => p.rangersCount ?? 0,
   },
   gear: {
-    path: '/gacha-gear', api: '/api/gacha/gear-pools', label: 'Gacha Gear', icon: 'settings',
+    path: '/gacha-gear', api: '/api/gacha/gear-pools', label: 'Gacha Gear', icon: 'settings', img: '/home-icons/gacha-gear.webp',
     activeCls: 'from-cyan-500 to-blue-600 text-white', bg: 'from-cyan-900/60 to-blue-900/60',
     emptyIcon: 'construction', countIcon: 'construction', unit: 'Gear', count: p => p.gearsCount ?? 0,
   },
@@ -124,7 +124,8 @@ export default function GachaSimulator({ initial }: { initial: Kind }) {
                     on ? `bg-gradient-to-r ${KINDS[k].activeCls} shadow-lg` : 'text-gray-300 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  <span className="material-icons-round text-lg">{KINDS[k].icon}</span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={KINDS[k].img} alt="" width={28} height={28} className="w-7 h-7 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]" />
                   {KINDS[k].label}
                 </button>
               )

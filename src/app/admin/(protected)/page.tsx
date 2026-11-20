@@ -112,7 +112,7 @@ function RecentBuilds() {
             <span className="truncate">{lst.label} · {timeAgo(latest.updatedAt)}</span>
           </span>
         )}
-        {latest && lst && <span className={`sm:hidden material-icons-round text-base ${lst.cls} ${lst.spin ? 'animate-spin' : ''}`}>{lst.icon}</span>}
+        {latest && lst && <span className="sm:hidden inline-flex"><span className={`material-icons-round text-base ${lst.cls} ${lst.spin ? 'animate-spin' : ''}`}>{lst.icon}</span></span>}
         <span className="material-icons-round ml-auto text-gray-400 transition-transform group-open:rotate-180">expand_more</span>
       </summary>
       <div className="px-4 pb-3">

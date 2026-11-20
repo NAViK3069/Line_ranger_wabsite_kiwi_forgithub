@@ -17,6 +17,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { usePro } from '@/contexts/ProContext'
 import RangerAnimationPopup from '@/components/RangerAnimationPopup'
+import PlistPieces, { downloadUrl } from './PlistPieces'
 
 interface DirEntry {
   name: string
@@ -124,14 +125,14 @@ function SortHeader({ label, col, sort, onClick }: {
   return (
     <button
       type="button" onClick={() => onClick(col)}
-      className={`inline-flex items-center gap-0.5 rounded px-1 -mx-1 py-0.5 transition-colors hover:text-gray-200 ${
+      className={`group inline-flex items-center gap-1 h-7 px-2 -mx-2 rounded-md uppercase tracking-wider transition-colors hover:bg-white/5 hover:text-gray-200 ${
         on ? 'text-cyan-300' : ''
       }`}
     >
       {label}
-      {/* จองที่ลูกศรไว้เสมอ ไม่งั้นหัวคอลัมน์จะขยับตอนสลับการเรียง */}
-      <span className="material-icons-round text-[14px] w-[14px]">
-        {on ? (sort.asc ? 'arrow_upward' : 'arrow_downward') : ''}
+      {/* จองที่ลูกศรไว้เสมอ (กล่อง 16px) ไม่งั้นหัวคอลัมน์จะขยับตอนสลับการเรียง */}
+      <span className={`material-icons-round !text-[16px] !leading-none w-4 h-4 flex items-center justify-center ${on ? '' : 'opacity-0 group-hover:opacity-50'}`}>
+        {on ? (sort.asc ? 'arrow_upward' : 'arrow_downward') : 'unfold_more'}
       </span>
     </button>
   )
@@ -164,6 +165,9 @@ function ResBrowser() {
   // ชื่อโฟลเดอร์พี่น้องทั้งหมดในโฟลเดอร์แม่ — ใช้ทำปุ่มก่อนหน้า/ถัดไป
   const [siblings, setSiblings] = useState<string[]>([])
   const [playerOpen, setPlayerOpen] = useState(false)
+  /** แถว .png ที่กางแผงชิ้นส่วน (จาก .plist คู่กัน) ไว้ */
+  const [openPieces, setOpenPieces] = useState<Set<string>>(new Set())
+  const [downloading, setDownloading] = useState<string | null>(null)
   // ชื่อแถวที่เพิ่งเลื่อนไปหา — ไฮไลต์แวบนึงให้เห็นว่าค้างไว้ตรงไหน
   const [flash, setFlash] = useState<string | null>(null)
   const listRef = useRef<HTMLUListElement>(null)
@@ -240,6 +244,20 @@ function ResBrowser() {
       return nameCollator.compare(a.name, b.name) * dir
     })
   }, [visible, filter, sort])
+
+  // ชื่อไฟล์ทั้งหมดในโฟลเดอร์ (รวม .plist ที่ซ่อนไว้) — ใช้เช็คว่า .png ตัวไหนมี .plist คู่กัน
+  const fileNames = useMemo(() => new Set(entries.list.filter(e => e.kind === 'file').map(e => e.name)), [entries])
+  // เปลี่ยนโฟลเดอร์ → หุบแผงชิ้นส่วนทั้งหมด
+  useEffect(() => { setOpenPieces(new Set()) }, [path])
+  const togglePieces = (name: string) => setOpenPieces(prev => {
+    const next = new Set(prev)
+    if (next.has(name)) next.delete(name); else next.add(name)
+    return next
+  })
+  const download = async (full: string, name: string) => {
+    setDownloading(name)
+    try { await downloadUrl(fileUrl(full), name) } catch { window.open(fileUrl(full), '_blank', 'noopener') } finally { setDownloading(null) }
+  }
 
   const crumbs = path ? path.split('/') : []
   const dirCount = visible.filter(e => e.kind === 'dir').length
@@ -328,9 +346,11 @@ function ResBrowser() {
 
   return (
     <>
-      {/* ── แถวบน: เส้นทาง + ช่องกรอง ── */}
-      <div className="flex items-center gap-2 mb-3 flex-wrap">
-        <span className="material-icons-round text-2xl text-yellow-400">folder_open</span>
+      {/* ── แถวบน: เส้นทาง + ช่องกรอง ──
+          มือถือ: เส้นทางบรรทัดหนึ่ง / ปุ่มก่อน-ถัดไป + ช่องกรองเต็มกว้างอีกบรรทัด · จอกว้าง: บรรทัดเดียว */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+        <div className="flex items-start sm:items-center gap-2 min-w-0">
+        <span className="material-icons-round text-2xl text-yellow-400 shrink-0">folder_open</span>
         <div className="flex items-center gap-1 text-sm min-w-0 flex-wrap">
           <button type="button" onClick={() => go('')}
             className={`px-1.5 py-0.5 rounded hover:bg-white/10 ${path ? 'text-cyan-300' : 'text-white font-bold'}`}>
@@ -340,7 +360,7 @@ function ResBrowser() {
             <span key={i} className="flex items-center gap-1 min-w-0">
               <span className="text-gray-600">/</span>
               <button type="button" onClick={() => go(crumbs.slice(0, i + 1).join('/'))}
-                className={`px-1.5 py-0.5 rounded hover:bg-white/10 truncate ${
+                className={`px-1.5 py-0.5 rounded hover:bg-white/10 break-all text-left ${
                   i === crumbs.length - 1 ? 'text-white font-bold' : 'text-cyan-300'
                 }`}>
                 {c}
@@ -348,15 +368,16 @@ function ResBrowser() {
             </span>
           ))}
         </div>
+        </div>
 
-        <div className="flex items-center gap-1.5 ml-auto">
+        <div className="flex items-center gap-1.5 sm:ml-auto w-full sm:w-auto">
           {/* ก่อนหน้า / ถัดไป — ข้ามไปโฟลเดอร์พี่น้องโดยไม่ต้องย้อนขึ้นไปเลือกใหม่ */}
           {path && siblings.length > 1 && (
-            <div className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 p-0.5">
+            <div className="shrink-0 flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 p-0.5">
               <button
                 type="button" onClick={() => jump(-1)} disabled={sibIdx <= 0}
                 aria-label="previous folder"
-                className="h-7 w-7 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:hover:bg-transparent"
+                className="h-8 w-8 sm:h-7 sm:w-7 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:hover:bg-transparent"
               >
                 <span className="material-icons-round text-[18px]">chevron_left</span>
               </button>
@@ -366,19 +387,19 @@ function ResBrowser() {
               <button
                 type="button" onClick={() => jump(1)} disabled={sibIdx < 0 || sibIdx >= siblings.length - 1}
                 aria-label="next folder"
-                className="h-7 w-7 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:hover:bg-transparent"
+                className="h-8 w-8 sm:h-7 sm:w-7 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:hover:bg-transparent"
               >
                 <span className="material-icons-round text-[18px]">chevron_right</span>
               </button>
             </div>
           )}
 
-          <div className="relative">
+          <div className="relative flex-1 sm:flex-none min-w-0">
             <span className="material-icons-round absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-base">search</span>
             <input
               type="text" value={filter} onChange={e => setFilter(e.target.value)}
               placeholder={tStat('Filter in this')}
-              className="h-8 w-44 sm:w-60 pl-8 pr-8 rounded-lg bg-slate-900 border border-slate-700 text-gray-100 text-sm focus:outline-none focus:border-cyan-500"
+              className="h-9 sm:h-8 w-full sm:w-60 pl-8 pr-8 rounded-lg bg-slate-900 border border-slate-700 text-gray-100 text-sm focus:outline-none focus:border-cyan-500"
             />
             {filter && (
               <button
@@ -425,15 +446,17 @@ function ResBrowser() {
         ))}
 
         {/* หัวคอลัมน์ = ปุ่มเรียงลำดับ ลูกศรบอกทิศของคอลัมน์ที่กำลังใช้อยู่ */}
-        <div className="flex items-center gap-3 px-3 py-2 bg-white/5 text-[11px] text-gray-500 font-bold">
-          <span className="w-5 shrink-0" />
+        <div className="flex items-center gap-3 pl-3 pr-3 sm:pr-0 py-1 bg-white/[0.04] border-b border-white/10 text-[11px] text-gray-400 font-bold">
+          <span className="w-5 shrink-0 hidden sm:block" />
           <span className="flex-1 min-w-0">
             <SortHeader label={tStat('Name')} col="name" sort={sort} onClick={toggleSort} />
           </span>
-          <span className="w-20 text-right hidden sm:block">{tStat('Size')}</span>
-          <span className="w-36 text-right shrink-0 flex justify-end">
+          <span className="w-20 text-right hidden sm:block uppercase tracking-wider">{tStat('Size')}</span>
+          <span className="sm:w-36 text-right shrink-0 flex justify-end">
             <SortHeader label={tStat('Modified')} col="date" sort={sort} onClick={toggleSort} />
           </span>
+          {/* ตรงกับคอลัมน์ปุ่มด้านขวาของแต่ละแถว (เฉพาะจอกว้าง) */}
+          <span className="hidden sm:block w-40 shrink-0" />
         </div>
 
         {loading ? (
@@ -459,8 +482,13 @@ function ResBrowser() {
             {shown.map(e => {
               const full = path ? `${path}/${e.name}` : e.name
               const ext = extOf(e.name)
+              const base = e.name.replace(/\.[^.]+$/, '')
+              // .png ที่มี .plist ชื่อเดียวกัน = spritesheet → แตกเป็นชิ้นๆ ให้โหลดทีละชิ้นได้
+              const plistName = ext === 'png' && fileNames.has(`${base}.plist`) ? `${base}.plist` : null
+              const piecesOpen = openPieces.has(e.name)
               return (
-                <li key={e.name} data-row={e.name} className="flex items-stretch border-t border-white/5">
+                <li key={e.name} data-row={e.name} className="border-t border-white/5">
+                  <div className="flex items-stretch">
                   <button
                     type="button"
                     onClick={() => {
@@ -472,11 +500,12 @@ function ResBrowser() {
                       else if (ext === 'png') setPreview(full)
                       else window.open(fileUrl(full), '_blank', 'noopener')
                     }}
-                    className={`flex-1 min-w-0 flex items-center gap-3 px-3 py-2 transition-colors text-left ${
+                    className={`flex-1 min-w-0 flex items-center gap-3 px-3 py-2.5 sm:py-2 transition-colors text-left ${
                       flash === e.name ? 'bg-cyan-400/20' : 'hover:bg-white/[0.06]'
                     }`}
                   >
-                    {e.kind === 'dir' ? <FolderIcon /> : <FileIcon ext={ext} />}
+                    {/* ไอคอนชนิดไฟล์ — มือถือไม่ต้องโชว์ถ้ามีรูปตัวอย่างอยู่แล้ว (ประหยัดที่ให้ชื่อไฟล์) */}
+                    {e.kind === 'dir' ? <FolderIcon /> : <span className={ext === 'png' ? 'hidden sm:block' : ''}><FileIcon ext={ext} /></span>}
                     {/* รูปตัวอย่างของ .png — lazy ไว้ ไม่งั้นโฟลเดอร์ที่มีรูปเป็นร้อยจะโหลดพรวดเดียว */}
                     {ext === 'png' && (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -488,16 +517,25 @@ function ResBrowser() {
                         onError={ev => { (ev.target as HTMLImageElement).style.visibility = 'hidden' }}
                       />
                     )}
-                    <span className="flex-1 min-w-0 text-sm text-gray-100 truncate">{e.name}</span>
+                    {/* ชื่อ: มือถือขึ้นได้ 2 บรรทัด + บรรทัดรายละเอียด (ชนิด · ขนาด · วันที่) · จอกว้าง: บรรทัดเดียว มีคอลัมน์แยก */}
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm text-gray-100 break-all line-clamp-2 sm:line-clamp-1 sm:break-normal sm:truncate">{e.name}</span>
+                      <span className="sm:hidden block text-[11px] text-gray-500 mt-0.5 truncate">
+                        {e.kind === 'file' && EXT_STYLE[ext] && <span className={`${EXT_STYLE[ext].color} font-bold`}>{EXT_STYLE[ext].label} · </span>}
+                        {e.kind === 'file' && e.size != null && `${humanSize(e.size)} · `}
+                        {e.date}
+                      </span>
+                    </span>
                     {e.kind === 'file' && EXT_STYLE[ext] && (
                       <span className={`text-[10px] font-bold ${EXT_STYLE[ext].color} hidden sm:block`}>
                         {EXT_STYLE[ext].label}
                       </span>
                     )}
                     <span className="w-20 text-right text-xs text-gray-500 hidden sm:block">{humanSize(e.size)}</span>
-                    <span className="w-36 text-right text-xs text-gray-500 shrink-0">{e.date}</span>
+                    <span className="w-36 text-right text-xs text-gray-500 shrink-0 hidden sm:block">{e.date}</span>
                   </button>
                   {/* เปิดโฟลเดอร์ในแท็บใหม่ — หน้านี้ยังค้างอยู่ที่เดิม ไม่ต้องเลื่อนหาใหม่ */}
+                  <div className="shrink-0 flex items-stretch justify-end sm:w-40">
                   {e.kind === 'dir' ? (
                     <a
                       href={`/res?p=${encodeURIComponent(full)}`}
@@ -507,8 +545,39 @@ function ResBrowser() {
                     >
                       <span className="material-icons-round text-[18px]">open_in_new</span>
                     </a>
+                  ) : ext === 'png' ? (
+                    <>
+                      {plistName && (
+                        <button
+                          type="button" onClick={() => togglePieces(e.name)}
+                          aria-expanded={piecesOpen}
+                          title={tStat('Show pieces (from .plist)')}
+                          className={`shrink-0 w-11 sm:w-auto sm:px-3 flex items-center justify-center gap-1 text-xs font-semibold transition-colors ${
+                            piecesOpen ? 'text-amber-300 bg-amber-400/10' : 'text-gray-400 hover:text-amber-300 hover:bg-white/[0.06]'
+                          }`}
+                        >
+                          <span className="material-icons-round text-[18px]">grid_view</span>
+                          <span className="hidden sm:inline">{tStat('Pieces')}</span>
+                          <span className="hidden sm:inline-flex"><span className={`material-icons-round text-[18px] transition-transform ${piecesOpen ? 'rotate-180' : ''}`}>expand_more</span></span>
+                        </button>
+                      )}
+                      <button
+                        type="button" onClick={() => download(full, e.name)}
+                        title={tStat('Download')} aria-label={tStat('Download')}
+                        className="w-11 sm:w-10 shrink-0 flex items-center justify-center text-gray-400 hover:text-cyan-300 hover:bg-white/[0.06] transition-colors"
+                      >
+                        <span className={`material-icons-round text-[20px] ${downloading === e.name ? 'animate-pulse' : ''}`}>download</span>
+                      </button>
+                    </>
                   ) : (
                     <span className="w-10 shrink-0" />
+                  )}
+                  </div>
+                  </div>
+                  {plistName && piecesOpen && (
+                    <div className="bg-black/20 border-t border-white/5">
+                      <PlistPieces pngUrl={fileUrl(full)} plistUrl={fileUrl(path ? `${path}/${plistName}` : plistName)} baseName={base} />
+                    </div>
                   )}
                 </li>
               )

@@ -31,10 +31,12 @@
 .tl-btn {
   flex: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; padding: 0 14px;
   border-radius: 12px; border: 1px solid var(--tl-line); background: #23252e; color: #e6e9f4; font-size: 13.5px; font-weight: 600;
-  white-space: nowrap; transition: background 0.15s, transform 0.1s;
+  white-space: nowrap; transition: background 0.15s, filter 0.15s, transform 0.1s;
 }
 .tl-btn .material-icons-round { font-size: 19px; }
-.tl-btn:hover:not(:disabled) { background: #2c2f3a; }
+.tl-btn:not(.primary):not(.accent):not(.publish):hover:not(:disabled) { background: #2c2f3a; }
+/* ปุ่มสี: hover แล้วพื้นยังเป็นสีเดิม แค่สว่างขึ้น (เดิมกลายเป็นพื้นเทา) */
+.tl-btn:is(.primary, .accent, .publish):hover:not(:disabled) { filter: brightness(1.1); }
 .tl-btn:active:not(:disabled) { transform: scale(0.97); }
 .tl-btn:disabled { opacity: 0.4; }
 .tl-btn.primary { background: linear-gradient(135deg, #f59e0b, #f97316); border-color: transparent; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
@@ -139,6 +141,8 @@
 /* คลัง */
 .tl-pool-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 18px 2px 8px; font-size: 15px; }
 .tl-pool-head .material-icons-round { color: #f59e0b; font-size: 20px; }
+/* ไอคอนในปุ่มเพิ่มเรนเจอร์ = สีขาว (ไม่กลืนกับพื้นส้ม) ทั้งตอนปกติและ hover */
+.tl-pool-head .tl-pool-add .material-icons-round { color: #fff; font-size: 19px; }
 .tl-count { padding: 1px 8px; border-radius: 999px; background: #2b2e38; font-size: 12px; font-weight: 700; color: #cfd4e4; }
 .tl-sub { width: 100%; order: 5; font-size: 11.5px; color: #8b92a8; }
 /* ปุ่มเพิ่มเรนเจอร์ อยู่หัวคลัง ชิดขวา (มือถือ: บรรทัดเดียวกับ "เรนเจอร์ 39" · คำอธิบายลงบรรทัดถัดไป) */

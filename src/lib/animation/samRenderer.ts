@@ -10,9 +10,37 @@ export interface Sprite {
   bitmap: ImageBitmap
   w: number
   h: number
+  /**
+   * มุมซ้ายบนของชิ้นที่ถูก "ตัดขอบใส" (trimmed) ภายในรูปเต็มต้นฉบับ — ปกติ 0,0
+   * .sam วางชิ้นโดยอิงมุมซ้ายบนของรูปเต็ม (เช่น 100x100) แต่ใน atlas เก็บแค่ส่วนที่มีภาพ (64x76)
+   * ถ้าไม่บวกค่านี้ ชิ้นจะเลื่อนขึ้น-ซ้าย (เช่นออร่า 100x100 ของป้อม tw48)
+   */
+  ox: number
+  oy: number
 }
 
 export type SpriteMap = Record<string, Sprite>
+
+interface PlistFrame {
+  textureRect?: string; frame?: string; textureRotated?: boolean; rotated?: boolean; aliases?: unknown
+  spriteOffset?: string; offset?: string; spriteSourceSize?: string; sourceSize?: string
+}
+const plistNums = (v?: string) => v?.match(/-?\d+(?:\.\d+)?/g)?.map(Number)
+
+/**
+ * มุมซ้ายบนของชิ้นที่ตัดขอบใสภายในรูปเต็ม (ดู Sprite.ox)
+ * = (ขนาดรูปเต็ม − ขนาดที่เก็บจริง) / 2 + offset (แกน y ของ cocos ชี้ขึ้น → ลบ)
+ *
+ * ห้ามใช้ spriteColorRect ตรงๆ: ไฟล์เรนเจอร์ส่วนใหญ่ (เช่น u010u-clara) ไม่ได้ตัดขอบ (spriteTrimmed=false
+ * ขนาดเก็บ = ขนาดเต็ม) แต่ colorRect ยังบอกขอบภาพจริงไว้ เช่น {{2,2},{100,100}} — ถ้าใช้ค่านั้นชิ้นจะเลื่อนผิด
+ * สูตรนี้ได้ 0 เสมอเมื่อชิ้นไม่ได้ตัดขอบ ภาพเดิมทุกตัวจึงไม่เปลี่ยน
+ */
+function trimOrigin(info: PlistFrame, w: number, h: number): [number, number] {
+  const src = plistNums(info.spriteSourceSize || info.sourceSize)
+  if (!src || src.length < 2 || (src[0] <= w && src[1] <= h)) return [0, 0]
+  const off = plistNums(info.spriteOffset || info.offset) ?? [0, 0]
+  return [(src[0] - w) / 2 + (off[0] ?? 0), (src[1] - h) / 2 - (off[1] ?? 0)]
+}
 
 // ── Load sprites: parse plist + slice atlas PNG ──
 export async function loadSprites(plistBuffer: ArrayBuffer, pngBlob: Blob): Promise<SpriteMap> {
@@ -25,7 +53,7 @@ export async function loadSprites(plistBuffer: ArrayBuffer, pngBlob: Blob): Prom
   const frames = plistData.frames || {}
 
   const aliasOf: [string, string][] = []
-  for (const [name, info] of Object.entries<{ textureRect?: string; frame?: string; textureRotated?: boolean; rotated?: boolean; aliases?: unknown }>(frames)) {
+  for (const [name, info] of Object.entries<PlistFrame>(frames)) {
     const rectStr = info.textureRect || info.frame || ''
     // บาง plist เขียนเลขทศนิยม ({{98.0,322.0},{99.0,99.0}} เช่น u415e-riza) — ต้องจับทศนิยมด้วย
     // ไม่งั้น "98.0" แตกเป็น 98 กับ 0 ทำให้ค่าเลื่อนผิดช่อง → ความสูง 0 → createImageBitmap พังทั้งตัว
@@ -45,7 +73,8 @@ export async function loadSprites(plistBuffer: ArrayBuffer, pngBlob: Blob): Prom
     } else {
       bitmap = await createImageBitmap(atlas, ax, ay, fw, fh)
     }
-    sprites[name] = { bitmap, w: fw, h: fh }
+    const [ox, oy] = trimOrigin(info, fw, fh)
+    sprites[name] = { bitmap, w: fw, h: fh, ox, oy }
     // ชิ้นที่ซ้ำกันถูกเก็บไว้ชื่อเดียว (เช่น "_18x41_2.png") แล้วใส่ชื่ออื่นไว้ใน aliases ("_18x41.png")
     // แต่ .sam อ้างด้วยชื่อใน aliases → ต้องผูกชื่อนั้นเข้ากับภาพเดียวกันด้วย ไม่งั้นชิ้นนั้นหายไป (u415u-riza)
     if (Array.isArray(info.aliases)) for (const a of info.aliases) if (typeof a === 'string' && a) aliasOf.push([a, name])
@@ -95,8 +124,8 @@ export function renderSAMFrame(
     const [i00, i01, i10, i11, i02, i12] = imgDef.m
     const { w, h, bitmap } = spr
     const cx = w * 0.5, cy = h * 0.5
-    const pCx = i00 * cx + i01 * cy + i02
-    const pCy = i10 * cx + i11 * cy + i12
+    const pCx = i00 * (spr.ox + cx) + i01 * (spr.oy + cy) + i02
+    const pCy = i10 * (spr.ox + cx) + i11 * (spr.oy + cy) + i12
     let wCx = m00 * pCx + m01 * pCy + m02
     let wCy = m10 * pCx + m11 * pCy + m12
     let f00 = m00 * i00 + m01 * i10
@@ -145,8 +174,8 @@ export function animRestBottom(sam: SAMParser, sprites: SpriteMap, animName: str
       const [m00, m01, m10, m11, m02, m12] = m
       const [i00, i01, i10, i11, i02, i12] = imgDef.m
       const cx = spr.w * 0.5, cy = spr.h * 0.5
-      const pCx = i00 * cx + i01 * cy + i02
-      const pCy = i10 * cx + i11 * cy + i12
+      const pCx = i00 * (spr.ox + cx) + i01 * (spr.oy + cy) + i02
+      const pCy = i10 * (spr.ox + cx) + i11 * (spr.oy + cy) + i12
       const wCy = m10 * pCx + m11 * pCy + m12
       const f10 = m10 * i00 + m11 * i10, f11 = m10 * i01 + m11 * i11
       for (const sx of [-cx, cx]) for (const sy of [-cy, cy]) maxY = Math.max(maxY, wCy + f10 * sx + f11 * sy)
@@ -177,8 +206,8 @@ export function animBBoxLoose(sam: SAMParser, sprites: SpriteMap, animName: stri
       const [m00, m01, m10, m11, m02, m12] = m
       const [i00, i01, i10, i11, i02, i12] = imgDef.m
       const cx = spr.w * 0.5, cy = spr.h * 0.5
-      const pCx = i00 * cx + i01 * cy + i02
-      const pCy = i10 * cx + i11 * cy + i12
+      const pCx = i00 * (spr.ox + cx) + i01 * (spr.oy + cy) + i02
+      const pCy = i10 * (spr.ox + cx) + i11 * (spr.oy + cy) + i12
       const wCx = m00 * pCx + m01 * pCy + m02
       const wCy = m10 * pCx + m11 * pCy + m12
       const r = Math.max(spr.w, spr.h) * 0.5
@@ -210,8 +239,8 @@ export function animGroundDecalY(sam: SAMParser, sprites: SpriteMap, animName: s
       const [, , m10, m11, , m12] = m
       const [i00, i01, i10, i11, i02, i12] = imgDef.m
       const cx = spr.w * 0.5, cy = spr.h * 0.5
-      const pCx = i00 * cx + i01 * cy + i02
-      const pCy = i10 * cx + i11 * cy + i12
+      const pCx = i00 * (spr.ox + cx) + i01 * (spr.oy + cy) + i02
+      const pCy = i10 * (spr.ox + cx) + i11 * (spr.oy + cy) + i12
       const y = m10 * pCx + m11 * pCy + m12
       // พื้นอยู่ใต้ origin เสมอ (จุดยืนของตัวละครทุกตัวที่วัดมาอยู่ที่ +60 ถึง +238)
       // สไปรต์แบนที่ลอยเหนือ origin คือลำแสง/รอยฟันกลางอากาศ ไม่ใช่เงา — ตัดทิ้ง
@@ -263,8 +292,8 @@ export function animBodyBBox(sam: SAMParser, sprites: SpriteMap, animName: strin
       const [m00, m01, m10, m11, m02, m12] = m
       const [i00, i01, i10, i11, i02, i12] = imgDef.m
       const cx = spr.w * 0.5, cy = spr.h * 0.5
-      const pCx = i00 * cx + i01 * cy + i02
-      const pCy = i10 * cx + i11 * cy + i12
+      const pCx = i00 * (spr.ox + cx) + i01 * (spr.oy + cy) + i02
+      const pCy = i10 * (spr.ox + cx) + i11 * (spr.oy + cy) + i12
       const wCx = m00 * pCx + m01 * pCy + m02
       const wCy = m10 * pCx + m11 * pCy + m12
       const f00 = m00 * i00 + m01 * i10, f01 = m00 * i01 + m01 * i11
@@ -304,7 +333,7 @@ export function animSelfArcRise(sam: SAMParser, sprites: SpriteMap, animName: st
       const [, , m10, m11, , m12] = m
       const [i00, i01, i10, i11, i02, i12] = imgDef.m
       const cx = spr.w * 0.5, cy = spr.h * 0.5
-      const wCy = m10 * (i00 * cx + i01 * cy + i02) + m11 * (i10 * cx + i11 * cy + i12) + m12
+      const wCy = m10 * (i00 * (spr.ox + cx) + i01 * (spr.oy + cy) + i02) + m11 * (i10 * (spr.ox + cx) + i11 * (spr.oy + cy) + i12) + m12
       const f10 = m10 * i00 + m11 * i10, f11 = m10 * i01 + m11 * i11
       for (const sx of [-cx, cx]) for (const sy of [-cy, cy]) {
         const py = wCy + f10 * sx + f11 * sy
@@ -374,8 +403,8 @@ export function animStandPoint(
       const [m00, m01, m10, m11, m02, m12] = m
       const [i00, i01, i10, i11, i02, i12] = imgDef.m
       const cx = spr.w * 0.5, cy = spr.h * 0.5
-      const pCx = i00 * cx + i01 * cy + i02
-      const pCy = i10 * cx + i11 * cy + i12
+      const pCx = i00 * (spr.ox + cx) + i01 * (spr.oy + cy) + i02
+      const pCy = i10 * (spr.ox + cx) + i11 * (spr.oy + cy) + i12
       const x = m00 * pCx + m01 * pCy + m02
       const y = m10 * pCx + m11 * pCy + m12
       if (y <= 0 || y < lowLimit) continue
@@ -424,8 +453,8 @@ export function placementStandPoint(
     const [m00, m01, m10, m11, m02, m12] = m
     const [i00, i01, i10, i11, i02, i12] = imgDef.m
     const cx = spr.w * 0.5, cy = spr.h * 0.5
-    const pCx = i00 * cx + i01 * cy + i02
-    const pCy = i10 * cx + i11 * cy + i12
+    const pCx = i00 * (spr.ox + cx) + i01 * (spr.oy + cy) + i02
+    const pCy = i10 * (spr.ox + cx) + i11 * (spr.oy + cy) + i12
     const x = m00 * pCx + m01 * pCy + m02
     const y = m10 * pCx + m11 * pCy + m12
     if (y <= 0 || y < lowLimit || Math.abs(y - stand.y) > 6) continue
@@ -463,8 +492,8 @@ export function animFrame0Center(sam: SAMParser, sprites: SpriteMap, animName: s
     const [m00, m01, m10, m11, m02, m12] = m
     const [i00, i01, i10, i11, i02, i12] = imgDef.m
     const cx = spr.w * 0.5, cy = spr.h * 0.5
-    const pCx = i00 * cx + i01 * cy + i02
-    const pCy = i10 * cx + i11 * cy + i12
+    const pCx = i00 * (spr.ox + cx) + i01 * (spr.oy + cy) + i02
+    const pCy = i10 * (spr.ox + cx) + i11 * (spr.oy + cy) + i12
     const wCx = m00 * pCx + m01 * pCy + m02
     const wCy = m10 * pCx + m11 * pCy + m12
     const f00 = m00 * i00 + m01 * i10, f01 = m00 * i01 + m01 * i11
@@ -496,8 +525,8 @@ export function animMedianBBox(sam: SAMParser, sprites: SpriteMap, animName: str
       const [m00, m01, m10, m11, m02, m12] = m
       const [i00, i01, i10, i11, i02, i12] = imgDef.m
       const cx = spr.w * 0.5, cy = spr.h * 0.5
-      const pCx = i00 * cx + i01 * cy + i02
-      const pCy = i10 * cx + i11 * cy + i12
+      const pCx = i00 * (spr.ox + cx) + i01 * (spr.oy + cy) + i02
+      const pCy = i10 * (spr.ox + cx) + i11 * (spr.oy + cy) + i12
       const wCx = m00 * pCx + m01 * pCy + m02
       const wCy = m10 * pCx + m11 * pCy + m12
       const f00 = m00 * i00 + m01 * i10, f01 = m00 * i01 + m01 * i11
@@ -528,8 +557,8 @@ export function animBBox(sam: SAMParser, sprites: SpriteMap, animName: string): 
       const [m00, m01, m10, m11, m02, m12] = m
       const [i00, i01, i10, i11, i02, i12] = imgDef.m
       const cx = spr.w * 0.5, cy = spr.h * 0.5
-      const pCx = i00 * cx + i01 * cy + i02
-      const pCy = i10 * cx + i11 * cy + i12
+      const pCx = i00 * (spr.ox + cx) + i01 * (spr.oy + cy) + i02
+      const pCy = i10 * (spr.ox + cx) + i11 * (spr.oy + cy) + i12
       const wCx = m00 * pCx + m01 * pCy + m02
       const wCy = m10 * pCx + m11 * pCy + m12
       // แปลง 4 มุมของสไปรต์ตามเมทริกซ์รวมจริง (f) เหมือนที่ renderSAMFrame วาด — ได้กรอบตรงกับภาพบนจอเป๊ะ
@@ -574,8 +603,8 @@ export function animCenterX(sam: SAMParser, sprites: SpriteMap, animName: string
       const [m00, m01, , , m02] = m
       const [i00, i01, i10, i11, i02, i12] = imgDef.m
       const cx = spr.w * 0.5, cy = spr.h * 0.5
-      const pCx = i00 * cx + i01 * cy + i02
-      const pCy = i10 * cx + i11 * cy + i12
+      const pCx = i00 * (spr.ox + cx) + i01 * (spr.oy + cy) + i02
+      const pCy = i10 * (spr.ox + cx) + i11 * (spr.oy + cy) + i12
       const wCx = m00 * pCx + m01 * pCy + m02
       const r = Math.max(spr.w, spr.h) * 0.6
       minX = Math.min(minX, wCx - r); maxX = Math.max(maxX, wCx + r)
@@ -607,8 +636,8 @@ export function autoFit(
       const [m00, m01, m10, m11, m02, m12] = m
       const [i00, i01, i10, i11, i02, i12] = imgDef.m
       const cx = spr.w * 0.5, cy = spr.h * 0.5
-      const pCx = i00 * cx + i01 * cy + i02
-      const pCy = i10 * cx + i11 * cy + i12
+      const pCx = i00 * (spr.ox + cx) + i01 * (spr.oy + cy) + i02
+      const pCy = i10 * (spr.ox + cx) + i11 * (spr.oy + cy) + i12
       const wCx = m00 * pCx + m01 * pCy + m02
       const wCy = m10 * pCx + m11 * pCy + m12
 
@@ -748,8 +777,8 @@ export function framePieces(
     const [i00, i01, i10, i11, i02, i12] = imgDef.m
     const { w, h } = spr
     const cx = w * 0.5, cy = h * 0.5
-    const pCx = i00 * cx + i01 * cy + i02
-    const pCy = i10 * cx + i11 * cy + i12
+    const pCx = i00 * (spr.ox + cx) + i01 * (spr.oy + cy) + i02
+    const pCy = i10 * (spr.ox + cx) + i11 * (spr.oy + cy) + i12
     let wCx = m00 * pCx + m01 * pCy + m02
     let wCy = m10 * pCx + m11 * pCy + m12
     let f00 = m00 * i00 + m01 * i10

@@ -45,7 +45,7 @@ function pieceQuads(frame: SamFrame, rt: RangerRuntime, name: string, ox: number
     const [m00, m01, m10, m11, m02, m12] = m
     const [i00, i01, i10, i11, i02, i12] = img.m
     const cx = spr.w / 2, cy = spr.h / 2
-    const pCx = i00 * cx + i01 * cy + i02, pCy = i10 * cx + i11 * cy + i12
+    const pCx = i00 * (spr.ox + cx) + i01 * (spr.oy + cy) + i02, pCy = i10 * (spr.ox + cx) + i11 * (spr.oy + cy) + i12
     const wCx = m00 * pCx + m01 * pCy + m02, wCy = m10 * pCx + m11 * pCy + m12
     const f00 = m00 * i00 + m01 * i10, f01 = m00 * i01 + m01 * i11, f10 = m10 * i00 + m11 * i10, f11 = m10 * i01 + m11 * i11
     out.push([[-cx, -cy], [cx, -cy], [cx, cy], [-cx, cy]].map(([sx, sy]) => {

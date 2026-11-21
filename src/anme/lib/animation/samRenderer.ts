@@ -102,28 +102,39 @@ const LERP_MAX_LINEAR = 0.8
  * จอ 60/120/144Hz จะเห็นภาพค้างเป็นจังหวะ ผสมเฟรมแล้วลื่นตามรีเฟรชเรตของจอ
  *
  * จับคู่ชิ้นด้วย [รหัสชิ้น, รูป] ที่ตรงกันทั้งคู่ (ชิ้นในไฟล์มีรหัสไม่ซ้ำในเฟรม)
- * ไม่ผสม (ใช้ของ a ตามเดิม) เมื่อ: ไม่มีคู่ · เปลี่ยนรูป · กระโดดไกล · กลับด้าน/บิดแรง
+ * ไม่ผสมทั้งเฟรม (ใช้ a ตามเดิม) ถ้ามีชิ้นที่มองเห็นแม้ชิ้นเดียว: ไม่มีคู่ · เปลี่ยนรูป · กระโดดไกล · กลับด้าน/บิดแรง
  * ชิ้นที่เกิดใหม่หรือหายไปยึดตาม a — ลำดับการวาดไม่เปลี่ยน
  */
 export function lerpSAMFrame(a: SamFrame, b: SamFrame | null, t: number): SamFrame {
   if (!b || t <= 0) return a
   const byId = new Map<number, SamFrame[number]>()
   for (const o of b) byId.set(o[0], o)
-  return a.map(o => {
+  // ผสม "ทั้งเฟรม หรือไม่ผสมเลย" — ถ้าผสมทีละชิ้น ชิ้นที่ผสมไม่ได้ (เปลี่ยนรูป/เกิดใหม่) จะค้างที่เฟรม a
+  // ขณะที่ชิ้นข้างๆ ขยับไปครึ่งทางแล้ว → ตัวละครที่เคลื่อนเร็วจะ "ชิ้นส่วนแยก" (u1635e-su พุ่ง ~35 หน่วย/เฟรม)
+  // ชิ้นที่มองไม่เห็น (alpha 0 / ไม่มีรูป) ไม่นับ — ไม่มีผลกับภาพ
+  const out: SamFrame = []
+  for (const o of a) {
+    const visible = o[3][3] > 0
     const p = byId.get(o[0])
-    if (!p || p[1] !== o[1]) return o
+    if (!p || p[1] !== o[1]) { if (visible) return a; out.push(o); continue }
     const m = o[2], n = p[2]
-    if (Math.hypot(n[4] - m[4], n[5] - m[5]) > LERP_MAX_MOVE) return o
-    if (Math.sign(m[0] * m[3] - m[1] * m[2]) !== Math.sign(n[0] * n[3] - n[1] * n[2])) return o
-    for (let i = 0; i < 4; i++) if (Math.abs(n[i] - m[i]) > LERP_MAX_LINEAR) return o
+    const jump = Math.hypot(n[4] - m[4], n[5] - m[5]) > LERP_MAX_MOVE
+      || Math.sign(m[0] * m[3] - m[1] * m[2]) !== Math.sign(n[0] * n[3] - n[1] * n[2])
+      || [0, 1, 2, 3].some(i => Math.abs(n[i] - m[i]) > LERP_MAX_LINEAR)
+    if (jump) { if (visible) return a; out.push(o); continue }
     const mix = (x: number, y: number) => x + (y - x) * t
-    return [
+    out.push([
       o[0], o[1],
       [mix(m[0], n[0]), mix(m[1], n[1]), mix(m[2], n[2]), mix(m[3], n[3]), mix(m[4], n[4]), mix(m[5], n[5])],
       [o[3][0], o[3][1], o[3][2], mix(o[3][3], p[3][3])],
-    ] as SamFrame[number]
-  })
+    ] as SamFrame[number])
+  }
+  // ชิ้นที่โผล่ใหม่ในเฟรม b (มองเห็น) → เฟรมนี้เปลี่ยนรูปร่าง ไม่ผสม
+  const ids = new Set(a.map(o => o[0]))
+  for (const o of b) if (!ids.has(o[0]) && o[3][3] > 0) return a
+  return out
 }
+
 
 export function renderSAMFrame(
   ctx: CanvasRenderingContext2D,

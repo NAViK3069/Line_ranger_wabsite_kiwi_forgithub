@@ -14,7 +14,7 @@ import {
 import { previewSound } from '@/anme/engine/audio'
 import { api, appUrl, importFromUrl, listUploads, recentRangers, type UploadItem, anmeFetch } from '@/anme/engine/storage'
 import { L, getLang } from '@/anme/engine/i18n'
-import { assets, fetchRangerListing, isAudioName, isVideoName, thumbUrl } from '@/anme/engine/assets'
+import { assets, isAudioName, isVideoName, thumbUrl } from '@/anme/engine/assets'
 import { uid } from '@/anme/engine/scene'
 import { select, setState, toast, updateScene, useStore } from '@/anme/engine/store'
 import type { ActorTag, BgFit } from '@/anme/engine/types'
@@ -61,7 +61,6 @@ let pickerViewMemo: PickerView = PICKER_VIEW_DEFAULT
 export function RangersTab() {
   const [recent, setRecent] = useState<RangerName[]>([])
   const [tag, setTag] = useState<ActorTag>('ally')
-  const [form, setForm] = useState<'body' | 'e-body'>('body')
   const [picking, setPicking] = useState(false)
   const [pickerView, setPickerView] = useState<PickerView>(pickerViewMemo)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -73,10 +72,8 @@ export function RangersTab() {
   useEffect(() => { pickerViewMemo = pickerView }, [pickerView])
 
   const add = async (id: string) => {
-    const listing = await fetchRangerListing(id).catch(() => null)
-    const f = form === 'e-body' && listing?.sets['e-body'] ? 'e-body' : 'body'
-    if (form === 'e-body' && listing && !listing.sets['e-body']) toast(L('ตัวนี้ไม่มีร่าง e-body ใช้ร่างปกติแทน', 'No e-body form — using the base form'))
-    await addLericoRanger(id, { tag, form: f })
+    // ร่าง e-body ไม่ต่างจากร่างปกติ → ใช้ร่างปกติเสมอ (เอาตัวสลับร่างออกแล้ว)
+    await addLericoRanger(id, { tag })
     loadRecent().then(setRecent)
   }
 
@@ -84,7 +81,6 @@ export function RangersTab() {
     <>
       <div className="lib-opts">
         <Seg<ActorTag> value={tag} onChange={setTag} options={[{ value: 'ally', label: <><Icon name="shield" size={13} /> {L('ฝ่ายเรา', 'Ally')}</> }, { value: 'enemy', label: <><Icon name="skull" size={13} /> {L('ศัตรู', 'Enemy')}</> }]} />
-        <Seg value={form} onChange={setForm} options={[{ value: 'body', label: L('ร่างปกติ', 'Base form') }, { value: 'e-body', label: L('ร่าง e', 'e form') }]} />
       </div>
       <button className="btn primary wide big" onClick={() => setPicking(true)}>
         <Icon name="search" /> {L('เลือกเรนเจอร์', 'Pick a ranger')}

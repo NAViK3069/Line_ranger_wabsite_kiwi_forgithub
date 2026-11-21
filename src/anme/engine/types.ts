@@ -46,6 +46,12 @@ export interface Actor {
   idleClip: string
   /** ชิ้นส่วนที่ซ่อน (ชื่อสไปรต์ในไฟล์ .sam) — แบบแผงเลเยอร์ของ Kiwi · มีผลกับภาพส่งออกด้วย */
   hiddenParts: string[]
+  /**
+   * เลเยอร์เสริมใต้เรนเจอร์บนไทม์ไลน์ (เปิด/ปิดที่ตั้งค่าเรนเจอร์):
+   *   range = แถบบอกระยะ (คิว 'range' กำหนดว่าแสดงระยะอะไร ช่วงไหน)
+   *   info  = การ์ดคำอธิบายสกิลมุมซ้ายบนของจอ (คิว 'info')
+   */
+  layers?: { range?: boolean; info?: boolean }
   // ── media ──
   loop: boolean
   muted: boolean
@@ -209,7 +215,49 @@ export interface CameraCue extends CueBase {
   ease: Ease
 }
 
-export type Cue = AnimCue | MoveCue | SkillCue | ShowCue | CameraCue | SoundCue
+/** ช่วงที่แสดงแถบบอกระยะของเรนเจอร์ (เลเยอร์ "ระยะ" ใต้เรนเจอร์) — ข้อมูลระยะจากเกม */
+export interface RangeCue extends CueBase {
+  type: 'range'
+  duration: number
+  /** ระยะโจมตีปกติ */
+  atk: boolean
+  /** Area ของสกิลที่ใช้งานได้ตัวที่ 1 / 2 (บัฟ = รอบตัวเอง · โจมตี = รอบเป้าที่ระยะโจมตี) */
+  skill1: boolean
+  skill2: boolean
+  /** เลื่อนแถบ ATK ขึ้น/ลง (พิกเซลเวทีเทียบ 720p · บวก = ลง) — ไม่มีค่า = 0 */
+  atkY?: number
+  /** เลื่อนแถบสกิล 1/2 ขึ้น/ลง (พิกเซลเวทีเทียบ 720p · บวก = ลง) — ไม่มีค่า = 0 */
+  skillY?: number
+}
+
+/** เนื้อหาการ์ดคำอธิบายสกิล — ดึงจากข้อมูลเกมตอนสร้าง แล้วแก้ข้อความเองได้ */
+export interface SkillCard {
+  /** URL ไอคอนสกิล (/api/res/… วิ่งผ่าน Worker ได้ CORS วาดลง canvas/ส่งออกได้) */
+  icon: string | null
+  name: string
+  /** Use 30% · CD 6s */
+  stat: string
+  /** ผลของสกิล (บรรทัด * ในคำอธิบาย — ตัดคำบรรยายเนื้อเรื่องออก) */
+  effects: string[]
+  /** Front Enemy · Area 300pt */
+  target: string
+  /** Cast 1.3s · Recovery 0.7s */
+  timing: string
+}
+
+/** ช่วงที่แสดงการ์ดคำอธิบายสกิล (เลเยอร์ "คำอธิบาย" ใต้เรนเจอร์) — วางมุมซ้ายบนของจอ */
+export interface InfoCue extends CueBase {
+  type: 'info'
+  duration: number
+  slot: 'skill1' | 'skill2'
+  card: SkillCard
+  /** เลื่อนจากมุมซ้ายบน (พิกเซลเวที) */
+  offsetX: number
+  offsetY: number
+  scale: number
+}
+
+export type Cue = AnimCue | MoveCue | SkillCue | ShowCue | CameraCue | SoundCue | RangeCue | InfoCue
 export type CueType = Cue['type']
 
 export const CAMERA_ID = '__camera'

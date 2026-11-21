@@ -6,11 +6,11 @@ import { L, getLang } from './i18n'
 import { api, anmeFetch, rememberRanger } from './storage'
 import { GAME_SPEED_TO_PXS } from './timeline'
 import {
-  ART_FACES_LEFT, clamp, defaultFx, emptyScene, newSoundCue, defaultBackground, newActor, newAnimCue, newCameraCue, newMoveCue, newShowCue, newSkillCue, uid,
+  ART_FACES_LEFT, clamp, defaultFx, emptyScene, newSoundCue, defaultBackground, newActor, newAnimCue, newCameraCue, newMoveCue, newShowCue, newSkillCue, newRangeCue, newInfoCue, emptyCard, uid,
 } from './scene'
 import { getState, replaceScene, select, setState, toast, updateScene } from './store'
 import { actorPos, buildTimeline, sceneEnd } from './timeline'
-import type { Actor, ActorTag, AssetDef, Cue, SamSetUrls, Scene, SkillCue, SkillFx } from './types'
+import type { Actor, ActorTag, AssetDef, Cue, InfoCue, SamSetUrls, Scene, SkillCard, SkillCue, SkillFx } from './types'
 import { AUDIO_ID, CAMERA_ID } from './types'
 
 // ── รายชื่อเรนเจอร์ (ไทย/อังกฤษ) ──
@@ -268,12 +268,29 @@ export function fxFromGameData(rt: RangerRuntime, set: string, move: MovePart | 
   return fx
 }
 
+/**
+ * เป้าหมายที่ผู้ร่ายตีได้ — ห้ามตีฝั่งเดียวกัน (ฝ่ายเรา ↔ ศัตรู) · ตัวประกอบ (prop) เป็นเป้าได้ทั้งสองฝั่ง
+ * ผู้ร่ายที่เป็นตัวประกอบตีใครก็ได้
+ */
+export function canTarget(caster: Actor, t: Actor): boolean {
+  if (t.id === caster.id) return false
+  return caster.tag === 'prop' || t.tag === 'prop' || t.tag !== caster.tag
+}
+
 function defaultTarget(s: Scene, caster: Actor): string | null {
-  const others = s.actors.filter(a => a.id !== caster.id && isRangerAsset(s, a))
-  const opp = others.filter(a => (caster.tag === 'enemy' ? a.tag !== 'enemy' : a.tag === 'enemy'))
-  const pool = opp.length ? opp : others
+  const pool = s.actors.filter(a => isRangerAsset(s, a) && canTarget(caster, a) && a.tag !== 'prop')
   if (!pool.length) return null
   return pool.sort((a, b) => Math.abs(a.x - caster.x) - Math.abs(b.x - caster.x))[0].id
+}
+
+/** เปลี่ยนฝั่งแล้ว → ปลดเป้าที่กลายเป็นฝั่งเดียวกัน (ทั้งสกิลของตัวนี้ และสกิลของคนอื่นที่เล็งตัวนี้) */
+export function dropSameSideTargets(d: Scene) {
+  for (const c of d.cues) {
+    if (c.type !== 'skill' || !c.targetId) continue
+    const caster = d.actors.find(a => a.id === c.actorId)
+    const t = d.actors.find(a => a.id === c.targetId)
+    if (caster && t && !canTarget(caster, t)) c.targetId = null
+  }
 }
 
 export function addSkill(actorId: string, presetKey: string, at?: number) {
@@ -289,29 +306,40 @@ export function addSkill(actorId: string, presetKey: string, at?: number) {
   const buff = skillIsBuff(rt, kind, p.move)
   const cue = newSkillCue(actorId, start, { label: p.label, cast: p.cast, release: p.release, targetId: buff ? null : defaultTarget(s, a) })
   if (p.set) cue.fx = fxFromGameData(rt, p.set, p.move, kind)
-  // เสียงจากเกมของท่านี้: ร่าย (preparation) ตอนเริ่มร่าย + โดน (underAttack) ทุกครั้งที่กระทบ — เปิดไว้ทั้งคู่
-  const snd = rt.sounds?.[kind]
   updateScene(d => {
-    if (snd) {
-      cue.gameSounds = ([['cast', snd.preparation], ['impact', snd.underAttack]] as const)
-        .filter((x): x is readonly ['cast' | 'impact', string] => !!x[1])
-        .map(([at, url]) => ({ assetId: ensureAudioAsset(d, gameSoundUrl(url), gameSoundName(url)), at, volume: 1, enabled: true }))
-    }
+    cue.gameSounds = gameSoundsFor(d, rt, kind)
     d.cues.push(cue); rippleAfter(d, cue.id); extendDuration(d)
   })
   select({ kind: 'cue', id: cue.id })
+}
+
+/** เสียงจากเกมของท่านี้: ร่าย (preparation) ตอนเริ่มร่าย + โดน (underAttack) ทุกครั้งที่กระทบ — เปิดไว้ทั้งคู่ */
+function gameSoundsFor(d: Scene, rt: RangerRuntime, kind: SkillSoundKind): SkillCue['gameSounds'] {
+  const snd = rt.sounds?.[kind]
+  if (!snd) return []
+  return ([['cast', snd.preparation], ['impact', snd.underAttack]] as const)
+    .filter((x): x is readonly ['cast' | 'impact', string] => !!x[1])
+    .map(([at, url]) => ({ assetId: ensureAudioAsset(d, gameSoundUrl(url), gameSoundName(url)), at, volume: 1, enabled: true }))
 }
 
 /** คิวที่ "ต่อคิวกัน" บนแถวเดียวกัน (คิวปรากฏเป็นช่วงซ้อนทับ ไม่นับ) */
 const isSeq = (c: Cue) => c.type !== 'show'
 
 /**
+ * แถวบนไทม์ไลน์ของคิว: แถวหลักของ actor · เลเยอร์ "ระยะ" · เลเยอร์ "คำอธิบาย" (แถวย่อยใต้เรนเจอร์)
+ * บล็อกห้ามซ้อนกัน "ในแถวเดียวกัน" เท่านั้น — เลเยอร์ย่อยจึงวางทับช่วงเวลาของสกิลได้
+ */
+export type Lane = 'main' | 'range' | 'info'
+export const laneOf = (c: Cue): Lane => (c.type === 'range' ? 'range' : c.type === 'info' ? 'info' : 'main')
+const sameLane = (a: Cue, b: Cue) => a.actorId === b.actorId && laneOf(a) === laneOf(b)
+
+/**
  * เวลาที่จะวางคิวใหม่ = หัวอ่าน · ถ้าหัวอ่านอยู่กลางคิวอื่น → ต่อท้ายคิวนั้น (แล้วค่อยดันคิวหลังๆ ออกไปด้วย rippleAfter)
  */
-export function nextFreeTime(s: Scene, actorId: string): number {
+export function nextFreeTime(s: Scene, actorId: string, lane: Lane = 'main'): number {
   const tl = buildTimeline(s)
   let t = getState().time
-  const mine = s.cues.filter(c => c.actorId === actorId && isSeq(c))
+  const mine = s.cues.filter(c => c.actorId === actorId && isSeq(c) && laneOf(c) === lane)
   const busyAt = mine.find(c => t >= c.start - 1e-6 && t < c.start + (tl.dur.get(c.id) ?? 0))
   if (busyAt) t = busyAt.start + (tl.dur.get(busyAt.id) ?? 0)
   return Math.round(t * 100) / 100
@@ -323,7 +351,7 @@ export function rippleAfter(d: Scene, cueId: string) {
   if (!cue || !isSeq(cue)) return
   const tl = buildTimeline(d)
   const end = cue.start + (tl.dur.get(cue.id) ?? 0)
-  const later = d.cues.filter(c => c.id !== cue.id && c.actorId === cue.actorId && isSeq(c) && c.start >= cue.start - 1e-6)
+  const later = d.cues.filter(c => c.id !== cue.id && sameLane(c, cue) && isSeq(c) && c.start >= cue.start - 1e-6)
     .sort((a, b) => a.start - b.start)
   if (!later.length) return
   const shift = end - later[0].start
@@ -349,7 +377,7 @@ export function placeCue(s: Scene, cue: Cue, desired: number, dur: number, durs:
   const s0 = Math.max(0, desired)
   if (!isSeq(cue)) return { start: s0, insert: null }
   const row = s.cues
-    .filter(c => c.id !== cue.id && c.actorId === cue.actorId && isSeq(c))
+    .filter(c => c.id !== cue.id && sameLane(c, cue) && isSeq(c))
     .map(c => ({ id: c.id, start: c.start, end: c.start + (durs.get(c.id) ?? 0) }))
   const hits = (a: number) => row.filter(r => a < r.end - EPS && a + dur > r.start + EPS)
   const over = hits(s0)
@@ -366,7 +394,7 @@ export function placeCue(s: Scene, cue: Cue, desired: number, dur: number, durs:
 export function prevCueEnd(s: Scene, cue: Cue, durs: Map<string, number>): number {
   let end = 0
   for (const c of s.cues) {
-    if (c.id === cue.id || c.actorId !== cue.actorId || !isSeq(c) || c.start > cue.start - EPS) continue
+    if (c.id === cue.id || !sameLane(c, cue) || !isSeq(c) || c.start > cue.start - EPS) continue
     end = Math.max(end, c.start + (durs.get(c.id) ?? 0))
   }
   return end
@@ -380,7 +408,7 @@ export function resequenceCue(d: Scene, draggedId: string, origStart: number, ta
   const dragged = d.cues.find(c => c.id === draggedId)
   if (!dragged) return
   const startOf = (c: Cue) => (c.id === draggedId ? origStart : c.start)
-  const row = d.cues.filter(c => c.actorId === dragged.actorId && isSeq(c)).sort((a, b) => startOf(a) - startOf(b))
+  const row = d.cues.filter(c => sameLane(c, dragged) && isSeq(c)).sort((a, b) => startOf(a) - startOf(b))
   const gaps: number[] = []
   for (let i = 0; i < row.length - 1; i++) {
     gaps.push(Math.max(0, startOf(row[i + 1]) - (startOf(row[i]) + (dur.get(row[i].id) ?? 0))))
@@ -421,6 +449,70 @@ export function addCue(kind: Cue['type'], actorId: string, clip?: string) {
     default: return
   }
   updateScene(d => { d.cues.push(cue); if (kind !== 'camera') rippleAfter(d, cue.id); extendDuration(d) })
+  select({ kind: 'cue', id: cue.id })
+}
+
+// ── เลเยอร์ใต้เรนเจอร์: ระยะ / คำอธิบายสกิล ──
+/** สกิลไหนของเรนเจอร์ (ช่องที่ใช้งานได้ตัวที่ 1/2) ที่คิวสกิลนี้เล่น — จับคู่ด้วยชื่อท่าที่ปล่อย */
+export function skillSlotOf(rt: RangerRuntime, c: SkillCue): InfoCue['slot'] | null {
+  const k = skillPresets(rt).find(p => p.release === c.release)?.key
+  return k === 'skill1' || k === 'skill2' ? k : null
+}
+
+/**
+ * เปิดเลเยอร์ใต้เรนเจอร์ + ใส่บล็อกเริ่มต้นให้เลย (ปิดแล้วเปิดใหม่ = เริ่มใหม่):
+ *   range → บล็อกเดียวยาวทั้งฉาก แสดงทุกระยะ (ลากหด/แบ่งช่วงเอง)
+ *   info  → การ์ดตามคิวสกิลแต่ละอันของตัวนี้ (เริ่มพร้อมสกิล ค้าง 3 วิ) · ไม่มีสกิล = การ์ดสกิล 1 ที่หัวอ่าน
+ * makeCard สร้างเนื้อหาการ์ด (ต้องใช้คำแปลของเว็บ → ฝั่ง UI ส่งมา)
+ */
+export async function setActorLayer(actorId: string, lane: 'range' | 'info', on: boolean, makeCard?: (slot: InfoCue['slot']) => Promise<SkillCard>) {
+  const s = getState().scene
+  const a = s.actors.find(x => x.id === actorId)
+  if (!a) return
+  if (!on) {
+    updateScene(d => {
+      d.cues = d.cues.filter(c => !(c.actorId === actorId && laneOf(c) === lane))
+      const x = d.actors.find(y => y.id === actorId)
+      if (x) x.layers = { ...x.layers, [lane]: false }
+    })
+    return
+  }
+  const fresh: Cue[] = []
+  if (lane === 'range') {
+    fresh.push(newRangeCue(actorId, 0, Math.max(1, s.duration)))
+  } else {
+    const rt = assets.get(a.assetId)
+    const tl = buildTimeline(s)
+    const skills = rt?.kind === 'ranger'
+      ? s.cues.filter((c): c is SkillCue => c.type === 'skill' && c.actorId === actorId).sort((p, q) => p.start - q.start)
+      : []
+    const want = skills.map(c => ({ slot: rt?.kind === 'ranger' ? skillSlotOf(rt, c) : null, start: c.start, end: c.start + (tl.dur.get(c.id) ?? 0) }))
+      .filter((x): x is { slot: InfoCue['slot']; start: number; end: number } => x.slot !== null)
+    if (!want.length) want.push({ slot: 'skill1', start: getState().time, end: getState().time + 3 })
+    // การ์ดห้ามซ้อนกันในแถว → ตัดให้จบก่อนการ์ดถัดไป
+    for (let i = 0; i < want.length; i++) {
+      const w = want[i]
+      const next = want[i + 1]?.start ?? Infinity
+      const dur = Math.max(0.5, Math.min(Math.max(3, w.end - w.start + 0.5), next - w.start))
+      fresh.push(newInfoCue(actorId, +w.start.toFixed(3), +dur.toFixed(3), w.slot, makeCard ? await makeCard(w.slot) : emptyCard()))
+    }
+  }
+  updateScene(d => {
+    d.cues = d.cues.filter(c => !(c.actorId === actorId && laneOf(c) === lane)).concat(fresh)
+    const x = d.actors.find(y => y.id === actorId)
+    if (x) x.layers = { ...x.layers, [lane]: true }
+    extendDuration(d)
+  })
+}
+
+/** เพิ่มบล็อกในเลเยอร์ย่อย ณ หัวอ่าน (ต่อท้ายบล็อกที่หัวอ่านอยู่) */
+export async function addLayerCue(actorId: string, lane: 'range' | 'info', makeCard?: (slot: InfoCue['slot']) => Promise<SkillCard>) {
+  const s = getState().scene
+  const t = nextFreeTime(s, actorId, lane)
+  const cue: Cue = lane === 'range'
+    ? newRangeCue(actorId, t, 2)
+    : newInfoCue(actorId, t, 3, 'skill1', makeCard ? await makeCard('skill1') : emptyCard())
+  updateScene(d => { d.cues.push(cue); rippleAfter(d, cue.id); extendDuration(d) })
   select({ kind: 'cue', id: cue.id })
 }
 
@@ -497,6 +589,20 @@ export async function loadDemo() {
     const check = () => { if (ids.every(id => assets.get(id))) { clearTimeout(timer); off(); res(true) } }
     const off = assets.subscribe(check); check()
   })
+  // ใส่เสียงจากเกม (ร่าย + โดน) ให้ทุกท่าในฉากตัวอย่าง — ดึงจากข้อมูลเกมล่าสุดตอนเปิด ไม่ฝัง URL ไว้ในไฟล์ฉาก
+  // (ชื่อไฟล์เสียงบน lerico มีเวลาต่อท้าย เปลี่ยนได้เมื่อเกมอัปเดต) · จับคู่ท่ากับชุดท่าของเรนเจอร์ด้วยชื่อท่าที่ปล่อย
+  if (ready) {
+    updateScene(d => {
+      for (const c of d.cues) {
+        if (c.type !== 'skill' || c.gameSounds?.length) continue
+        const a = d.actors.find(x => x.id === c.actorId)
+        const rt = a && assets.get(a.assetId)
+        if (!rt || rt.kind !== 'ranger') continue
+        const p = skillPresets(rt).find(x => x.release === c.release)
+        if (p) c.gameSounds = gameSoundsFor(d, rt, presetSoundKind(p.key))
+      }
+    }, false)
+  }
   select({ kind: 'none' })
   setState({ time: 0, playing: ready })
 }

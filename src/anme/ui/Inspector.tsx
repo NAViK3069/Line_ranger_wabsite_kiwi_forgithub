@@ -5,7 +5,7 @@
 // ====================================================
 import { useRef } from 'react'
 import {
-  addCue, addSkill, deleteSelection, duplicateSelection, facingFor, fxFromGameData, moveLayer, patchActor, patchCue, presetSoundKind,
+  addCue, addSkill, canTarget, deleteSelection, dropSameSideTargets, duplicateSelection, facingFor, fxFromGameData, moveLayer, patchActor, patchCue, presetSoundKind,
   patchSkill, setSkillSound, skillPresets,
 } from '@/anme/engine/actions'
 import { previewSound } from '@/anme/engine/audio'
@@ -16,6 +16,7 @@ import { select, setState, setTime, toast, updateScene, useStore } from '@/anme/
 import { GAME_SPEED_TO_PXS } from '@/anme/engine/timeline'
 import type { Actor, AnimCue, Blend, CameraCue, Cue, Ease, FxMode, MoveCue, ShowCue, SkillCue, SoundCue } from '@/anme/engine/types'
 import { BackgroundInspector } from './Library'
+import { InfoFields, RangeFields, RangerLayers } from './LayerPanels'
 import { PartsPanel } from './PartsPanel'
 import { timelineOf, useAssetsVersion } from './StageView'
 import { Icon, Num, Row, Section, Seg, Select, Slider, Text, Toggle } from './widgets'
@@ -115,7 +116,7 @@ function ActorInspector({ a }: { a: Actor }) {
       {st?.state === 'error' && <div className="error-box">{st.error}</div>}
       <Section title={L('ทั่วไป', 'General')}>
         <Text label={L('ชื่อ', 'Name')} value={a.name} onChange={v => set({ name: v })} />
-        <Seg value={a.tag} onChange={v => set(isRanger && v !== 'prop' ? { tag: v, flip: facingFor(v) } : { tag: v })} options={[
+        <Seg value={a.tag} onChange={v => { set(isRanger && v !== 'prop' ? { tag: v, flip: facingFor(v) } : { tag: v }); updateScene(dropSameSideTargets, false) }} options={[
           { value: 'ally', label: <><Icon name="shield" size={13} /> {L('ฝ่ายเรา', 'Ally')}</> },
           { value: 'enemy', label: <><Icon name="skull" size={13} /> {L('ศัตรู/เป้า', 'Enemy')}</> },
           { value: 'prop', label: <><Icon name="sparkle" size={13} /> {L('ประกอบ', 'Prop')}</> },
@@ -134,6 +135,7 @@ function ActorInspector({ a }: { a: Actor }) {
         <Select label={L('โหมดผสมสี', 'Blend mode')} value={a.blend} options={blends()} onChange={v => set({ blend: v })} />
         {isRanger && <button className="btn ghost small" onClick={() => set({ y: groundY })}>{L('วางบนเส้นพื้น', 'Snap to ground')}</button>}
       </Section>
+      {ranger && <RangerLayers a={a} rt={ranger} />}
       {ranger && <PartsPanel a={a} rt={ranger} />}
       {ranger && <RangerClips a={a} rt={ranger} />}
       {!isRanger && (
@@ -206,6 +208,8 @@ function CueInspector({ c }: { c: Cue }) {
       {c.type === 'camera' && <CameraFields c={c} />}
       {c.type === 'skill' && <SkillFields c={c} />}
       {c.type === 'sound' && <SoundFields c={c} />}
+      {c.type === 'range' && <RangeFields c={c} />}
+      {c.type === 'info' && <InfoFields c={c} />}
     </>
   )
 }
@@ -317,7 +321,9 @@ function SkillFields({ c }: { c: SkillCue }) {
   const rt = useRanger(c.actorId)
   const fileRef = useRef<HTMLInputElement>(null)
   const p = (fn: (k: SkillCue) => void, h = true) => patchSkill(c.id, fn, h)
-  const targets = scene.actors.filter(a => a.id !== c.actorId)
+  // ห้ามตีฝั่งเดียวกัน (ฝ่ายเรา ↔ ศัตรู) — ตัวประกอบเป็นเป้าได้ทุกฝั่ง
+  const caster = scene.actors.find(a => a.id === c.actorId)
+  const targets = scene.actors.filter(a => (caster ? canTarget(caster, a) : a.id !== c.actorId))
   const fx = c.fx
   const target = scene.actors.find(a => a.id === c.targetId)
   const targetRt = target && assets.get(target.assetId)

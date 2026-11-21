@@ -395,6 +395,15 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px;
 .tl-row.drop-after { box-shadow: inset 0 -2px 0 var(--gold); }
 .tl-row.drop-before .tl-label, .tl-row.drop-after .tl-label { box-shadow: inherit; }
 .tl-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+/* แถวย่อยใต้เรนเจอร์ (เลเยอร์ระยะ / คำอธิบายสกิล) */
+.tl-row.sub { height: 28px; background: rgba(34, 211, 238, 0.025); }
+.tl-label.sub { padding-left: 22px; gap: 6px; background: #0a0f1e; }
+.tl-label.sub .tl-name { font-size: 11.5px; color: var(--muted); }
+.sub-elbow { color: var(--muted); font-size: 12px; }
+.sub-dot { width: 8px; height: 8px; border-radius: 2px; flex: none; display: inline-block; }
+.tl-row.sub .cue { top: 3px; bottom: 3px; }
+.txt textarea { padding: 6px 8px; border-radius: 8px; background: var(--bg0); border: 1px solid var(--line2); outline: none; min-width: 0; resize: vertical; font: inherit; color: inherit; line-height: 1.45; }
+.txt textarea:focus { border-color: var(--cyan); }
 /* ชั้นของไทม์ไลน์: บล็อก/จุดกระทบ (≤2) < กล่องชื่อเลเยอร์ (6) < ไม้บรรทัด (7) < เส้นเวลา (8)
    เส้นเวลาซ่อนเองเมื่อเลื่อนไปอยู่ใต้กล่องชื่อ (Timeline.tsx) · ลากในไทม์ไลน์ไม่คลุมข้อความ */
 .timeline { user-select: none; -webkit-user-select: none; }
@@ -601,6 +610,8 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px;
   backdrop-filter: blur(4px);
 }
 .m-row-label.sel { border-color: #fff; }
+.m-row-label.sub { margin-left: 10px; max-width: 130px; color: var(--m-sub); font-size: 10.5px; }
+.m-row.sub .m-cue { top: 9px; bottom: 9px; }
 .m-row-label .tag-dot { flex: none; }
 .m-empty-track {
   position: absolute; height: 40px; padding: 0 16px; border-radius: 10px; display: flex; align-items: center; gap: 6px;

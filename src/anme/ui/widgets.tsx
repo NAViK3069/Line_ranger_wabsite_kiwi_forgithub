@@ -178,6 +178,8 @@ export const ICONS = {
   run: <><circle cx="14" cy="4.5" r="2" /><path d="m7 21 3-6 3 2 1 4M5 12l3-4 5 1 3 3 3-1M10 15l1.5-6" /></>,
   sparkle: <path d="M12 2l2.2 6.3L20 10l-5.8 1.7L12 18l-2.2-6.3L4 10l5.8-1.7zM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z" fill="currentColor" stroke="none" />,
   layers: <><path d="m12 3 9 5-9 5-9-5z" /><path d="m3 13 9 5 9-5" /></>,
+  ruler: <><path d="M3 15 15 3l6 6L9 21z" /><path d="m7 11 2 2M10 8l2 2M13 5l2 2M5 14l1 1" /></>,
+  info: <><circle cx="12" cy="12" r="9" /><path d="M12 11v6" /><circle cx="12" cy="7.5" r="1.2" fill="currentColor" stroke="none" /></>,
   up: <path d="m6 15 6-6 6 6" />,
   down: <path d="m6 9 6 6 6-6" />,
   x: <path d="M6 6l12 12M18 6 6 18" />,

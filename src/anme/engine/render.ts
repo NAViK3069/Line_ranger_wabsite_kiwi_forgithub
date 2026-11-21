@@ -9,8 +9,9 @@ import {
   BANNER_TIME, HIT_FLASH, actorPos, activePose, arcHeight, arcPos, buildTimeline, cameraAt, fxFinishPoint, fxImpactPoint,
   fxLaunchPoint, poseFrames, visibility, type Timeline,
 } from './timeline'
-import { clamp } from './scene'
-import type { Actor, Scene, Vec } from './types'
+import { ART_FACES_LEFT, clamp } from './scene'
+import type { Actor, InfoCue, Scene, SkillCard, Vec } from './types'
+import { appUrl } from './storage'
 
 export interface RenderOptions {
   playing: boolean
@@ -295,6 +296,325 @@ function drawSkillFx(ctx: CanvasRenderingContext2D, scene: Scene, tl: Timeline, 
   }
 }
 
+// ── แถบบอกระยะ (เลเยอร์ "ระยะ" ใต้เรนเจอร์ — แบบปุ่มระยะโจมตีของตัวเล่นอนิเมชั่นเรนเจอร์) ──
+// หน่วย pt ของเกม → หน่วยของไฟล์ .sam ด้วยตัวคูณเดียวกับตัวเล่นอนิเมชั่น (PT_TO_WORLD) แล้วคูณ scale ของตัวละคร
+// ขนาดเส้น/ตัวหนังสือคิดเทียบเวที 720p (จอใหญ่/เล็กกว่าก็ได้สัดส่วนเดิม) · เส้นมีขอบดำรอง อ่านออกบนฉากสว่าง
+const PT_TO_WORLD = 2.1
+const RANGE_ATK_COLOR = '#ffffff'
+const RANGE_BUFF_COLOR = '#4ade80'
+const RANGE_SKILL_COLOR = '#fb923c'
+const LAYER_FADE = 0.15
+const UI_FONT = 'LineBold, Kanit, Inter, system-ui, sans-serif'
+
+/** ความทึบของคิวที่มีช่วงเวลา (เฟดเข้า/ออกสั้นๆ) · นอกช่วง = 0 */
+function cueAlpha(c: { start: number; duration: number }, t: number, fadeIn = LAYER_FADE, fadeOut = LAYER_FADE): number {
+  const e = c.start + c.duration
+  if (t < c.start || t >= e) return 0
+  // บล็อกที่เริ่มตั้งแต่ต้นฉาก ไม่ต้องเฟดเข้า (ไม่งั้นเฟรมแรกของวิดีโอ/ตอนหัวอ่านอยู่ 0 จะมองไม่เห็น)
+  const kin = c.start <= 0 ? 1 : (t - c.start) / fadeIn
+  return clamp(Math.min(kin, (e - t) / fadeOut), 0, 1)
+}
+
+function drawRanges(ctx: CanvasRenderingContext2D, scene: Scene, t: number, order: Actor[]) {
+  // คิวระยะที่กำลังแสดงของแต่ละตัว (เลเยอร์เปิดอยู่เท่านั้น)
+  // ตำแหน่งแนวตั้ง (atkY / skillY) ใช้ของคิวแรกที่เจอในช่วงนั้น
+  const active = new Map<string, { atk: number; skill1: number; skill2: number; atkY: number; skillY: number }>()
+  for (const c of scene.cues) {
+    if (c.type !== 'range') continue
+    const al = cueAlpha(c, t)
+    if (al <= 0) continue
+    const m = active.get(c.actorId) ?? { atk: 0, skill1: 0, skill2: 0, atkY: c.atkY ?? 0, skillY: c.skillY ?? 0 }
+    if (c.atk) m.atk = Math.max(m.atk, al)
+    if (c.skill1) m.skill1 = Math.max(m.skill1, al)
+    if (c.skill2) m.skill2 = Math.max(m.skill2, al)
+    active.set(c.actorId, m)
+  }
+  if (!active.size) return
+  const list = order.flatMap(a => {
+    const show = active.get(a.id)
+    if (!show || !a.layers?.range) return []
+    const rt = assets.get(a.assetId)
+    if (rt?.kind !== 'ranger' || !rt.gamedata) return []
+    const vis = visibility(scene, a, t)
+    if (!vis || vis.alpha <= 0) return []
+    return [{ a, rt, gd: rt.gamedata, show, alpha: vis.alpha, p: actorPos(scene, a, t) }]
+  })
+  if (!list.length) return
+  const f = scene.height / 720
+  const TICK = 20 * f, ROW = 52 * f, LW = 5 * f
+  ctx.save()
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+  ctx.font = `900 ${Math.round(26 * f)}px ${UI_FONT}`
+  // ป้ายตัวอักษรขอบดำหนา (strokeText — ไม่ใช้ shadowBlur เพราะวาดใหม่ทุกเฟรม)
+  const label = (text: string, x: number, y: number, color: string) => {
+    ctx.lineWidth = 7 * f; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.strokeText(text, x, y)
+    ctx.fillStyle = color; ctx.fillText(text, x, y)
+  }
+  // เส้นสองชั้น: ขอบดำกว้าง + สีจริง
+  const path = (pts: [number, number][][], color: string) => {
+    for (const [w, c] of [[LW + 4 * f, 'rgba(0,0,0,0.75)'], [LW, color]] as const) {
+      ctx.lineWidth = w; ctx.strokeStyle = c
+      ctx.beginPath()
+      for (const seg of pts) seg.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))
+      ctx.stroke()
+    }
+  }
+  // นับแถวรวมทุกตัว + แถบสกิลเริ่มจากระดับหัวของตัวที่สูงที่สุด — หลายตัวในฉาก แถบ/ป้ายจะได้ไม่ทับกัน
+  // มีหลายตัว → ใส่ชื่อตัวละครหน้าป้ายด้วย จะได้รู้ว่าแถบไหนของใคร
+  // ค่าเริ่มต้น: ATK ต่ำกว่าเท้าพอสมควร (ไม่ทับเงา/ตัวละคร) · สกิลลอยสูงเหนือหัว — ปรับเพิ่มได้ด้วย atkY / skillY ของบล็อก
+  let atkRow = 0, row = 0
+  const top = Math.min(...list.map(({ a, rt, p }) => p.y + rt.box.y0 * a.scale)) - 70 * f
+  const many = list.length > 1
+  for (const { a, gd, show, alpha, p } of list) {
+    const who = many ? `${a.name} · ` : ''
+    const dir = (a.flip !== ART_FACES_LEFT) ? -1 : 1   // ทิศ "ข้างหน้า" บนจอ (+1 = ขวา)
+    const k = PT_TO_WORLD * a.scale                      // pt → พิกเซลเวที
+    const range = gd.range ?? null
+    // ── ระยะโจมตี: คร่อมจากจุดยืนถึงระยะโจมตี ใต้เท้า ขีดตั้งชี้ขึ้น ป้ายใต้เส้น ──
+    if (show.atk > 0 && range) {
+      ctx.globalAlpha = alpha * show.atk
+      const x1 = p.x + dir * range * k, y = p.y + 62 * f + show.atkY * f + atkRow++ * ROW
+      path([[[p.x, y - TICK], [p.x, y], [x1, y], [x1, y - TICK]]], RANGE_ATK_COLOR)
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top'
+      label(`${who}ATK ${Math.round(range)}pt`, (p.x + x1) / 2, y + 8 * f, RANGE_ATK_COLOR)
+    }
+    // ── ระยะสกิล: จุดกึ่งกลาง = ตัวเอง (บัฟ, 觸發基準 self) หรือเป้าที่ระยะโจมตี (แนวหลัง = ระยะ × ตัวคูณ)
+    //    แผ่ไปหน้า/หลังข้างละ area · วางเหนือหัว ซ้อนขึ้นทีละแถบ ──
+    for (const slot of ['skill1', 'skill2'] as const) {
+      const sr = gd.skillRanges?.[slot]
+      if (!sr || show[slot] <= 0) continue
+      const buff = sr.basis === 'self'
+      let cx = p.x
+      if (!buff) {
+        if (!range) continue
+        cx = p.x + dir * range * (sr.basis === 'rear' && sr.rearMul ? sr.rearMul : 1) * k
+      }
+      ctx.globalAlpha = alpha * show[slot]
+      const half = sr.area * k
+      const y = top + show.skillY * f - row++ * ROW
+      const color = buff ? RANGE_BUFF_COLOR : RANGE_SKILL_COLOR
+      path([[[cx - half, y + TICK], [cx - half, y], [cx + half, y], [cx + half, y + TICK]], [[cx, y], [cx, y + TICK]]], color)
+      ctx.textBaseline = 'bottom'; ctx.textAlign = 'center'
+      const name = `${slot === 'skill1' ? 'Skill 1' : 'Skill 2'}${buff ? ' · Buff' : sr.basis === 'rear' ? ' · Rear' : ''}`
+      label(`${who}${name} ${sr.area * 2}pt`, cx, y - 7 * f, color)
+    }
+  }
+  ctx.restore()
+}
+
+// ── การ์ดคำอธิบายสกิล (เลเยอร์ "คำอธิบาย" ใต้เรนเจอร์) — มุมซ้ายบนของจอ ไม่ขยับตามกล้อง ──
+// ไอคอนโหลดผ่าน Worker (/api/res → CORS) วาดลง canvas แล้วยังส่งออกวิดีโอได้ · ยังโหลดไม่เสร็จ = กล่องเปล่าไปก่อน
+const iconCache = new Map<string, HTMLImageElement | null>()
+function iconImg(url: string): HTMLImageElement | null {
+  if (!iconCache.has(url)) {
+    iconCache.set(url, null)
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => iconCache.set(url, img)
+    img.src = appUrl(url)
+  }
+  return iconCache.get(url) ?? null
+}
+
+/** ตัดบรรทัดตามความกว้าง — ตัดที่ช่องว่างก่อน คำยาวเกิน (ภาษาไทยไม่มีช่องว่าง) ค่อยตัดทีละตัวอักษร */
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
+  const out: string[] = []
+  let line = ''
+  const push = (w: string) => {
+    const next = line ? `${line} ${w}` : w
+    if (ctx.measureText(next).width <= maxW) { line = next; return }
+    if (line) out.push(line)
+    line = ''
+    if (ctx.measureText(w).width <= maxW) { line = w; return }
+    let part = ''
+    for (const ch of w) {
+      if (ctx.measureText(part + ch).width > maxW && part) { out.push(part); part = '' }
+      part += ch
+    }
+    line = part
+  }
+  for (const w of text.split(/\s+/).filter(Boolean)) push(w)
+  if (line) out.push(line)
+  return out
+}
+
+function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r)
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r)
+  ctx.closePath()
+}
+
+/** วาดการ์ดหนึ่งใบที่ (x, y) · คืนความสูง (ใช้เรียงใบถัดไป) */
+function drawSkillCard(ctx: CanvasRenderingContext2D, card: SkillCard, x: number, y: number, u: number, maxW: number, life: number): number {
+  const pad = 14 * u, icon = 54 * u, gap = 12 * u
+  const fTitle = `900 ${Math.round(25 * u)}px ${UI_FONT}`
+  const fStat = `700 ${Math.round(14 * u)}px ${UI_FONT}`
+  const fBody = `700 ${Math.round(16.5 * u)}px ${UI_FONT}`
+  const fMeta = `800 ${Math.round(15.5 * u)}px ${UI_FONT}`
+  const bodyLH = 22 * u, metaLH = 21 * u, bullet = 16 * u
+  const metas = [card.target, card.timing].filter(Boolean)
+
+  // ── วัดขนาด ──
+  ctx.font = fTitle
+  const nameW = ctx.measureText(card.name).width
+  ctx.font = fStat
+  const statW = card.stat ? ctx.measureText(card.stat).width : 0
+  const innerMax = maxW - pad * 2
+  ctx.font = fBody
+  const lines = card.effects.flatMap(e => wrapText(ctx, e, innerMax - bullet).map((s, i) => ({ s, first: i === 0 })))
+  const bodyW = Math.max(0, ...lines.map(l => ctx.measureText(l.s).width + bullet))
+  ctx.font = fMeta
+  const metaW = Math.max(0, ...metas.map(m => ctx.measureText(m).width + bullet))
+  const w = Math.min(maxW, Math.max(280 * u, icon + gap + Math.max(nameW, statW), bodyW, metaW) + pad * 2)
+  const headH = icon
+  const h = pad + headH
+    + (lines.length ? 10 * u + 1 + 9 * u + lines.length * bodyLH : 0)
+    + (metas.length ? 9 * u + 1 + 8 * u + metas.length * metaLH : 0)
+    + pad - 2 * u
+
+  // ── พื้นการ์ด: กระจกสีเข้ม + เงา + ขอบไล่สีทอง→ฟ้า + แถบซ้ายสีทอง ──
+  ctx.save()
+  ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 20 * u; ctx.shadowOffsetY = 4 * u
+  roundRectPath(ctx, x, y, w, h, 14 * u)
+  const bg = ctx.createLinearGradient(x, y, x, y + h)
+  bg.addColorStop(0, 'rgba(16,24,52,0.95)'); bg.addColorStop(1, 'rgba(6,9,22,0.95)')
+  ctx.fillStyle = bg
+  ctx.fill()
+  ctx.restore()
+  ctx.save()
+  roundRectPath(ctx, x, y, w, h, 14 * u)
+  ctx.clip()
+  const acc = ctx.createLinearGradient(x, y, x, y + h)
+  acc.addColorStop(0, '#ffe27a'); acc.addColorStop(1, '#ff8a1f')
+  ctx.fillStyle = acc
+  ctx.fillRect(x, y, 4 * u, h)
+  // แสงวาบพาดผ่านตอนการ์ดเข้ามา (0.15–0.75 วิแรก)
+  const sweep = clamp((life - 0.15) / 0.6, 0, 1)
+  if (sweep > 0 && sweep < 1) {
+    const sx = x - w * 0.4 + sweep * w * 1.8
+    const g = ctx.createLinearGradient(sx - 60 * u, y, sx + 60 * u, y + h * 0.3)
+    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, 'rgba(255,255,255,0.13)'); g.addColorStop(1, 'rgba(255,255,255,0)')
+    ctx.fillStyle = g
+    ctx.fillRect(x, y, w, h)
+  }
+  ctx.restore()
+  roundRectPath(ctx, x + 0.75 * u, y + 0.75 * u, w - 1.5 * u, h - 1.5 * u, 13.5 * u)
+  const bd = ctx.createLinearGradient(x, y, x + w, y + h)
+  bd.addColorStop(0, 'rgba(255,214,102,0.95)'); bd.addColorStop(0.55, 'rgba(255,150,60,0.25)'); bd.addColorStop(1, 'rgba(90,200,255,0.45)')
+  ctx.strokeStyle = bd; ctx.lineWidth = 1.5 * u
+  ctx.stroke()
+
+  // ── หัว: ไอคอนสกิล + ชื่อ + อัตราใช้/คูลดาวน์ ──
+  const ix = x + pad + 2 * u, iy = y + pad
+  ctx.save()
+  roundRectPath(ctx, ix, iy, icon, icon, 11 * u)
+  ctx.fillStyle = '#0b1226'; ctx.fill()
+  ctx.clip()
+  const img = card.icon ? iconImg(card.icon) : null
+  if (img) ctx.drawImage(img, ix, iy, icon, icon)
+  ctx.restore()
+  roundRectPath(ctx, ix, iy, icon, icon, 11 * u)
+  ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2 * u; ctx.stroke()
+
+  const tx = ix + icon + gap
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
+  ctx.font = fTitle
+  const titleY = iy + (card.stat ? 26 * u : 36 * u)
+  ctx.lineWidth = 5 * u; ctx.strokeStyle = 'rgba(20,10,0,0.9)'; ctx.lineJoin = 'round'
+  ctx.strokeText(card.name, tx, titleY)
+  const tg = ctx.createLinearGradient(0, titleY - 22 * u, 0, titleY + 2 * u)
+  tg.addColorStop(0, '#fff7cf'); tg.addColorStop(0.5, '#ffd84d'); tg.addColorStop(1, '#ffa11c')
+  ctx.fillStyle = tg
+  ctx.fillText(card.name, tx, titleY)
+  if (card.stat) {
+    ctx.font = fStat; ctx.fillStyle = '#9fb3d9'
+    ctx.fillText(card.stat, tx, iy + 48 * u)
+  }
+
+  // เส้นคั่นไล่สีจางไปทางขวา
+  let cy = iy + headH
+  const divider = () => {
+    cy += 9 * u
+    const g = ctx.createLinearGradient(x + pad, 0, x + w - pad, 0)
+    g.addColorStop(0, 'rgba(255,214,102,0.55)'); g.addColorStop(1, 'rgba(255,214,102,0)')
+    ctx.fillStyle = g
+    ctx.fillRect(x + pad, cy, w - pad * 2, Math.max(1, u))
+    cy += 1 + 8 * u
+  }
+
+  // ── ผลของสกิล: หัวข้อเป็นเพชรสีฟ้าอมเขียว ──
+  if (lines.length) {
+    divider()
+    cy += 1 * u
+    ctx.font = fBody; ctx.textBaseline = 'middle'
+    for (const l of lines) {
+      const my = cy + bodyLH / 2
+      if (l.first) {
+        ctx.save()
+        ctx.translate(x + pad + 4 * u, my)
+        ctx.rotate(Math.PI / 4)
+        ctx.fillStyle = '#5eead4'
+        ctx.fillRect(-3.2 * u, -3.2 * u, 6.4 * u, 6.4 * u)
+        ctx.restore()
+      }
+      ctx.fillStyle = '#f1f5f9'
+      ctx.fillText(l.s, x + pad + bullet, my)
+      cy += bodyLH
+    }
+  }
+
+  // ── เป้าหมาย/ระยะ (ฟ้า) · เวลาร่าย/ฟื้นตัว (ส้ม) — ไอคอนวาดเอง (ไม่พึ่งอีโมจิของเครื่อง) ──
+  if (metas.length) {
+    divider()
+    ctx.font = fMeta; ctx.textBaseline = 'middle'
+    const glyph = (kind: 'target' | 'time', gx: number, gy: number, color: string) => {
+      ctx.save()
+      ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.8 * u
+      ctx.beginPath(); ctx.arc(gx, gy, 5.5 * u, 0, Math.PI * 2); ctx.stroke()
+      if (kind === 'target') {
+        ctx.beginPath(); ctx.arc(gx, gy, 1.8 * u, 0, Math.PI * 2); ctx.fill()
+      } else {
+        ctx.beginPath(); ctx.moveTo(gx, gy - 3.4 * u); ctx.lineTo(gx, gy); ctx.lineTo(gx + 2.6 * u, gy + 1.4 * u); ctx.stroke()
+      }
+      ctx.restore()
+    }
+    metas.forEach((m, i) => {
+      const my = cy + metaLH / 2
+      const isTime = m === card.timing && i === metas.length - 1 && !!card.timing
+      const color = isTime ? '#fdba74' : '#7dd3fc'
+      glyph(isTime ? 'time' : 'target', x + pad + 5 * u, my, color)
+      ctx.fillStyle = color
+      ctx.fillText(m, x + pad + bullet, my)
+      cy += metaLH
+    })
+  }
+  return h
+}
+
+function drawInfoCards(ctx: CanvasRenderingContext2D, scene: Scene, t: number) {
+  const cards = scene.cues
+    .filter((c): c is InfoCue => c.type === 'info' && t >= c.start && t < c.start + c.duration)
+    .filter(c => scene.actors.find(a => a.id === c.actorId)?.layers?.info)
+    .sort((p, q) => p.start - q.start)
+  if (!cards.length) return
+  const f = scene.height / 720
+  let y = 18 * f
+  for (const c of cards) {
+    const life = t - c.start
+    const kin = clamp(life / 0.3, 0, 1)
+    const ease = 1 - Math.pow(1 - kin, 3)
+    const al = Math.min(kin, clamp((c.start + c.duration - t) / 0.22, 0, 1))
+    const u = f * Math.max(0.3, c.scale)
+    ctx.save()
+    ctx.globalAlpha = al
+    const h = drawSkillCard(ctx, c.card, 18 * f + c.offsetX - (1 - ease) * 46 * u, y + c.offsetY, u, Math.min(scene.width * 0.42, 470 * u), life)
+    ctx.restore()
+    y += (h + 10 * f) * Math.max(ease, al)
+  }
+}
+
 function drawOverlays(ctx: CanvasRenderingContext2D, scene: Scene, t: number) {
   const W = scene.width, H = scene.height
   // ป้ายชื่อสกิล
@@ -390,11 +710,13 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene, t: numb
     else drawMedia(ctx, a, t, vis.localStart, vis.alpha, opts)
   }
   drawSkillFx(ctx, scene, tl, t)
+  drawRanges(ctx, scene, t, order)
   ctx.restore()
 
   ctx.save()
   ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip()
   drawOverlays(ctx, scene, t)
+  drawInfoCards(ctx, scene, t)
   ctx.restore()
 
   assets.pauseVideosExcept(usedVideos)

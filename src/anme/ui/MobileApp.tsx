@@ -11,10 +11,10 @@
 // จอกว้างกว่า 760px ใช้ App แบบ 3 แผงเดิมของ ANME (ดู App.tsx)
 // ====================================================
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { addCue, addSkill, deleteSelection, duplicateSelection, placeCue, prevCueEnd, resequenceCue, rippleAfter, skillPresets, uploadAudio } from '@/anme/engine/actions'
+import { addCue, addSkill, deleteSelection, duplicateSelection, laneOf, placeCue, prevCueEnd, resequenceCue, rippleAfter, skillPresets, uploadAudio, type Lane } from '@/anme/engine/actions'
 import { assets } from '@/anme/engine/assets'
 import { L } from '@/anme/engine/i18n'
-import { cueColor, cueLabel } from '@/anme/engine/scene'
+import { cueColor, cueLabel, rangeLabel } from '@/anme/engine/scene'
 import {
   checkpoint, getState, redo, replaceScene, select, setLang, setMuted, setState, setTime, setVolume, toast, undo, updateScene, useStore,
 } from '@/anme/engine/store'
@@ -246,10 +246,14 @@ function MobileTimeline({ onAdd }: { onAdd: () => void }) {
 
   // แถว: ตัวละคร (บนสุด = อยู่หน้าสุด) · เสียง/กล้อง โชว์เมื่อมีคิว
   const rows = useMemo(() => {
-    const out: { id: string; name: string; tag: string; actor: boolean; thumb?: string }[] =
-      [...scene.actors].reverse().map(a => ({ id: a.id, name: a.name, tag: a.tag, actor: true }))
-    if (scene.cues.some(c => c.actorId === AUDIO_ID)) out.push({ id: AUDIO_ID, name: L('เสียง', 'Sound'), tag: 'audio', actor: false })
-    if (scene.cues.some(c => c.actorId === CAMERA_ID)) out.push({ id: CAMERA_ID, name: L('กล้อง', 'Camera'), tag: 'camera', actor: false })
+    // เรนเจอร์ที่เปิดเลเยอร์ระยะ/คำอธิบาย → มีแถวย่อยต่อใต้แถวของตัวเอง
+    const out: { id: string; name: string; tag: string; actor: boolean; lane: Lane; thumb?: string }[] =
+      [...scene.actors].reverse().flatMap(a => [
+        { id: a.id, name: a.name, tag: a.tag, actor: true, lane: 'main' as Lane },
+        ...(['range', 'info'] as const).filter(l => a.layers?.[l]).map(l => ({ id: a.id, name: cueLabel(l), tag: l, actor: false, lane: l as Lane })),
+      ])
+    if (scene.cues.some(c => c.actorId === AUDIO_ID)) out.push({ id: AUDIO_ID, name: L('เสียง', 'Sound'), tag: 'audio', actor: false, lane: 'main' })
+    if (scene.cues.some(c => c.actorId === CAMERA_ID)) out.push({ id: CAMERA_ID, name: L('กล้อง', 'Camera'), tag: 'camera', actor: false, lane: 'main' })
     return out
   }, [scene.actors, scene.cues])
 
@@ -280,9 +284,10 @@ function MobileTimeline({ onAdd }: { onAdd: () => void }) {
           )}
           {rows.map((r, ri) => {
             const top = RULER_H + ri * ROW_H
-            const cues = scene.cues.filter(c => c.actorId === r.id)
+            const cues = scene.cues.filter(c => c.actorId === r.id && laneOf(c) === r.lane)
+            const sub = r.lane !== 'main'
             return (
-              <div key={r.id} className="m-row" style={{ top, height: ROW_H }}>
+              <div key={r.id + r.lane} className={'m-row' + (sub ? ' sub' : '')} style={{ top, height: ROW_H }}>
                 {r.actor && (
                   <div className={'m-band' + (selActorId === r.id ? ' sel' : '')} style={{ left: half, width: scene.duration * pps }}
                     onClick={() => select({ kind: 'actor', id: r.id })} />
@@ -290,8 +295,8 @@ function MobileTimeline({ onAdd }: { onAdd: () => void }) {
                 {cues.map(c => {
                   const d = tl.dur.get(c.id) ?? 1
                   const isSel = selCueId === c.id
-                  const resizable = c.type === 'move' || c.type === 'show' || c.type === 'camera' || c.type === 'anim' || (c.type === 'sound' && c.duration > 0)
-                  const label = c.type === 'skill' ? c.label : c.type === 'anim' ? c.clip : c.type === 'sound' ? (scene.assets.find(a => a.id === c.assetId)?.name ?? cueLabel(c.type)) : cueLabel(c.type)
+                  const resizable = c.type === 'range' || c.type === 'info' || c.type === 'move' || c.type === 'show' || c.type === 'camera' || c.type === 'anim' || (c.type === 'sound' && c.duration > 0)
+                  const label = c.type === 'skill' ? c.label : c.type === 'anim' ? c.clip : c.type === 'info' ? c.card.name : c.type === 'range' ? rangeLabel(c) : c.type === 'sound' ? (scene.assets.find(a => a.id === c.assetId)?.name ?? cueLabel(c.type)) : cueLabel(c.type)
                   return (
                     <div key={c.id} className={'m-cue' + (isSel ? ' sel' : '')}
                       style={{ left: half + c.start * pps, width: Math.max(14, d * pps), ['--cc' as string]: cueColor[c.type] }}
@@ -302,9 +307,9 @@ function MobileTimeline({ onAdd }: { onAdd: () => void }) {
                     </div>
                   )
                 })}
-                <button className={'m-row-label tag-' + r.tag + (selActorId === r.id ? ' sel' : '')}
-                  onClick={() => r.actor && select({ kind: 'actor', id: r.id })}>
-                  <i className={'tag-dot tag-' + r.tag} />{r.name}
+                <button className={'m-row-label tag-' + r.tag + (selActorId === r.id && !sub ? ' sel' : '') + (sub ? ' sub' : '')}
+                  onClick={() => (r.actor || sub) && select({ kind: 'actor', id: r.id })}>
+                  {sub ? <i className="sub-dot" style={{ background: cueColor[r.lane as 'range' | 'info'] }} /> : <i className={'tag-dot tag-' + r.tag} />}{sub ? `↳ ${r.name}` : r.name}
                 </button>
               </div>
             )

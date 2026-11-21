@@ -2,7 +2,7 @@
 // scene.ts — ค่าเริ่มต้น / ตัวสร้าง actor และคิว / ฟังก์ชันเล็กๆ ที่ใช้ทั่วไป
 // ====================================================
 import type {
-  Actor, AnimCue, Approach, AssetDef, Background, CameraCue, Cue, Ease, MoveCue, Scene, ShowCue, SkillCue, SkillFx, SoundCue, Vec,
+  Actor, AnimCue, Approach, AssetDef, Background, CameraCue, Cue, Ease, InfoCue, MoveCue, RangeCue, Scene, ShowCue, SkillCard, SkillCue, SkillFx, SoundCue, Vec,
 } from './types'
 import { AUDIO_ID, CAMERA_ID } from './types'
 import { L } from './i18n'
@@ -95,6 +95,21 @@ export function newSkillCue(actorId: string, start: number, p: Partial<SkillCue>
 
 export const cueColor: Record<Cue['type'], string> = {
   anim: '#4aa8ff', move: '#3fd68f', skill: '#ffb238', show: '#b47cff', camera: '#ff5fa8', sound: '#2fe0b8',
+  range: '#22d3ee', info: '#facc15',
+}
+
+export function newRangeCue(actorId: string, start: number, duration: number): RangeCue {
+  return { id: uid('c'), type: 'range', actorId, start, duration, atk: true, skill1: true, skill2: true, atkY: 0, skillY: 0 }
+}
+
+/** ป้ายบนบล็อกระยะ: ATK · S1 · S2 */
+export const rangeLabel = (c: RangeCue): string =>
+  [c.atk && 'ATK', c.skill1 && 'S1', c.skill2 && 'S2'].filter(Boolean).join(' · ') || L('ว่าง', 'none')
+
+export const emptyCard = (): SkillCard => ({ icon: null, name: 'Skill', stat: '', effects: [], target: '', timing: '' })
+
+export function newInfoCue(actorId: string, start: number, duration: number, slot: InfoCue['slot'], card: SkillCard): InfoCue {
+  return { id: uid('c'), type: 'info', actorId, start, duration, slot, card, offsetX: 0, offsetY: 0, scale: 1 }
 }
 
 export function newSoundCue(start: number, assetId: string): SoundCue {
@@ -104,6 +119,7 @@ export function newSoundCue(start: number, assetId: string): SoundCue {
 export const cueLabel = (t: Cue['type']): string => ({
   anim: L('ท่าทาง', 'Animation'), move: L('เคลื่อนที่', 'Move'), skill: L('สกิล', 'Skill'),
   show: L('ปรากฏ', 'Visible'), camera: L('กล้อง', 'Camera'), sound: L('เสียง', 'Sound'),
+  range: L('ระยะ', 'Range'), info: L('คำอธิบายสกิล', 'Skill info'),
 } as Record<Cue['type'], string>)[t]
 
 /** สำเนาลึกแบบง่าย (ข้อมูลฉากเป็น JSON ล้วน) */

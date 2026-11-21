@@ -23,8 +23,14 @@ export interface GameDataLite {
   s2: MovePart | null
   /** 觸發基準 ของสกิล (จากคำอธิบายสกิล): self = บัฟตัวเอง · front/rear = โจมตี — ตัวชี้ขาดสกิลบัฟ/โจมตีแบบตัวเล่นอนิเมชั่น */
   basis?: { skill1: SkillBasis; skill2: SkillBasis }
+  /** ระยะโจมตี (pt) จาก /data/ranger/stats — ไม่รวมบัฟจากทาเลนต์ · ใช้วาดแถบบอกระยะ */
+  range?: number | null
+  /** ข้อมูลระยะของสกิล (สกิลที่ใช้งานได้ตัวที่ 1/2 ตามลำดับ แบบตัวเล่นอนิเมชั่น) */
+  skillRanges?: { skill1: SkillRange | null; skill2: SkillRange | null }
 }
 export type SkillBasis = 'self' | 'front' | 'rear' | null
+/** area = ความกว้างข้างละ (pt) รอบจุดกึ่งกลาง · rearMul = ระยะเป้าแนวหลัง = ระยะโจมตี × ค่านี้ */
+export interface SkillRange { area: number; basis: SkillBasis; rearMul: number | null }
 export interface MovePart {
   part: string | null; speed: number; motion: string | null; rot: string | null; start?: Vec | null
   /** motion.enabled — false = ไม่มีการพุ่งจริง (เอฟเฟกต์เกิดคาตัวเป้า) */
@@ -49,6 +55,9 @@ function dataJson(path: string): Promise<any | null> {
 const projectileJson = (id: string) => dataJson(`/data/ranger/projectile/${encodeURIComponent(id.trim().toLowerCase())}.json`)
 const statsJson = (id: string) => dataJson(`/data/ranger/stats/${encodeURIComponent(id.trim().toLowerCase())}.json`)
 
+/** ข้อมูลค่าพลัง/สกิลของเรนเจอร์ (ชุดเดียวกับหน้า Ranger Book) — ใช้สร้างการ์ดคำอธิบายสกิล */
+export const fetchRangerStats = (rangerId: string): Promise<any | null> => statsJson(rangerId)
+
 /** ตัวใหม่ที่ยังไม่มีข้อมูลเกม = null (ไม่ใส่เสียงให้) */
 export async function fetchSkillSoundUrls(rangerId: string): Promise<SkillSoundUrls | null> {
   return ((await projectileJson(rangerId))?.soundUrls as SkillSoundUrls | undefined) ?? null
@@ -69,9 +78,18 @@ export async function fetchFreshGameData(rangerId: string): Promise<GameDataLite
     enabled: m.motion?.enabled ?? true,
     hitRate: typeof rate === 'number' ? rate : 100,
   } : null)
+  // s_attack / s2_attack = สกิลที่ใช้งานได้ตัวที่ 1/2 "ตามลำดับ" (ข้าม passive) — แบบเดียวกับตัวเล่นอนิเมชั่น
+  // เรนเจอร์ส่วนใหญ่ slot skill2 ว่าง สกิลที่สองไปอยู่ skill3 จึงนับตามลำดับไม่ใช่ตามชื่อ slot
+  const active: any[] = (st?.skills ?? []).filter((sk: any) => sk?.slot !== 'passive')
   const basisOf = (i: number): SkillBasis => {
-    const t = st?.skills?.[i]?.triggerBasis?.type
+    const t = active[i]?.triggerBasis?.type
     return t === 'self' || t === 'front' || t === 'rear' ? t : null
+  }
+  const rangeOf = (i: number): SkillRange | null => {
+    const sk = active[i]
+    if (!sk || typeof sk.area !== 'number' || sk.area <= 0) return null
+    const mul = sk.triggerBasis?.multiplier
+    return { area: sk.area, basis: basisOf(i), rearMul: typeof mul === 'number' ? mul : null }
   }
   return {
     sc: u.render?.shadowCenter ?? null,
@@ -82,6 +100,8 @@ export async function fetchFreshGameData(rangerId: string): Promise<GameDataLite
     s1: part(u.skill1, ht.skill1HitPointRate),
     s2: part(u.skill2, ht.skill2HitPointRate),
     basis: { skill1: basisOf(0), skill2: basisOf(1) },
+    range: typeof st?.attackRange === 'number' && st.attackRange > 0 ? st.attackRange : null,
+    skillRanges: { skill1: rangeOf(0), skill2: rangeOf(1) },
   }
 }
 

@@ -1,18 +1,19 @@
 // ====================================================
 // Timeline.tsx — ไทม์ไลน์: แถวละ 1 actor (+ กล้อง) · บล็อกคิวลากย้าย/ยืดได้ · ลากหัวอ่าน
 // ====================================================
-import { useEffect, useRef, useState } from 'react'
-import { addCue, addSkill, placeCue, prevCueEnd, resequenceCue, rippleAfter, skillPresets, uploadAudio } from '@/anme/engine/actions'
+import { Fragment, useEffect, useRef, useState } from 'react'
+import { addCue, addLayerCue, addSkill, laneOf, placeCue, prevCueEnd, resequenceCue, rippleAfter, setActorLayer, skillPresets, uploadAudio } from '@/anme/engine/actions'
 import { audioPlayer } from '@/anme/engine/audio'
 import { L } from '@/anme/engine/i18n'
 import { assets } from '@/anme/engine/assets'
-import { cueColor, cueLabel } from '@/anme/engine/scene'
+import { cueColor, cueLabel, rangeLabel } from '@/anme/engine/scene'
 import { checkpoint, getState, select, setMuted, setState, setTime, setVolume, toast, updateScene, useStore } from '@/anme/engine/store'
 import { buildTimeline, sceneEnd } from '@/anme/engine/timeline'
 import type { Scene } from '@/anme/engine/types'
 import type { Cue } from '@/anme/engine/types'
 import { AUDIO_ID, CAMERA_ID } from '@/anme/engine/types'
 import { timelineOf, useAssetsVersion } from './StageView'
+import { useSkillCardMaker } from './LayerPanels'
 import { Icon } from './widgets'
 
 const LABEL_W = 190
@@ -193,6 +194,33 @@ export function Timeline() {
   const selActor = sel.kind === 'actor' ? scene.actors.find(a => a.id === sel.id) : sel.kind === 'cue' ? scene.actors.find(a => a.id === scene.cues.find(c => c.id === sel.id)?.actorId) : undefined
   const selRt = selActor ? assets.get(selActor.assetId) : undefined
 
+  // บล็อกคิวหนึ่งอัน (ใช้ทั้งแถวหลักและแถวย่อยใต้เรนเจอร์)
+  const renderCue = (c: Cue) => {
+    const d = tl.dur.get(c.id) ?? 1
+    const st = c.type === 'skill' ? tl.skill.get(c.id) : undefined
+    const selected = sel.kind === 'cue' && sel.id === c.id
+    // ยืด/หดได้: เดิน · ท่าทาง (idle ฯลฯ — ไม่วนจะสลับเป็นวนเองตอนลาก) · ปรากฏ · กล้อง · เสียงที่ตัดความยาว
+    const resizable = c.type === 'range' || c.type === 'info' || c.type === 'move' || c.type === 'show' || c.type === 'camera' || c.type === 'anim' || (c.type === 'sound' && c.duration > 0)
+    const label = c.type === 'skill' ? c.label : c.type === 'anim' ? c.clip : c.type === 'info' ? c.card.name : c.type === 'range' ? rangeLabel(c) : c.type === 'sound' ? (scene.assets.find(d => d.id === c.assetId)?.name ?? cueLabel(c.type)) : cueLabel(c.type)
+    return (
+      <div key={c.id} className={'cue cue-' + c.type + (selected ? ' sel' : '') + (resizable ? ' has-grips' : '') + (ins?.id === c.id ? (ins.before ? ' ins-before' : ' ins-after') : '')}
+        style={{ left: c.start * pps, width: Math.max(8, d * pps), ['--cc' as string]: cueColor[c.type] }}
+        onPointerDown={e => dragCue(e, c, 'move')}
+        title={`${cueLabel(c.type)} · ${label} · ${c.start.toFixed(2)}s → ${(c.start + d).toFixed(2)}s`}
+      >
+        {st && st.castDur > 0 && <div className="cue-cast" style={{ width: st.castDur * pps }} />}
+        {st && <div className="cue-body-end" style={{ left: (st.bodyEnd - c.start) * pps }} />}
+        {st?.shots.map(s => (
+          <div key={s.index} className="cue-impact" style={{ left: (s.impactAt - c.start) * pps }} title={`${L('กระทบ', 'Impact')} ${s.impactAt.toFixed(2)}s`} />
+        ))}
+        <span className="cue-label">{c.type === 'skill' && <Icon name="bolt" size={11} />}{c.type === 'sound' && <Icon name="music" size={11} />} {label}</span>
+        {/* จับหัว/หางเพื่อปรับระยะเวลา — มีขีดจับให้เห็นชัด */}
+        {resizable && <div className="cue-resize l" title={L('ลากเพื่อปรับจุดเริ่ม', 'Drag to change the start')} onPointerDown={e => dragCue(e, c, 'resizeL')} />}
+        {resizable && <div className="cue-resize r" title={L('ลากเพื่อปรับความยาว', 'Drag to change the length')} onPointerDown={e => dragCue(e, c, 'resize')} />}
+      </div>
+    )
+  }
+
   return (
     <div className="timeline">
       <div className="tl-bar">
@@ -252,11 +280,14 @@ export function Timeline() {
             const slot = drag && isLayer && r.id !== drag.id ? (ri > dragFrom ? ri - 1 : ri) : -1
             const dropBefore = drag != null && slot === drag.to
             const dropAfter = drag != null && isLayer && ri === layerCount - 1 && drag.to === layerCount - 1 && r.id !== drag.id
-            const cues = scene.cues.filter(c => c.actorId === r.id)
+            const cues = scene.cues.filter(c => c.actorId === r.id && laneOf(c) === 'main')
             const hits = tl.hits.filter(h => h.targetId === r.id)
             const isSel = sel.kind === 'actor' && sel.id === r.id
+            const actor = isLayer ? scene.actors.find(a => a.id === r.id) : undefined
+            const subLanes = (['range', 'info'] as const).filter(l => actor?.layers?.[l])
             return (
-              <div key={r.id} {...(isLayer ? { 'data-layer': r.id } : {})}
+              <Fragment key={r.id}>
+              <div {...(isLayer ? { 'data-layer': r.id } : {})}
                 className={'tl-row' + (isSel ? ' sel' : '') + (r.visible ? '' : ' hidden-row') + (drag?.id === r.id ? ' dragging' : '') + (dropBefore ? ' drop-before' : '') + (dropAfter ? ' drop-after' : '')}>
                 {/* ลากตรงไหนของกล่องก็ย้ายเลเยอร์ได้ (ชื่อ / เลข / ⋮⋮) — ยกเว้นปุ่มข้างใน (ซ่อน/แสดง, เพิ่มเสียง)
                     dragRow เรียก preventDefault → ไม่เกิดการลากเลือกข้อความ · แตะเฉยๆ (ไม่ขยับ) = เลือกตัวละครเหมือนเดิม */}
@@ -280,39 +311,42 @@ export function Timeline() {
                   )}
                 </div>
                 <div className="tl-lane" style={{ width }} onPointerDown={scrub}>
-                  {cues.map(c => {
-                    const d = tl.dur.get(c.id) ?? 1
-                    const st = c.type === 'skill' ? tl.skill.get(c.id) : undefined
-                    const selected = sel.kind === 'cue' && sel.id === c.id
-                    // ยืด/หดได้: เดิน · ท่าทาง (idle ฯลฯ — ไม่วนจะสลับเป็นวนเองตอนลาก) · ปรากฏ · กล้อง · เสียงที่ตัดความยาว
-                    const resizable = c.type === 'move' || c.type === 'show' || c.type === 'camera' || c.type === 'anim' || (c.type === 'sound' && c.duration > 0)
-                    const label = c.type === 'skill' ? c.label : c.type === 'anim' ? c.clip : c.type === 'sound' ? (scene.assets.find(d => d.id === c.assetId)?.name ?? cueLabel(c.type)) : cueLabel(c.type)
-                    return (
-                      <div key={c.id} className={'cue cue-' + c.type + (selected ? ' sel' : '') + (resizable ? ' has-grips' : '') + (ins?.id === c.id ? (ins.before ? ' ins-before' : ' ins-after') : '')}
-                        style={{ left: c.start * pps, width: Math.max(8, d * pps), ['--cc' as string]: cueColor[c.type] }}
-                        onPointerDown={e => dragCue(e, c, 'move')}
-                        title={`${cueLabel(c.type)} · ${label} · ${c.start.toFixed(2)}s → ${(c.start + d).toFixed(2)}s`}
-                      >
-                        {st && st.castDur > 0 && <div className="cue-cast" style={{ width: st.castDur * pps }} />}
-                        {st && <div className="cue-body-end" style={{ left: (st.bodyEnd - c.start) * pps }} />}
-                        {st?.shots.map(s => (
-                          <div key={s.index} className="cue-impact" style={{ left: (s.impactAt - c.start) * pps }} title={`${L('กระทบ', 'Impact')} ${s.impactAt.toFixed(2)}s`} />
-                        ))}
-                        <span className="cue-label">{c.type === 'skill' && <Icon name="bolt" size={11} />}{c.type === 'sound' && <Icon name="music" size={11} />} {label}</span>
-                        {/* จับหัว/หางเพื่อปรับระยะเวลา — มีขีดจับให้เห็นชัด */}
-                        {resizable && <div className="cue-resize l" title={L('ลากเพื่อปรับจุดเริ่ม', 'Drag to change the start')} onPointerDown={e => dragCue(e, c, 'resizeL')} />}
-                        {resizable && <div className="cue-resize r" title={L('ลากเพื่อปรับความยาว', 'Drag to change the length')} onPointerDown={e => dragCue(e, c, 'resize')} />}
-                      </div>
-                    )
-                  })}
+                  {cues.map(renderCue)}
                   {hits.map((h, i) => <div key={i} className="hit-marker" style={{ left: h.at * pps }} title={`${L('โดน', 'Hit by')} ${h.cue.label} @ ${h.at.toFixed(2)}s`} />)}
                 </div>
               </div>
+              {/* เลเยอร์ย่อยใต้เรนเจอร์: ระยะ / คำอธิบายสกิล (เปิดที่ตั้งค่าเรนเจอร์) */}
+              {actor && subLanes.map(lane => (
+                <div key={lane} className={'tl-row sub' + (r.visible ? '' : ' hidden-row')}>
+                  <SubLabel actorId={actor.id} lane={lane} width={LABEL_W} />
+                  <div className="tl-lane" style={{ width }} onPointerDown={scrub}>
+                    {scene.cues.filter(c => c.actorId === actor.id && laneOf(c) === lane).map(renderCue)}
+                  </div>
+                </div>
+              ))}
+              </Fragment>
             )
           })}
           {time * pps >= scrollX - 1 && <div className="playhead" style={{ left: LABEL_W + time * pps }}><div className="playhead-cap" /></div>}
         </div>
       </div>
+    </div>
+  )
+}
+
+/** ป้ายแถวย่อย — กด + เพิ่มบล็อก ณ หัวอ่าน · กด × ปิดเลเยอร์ (ลบบล็อกในแถวนี้) */
+function SubLabel({ actorId, lane, width }: { actorId: string; lane: 'range' | 'info'; width: number }) {
+  const scene = useStore(s => s.scene)
+  const a = scene.actors.find(x => x.id === actorId)
+  const rt = a && assets.get(a.assetId)
+  const make = useSkillCardMaker(rt?.kind === 'ranger' ? rt : null)
+  return (
+    <div className="tl-label sub" style={{ width }} onClick={() => select({ kind: 'actor', id: actorId })}>
+      <span className="sub-elbow">↳</span>
+      <span className="sub-dot" style={{ background: cueColor[lane] }} />
+      <span className="tl-name">{cueLabel(lane)}</span>
+      <button className="ibtn tiny" title={L('เพิ่มบล็อก ณ หัวอ่าน', 'Add a block at the playhead')} onClick={e => { e.stopPropagation(); addLayerCue(actorId, lane, make) }}><Icon name="plus" size={13} /></button>
+      <button className="ibtn tiny" title={L('ปิดเลเยอร์นี้', 'Turn this layer off')} onClick={e => { e.stopPropagation(); setActorLayer(actorId, lane, false) }}><Icon name="x" size={13} /></button>
     </div>
   )
 }

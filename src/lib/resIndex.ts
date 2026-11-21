@@ -17,9 +17,11 @@ const ROW_RE = /<a href="([^"]+)">[^<]*<\/a>\s*(\d{2}-[A-Za-z]{3}-\d{4}\s+\d{2}:
 /** โชว์เฉพาะไฟล์ที่หน้า /res เปิดดูได้ */
 const KEEP_EXT = ['.png', '.plist', '.sam']
 
-/** โฟลเดอร์ของเรนเจอร์แต่ละตัว (u1234e-xxx / g...) และ _raw — ซ่อน เพราะมีเป็นพันและดูผ่านหน้าเรนเจอร์ได้อยู่แล้ว */
+/** โฟลเดอร์ของเรนเจอร์แต่ละตัว (u1234e-xxx / g...) — ซ่อนตามปกติ เพราะมีเป็นพัน · โหมดขั้นสูงถึงจะโชว์ */
 const UNIT_DIR_RE = /^[ug]\d+[a-z]*-/i
-const isHidden = (name: string) => name === '_raw' || UNIT_DIR_RE.test(name)
+export const isUnitDir = (name: string) => UNIT_DIR_RE.test(name)
+/** _raw = สำเนาของทั้ง res/ (4,000+ โฟลเดอร์ซ้ำกับของจริง) — ซ่อนเสมอ แม้ในโหมดขั้นสูง */
+const isHidden = (name: string, showUnits: boolean) => name === '_raw' || (!showUnits && isUnitDir(name))
 
 const SEGMENT_RE = /^[A-Za-z0-9._+@-]+$/
 
@@ -32,7 +34,8 @@ export function safeResPath(raw: string | null): string | null {
   return parts.join('/')
 }
 
-export function parseResIndex(html: string): DirEntry[] {
+/** showUnits = โหมดขั้นสูง: โชว์โฟลเดอร์ของเรนเจอร์ด้วย (ไฟล์ยังกรองเหมือนเดิม) */
+export function parseResIndex(html: string, showUnits = false): DirEntry[] {
   const out: DirEntry[] = []
   for (const m of html.matchAll(ROW_RE)) {
     const href = m[1]
@@ -44,7 +47,7 @@ export function parseResIndex(html: string): DirEntry[] {
     } catch {
       name = isDir ? href.slice(0, -1) : href
     }
-    if (isDir && isHidden(name)) continue
+    if (isDir && isHidden(name, showUnits)) continue
     if (!isDir && !KEEP_EXT.some(e => name.toLowerCase().endsWith(e))) continue
     const size = m[3] === '-' ? null : Number(m[3])
     out.push({ name, kind: isDir ? 'dir' : 'file', date: m[2].replace(/\s+/g, ' '), size: Number.isFinite(size as number) ? size : null })

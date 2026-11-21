@@ -17,7 +17,7 @@ import fs from 'fs'
 import path from 'path'
 import { pathToFileURL } from 'url'
 import { NextRequest } from 'next/server'
-import { dataFile, emptyFallback, gearEffectsFile, gearUsersFile, itemCodeFromIconUrl, resRootFile } from '../src/lib/staticApi'
+import { dataFile, emptyFallback, gearEffectsFile, gearUsersFile, itemCodeFromIconUrl, resRootFile, resRootUnitsFile } from '../src/lib/staticApi'
 
 const ROOT = process.cwd()
 const OUT = path.join(ROOT, 'public', 'data')
@@ -266,12 +266,12 @@ async function emitEvolve(rangerIds: string[]) {
 // ── หน้า /res: รายการโฟลเดอร์ชั้นบนสุด (ตัดโฟลเดอร์ว่างออก — ต้องเปิดดูทีละโฟลเดอร์ ~950 ครั้ง) ──
 async function emitResRoot() {
   console.log('[emit] /res root listing')
-  const { parseResIndex } = await import('../src/lib/resIndex')
+  const { parseResIndex, isUnitDir } = await import('../src/lib/resIndex')
   const ORIGIN = 'https://rangers.lerico.net/res/'
-  const get = async (p: string) => {
+  const get = async (p: string, showUnits = false) => {
     const r = await fetch(ORIGIN + p, { headers: { Accept: 'text/html', 'User-Agent': 'Mozilla/5.0' } })
     if (!r.ok) throw new Error(String(r.status))
-    return parseResIndex(await r.text())
+    return parseResIndex(await r.text(), showUnits)
   }
   try {
     const entries = await get('')
@@ -281,6 +281,14 @@ async function emitResRoot() {
       try { if ((await get(`${d.name}/`)).length > 0) keep.add(d.name) } catch { keep.add(d.name) }
     }, 'res dirs')
     writeFile(resRootFile, { path: '', entries: entries.filter(e => e.kind !== 'dir' || keep.has(e.name)) })
+
+    // โหมดขั้นสูงของหน้า /res: โฟลเดอร์เรนเจอร์ (u…/g…) ที่มีไฟล์ให้ดูจริง — ตัดโฟลเดอร์ว่าง / มีแต่ .db ทิ้งเหมือนกัน
+    const units = (await get('', true)).filter(e => e.kind === 'dir' && isUnitDir(e.name))
+    const keepUnits = new Set<string>()
+    await pool(units, async (d) => {
+      try { if ((await get(`${d.name}/`)).length > 0) keepUnits.add(d.name) } catch { keepUnits.add(d.name) }
+    }, 'res unit dirs')
+    writeFile(resRootUnitsFile, { path: '', entries: units.filter(e => keepUnits.has(e.name)) })
   } catch (err) {
     failed++
     console.warn('  ✗ res root:', err)

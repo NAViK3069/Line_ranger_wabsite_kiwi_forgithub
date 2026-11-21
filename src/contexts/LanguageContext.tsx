@@ -384,6 +384,9 @@ const STAT_LABELS_TH: Record<string, string> = {
 
   // ── หน้า /res (ไล่ดูไฟล์) ──
   'Filter in this':                 'กรองในนี้',
+  'Advanced':                       'ขั้นสูง',
+  'Show all folders (incl. ranger folders)': 'แสดงโฟลเดอร์ทั้งหมด (รวมโฟลเดอร์เรนเจอร์)',
+  'Up one folder':                  'ย้อนขึ้นหนึ่งโฟลเดอร์',
   'Play animation':                 'เล่นอนิเมชั่น',
   'Modified':                       'แก้ไขเมื่อ',
   'Size':                           'ขนาด',

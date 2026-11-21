@@ -139,12 +139,24 @@ function SortHeader({ label, col, sort, onClick }: {
 }
 
 /** ขอรายการของโฟลเดอร์หนึ่ง — ผ่าน cache ระดับ session ก่อนเสมอ */
-async function loadDir(path: string): Promise<DirEntry[]> {
-  const hit = dirCache.get(path)
+async function loadDir(path: string, advanced: boolean): Promise<DirEntry[]> {
+  const key = cacheKey(path, advanced)
+  const hit = dirCache.get(key)
   if (hit) return hit
-  const list = await loadResDir(path)
-  dirCache.set(path, list)
+  const list = await loadResDir(path, advanced)
+  dirCache.set(key, list)
   return list
+}
+/** แคชแยกตามโหมด — โหมดขั้นสูงมีโฟลเดอร์เรนเจอร์เพิ่มเข้ามา */
+const cacheKey = (path: string, advanced: boolean) => (advanced ? `+${path}` : path)
+
+/** จำว่าเปิดโหมดขั้นสูงไว้ไหม (ต่อเบราว์เซอร์) */
+const ADV_KEY = 'lr:res:advanced'
+function readAdvanced(): boolean {
+  try { return localStorage.getItem(ADV_KEY) === '1' } catch { return false }
+}
+function writeAdvanced(on: boolean) {
+  try { if (on) localStorage.setItem(ADV_KEY, '1'); else localStorage.removeItem(ADV_KEY) } catch { /* โหมดส่วนตัว ฯลฯ */ }
 }
 
 function ResBrowser() {
@@ -160,6 +172,12 @@ function ResBrowser() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState('')
+  // โหมดขั้นสูง: โชว์โฟลเดอร์เรนเจอร์ (u…/g…) ที่ปกติซ่อนไว้ · ไฟล์ยังกรองเหมือนเดิม · โฟลเดอร์ที่ไม่มีไฟล์ให้ดูยังซ่อน
+  const [advanced, setAdvanced] = useState(false)
+  useEffect(() => { setAdvanced(readAdvanced()) }, [])
+  const toggleAdvanced = useCallback(() => {
+    setAdvanced(a => { writeAdvanced(!a); return !a })
+  }, [])
   // รูปที่กดดู — โชว์ทับหน้าจอ (ผ่าน proxy เพราะต้นทางไม่ให้ดึงตรง)
   const [preview, setPreview] = useState<string | null>(null)
   // ชื่อโฟลเดอร์พี่น้องทั้งหมดในโฟลเดอร์แม่ — ใช้ทำปุ่มก่อนหน้า/ถัดไป
@@ -186,28 +204,28 @@ function ResBrowser() {
 
   useEffect(() => {
     if (proLoading || !isPro) return
-    const hit = dirCache.get(path)
+    const hit = dirCache.get(cacheKey(path, advanced))
     if (hit) { setEntries({ path, list: hit }); setLoading(false); setError(''); return }
 
     let alive = true
     setLoading(true)
     setError('')
-    loadDir(path)
+    loadDir(path, advanced)
       .then(list => { if (alive) { setEntries({ path, list }); setLoading(false) } })
       .catch((e: Error) => { if (alive) { setError(e.message || 'Fetch failed'); setLoading(false) } })
     return () => { alive = false }
-  }, [path, isPro, proLoading])
+  }, [path, isPro, proLoading, advanced])
 
   // ── โฟลเดอร์พี่น้อง — ขอจากโฟลเดอร์แม่ (โดนแคชอยู่แล้วถ้าเพิ่งเดินลงมา) ──
   useEffect(() => {
     if (proLoading || !isPro || !path) { setSiblings([]); return }
     const parent = path.split('/').slice(0, -1).join('/')
     let alive = true
-    loadDir(parent)
+    loadDir(parent, advanced)
       .then(list => { if (alive) setSiblings(list.filter(e => e.kind === 'dir').map(e => e.name)) })
       .catch(() => { if (alive) setSiblings([]) })
     return () => { alive = false }
-  }, [path, isPro, proLoading])
+  }, [path, isPro, proLoading, advanced])
 
   useEffect(() => { setFilter('') }, [path])
 
@@ -346,11 +364,22 @@ function ResBrowser() {
 
   return (
     <>
-      {/* ── แถวบน: เส้นทาง + ช่องกรอง ──
-          มือถือ: เส้นทางบรรทัดหนึ่ง / ปุ่มก่อน-ถัดไป + ช่องกรองเต็มกว้างอีกบรรทัด · จอกว้าง: บรรทัดเดียว */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+      {/* ── แถวบน: เส้นทาง + ช่องกรอง ── ล็อกติดใต้หัวเว็บตอนเลื่อนลง (กดย้อน/ค้นหาได้ตลอด)
+          มือถือ: เส้นทางบรรทัดหนึ่ง / ปุ่มก่อน-ถัดไป + ขั้นสูง + ช่องกรองอีกบรรทัด · จอกว้าง: บรรทัดเดียว */}
+      <div className="sticky top-[49px] z-30 -mx-4 px-4 py-2 mb-3 bg-[#1A0A2E]/95 backdrop-blur-md border-b border-white/10 flex flex-col sm:flex-row sm:items-center gap-2">
         <div className="flex items-start sm:items-center gap-2 min-w-0">
-        <span className="material-icons-round text-2xl text-yellow-400 shrink-0">folder_open</span>
+        {/* ในโฟลเดอร์ย่อย: ปุ่มย้อนขึ้นหนึ่งชั้น · หน้าราก: ไอคอนโฟลเดอร์ */}
+        {path ? (
+          <button
+            type="button" onClick={() => go(crumbs.slice(0, -1).join('/'))}
+            aria-label={tStat('Up one folder')} title={tStat('Up one folder')}
+            className="shrink-0 h-8 w-8 -my-0.5 rounded-lg flex items-center justify-center text-yellow-400 hover:bg-white/10"
+          >
+            <span className="material-icons-round text-[22px]">arrow_back</span>
+          </button>
+        ) : (
+          <span className="material-icons-round text-2xl text-yellow-400 shrink-0">folder_open</span>
+        )}
         <div className="flex items-center gap-1 text-sm min-w-0 flex-wrap">
           <button type="button" onClick={() => go('')}
             className={`px-1.5 py-0.5 rounded hover:bg-white/10 ${path ? 'text-cyan-300' : 'text-white font-bold'}`}>
@@ -394,7 +423,23 @@ function ResBrowser() {
             </div>
           )}
 
-          <div className="relative flex-1 sm:flex-none min-w-0">
+          {/* ขั้นสูง: โชว์โฟลเดอร์ทั้งหมด รวมโฟลเดอร์เรนเจอร์ที่ปกติซ่อนไว้
+              มีเฉพาะหน้าราก /res — ในโฟลเดอร์ย่อยไม่มีปุ่ม (ค่าที่เปิดไว้ยังมีผลกับปุ่มก่อน/ถัดไป) */}
+          {!path && <button
+            type="button" onClick={toggleAdvanced} aria-pressed={advanced}
+            title={tStat('Show all folders (incl. ranger folders)')} aria-label={tStat('Advanced')}
+            className={`shrink-0 h-9 sm:h-8 w-9 sm:w-auto sm:px-2.5 rounded-lg border text-xs font-bold flex items-center justify-center gap-1 transition-colors ${
+              advanced
+                ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200'
+                : 'border-slate-700 bg-slate-800 text-gray-400 hover:text-white'
+            }`}
+          >
+            <span className="material-icons-round text-[18px] sm:text-[16px]">{advanced ? 'folder_special' : 'tune'}</span>
+            {/* มือถือเหลือแต่ไอคอน — ไม่งั้นช่องค้นหาแคบจนพิมพ์ไม่ได้ */}
+            <span className="hidden sm:inline">{tStat('Advanced')}</span>
+          </button>}
+
+          <div className="relative flex-1 sm:flex-none min-w-[120px]">
             <span className="material-icons-round absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-base">search</span>
             <input
               type="text" value={filter} onChange={e => setFilter(e.target.value)}

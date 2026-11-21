@@ -97,6 +97,8 @@ export const gearEffectsFile = (itemCode: string) => `gear/effects/${enc(itemCod
 export const gearUsersFile = (league: number | string, itemCode: string) => `meta/gear-users/${enc(String(league))}/${enc(itemCode)}.json`
 /** รายการโฟลเดอร์ของหน้า /res (เฉพาะหน้าราก — คำนวณล่วงหน้าเพราะต้องเช็คโฟลเดอร์ว่าง ~950 โฟลเดอร์) */
 export const resRootFile = 'res/root.json'
+/** โฟลเดอร์เรนเจอร์ (u…/g…) ชั้นบนสุดที่มีไฟล์จริง — ใช้ตอนเปิดโหมดขั้นสูง (เช็คไว้ตอน build ~3,100 โฟลเดอร์) */
+export const resRootUnitsFile = 'res/root-units.json'
 
 // ── ค่าที่คืนแทนเมื่อไม่มีไฟล์ (404) — emit-data จะไม่เขียนไฟล์ที่มีแต่ค่าว่างเหล่านี้ เพื่อลดจำนวนไฟล์ ──
 export function emptyFallback(pathname: string, q: URLSearchParams): unknown {
@@ -212,18 +214,28 @@ export async function fetchSamList(id: string): Promise<Response> {
  * หน้าราก → ไฟล์ที่คำนวณไว้ตอน build (ต้องเช็คโฟลเดอร์ว่าง ~950 โฟลเดอร์ ทำสดไม่ไหว)
  * โฟลเดอร์ย่อย → อ่าน directory index ผ่าน Worker แล้วตัดโฟลเดอร์ว่างออกเหมือนเดิม
  */
-export async function loadResDir(rawPath: string): Promise<import('./resIndex').DirEntry[]> {
-  const { safeResPath, parseResIndex } = await import('./resIndex')
+export async function loadResDir(rawPath: string, advanced = false): Promise<import('./resIndex').DirEntry[]> {
+  const { safeResPath, parseResIndex, isUnitDir } = await import('./resIndex')
+  type Entry = import('./resIndex').DirEntry
   const path = safeResPath(rawPath)
   if (path === null) throw new Error('Invalid path')
-  if (path === '') {
-    const d = await getData<{ entries: import('./resIndex').DirEntry[] }>(resRootFile)
-    if (d) return d.entries
-  }
   const list = async (p: string) => {
     const res = await fetch(lericoProxy(`${LERICO_ORIGIN}/res/${p ? `${p}/` : ''}`))
     if (!res.ok) throw new Error(`Origin ${res.status}`)
-    return parseResIndex(await res.text())
+    return parseResIndex(await res.text(), advanced)
+  }
+  if (path === '') {
+    const d = await getData<{ entries: Entry[] }>(resRootFile)
+    if (d && !advanced) return d.entries
+    if (d && advanced) {
+      // โหมดขั้นสูง: เพิ่มโฟลเดอร์เรนเจอร์ที่ build เช็คไว้แล้วว่ามีไฟล์
+      // ยังไม่มีไฟล์นี้ (build รอบถัดไปถึงจะมี) → อ่านรายการสดจากต้นทาง ไม่เช็คว่าว่าง (3,000+ โฟลเดอร์ เช็คสดไม่ไหว)
+      const units = (await getData<{ entries: Entry[] }>(resRootUnitsFile))?.entries
+        ?? (await list('')).filter(e => e.kind === 'dir' && isUnitDir(e.name))
+      const cmp = new Intl.Collator('en', { numeric: true, sensitivity: 'base' })
+      return [...d.entries, ...units].sort((a, b) =>
+        a.kind !== b.kind ? (a.kind === 'dir' ? -1 : 1) : cmp.compare(a.name, b.name))
+    }
   }
   const entries = await list(path)
   const dirs = entries.filter(e => e.kind === 'dir')

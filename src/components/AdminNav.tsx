@@ -6,9 +6,10 @@
 // ====================================================
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getRuns, logout, type WorkflowRun } from '@/lib/adminApi'
+import { getRuns, type WorkflowRun } from '@/lib/adminApi'
+import AdminSettingsMenu from '@/components/AdminSettingsMenu'
 
 interface AdminNavProps {
   username: string
@@ -79,7 +80,6 @@ function BuildStatus() {
 
 export default function AdminNav({ username }: AdminNavProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const mobileRowRef = useRef<HTMLDivElement>(null)
 
   // มือถือ: เลื่อนแถวเมนูให้เห็นหน้าที่เปิดอยู่ (ไม่งั้นเมนูท้ายๆ อย่าง Gear Book / Top 40 ถูกตัดขอบ)
@@ -111,7 +111,8 @@ export default function AdminNav({ username }: AdminNavProps) {
   })
 
   return (
-    <nav className="border-b border-white/10 bg-black/20 backdrop-blur-sm">
+    // relative: แผงตั้งค่าบนมือถือวางเต็มกว้างใต้แถบนี้ (อิงกล่อง nav) · z-40 ให้ลอยเหนือเนื้อหาหน้า
+    <nav className="relative z-40 border-b border-white/10 bg-black/20 backdrop-blur-sm">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
         {/* Logo + Nav Links (จอกว้าง ≥ 1024px) */}
         <div className="flex items-center gap-4 min-w-0">
@@ -122,7 +123,7 @@ export default function AdminNav({ username }: AdminNavProps) {
           <div className="hidden lg:flex items-center gap-1 text-sm">{links}</div>
         </div>
 
-        {/* Build status + User info + Logout */}
+        {/* Build status + หน้าเว็บ + ตั้งค่า (ภาษา / เสียง / ออกจากระบบ) */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <BuildStatus />
           {/* กลับหน้าเว็บปกติ (ยังล็อกอินค้างไว้ — กลับมา /admin ได้โดยไม่ต้องล็อกอินใหม่) */}
@@ -134,15 +135,8 @@ export default function AdminNav({ username }: AdminNavProps) {
             <span className="material-icons-round text-sm">home</span>
             <span className="hidden sm:inline lg:hidden">หน้าเว็บ</span>
           </Link>
-          {/* ชื่อผู้ใช้ย้ายไปอยู่ใน title ของปุ่มออกจากระบบ — แถบนี้กว้างแค่ 1152px ใส่ทุกอย่างไม่พอ */}
-          <button
-            onClick={() => { logout(); router.push('/') }}
-            title={`ออกจากระบบ (${username})`}
-            className="whitespace-nowrap flex items-center gap-1 px-3 py-1.5 text-sm bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 rounded-lg transition-colors"
-          >
-            <span className="material-icons-round text-sm">logout</span>
-            <span className="hidden sm:inline lg:hidden xl:inline">ออกจากระบบ</span>
-          </button>
+          {/* ปุ่มตั้งค่า — ภาษา / ระดับเสียง / ออกจากระบบ อยู่ในเมนูที่ drop ลงมา (ชื่อผู้ใช้อยู่หัวเมนู) */}
+          <AdminSettingsMenu username={username} />
         </div>
       </div>
 

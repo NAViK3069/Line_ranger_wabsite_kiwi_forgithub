@@ -7,6 +7,7 @@
 import { adminFetch } from '@/lib/adminApi'
 import { useState, useEffect, useMemo } from 'react'
 import GearDetailPopup from '@/components/GearDetailPopup'
+import Pagination from '@/components/Pagination'
 
 // ── Types ─────────────────────────────────────────────
 interface GearBookItem {
@@ -70,18 +71,7 @@ const EMPTY_FILTERS: GearFilters = { grades: [], slots: [], switchables: [] }
 function toggleItem<T>(arr: T[], item: T): T[] {
   return arr.includes(item) ? arr.filter(x => x !== item) : [...arr, item]
 }
-
-function buildPageNumbers(current: number, total: number): (number | '...')[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i)
-  const pages: (number | '...')[] = []
-  const addPage = (p: number) => { if (!pages.includes(p)) pages.push(p) }
-  addPage(0)
-  if (current > 2) pages.push('...')
-  for (let p = Math.max(1, current - 1); p <= Math.min(total - 2, current + 1); p++) addPage(p)
-  if (current < total - 3) pages.push('...')
-  addPage(total - 1)
-  return pages
-}
+
 
 // ── Sub-components ─────────────────────────────────────
 function SlotImage({ slot, className = 'h-4 object-contain' }: { slot: string; className?: string }) {
@@ -465,55 +455,7 @@ export default function AdminGearBookPage() {
           )}
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="mt-5 flex flex-col items-center gap-3">
-              <p className="text-xs text-gray-500">
-                หน้า <span className="text-gray-300 font-semibold">{safePage + 1}</span> จาก{' '}
-                <span className="text-gray-300 font-semibold">{totalPages}</span>
-              </p>
-              <div className="flex items-center gap-2">
-                {/* Nav left */}
-                <div className="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 p-1">
-                  <button onClick={() => setPage(0)} disabled={safePage === 0}
-                    className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
-                    <span className="material-icons-round" style={{ fontSize: 18 }}>first_page</span>
-                  </button>
-                  <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={safePage === 0}
-                    className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
-                    <span className="material-icons-round" style={{ fontSize: 18 }}>chevron_left</span>
-                  </button>
-                </div>
-
-                {/* Page numbers */}
-                <div className="flex items-center justify-center gap-1 w-36 sm:w-52 rounded-xl bg-white/5 border border-white/10 p-1 h-10">
-                  {buildPageNumbers(safePage, totalPages).map((p, i) =>
-                    p === '...'
-                      ? <span key={`dot-${i}`} className="flex items-center justify-center w-7 h-8 text-gray-600 text-xs select-none">…</span>
-                      : <button key={p} onClick={() => setPage(p)}
-                          className={`flex items-center justify-center w-7 h-8 rounded-lg text-xs font-bold transition-all ${
-                            p === safePage
-                              ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30'
-                              : 'text-gray-400 hover:text-white hover:bg-white/10'
-                          }`}>
-                          {p + 1}
-                        </button>
-                  )}
-                </div>
-
-                {/* Nav right */}
-                <div className="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 p-1">
-                  <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={safePage === totalPages - 1}
-                    className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
-                    <span className="material-icons-round" style={{ fontSize: 18 }}>chevron_right</span>
-                  </button>
-                  <button onClick={() => setPage(totalPages - 1)} disabled={safePage === totalPages - 1}
-                    className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
-                    <span className="material-icons-round" style={{ fontSize: 18 }}>last_page</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          {totalPages > 1 && <Pagination page={safePage} totalPages={totalPages} onChange={setPage} className="mt-5" />}
         </>
       )}
 

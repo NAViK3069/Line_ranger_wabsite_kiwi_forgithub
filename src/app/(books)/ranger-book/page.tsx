@@ -10,6 +10,7 @@ import GachaRangerDetailPopup from '@/components/GachaRangerDetailPopup'
 import type { AbilityOption } from '@/server/api/ranger-abilities/route'
 import type { SkillFxPayload } from '@/server/api/ranger-skill-effects/route'
 import { useLanguage } from '@/contexts/LanguageContext'
+import Pagination from '@/components/Pagination'
 
 
 interface RangerRecord {
@@ -189,17 +190,6 @@ function toggleItem<T>(arr: T[], item: T): T[] {
   return arr.includes(item) ? arr.filter(x => x !== item) : [...arr, item]
 }
 
-function buildPageNumbers(current: number, total: number): (number | '...')[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i)
-  const pages: (number | '...')[] = []
-  const addPage = (p: number) => { if (!pages.includes(p)) pages.push(p) }
-  addPage(0)
-  if (current > 2) pages.push('...')
-  for (let p = Math.max(1, current - 1); p <= Math.min(total - 2, current + 1); p++) addPage(p)
-  if (current < total - 3) pages.push('...')
-  addPage(total - 1)
-  return pages
-}
 
 // ชื่อเรนเจอร์ภาษาไทย โหลดเฉพาะตอนต้องใช้จริง (อยู่โหมด EN แล้วผู้ใช้พิมพ์ไทย)
 // โหมด TH ไม่ต้องใช้ เพราะชื่อ EN คือ fallback ที่มีอยู่แล้ว ค้นได้ทั้งสองภาษาอยู่แล้ว
@@ -677,47 +667,7 @@ export default function PublicRangerBookPage() {
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="mt-5 flex flex-col items-center gap-3">
-              <p className="text-xs text-gray-500">
-                {tStat('Page')} <span className="text-gray-300 font-semibold">{safePage + 1}</span> {tStat('of')} <span className="text-gray-300 font-semibold">{totalPages}</span>
-              </p>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 p-1">
-                  <button onClick={() => setPage(0)} disabled={safePage === 0}
-                    className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
-                    <span className="material-icons-round" style={{ fontSize: 18 }}>first_page</span>
-                  </button>
-                  <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={safePage === 0}
-                    className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
-                    <span className="material-icons-round" style={{ fontSize: 18 }}>chevron_left</span>
-                  </button>
-                </div>
-                <div className="flex items-center justify-center gap-1 w-36 sm:w-52 rounded-xl bg-white/5 border border-white/10 p-1 h-10">
-                  {buildPageNumbers(safePage, totalPages).map((p, i) =>
-                    p === '...'
-                      ? <span key={`dot-${i}`} className="flex items-center justify-center w-7 h-8 text-gray-600 text-xs select-none">…</span>
-                      : <button key={p} onClick={() => setPage(p)}
-                          className={`flex items-center justify-center w-7 h-8 rounded-lg text-xs font-bold transition-all ${
-                            p === safePage ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30' : 'text-gray-400 hover:text-white hover:bg-white/10'
-                          }`}>
-                          {p + 1}
-                        </button>
-                  )}
-                </div>
-                <div className="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 p-1">
-                  <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={safePage === totalPages - 1}
-                    className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
-                    <span className="material-icons-round" style={{ fontSize: 18 }}>chevron_right</span>
-                  </button>
-                  <button onClick={() => setPage(totalPages - 1)} disabled={safePage === totalPages - 1}
-                    className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
-                    <span className="material-icons-round" style={{ fontSize: 18 }}>last_page</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          {totalPages > 1 && <Pagination page={safePage} totalPages={totalPages} onChange={setPage} className="mt-5" />}
         </>
       )}
 

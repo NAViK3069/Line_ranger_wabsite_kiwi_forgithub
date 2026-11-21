@@ -9,6 +9,7 @@
 import { apiFetch } from '@/lib/staticApi'
 import { useEffect, useMemo, useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
+import Pagination from '@/components/Pagination'
 
 export interface RangerRow {
   id: string
@@ -71,18 +72,6 @@ const ELEMENTS = [
   { value: 'dark',  label: 'Dark',  img: '/gacha/images/Dark.png' },
   { value: 'none',  label: 'None',  img: null },
 ]
-// เลขหน้าที่จะโชว์ — ชุดเดียวกับ Ranger Book (หน้าแรก / รอบๆ หน้าปัจจุบัน / หน้าสุดท้าย)
-function buildPageNumbers(current: number, total: number): (number | '...')[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i)
-  const pages: (number | '...')[] = []
-  const addPage = (p: number) => { if (!pages.includes(p)) pages.push(p) }
-  addPage(0)
-  if (current > 2) pages.push('...')
-  for (let p = Math.max(1, current - 1); p <= Math.min(total - 2, current + 1); p++) addPage(p)
-  if (current < total - 3) pages.push('...')
-  addPage(total - 1)
-  return pages
-}
 
 // รูปดาวของแถวนั้น — ร่างอัลตร้า/ไฮเปอร์ใช้ไฟล์คนละชุด ('#' ต้อง encode ไม่งั้นกลายเป็น fragment)
 function starImg(grade: number | null, evo: string | null): string | null {
@@ -206,10 +195,6 @@ export default function RangerPicker({ title, allowAll = false, minGrade = 0, vi
   const pageRows = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE)
   const activeCount = Object.values(filters).reduce((n, a) => n + a.length, 0)
 
-  // ช่องเลขหน้าเก็บข้อความดิบไว้ต่างหาก จะได้ลบให้ว่างระหว่างพิมพ์ได้
-  // แล้วเด้งกลับมาตรงกับหน้าจริงตอนออกจากช่อง (หรือเมื่อกดปุ่มเลื่อนหน้า)
-  const [pageInput, setPageInput] = useState(String(safePage + 1))
-  useEffect(() => { setPageInput(String(safePage + 1)) }, [safePage])
 
   const chip = (on: boolean, cls?: string) =>
     `h-7 px-2 rounded-lg border text-xs inline-flex items-center gap-1 transition-colors ${
@@ -349,60 +334,11 @@ export default function RangerPicker({ title, allowAll = false, minGrade = 0, vi
           )}
         </div>
 
-        <div className="px-4 py-3 border-t border-white/10 shrink-0 flex flex-col items-center gap-2">
-          {/* พิมพ์เลขหน้าเพื่อวาปไปเลย — 44 หน้าถ้าไล่กดทีละหน้าคือช้าเกินไป */}
-          <p className="text-xs text-gray-500 flex items-center gap-1.5">
-            {tStat('Page')}
-            <input
-              type="text" inputMode="numeric" value={pageInput}
-              onChange={e => {
-                const digits = e.target.value.replace(/\D/g, '')
-                setPageInput(digits)
-                const n = parseInt(digits, 10)
-                if (Number.isFinite(n) && n >= 1) setPage(Math.min(totalPages, n) - 1)
-              }}
-              onBlur={() => setPageInput(String(safePage + 1))}
-              className="w-10 h-6 px-1 rounded bg-slate-900 border border-slate-700 text-gray-200 text-xs text-center focus:outline-none focus:border-purple-500"
-            />
-            {tStat('of')} <span className="text-gray-300 font-semibold">{totalPages}</span>
-            <span className="text-gray-600 ml-1">
-              {filtered.length ? safePage * PAGE_SIZE + 1 : 0}–{Math.min((safePage + 1) * PAGE_SIZE, filtered.length)} / {filtered.length}
-            </span>
-          </p>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 p-1">
-              <button type="button" onClick={() => setPage(0)} disabled={safePage === 0}
-                className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
-                <span className="material-icons-round" style={{ fontSize: 18 }}>first_page</span>
-              </button>
-              <button type="button" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={safePage === 0}
-                className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
-                <span className="material-icons-round" style={{ fontSize: 18 }}>chevron_left</span>
-              </button>
-            </div>
-            <div className="flex items-center justify-center gap-1 w-36 sm:w-52 rounded-xl bg-white/5 border border-white/10 p-1 h-10">
-              {buildPageNumbers(safePage, totalPages).map((pg, i) =>
-                pg === '...'
-                  ? <span key={`dot-${i}`} className="flex items-center justify-center w-7 h-8 text-gray-600 text-xs select-none">…</span>
-                  : <button key={pg} type="button" onClick={() => setPage(pg)}
-                      className={`flex items-center justify-center w-7 h-8 rounded-lg text-xs font-bold transition-all ${
-                        pg === safePage ? 'bg-purple-600 text-white shadow-md shadow-purple-500/30' : 'text-gray-400 hover:text-white hover:bg-white/10'
-                      }`}>
-                      {pg + 1}
-                    </button>
-              )}
-            </div>
-            <div className="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 p-1">
-              <button type="button" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={safePage === totalPages - 1}
-                className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
-                <span className="material-icons-round" style={{ fontSize: 18 }}>chevron_right</span>
-              </button>
-              <button type="button" onClick={() => setPage(totalPages - 1)} disabled={safePage === totalPages - 1}
-                className="flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
-                <span className="material-icons-round" style={{ fontSize: 18 }}>last_page</span>
-              </button>
-            </div>
-          </div>
+        <div className="px-4 py-3 border-t border-white/10 shrink-0">
+          <Pagination
+            page={safePage} totalPages={totalPages} onChange={setPage}
+            info={<>{filtered.length ? safePage * PAGE_SIZE + 1 : 0}–{Math.min((safePage + 1) * PAGE_SIZE, filtered.length)} / {filtered.length}</>}
+          />
         </div>
       </div>
     </div>

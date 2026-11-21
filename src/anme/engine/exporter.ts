@@ -8,7 +8,6 @@
 import { ArrayBufferTarget, Muxer } from 'mp4-muxer'
 import { assets } from './assets'
 import { renderMix } from './audio'
-import { getState } from './store'
 import { renderScene } from './render'
 import { buildTimeline, type Timeline } from './timeline'
 import type { Scene } from './types'
@@ -62,7 +61,8 @@ export async function exportVideo(scene: Scene, o: ExportOptions, onProgress: (k
 
   // เสียง: มิกซ์ทั้งหมดแบบออฟไลน์ แล้วเข้ารหัส AAC ใส่แทร็กเดียวกับวิดีโอ
   const SR = 48000
-  const mix = o.audio ? await renderMix(tl, o.from, o.to, getState().volume, SR) : null
+  // ส่งออกที่ความดังเต็ม — หลอดเสียง/ปุ่มปิดเสียงบนไทม์ไลน์มีผลแค่ตอนฟังระหว่างตัดต่อ
+  const mix = o.audio ? await renderMix(tl, o.from, o.to, 1, SR) : null
   const aacOk = !!mix && typeof AudioEncoder !== 'undefined'
     && (await AudioEncoder.isConfigSupported({ codec: 'mp4a.40.2', sampleRate: SR, numberOfChannels: 2, bitrate: 192000 }).catch(() => ({ supported: false }))).supported
 

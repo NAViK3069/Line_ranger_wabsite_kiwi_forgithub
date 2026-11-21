@@ -202,7 +202,8 @@ export function Timeline() {
           <button className={'ibtn' + (loop ? ' on' : '')} title={L('เล่นวน', 'Loop')} onClick={() => setState({ loop: !loop })}><Icon name="loop" /></button>
           <div className="timecode"><b>{fmtTime(time)}</b><span>/ {fmtTime(scene.duration)}</span></div>
           <button className={'ibtn' + (muted ? ' on muted' : '')} title={muted ? L('เปิดเสียง', 'Unmute') : L('ปิดเสียง', 'Mute')} onClick={() => setMuted(!muted)}><Icon name={muted ? 'volumeOff' : 'volume'} /></button>
-          <input className="vol" type="range" min={0} max={1} step={0.01} value={muted ? 0 : volume} title={L('ระดับเสียง', 'Volume')}
+          <input className="vol" type="range" min={0} max={1} step={0.01} value={muted ? 0 : volume}
+            title={L(`เสียงที่ได้ยินตอนตัดต่อ ${Math.round(volume * 100)}% (ไม่มีผลกับวิดีโอที่ส่งออก)`, `Monitor volume ${Math.round(volume * 100)}% (does not affect the exported video)`)}
             onChange={e => { const v = parseFloat(e.target.value); setVolume(v); if (muted && v > 0) setMuted(false) }}
             style={{ ['--k' as string]: `${(muted ? 0 : volume) * 100}%` }} />
           <select className="mini-sel" value={rate} onChange={e => setState({ rate: parseFloat(e.target.value) })} title={L('ความเร็วการเล่น', 'Playback speed')}>

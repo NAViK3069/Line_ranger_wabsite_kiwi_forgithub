@@ -16,7 +16,7 @@ import { assets } from '@/anme/engine/assets'
 import { L } from '@/anme/engine/i18n'
 import { cueColor, cueLabel } from '@/anme/engine/scene'
 import {
-  checkpoint, getState, redo, replaceScene, select, setLang, setMuted, setState, setTime, toast, undo, updateScene, useStore,
+  checkpoint, getState, redo, replaceScene, select, setLang, setMuted, setState, setTime, setVolume, toast, undo, updateScene, useStore,
 } from '@/anme/engine/store'
 import { buildTimeline, sceneEnd } from '@/anme/engine/timeline'
 import type { Cue, Scene } from '@/anme/engine/types'
@@ -424,6 +424,7 @@ function MoreMenu({ onModal }: { onModal: (m: Modal) => void }) {
   const lang = useStore(s => s.lang)
   const loop = useStore(s => s.loop)
   const muted = useStore(s => s.muted)
+  const volume = useStore(s => s.volume)
   const rate = useStore(s => s.rate)
   const importRef = useRef<HTMLInputElement>(null)
 
@@ -474,6 +475,12 @@ function MoreMenu({ onModal }: { onModal: (m: Modal) => void }) {
         </MoreRow>
         <MoreRow label={L('เสียง', 'Sound')}>
           <button className={'m-switch' + (!muted ? ' on' : '')} onClick={() => setMuted(!muted)} aria-pressed={!muted}><i /></button>
+        </MoreRow>
+        {/* เสียงที่ได้ยินตอนตัดต่อ (ค่าเดียวกับปุ่มเสียงของทั้งเว็บ) — ไม่มีผลกับวิดีโอที่ส่งออก */}
+        <MoreRow label={`${L('ระดับเสียง', 'Volume')} ${Math.round((muted ? 0 : volume) * 100)}%`}>
+          <input className="vol" type="range" min={0} max={1} step={0.01} value={muted ? 0 : volume}
+            onChange={e => { const v = parseFloat(e.target.value); setVolume(v); if (muted && v > 0) setMuted(false) }}
+            style={{ ['--k' as string]: `${(muted ? 0 : volume) * 100}%`, width: 150 }} />
         </MoreRow>
         <MoreRow label={L('ความยาวฉาก (วินาที)', 'Scene length (s)')}>
           <div className="m-stepper">

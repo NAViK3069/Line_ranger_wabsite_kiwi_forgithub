@@ -41,6 +41,17 @@ const ls = (k: string) => { try { return localStorage.getItem(k) } catch { retur
 
 const LS_KEY = 'anme.autosave.v1'
 
+/**
+ * ระดับเสียงที่ "ได้ยิน" ตอนตัดต่อ — ใช้ค่าเดียวกับปุ่มเสียงของทั้งเว็บ (SoundContext: localStorage 'sound-volume', ค่าเริ่มต้น 20%)
+ * ปรับที่นี่แล้วหน้าอื่นของเว็บก็ดังเท่ากัน · ไม่มีผลกับวิดีโอที่ส่งออก (exporter มิกซ์เสียงเต็ม 100% เสมอ)
+ */
+const SITE_VOLUME_KEY = 'sound-volume'
+const SITE_VOLUME_DEFAULT = 0.2
+function initialVolume(): number {
+  const v = parseFloat(ls(SITE_VOLUME_KEY) ?? '')
+  return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : SITE_VOLUME_DEFAULT
+}
+
 function initialScene(): Scene {
   try {
     const raw = localStorage.getItem(LS_KEY)
@@ -55,7 +66,7 @@ let state: AppState = {
   lang: getLang(),
   muted: ls('anme.muted') === '1',
   hoverPart: null,
-  volume: Math.min(1, Math.max(0, parseFloat(ls('anme.volume') ?? '0.9') || 0.9)),
+  volume: initialVolume(),
 }
 
 export function setLang(lang: Lang) {
@@ -67,7 +78,7 @@ export function setMuted(muted: boolean) {
   setState({ muted })
 }
 export function setVolume(volume: number) {
-  try { localStorage.setItem('anme.volume', String(volume)) } catch { /* */ }
+  try { localStorage.setItem(SITE_VOLUME_KEY, String(volume)) } catch { /* */ }
   setState({ volume })
 }
 const listeners = new Set<() => void>()

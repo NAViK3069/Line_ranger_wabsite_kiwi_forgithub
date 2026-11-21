@@ -641,7 +641,7 @@ export async function loadDemo() {
   const { replaceScene } = await import('./store')
   // ฉากตัวอย่างของเว็บ Line Ranger Kiwi (เจ้าของเว็บจัดไว้เอง — src/anme/engine/demoScene.json):
   // Darkpaw Brown (ฝ่ายเรา) ซูมเปิด → เดินเข้าหา → โจมตี 2 ครั้ง (แถบระยะ ATK) → สกิล 1 ×2 (การ์ด + แถบระยะ) → สกิล 2 ×2 ใส่ Shogun Moon (ศัตรู)
-  // ฉาก battle05 · 21 วิ · มีเสียงจากเกม + กล้องแพน/ซูม · การ์ดคำอธิบายเป็นภาษาไทย
+  // ฉาก battle24 · 21 วิ · มีเสียงจากเกม + กล้องแพน/ซูม · การ์ดคำอธิบายเป็นภาษาไทย
   // แก้ฉากตัวอย่าง: จัดฉากในสตูดิโอ → เมนู "ส่งออกไฟล์ฉาก (.json)" → แทนที่ไฟล์นี้
   const { default: demo } = await import('./demoScene.json')
   const scene = structuredClone(demo) as unknown as Scene

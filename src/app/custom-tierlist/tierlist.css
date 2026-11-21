@@ -170,8 +170,6 @@
 }
 .tl-pool.over { background: #1d2029; border-color: #fbbf24; }
 .tl-empty { width: 100%; display: flex; align-items: center; justify-content: center; min-height: 72px; color: #8b92a8; font-size: 13px; text-align: center; padding: 0 12px; }
-.tl-tip { display: flex; align-items: flex-start; gap: 6px; margin: 10px 2px 0; font-size: 12px; color: #8b92a8; line-height: 1.45; }
-.tl-tip .material-icons-round { font-size: 16px; margin-top: 1px; }
 
 /* แถบล่าง (เลือกเรนเจอร์แล้ว) */
 .tl-dock {
@@ -275,7 +273,7 @@
   .tl-ctrl button:first-child { width: 64px; height: 30px; }
   .tl-ctrl button { width: 32px; height: 26px; }
   .tl-sub { width: auto; margin-left: auto; order: 0; }
-  .tl-pool-add { margin-left: 8px; }
+  .tl-sub + .tl-pool-add { margin-left: 8px; }   /* ไม่มีข้อความ → ปุ่มชิดขวาด้วย margin-left: auto ตามเดิม */
   .tl-sheet { max-width: 480px; margin: 0 auto; border-radius: 20px 20px 0 0; }
   .tl-toast { bottom: 150px; }
 }

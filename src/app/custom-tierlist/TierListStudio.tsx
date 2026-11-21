@@ -823,7 +823,8 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
         <span className="material-icons-round">inventory_2</span>
         <b>{T('เรนเจอร์', 'Rangers')}</b>
         <span className="tl-count">{board.pool.length}</span>
-        <span className="tl-sub">{board.metaOff ? T('ปิดตัวแนะนำอยู่ · กดรีเซ็ตเพื่อเอากลับมา', 'Recommendations off · Reset to bring them back') : T('จาก Meta PVP · Legend · Users ≥ 2 · อัปเดตทุกวัน', 'from Meta PVP · Legend · Users ≥ 2 · updates daily')}</span>
+        {/* โชว์เฉพาะตอนปิดตัวแนะนำ (บอกวิธีเอากลับมา) — ข้อความ "จาก Meta PVP…" เอาออกตามที่สั่ง */}
+        {board.metaOff && <span className="tl-sub">{T('ปิดตัวแนะนำอยู่ · กดรีเซ็ตเพื่อเอากลับมา', 'Recommendations off · Reset to bring them back')}</span>}
         <button className="tl-btn primary tl-pool-add" onClick={() => setPicking(true)}>
           <span className="material-icons-round">person_add</span>{T('เพิ่มเรนเจอร์', 'Add ranger')}
         </button>
@@ -835,12 +836,6 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
         )}
         {renderZone(POOL, board.pool)}
       </div>
-      <p className="tl-tip">
-        <span className="material-icons-round">{isPC ? 'mouse' : 'touch_app'}</span>
-        {isPC
-          ? T('คลิกเรนเจอร์เพื่อเปิดเมนู (ย้ายเทียร์ · ดูรายละเอียด · กลับคลัง · ลบ) · ลากวางเพื่อย้ายได้เลย', 'Click a ranger for its menu (move tier · info · pool · remove) · drag & drop to move')
-          : T('แตะเรนเจอร์เพื่อเลือก แล้วกดเทียร์ด้านล่าง · กดค้างแล้วลากเพื่อย้าย', 'Tap a ranger, then a tier below · long-press and drag to move')}
-      </p>
 
       {/* แถบล่าง: ตัวที่เลือก → ย้ายไปเทียร์ */}
       {selected && !detailId && !isPC && (

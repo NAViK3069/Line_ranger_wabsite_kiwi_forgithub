@@ -44,9 +44,12 @@ input, select { font: inherit; color: inherit; }
 
 /* ── layout ── */
 .app {
+  /* ขนาดแผง — ค่าเริ่มต้นตามจอ (ดู @media ด้านล่าง) · ผู้ใช้ลากเส้นแบ่งแล้วค่าจะมาเป็น inline style ทับ */
+  --lib-w: 300px; --insp-w: 340px; --tl-h: 270px;
+  position: relative;
   height: 100vh;
   display: grid;
-  grid-template-rows: 54px minmax(0, 1fr) 270px;
+  grid-template-rows: 54px minmax(0, 1fr) var(--tl-h);
   /* คอลัมน์เดียวที่หดได้ — ไม่ให้ปุ่มบนแถบบนดันความกว้างจนแผงขวาหลุดจอ */
   grid-template-columns: minmax(0, 1fr);
   width: 100vw;
@@ -55,7 +58,20 @@ input, select { font: inherit; color: inherit; }
     radial-gradient(900px 400px at 100% 100%, rgba(255, 178, 56, 0.06), transparent 60%),
     var(--bg0);
 }
-.main { display: grid; grid-template-columns: 300px minmax(0, 1fr) 340px; min-height: 0; }
+.main { display: grid; grid-template-columns: var(--lib-w) minmax(0, 1fr) var(--insp-w); min-height: 0; }
+/* เส้นแบ่งลากปรับขนาดแผง (ซ้าย / ขวา / ไทม์ไลน์) — ดับเบิลคลิก = กลับค่าเริ่มต้น */
+.split { position: absolute; z-index: 30; touch-action: none; }
+.split::after { content: ''; position: absolute; background: transparent; transition: background 0.12s; border-radius: 2px; }
+.split:hover::after, .split.on::after { background: var(--cyan); box-shadow: 0 0 8px rgba(51, 225, 255, 0.6); }
+.split.v { top: 54px; bottom: var(--tl-h); width: 8px; margin-left: -4px; cursor: col-resize; }
+.split.v::after { left: 3px; top: 0; bottom: 0; width: 2px; }
+.split.v.l { left: var(--lib-w); }
+.split.v.r { left: calc(100% - var(--insp-w)); }
+.split.h { left: 0; right: 0; top: calc(100% - var(--tl-h)); height: 8px; margin-top: -4px; cursor: row-resize; }
+.split.h::after { top: 3px; left: 0; right: 0; height: 2px; }
+.app.resizing, .app.resizing * { user-select: none !important; }
+.app.resizing.v { cursor: col-resize; }
+.app.resizing.h { cursor: row-resize; }
 .center { min-width: 0; min-height: 0; position: relative; }
 
 /* ── top bar ── */
@@ -129,11 +145,11 @@ input, select { font: inherit; color: inherit; }
 
 /* ── library ── */
 .library, .inspector {
-  min-height: 0; display: flex; flex-direction: column;
+  min-height: 0; min-width: 0; overflow: hidden; display: flex; flex-direction: column;
   background: linear-gradient(180deg, rgba(14, 19, 36, 0.92), rgba(9, 12, 24, 0.92));
 }
 .library { border-right: 1px solid var(--line); }
-.inspector { border-left: 1px solid var(--line); overflow-y: auto; padding-bottom: 40px; }
+.inspector { border-left: 1px solid var(--line); overflow-x: hidden; overflow-y: auto; padding-bottom: 40px; }
 .lib-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 8px; border-bottom: 1px solid var(--line); }
 .lib-tabs button {
   display: flex; align-items: center; justify-content: center; gap: 5px; height: 32px; border-radius: 8px;
@@ -491,12 +507,12 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px;
   .top-actions .btn.primary .lbl { display: inline; }
 }
 @media (max-width: 1200px) {
-  .main { grid-template-columns: 250px minmax(0, 1fr) 300px; }
+  .app { --lib-w: 250px; --insp-w: 300px; }
   .brand-text span { display: none; }
   .top-actions .btn.primary .lbl { display: none; }
 }
 @media (max-width: 900px) {
-  .main { grid-template-columns: 210px minmax(0, 1fr) 270px; }
+  .app { --lib-w: 210px; --insp-w: 270px; }
 }
 
 /* ── แผงชิ้นส่วน (เลเยอร์) ── */

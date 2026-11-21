@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { MobileApp } from './MobileApp'
 import { copySelection, deleteSelection, duplicateSelection, pasteClipboard, patchActor } from '@/anme/engine/actions'
 import { getState, redo, setState, setTime, undo, useStore } from '@/anme/engine/store'
+import { L } from '@/anme/engine/i18n'
 import { Inspector } from './Inspector'
 import { Library } from './Library'
 import { StageView } from './StageView'
@@ -72,15 +73,79 @@ function useIsMobile() {
   return mobile
 }
 
+// ── ขนาดแผงบนจอคอม (ลากเส้นแบ่งได้แบบโปรแกรมตัดต่อ) ──
+// เก็บเฉพาะค่าที่ผู้ใช้ลากเอง · ไม่มีค่า = ใช้ค่าเริ่มต้นตามความกว้างจอใน CSS
+type PaneKey = 'lib' | 'insp' | 'tl'
+type Layout = Partial<Record<PaneKey, number>>
+const LAYOUT_KEY = 'anme.layout.v1'
+const COLLAPSE = 120   // ลากแผงข้างให้แคบกว่านี้ = พับเก็บ (กว้าง 0) · ลากเส้นออกมาใหม่ได้
+function loadLayout(): Layout {
+  try { return JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}') as Layout } catch { return {} }
+}
+function useLayout() {
+  const [layout, setLayout] = useState<Layout>(loadLayout)
+  useEffect(() => { try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)) } catch { /* เก็บไม่ได้ก็ใช้ได้ปกติ */ } }, [layout])
+  return [layout, setLayout] as const
+}
+
+function Splitters({ appRef, setLayout }: { appRef: React.RefObject<HTMLDivElement | null>; setLayout: React.Dispatch<React.SetStateAction<Layout>> }) {
+  const [active, setActive] = useState<PaneKey | null>(null)
+  const start = (key: PaneKey) => (e: React.PointerEvent) => {
+    e.preventDefault()
+    const app = appRef.current
+    if (!app) return
+    const el = e.currentTarget as HTMLElement
+    try { el.setPointerCapture(e.pointerId) } catch { /* ลากต่อได้ตามปกติ */ }
+    setActive(key)
+    app.classList.add('resizing', key === 'tl' ? 'h' : 'v')
+    const move = (ev: PointerEvent) => {
+      const r = app.getBoundingClientRect()
+      let v: number
+      if (key === 'lib') v = ev.clientX - r.left
+      else if (key === 'insp') v = r.right - ev.clientX
+      else v = r.bottom - ev.clientY
+      if (key === 'tl') v = Math.min(r.height - 54 - 140, Math.max(90, v))   // เหลือที่ให้เวทีเสมอ
+      else {
+        v = Math.min(r.width * 0.45, v)
+        if (v < COLLAPSE) v = 0
+      }
+      setLayout(l => ({ ...l, [key]: Math.round(v) }))
+    }
+    const up = () => {
+      el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up)
+      setActive(null)
+      app.classList.remove('resizing', 'h', 'v')
+    }
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerup', up)
+    el.addEventListener('pointercancel', up)
+  }
+  const reset = (key: PaneKey) => () => setLayout(l => { const n = { ...l }; delete n[key]; return n })
+  const tip = L('ลากเพื่อปรับขนาด · ดับเบิลคลิก = ค่าเริ่มต้น', 'Drag to resize · double-click to reset')
+  return (
+    <>
+      <div className={'split v l' + (active === 'lib' ? ' on' : '')} title={tip} onPointerDown={start('lib')} onDoubleClick={reset('lib')} />
+      <div className={'split v r' + (active === 'insp' ? ' on' : '')} title={tip} onPointerDown={start('insp')} onDoubleClick={reset('insp')} />
+      <div className={'split h' + (active === 'tl' ? ' on' : '')} title={tip} onPointerDown={start('tl')} onDoubleClick={reset('tl')} />
+    </>
+  )
+}
+
 export function App() {
   // เปลี่ยนภาษา → render ใหม่ทั้งแอพ
   useStore(s => s.lang)
   usePlayback()
   useShortcuts()
   const mobile = useIsMobile()
+  const [layout, setLayout] = useLayout()
+  const appRef = useRef<HTMLDivElement>(null)
   if (mobile) return <><MobileApp /><Toasts /></>
+  const vars: Record<string, string> = {}
+  if (layout.lib != null) vars['--lib-w'] = layout.lib + 'px'
+  if (layout.insp != null) vars['--insp-w'] = layout.insp + 'px'
+  if (layout.tl != null) vars['--tl-h'] = layout.tl + 'px'
   return (
-    <div className="app">
+    <div className="app" ref={appRef} style={vars as CSSProperties}>
       <TopBar />
       <div className="main">
         <Library />
@@ -88,6 +153,7 @@ export function App() {
         <Inspector />
       </div>
       <Timeline />
+      <Splitters appRef={appRef} setLayout={setLayout} />
       <Toasts />
     </div>
   )

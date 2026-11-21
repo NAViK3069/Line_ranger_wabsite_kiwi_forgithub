@@ -295,7 +295,6 @@ const STAT_LABELS_TH: Record<string, string> = {
   'increase':                       'เพิ่ม',
   'decrease':                       'ลด',
   // ── Animation Popup ──
-  'Under development':              'กำลังอยู่ในช่วงพัฒนา',
   'Full screen':                    'เต็มจอ',
   'Exit full screen':               'ออกจากเต็มจอ',
   // ปุ่มปิดพื้นหลัง — ใช้คีย์แยกจาก 'None' ที่แปลว่า "ไร้ธาตุ" (คีย์นั้นใช้กับ badge ธาตุในหน้ากาชา)
@@ -402,6 +401,12 @@ const STAT_LABELS_TH: Record<string, string> = {
   'Edit profile':                   'แก้ไขโปรไฟล์',
   'Choose profile image':           'เลือกรูปโปรไฟล์',
   'Choose fortress':                'เลือกป้อมปราการ',
+  // ── หน้าต่างเลือกพื้นหลังในตัวเล่นอนิเมชั่น ──
+  'All':                            'ทั้งหมด',
+  'Story':                          'ด่านปกติ',
+  'Arena & Team':                   'อารีน่า & ทีม',
+  'Event Raid':                     'อีเวนต์เรด',
+  'Stage':                          'ด่าน',
   'Level':                          'เลเวล',
   'Gauge':                          'หลอด',
   'Ranger teams':                   'ปรับแต่งทีมเรนเจอร์',

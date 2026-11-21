@@ -14,6 +14,7 @@ import { createPortal } from 'react-dom'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useSound } from '@/contexts/SoundContext'
 import { SAMParser, applyAttackCombos, type SamFrame } from '@/lib/animation/samParser'
+import { BATTLE_STAGES, stageLabel } from '@/lib/battleStages'
 import {
   loadSprites,
   disposeSprites,
@@ -673,17 +674,6 @@ function dummyPointWorld(dummy: { pivotX: number }, raw: { x: number; y: number 
   return { x: dist + (2 * dummy.pivotX - r.x), y: r.y + yOff }
 }
 
-const BATTLE_STAGES = [
-  'battle00', 'battle01', 'battle01-2', 'battle02', 'battle02-2', 'battle03', 'battle03-2',
-  'battle04', 'battle04-2', 'battle05', 'battle05-2', 'battle06', 'battle06-2', 'battle07',
-  'battle07-3', 'battle08-2', 'battle08-3', 'battle09', 'battle09-2', 'battle09-3',
-  'battle10', 'battle10-2', 'battle11', 'battle12', 'battle12-2', 'battle13', 'battle13-2',
-  'battle14', 'battle14-2', 'battle15', 'battle16', 'battle17', 'battle18', 'battle19',
-  'battle20', 'battle21', 'battle22', 'battle23', 'battle24', 'battle25', 'battle26',
-  'battle28', 'battle30', 'battle31', 'battle32', 'battle33', 'battle34', 'battle35',
-  'battle36', 'battle37', 'battle38',
-]
-
 function loadBgImage(url: string): Promise<HTMLImageElement | null> {
   return new Promise(resolve => {
     const img = new Image()
@@ -895,6 +885,163 @@ function applyResize(base: Sel, h: Handle, px: number, py: number, W: number, H:
 
 // รายการ anim ในลำดับ export — เก็บช่วงเฟรม start/end ของแต่ละตัวไว้ด้วย (ตัดคลิปได้อิสระต่อตัว)
 interface SeqItem { animIdx: number; start: number; end: number }
+
+// ── รูปตัวอย่างของด่าน (หน้าต่างเลือกพื้นหลัง) ──
+// bg.png เป็นแค่แผ่นแคบสูง (284×830) ส่วนฉากจริง (เสา/ธง/ต้นไม้) มาจาก object1..6 ที่วางทับ
+// → ประกอบแบบเดียวกับฉากจริงแต่ย่อ: bg 3 แผ่น + object เรียงซ้ายไปขวา (ระยะห่างคงที่ ภาพเดิมทุกครั้ง)
+//   แล้วครอป 16:9 รอบเส้นถนน (จุดที่ตัวละครยืน) ย่อเป็น JPEG เล็ก แคชไว้ทั้ง session
+const stageThumbCache = new Map<string, Promise<string | null>>()
+function stageThumb(stage: string): Promise<string | null> {
+  let p = stageThumbCache.get(stage)
+  if (!p) {
+    p = (async () => {
+      const bg = await loadBgImage(PROXY_FILE(`${BATTLE_STAGE_BASE}${stage}/bg.png`))
+      if (!bg) return null
+      const objects = (await Promise.all(
+        Array.from({ length: BG_OBJECT_COUNT }, (_, i) => loadBgImage(PROXY_FILE(`${BATTLE_STAGE_BASE}${stage}/object${i + 1}.png`))),
+      )).filter((o): o is HTMLImageElement => o !== null)
+      const W = bg.width * 3, H = bg.height
+      const cv = document.createElement('canvas')
+      cv.width = W; cv.height = H
+      const ctx = cv.getContext('2d')
+      if (!ctx) return null
+      for (let i = 0; i < 3; i++) ctx.drawImage(bg, i * bg.width, 0)
+      let x = 12
+      for (let i = 0; objects.length && x < W; i++) {
+        const o = objects[i % objects.length]
+        ctx.drawImage(o, Math.round(x), H - o.height)
+        x += o.width + (BG_OBJECT_GAP_MIN + BG_OBJECT_GAP_MAX) / 2
+      }
+      const ch = Math.round(H * 0.52), cw = Math.min(W, Math.round((ch * 16) / 9)), cy = Math.round(H * 0.4)
+      const out = document.createElement('canvas')
+      out.width = 320; out.height = 180
+      out.getContext('2d')?.drawImage(cv, 0, cy, cw, ch, 0, 0, 320, 180)
+      try { return out.toDataURL('image/jpeg', 0.78) } catch { return null }
+    })()
+    stageThumbCache.set(stage, p)
+  }
+  return p
+}
+
+/** รูปตัวอย่างหนึ่งการ์ด — ประกอบเมื่อเลื่อนมาเห็นเท่านั้น (ด่านมี 65 ด่าน) · ระหว่างรอเป็นกล่องกระพริบ */
+function StageThumb({ stage }: { stage: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [url, setUrl] = useState<string | null | undefined>(undefined)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let alive = true
+    const io = new IntersectionObserver(entries => {
+      if (!entries.some(e => e.isIntersecting)) return
+      io.disconnect()
+      stageThumb(stage).then(u => { if (alive) setUrl(u) })
+    }, { rootMargin: '200px' })
+    io.observe(el)
+    return () => { alive = false; io.disconnect() }
+  }, [stage])
+  return (
+    <div ref={ref} className="aspect-[16/9] bg-slate-900 overflow-hidden">
+      {url === undefined && <div className="w-full h-full animate-pulse bg-gradient-to-br from-slate-800 to-slate-900" />}
+      {url === null && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={PROXY_FILE(`${BATTLE_STAGE_BASE}${stage}/bg.png`)} alt="" loading="lazy" className="w-full h-full object-cover opacity-60" />
+      )}
+      {url && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={url} alt="" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+      )}
+    </div>
+  )
+}
+
+// ── หน้าต่างเลือกพื้นหลัง (ด่านในเกม) — มีรูปตัวอย่างของแต่ละด่าน เลือกง่ายเหมือน Video Studio ──
+// Mobile first: จอแคบเต็มพื้นที่ตัวเล่น 2 คอลัมน์ · จอกว้างเป็นกล่องกลางจอ 3–4 คอลัมน์
+// รูปตัวอย่าง = ฉากย่อที่ประกอบจาก bg + object (ดู stageThumb) ทำเฉพาะการ์ดที่เลื่อนมาเห็น
+type StageGroup = 'all' | 'story' | 'team' | 'raid'
+const stageGroupOf = (s: string): Exclude<StageGroup, 'all'> =>
+  s.startsWith('eventraid_') ? 'raid' : s.startsWith('arena_') || s.startsWith('battleteam') ? 'team' : 'story'
+
+function BgStagePicker({ value, onPick, onClose }: { value: string | null; onPick: (stage: string | null) => void; onClose: () => void }) {
+  const { tStat } = useLanguage()
+  const [group, setGroup] = useState<StageGroup>(() => (value ? stageGroupOf(value) : 'all'))
+  const list = group === 'all' ? BATTLE_STAGES : BATTLE_STAGES.filter(s => stageGroupOf(s) === group)
+  const chips: { key: StageGroup; label: string; n: number }[] = [
+    { key: 'all', label: tStat('All'), n: BATTLE_STAGES.length },
+    { key: 'story', label: tStat('Story'), n: BATTLE_STAGES.filter(s => stageGroupOf(s) === 'story').length },
+    { key: 'team', label: tStat('Arena & Team'), n: BATTLE_STAGES.filter(s => stageGroupOf(s) === 'team').length },
+    { key: 'raid', label: tStat('Event Raid'), n: BATTLE_STAGES.filter(s => stageGroupOf(s) === 'raid').length },
+  ]
+  // เปิดมาแล้วเลื่อนไปหาด่านที่ใช้อยู่ให้เห็นเลย
+  const gridRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    gridRef.current?.querySelector<HTMLElement>('[aria-pressed="true"]')?.scrollIntoView({ block: 'center' })
+  }, [])
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [onClose])
+
+  const card = (on: boolean) =>
+    `group relative rounded-xl overflow-hidden border text-left transition-all active:scale-[0.97] ${
+      on ? 'border-cyan-400 ring-2 ring-cyan-400/60 shadow-[0_0_18px_rgba(34,211,238,0.35)]' : 'border-white/10 hover:border-white/30'
+    }`
+
+  return (
+    <div className="absolute inset-0 z-20 flex sm:items-center sm:justify-center bg-black/80 sm:p-3 sm:rounded-b-2xl"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="card-glass w-full h-full sm:h-auto sm:max-h-full sm:max-w-2xl sm:rounded-xl flex flex-col overflow-hidden">
+        {/* หัว */}
+        <div className="flex items-center gap-2 px-3 sm:px-4 pt-3 pb-2 shrink-0">
+          <span className="material-icons-round text-[20px] text-cyan-300">wallpaper</span>
+          <span className="text-sm font-bold text-white">{tStat('Background')}</span>
+          <span className="text-[11px] text-gray-500 tabular-nums">{list.length}</span>
+          <button type="button" onClick={onClose} aria-label="close"
+            className="ml-auto w-9 h-9 sm:w-8 sm:h-8 rounded-lg grid place-items-center text-gray-400 hover:text-white hover:bg-white/10">
+            <span className="material-icons-round text-[20px]">close</span>
+          </button>
+        </div>
+        {/* กลุ่มด่าน — เลื่อนซ้ายขวาได้บนจอแคบ */}
+        <div className="flex gap-1.5 px-3 sm:px-4 pb-2.5 overflow-x-auto shrink-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {chips.map(c => (
+            <button key={c.key} type="button" onClick={() => setGroup(c.key)}
+              className={`shrink-0 h-8 px-3 rounded-full border text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                group === c.key ? 'bg-cyan-500/20 border-cyan-400 text-cyan-200' : 'bg-slate-800/80 border-slate-700 text-gray-400 hover:text-white'
+              }`}>
+              {c.label}<span className="text-[10px] opacity-60 tabular-nums">{c.n}</span>
+            </button>
+          ))}
+        </div>
+        {/* รายการด่าน */}
+        {/* กล่องเลื่อนแยกจาก grid — grid ที่เป็นตัวเลื่อนเองจะบีบแถวจนการ์ด (overflow-hidden) แบนเป็นเส้น */}
+        <div ref={gridRef} className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 pb-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          {/* ไม่มีพื้นหลัง */}
+          <button type="button" onClick={() => onPick(null)} aria-pressed={value === null} className={card(value === null)}>
+            <div className="aspect-[16/9] grid place-items-center bg-[repeating-conic-gradient(#1e293b_0%_25%,#0f172a_0%_50%)] bg-[length:16px_16px]">
+              <span className="material-icons-round text-[28px] text-gray-500">hide_image</span>
+            </div>
+            <span className="block px-2 py-1.5 text-[11px] font-semibold text-gray-300 bg-black/60 truncate">{tStat('Off')}</span>
+          </button>
+          {list.map(stage => (
+            <button key={stage} type="button" onClick={() => onPick(stage)} aria-pressed={value === stage} title={stage} className={card(value === stage)}>
+              <StageThumb stage={stage} />
+              <span className={`block px-2 py-1.5 text-[11px] font-semibold truncate ${value === stage ? 'text-cyan-200 bg-cyan-950/80' : 'text-gray-200 bg-black/60'}`}>
+                {stageLabel(stage, { storyPrefix: `${tStat('Stage')} ` })}
+              </span>
+              {value === stage && (
+                <span className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-cyan-400 text-slate-900 grid place-items-center shadow">
+                  <span className="material-icons-round text-[16px]">check</span>
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function RangerAnimationPopup({ rangerId, rangerName, attackRange, skillTargets, skillAreas, skillRearMul, isFlyer, isAirAmbush, samFilesOverride, embedded = false, onClose }: Props) {
   const { tStat } = useLanguage()
@@ -3128,14 +3275,6 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
             <h2 className="text-sm sm:text-base font-bold text-white truncate leading-tight">{rangerName}</h2>
             <div className="text-[10px] sm:text-xs text-gray-500 truncate">{rangerId}{currentSamName ? ` · ${currentSamName}` : ''}</div>
           </div>
-          {/* ป้ายแจ้งเตือนว่าตัวเล่นอนิเมชั่นยังอยู่ระหว่างพัฒนา (ตำแหน่ง/เอฟเฟกต์บางอย่างยังไม่นิ่ง)
-              เตือนเรื่องการวางตำแหน่งของเรนเจอร์โดยเฉพาะ — โหมดเล่นไฟล์ทั่วไปไม่เกี่ยว จึงไม่ต้องมี */}
-          {!embedded && (
-            <div className="shrink-0 px-2 py-1 rounded border border-red-500/70 bg-red-500/10 flex items-center gap-1">
-              <span className="material-icons-round text-[13px] text-red-400">warning</span>
-              <span className="text-[10px] sm:text-xs font-bold text-red-300 whitespace-nowrap">{tStat('Under development')}</span>
-            </div>
-          )}
           {samFiles.length > 1 && (
             <div className="flex items-center gap-1 shrink-0">
               <button type="button" onClick={() => setCurrentSamIdx(i => (i - 1 + samFiles.length) % samFiles.length)}
@@ -3210,31 +3349,11 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
 
           {/* Battle Stage Background Panel */}
           {showBgPanel && (
-            <div className="absolute inset-0 z-20 flex items-center justify-center p-3 bg-black/80 rounded-b-2xl"
-              onClick={(e) => { if (e.target === e.currentTarget) setShowBgPanel(false) }}>
-              <div className="card-glass w-full max-w-xs sm:max-w-md rounded-xl p-4 flex flex-col gap-3 max-h-full">
-                <div className="flex items-center justify-between shrink-0">
-                  <span className="text-sm font-bold text-white">{tStat('Background')}</span>
-                  <button type="button" onClick={() => setShowBgPanel(false)} className="text-gray-400 hover:text-white">
-                    <span className="material-icons-round text-[18px]">close</span>
-                  </button>
-                </div>
-                <button type="button" onClick={() => { setBgStage(null); setShowBgPanel(false) }}
-                  className={`shrink-0 py-2 border rounded text-xs ${
-                    bgStage === null ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300' : 'bg-slate-800 border-slate-700 text-gray-300 hover:bg-slate-700'
-                  }`}
-                >{tStat('Off')}</button>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 overflow-y-auto pr-0.5">
-                  {BATTLE_STAGES.map(stage => (
-                    <button key={stage} type="button" onClick={() => { setBgStage(stage); setShowBgPanel(false) }}
-                      className={`py-1.5 border rounded text-[10px] font-mono truncate ${
-                        bgStage === stage ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300' : 'bg-slate-800 border-slate-700 text-gray-300 hover:bg-slate-700'
-                      }`}
-                    >{stage.replace('battle', '')}</button>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <BgStagePicker
+              value={bgStage}
+              onPick={stage => { setBgStage(stage); setShowBgPanel(false) }}
+              onClose={() => setShowBgPanel(false)}
+            />
           )}
 
           {/* Video Export Panel Overlay */}

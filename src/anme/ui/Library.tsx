@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import RangerPicker, { PICKER_VIEW_DEFAULT, type PickerView } from '@/app/lobby/RangerPicker'
 import { UPCOMING_RANGERS } from '@/lib/upcomingRangers'
+import { BATTLE_STAGES, stageLabel } from '@/lib/battleStages'
 import { useLanguage } from '@/contexts/LanguageContext'
 import {
   addLericoRanger, addMediaActor, addSoundCue, addUploadedRanger, loadNames, uploadAudio, uploadMedia, uploadSequence, type RangerName,
@@ -219,33 +220,13 @@ export function MediaTab() {
 }
 
 // ── ฉาก / แผนที่ ──
-export const BATTLE_STAGES = [
-  'battle00', 'battle01', 'battle01-2', 'battle02', 'battle02-2', 'battle03', 'battle03-2',
-  'battle04', 'battle04-2', 'battle05', 'battle05-2', 'battle06', 'battle06-2', 'battle07',
-  'battle07-3', 'battle08-2', 'battle08-3', 'battle09', 'battle09-2', 'battle09-3',
-  'battle10', 'battle10-2', 'battle11', 'battle12', 'battle12-2', 'battle13', 'battle13-2',
-  'battle14', 'battle14-2', 'battle15', 'battle16', 'battle17', 'battle18', 'battle19',
-  'battle20', 'battle21', 'battle22', 'battle23', 'battle24', 'battle25', 'battle26',
-  'battle28', 'battle30', 'battle31', 'battle32', 'battle33', 'battle34', 'battle35',
-  'battle36', 'battle37', 'battle38',
-]
-const presetMaps = () => [{ url: '/maps/map1.jpg', name: L('แผนที่โลก', 'World map') }, { url: '/maps/map1_full.jpg', name: L('แผนที่โลก (เต็ม)', 'World map (full)') }]
 const COLORS = ['#00b140', '#0047ff', '#000000', '#ffffff', '#0b1020', '#ff2d55']
 const GRADS: [string, string][] = [['#1b2550', '#06070d'], ['#ff8a3d', '#3a0b4f'], ['#53e0ff', '#0b2a66'], ['#2b0a3d', '#000000'], ['#ffe08a', '#ff5f6d']]
 
 export function MapsTab() {
   const bg = useStore(s => s.scene.background)
-  const bgAsset = useStore(s => s.scene.assets.find(a => a.id === s.scene.background.assetId))
   const fileRef = useRef<HTMLInputElement>(null)
   const setStage = (stage: string) => { updateScene(s => { s.background = { ...s.background, kind: 'stage', stage, fit: 'height', scale: 1, offsetX: 0, offsetY: 0 } }); select({ kind: 'background' }) }
-  const setPreset = (url: string, name: string) => {
-    updateScene(s => {
-      let def = s.assets.find(d => d.type === 'image' && d.url === url)
-      if (!def) { def = { id: uid('m'), type: 'image', name, url }; s.assets.push(def) }
-      s.background = { ...s.background, kind: 'asset', assetId: def.id, fit: 'cover', scale: 1, offsetX: 0, offsetY: 0 }
-    })
-    select({ kind: 'background' })
-  }
   return (
     <>
       <button className="btn wide" onClick={() => select({ kind: 'background' })}><Icon name="wand" /> {L('ปรับแต่งพื้นหลังปัจจุบัน', 'Adjust current background')}</button>
@@ -257,13 +238,9 @@ export function MapsTab() {
       <div className="swatches">
         {GRADS.map(g => <button key={g.join()} className={'swatch' + (bg.kind === 'gradient' && bg.gradient.join() === g.join() ? ' on' : '')} style={{ background: `linear-gradient(${g[0]}, ${g[1]})` }} onClick={() => updateScene(s => { s.background = { ...s.background, kind: 'gradient', gradient: g } })} />)}
       </div>
-      <div className="lib-subtitle">{L('แผนที่', 'Maps')}</div>
+      {/* แผนที่โลก 2 รูปเดิมเอาออกแล้ว — เหลือปุ่มอัปโหลดภาพ/วิดีโอเป็นพื้นหลังเอง */}
+      <div className="lib-subtitle">{L('ภาพ/วิดีโอของคุณ', 'Your image/video')}</div>
       <div className="map-grid">
-        {presetMaps().map(m => (
-          <button key={m.url} className={'map-card' + (bg.kind === 'asset' && bgAsset && 'url' in bgAsset && bgAsset.url === m.url ? ' on' : '')} onClick={() => setPreset(m.url, m.name)}>
-            <img src={appUrl(m.url)} alt="" loading="lazy" /><span>{m.name}</span>
-          </button>
-        ))}
         <button className="map-card upload" onClick={() => fileRef.current?.click()}><Icon name="upload" size={22} /><span>{L('อัปโหลดภาพ/วิดีโอ', 'Upload image/video')}</span></button>
       </div>
       <input ref={fileRef} type="file" hidden accept="image/*,video/*" onChange={e => { const f = [...(e.target.files ?? [])]; e.target.value = ''; if (f.length) uploadMedia(f, { asBackground: true }) }} />
@@ -272,7 +249,7 @@ export function MapsTab() {
         {BATTLE_STAGES.map(s => (
           <button key={s} className={'map-card' + (bg.kind === 'stage' && bg.stage === s ? ' on' : '')} onClick={() => setStage(s)}>
             <img src={appUrl(`/api/res/${s}/bg.png`)} alt="" loading="lazy" onError={e => { (e.target as HTMLImageElement).style.opacity = '0.15' }} />
-            <span>{s.replace('battle', L('ด่าน ', 'Stage '))}</span>
+            <span>{stageLabel(s, { storyPrefix: L('ด่าน ', 'Stage ') })}</span>
           </button>
         ))}
       </div>
@@ -298,7 +275,7 @@ export function BackgroundInspector() {
         <Seg value={bg.kind} onChange={v => set({ kind: v })} options={[
           { value: 'stage', label: L('ด่านเกม', 'Stage') }, { value: 'asset', label: L('ภาพ/วิดีโอ', 'Image/video') }, { value: 'color', label: L('สี', 'Color') }, { value: 'gradient', label: L('ไล่สี', 'Gradient') },
         ]} />
-        {bg.kind === 'stage' && <Select label={L('ด่าน', 'Stage')} value={bg.stage} options={BATTLE_STAGES} onChange={v => set({ stage: v })} />}
+        {bg.kind === 'stage' && <Select label={L('ด่าน', 'Stage')} value={bg.stage} options={BATTLE_STAGES.map(s => ({ value: s, label: stageLabel(s, { storyPrefix: L('ด่าน ', 'Stage ') }) }))} onChange={v => set({ stage: v })} />}
         {bg.kind === 'color' && <label className="fsel"><span className="sel-label">{L('สี', 'Color')}</span><input type="color" value={bg.color} onChange={e => set({ color: e.target.value }, false)} /></label>}
         {bg.kind === 'gradient' && <Row>
           <label className="fsel"><span className="sel-label">{L('บน', 'Top')}</span><input type="color" value={bg.gradient[0]} onChange={e => set({ gradient: [e.target.value, bg.gradient[1]] }, false)} /></label>

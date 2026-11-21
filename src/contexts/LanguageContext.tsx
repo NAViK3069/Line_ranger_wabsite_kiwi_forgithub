@@ -401,6 +401,7 @@ const STAT_LABELS_TH: Record<string, string> = {
   'Play':                           'เล่น',
   'Edit profile':                   'แก้ไขโปรไฟล์',
   'Choose profile image':           'เลือกรูปโปรไฟล์',
+  'Choose fortress':                'เลือกป้อมปราการ',
   'Level':                          'เลเวล',
   'Gauge':                          'หลอด',
   'Ranger teams':                   'ปรับแต่งทีมเรนเจอร์',

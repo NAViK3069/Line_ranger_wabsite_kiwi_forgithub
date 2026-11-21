@@ -9,6 +9,7 @@
 // ====================================================
 
 import { apiFetch } from '@/lib/staticApi'
+import { upcomingFacts } from '@/lib/upcomingRangers'
 import {
   BASE_OPTIONS, MAXFX_OPTIONS, STAR_OPTIONS, RANK_OPTIONS, ELEMENT_OPTIONS, TALENT_OPTIONS, optionValue,
 } from './scene'
@@ -169,8 +170,11 @@ export async function fetchRangerFacts(id: string): Promise<RangerFacts | null> 
     factsCache.set(id, facts)
     return facts
   } catch {
-    factsCache.set(id, null)
-    return null
+    // ตัวใหม่ที่ยังไม่เข้าเกม (ไม่มีค่าพลังในระบบ) → ใช้ค่าชั่วคราวที่กำหนดไว้ใน upcomingRangers.ts
+    // พอมีข้อมูลทางการแล้ว บรรทัด try ข้างบนจะได้ของจริงก่อนเสมอ
+    const up = upcomingFacts(id) ?? null
+    factsCache.set(id, up)
+    return up
   }
 }
 

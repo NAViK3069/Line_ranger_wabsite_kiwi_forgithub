@@ -5,7 +5,7 @@
 // เลือกรูป / ระดับ / เลเวล / ความยาวหลอด — ที่เหลือสลับไฟล์ให้ครบชุดเองใน profile.ts
 // ====================================================
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { PROFILE_IMG_OPTIONS, valueToRef } from './scene'
 import { PROFILE_TIERS, groupDigits, RUBY_MAX, COIN_MAX, FEATHER_MAX } from './profile'
@@ -30,9 +30,11 @@ interface Props {
   /** ขั้นต่ำของขนนก = เลขหลัง "/" ที่ตั้งไว้ในฉาก (แถบขนนกช่องข้อความที่ 2) */
   featherMin: number
   onChange: (next: Partial<ProfileState>) => void
+  /** ของที่วางต่อจากรูปโปรไฟล์ (ปุ่มเลือกป้อมปราการ) */
+  beside?: ReactNode
 }
 
-export default function ProfilePanel({ profile, featherMin: fMin, onChange }: Props) {
+export default function ProfilePanel({ profile, featherMin: fMin, onChange, beside }: Props) {
   const { tStat } = useLanguage()
   const [picking, setPicking] = useState(false)
   const [search, setSearch] = useState('')
@@ -74,6 +76,8 @@ export default function ProfilePanel({ profile, featherMin: fMin, onChange }: Pr
             onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
           />
         </button>
+
+        {beside}
 
         <div className="flex-1 min-w-[260px] space-y-3">
           {/* ระดับ — สลับทั้งชุด (ตัวเลข / ธง / เสาธง / ข้อความ / หลอด) พร้อมกัน */}

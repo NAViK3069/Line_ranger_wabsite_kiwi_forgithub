@@ -3,7 +3,7 @@
 // ====================================================
 // LobbyStudio — ตัวพื้นที่ถ่ายรูปทั้งก้อน ใช้ร่วมกันสองหน้า
 //   /admin/lobby  (admin = true)  เห็นตารางจัดวางวัตถุ + เลือกเรนเจอร์ได้ทุกตัว
-//   /lobby        (admin = false) ใช้ฉากชุดเดียวกันแต่ไม่มีตารางจัดวาง และเลือกได้เฉพาะเรนเจอร์ปกติ
+//   /lobby        (admin = false) ใช้ฉากชุดเดียวกันแต่ไม่มีตารางจัดวาง (เลือกเรนเจอร์ได้ทุกตัวเหมือนกัน + ตัวใหม่)
 // ทั้งสองหน้าต้องปลดล็อค Beta/Pro เหมือนกัน (ด่านอยู่ในนี้ที่เดียว)
 // วาดทุกอย่างลง Canvas โดยตรงเหมือนหน้า Top40 Legend ในแอดมิน
 // (ไม่ใช้ html2canvas — วาดแล้วได้ภาพจริงเลย ไม่ต้องแปลงอีกชั้น)
@@ -41,6 +41,9 @@ import type { RangerFacts, TeamSide, TeamSlot } from './team'
 import { applyProfile, featherCap, PROFILE_DEFAULT } from './profile'
 import type { ProfileState } from './profile'
 import ProfilePanel from './ProfilePanel'
+import FortressButton from './FortressButton'
+import { applyFortress, FORTRESS_DEFAULT } from './fortress'
+import { G_RANGER_SCALE, UPCOMING_RANGERS, upcomingSizeRatio } from '@/lib/upcomingRangers'
 import { applyRookieRow, isRookie, ROOKIE_ROW } from './rookie'
 import TeamPanel from './TeamPanel'
 import RangerPicker, { PICKER_VIEW_DEFAULT } from './RangerPicker'
@@ -297,7 +300,11 @@ function pickBodyUrl(files: string[], alt: boolean): string | null {
 // h = ความสูงที่ของชิ้นนี้วาดออกมาจริงที่ zoom 1 (รูป = ความสูงไฟล์ / อนิเมชั่น = ความสูงกรอบ)
 // ใช้ปรับไอคอนพรสวรรค์ให้ออกมาเท่ากันทั้งที่ไฟล์ tlt ใหญ่ 312px ส่วนสไปรต์อนิเมชั่นเล็กกว่ามาก
 interface LoadedImage { kind: 'image'; img: HTMLImageElement; cx: number; cy: number; h: number; ink?: { x0: number; x1: number } }
-interface LoadedAnim { kind: 'anim'; sam: SAMParser; sprites: SpriteMap; anim: string; frames: number; cx: number; cy: number; h: number }
+interface LoadedAnim {
+  kind: 'anim'; sam: SAMParser; sprites: SpriteMap; anim: string; frames: number; cx: number; cy: number; h: number
+  /** ตัวคูณขนาดตอนวาด (ไม่ใส่ = 1) — ใช้กับเรนเจอร์ชั่วคราวที่ไฟล์วาดใหญ่กว่าปกติ (upcomingRangers.ts) */
+  k?: number
+}
 type Loaded = LoadedImage | LoadedAnim
 
 // ขอบซ้าย/ขวาของเนื้อจริงในรูป — คอลัมน์ที่มี alpha > 0 อย่างน้อยหนึ่งพิกเซล
@@ -363,7 +370,10 @@ async function loadRanger(id: string, alt = false): Promise<LoadedAnim> {
   const stand = placementStandPoint(sam, sprites, anim, centers)
     ?? (box && centers ? anchorFromRatio(box, centers) : null)
     ?? (box ? { x: (box.x0 + box.x1) / 2, y: box.y1 } : { x: 0, y: 0 })
-  return { kind: 'anim', sam, sprites, anim, frames: sam.animations[anim].length, cx: stand.x, cy: stand.y, h: box ? box.y1 - box.y0 : 0 }
+  // รหัส g = เรนเจอร์บอสกิล ไฟล์วาดใหญ่กว่าร่าง u ของตัวเดียวกัน 2.67 เท่า → ย่อกลับให้เท่าเรนเจอร์ปกติ
+  // ตัวชั่วคราวที่ยังไม่เข้าเกม (ชุด al) ไฟล์ใหญ่ขนาดเดียวกับ g → ใช้ค่าใน upcomingRangers.ts
+  const k = /^g\d/i.test(id) ? G_RANGER_SCALE : upcomingSizeRatio(id)
+  return { kind: 'anim', sam, sprites, anim, frames: sam.animations[anim].length, cx: stand.x, cy: stand.y, h: box ? (box.y1 - box.y0) * k : 0, ...(k !== 1 ? { k } : {}) }
 }
 
 async function loadRef(r: AssetRef): Promise<Loaded> {
@@ -437,6 +447,8 @@ export default function LobbyStudio({ admin = false }: Props) {
   const [busySlot, setBusySlot] = useState<string | null>(null)
   // ── โปรไฟล์ผู้เล่น — ทับค่าไส้ของกลุ่มโปรไฟล์ตอนคลี่ฉาก (ตำแหน่ง/ขนาดยังมาจากฉากเหมือนเดิม) ──
   const [profile, setProfile] = useState<ProfileState>(PROFILE_DEFAULT)
+  // ── ป้อมปราการกลางเวที (twr01–twr78) — ทับตัวหอในกลุ่ม tower (ดู fortress.ts) ──
+  const [fortress, setFortress] = useState<string>(FORTRESS_DEFAULT)
   // ช่วงผู้เล่นใหม่ (Normal Lv.1-20) จัดฐานคนละแบบ
   const rookieOn = isRookie(profile.tier, profile.level)
   const [picking, setPicking] = useState<{ side: TeamSide; index: number } | null>(null)
@@ -453,10 +465,10 @@ export default function LobbyStudio({ admin = false }: Props) {
 
   // รายการที่พร้อมวาดจริง = ฉาก + ทีมทับไส้ของช่องฐานยืน + โปรไฟล์ทับไส้ของกลุ่มโปรไฟล์
   const drawUnits = useMemo(() => {
-    const base = applyProfile(applyTeams(expandScene(scene), teams, facts), profile)
+    const base = applyFortress(applyProfile(applyTeams(expandScene(scene), teams, facts), profile), fortress)
     // ช่วงผู้เล่นใหม่จัดฐาน 5 ช่องเป็นแถวเดียว ขนาดเท่ากัน และตัดฝั่งกระจกกับหอกลางทิ้ง
     return rookieOn ? applyRookieRow(base, ROOKIE_ROW) : base
-  }, [scene, teams, facts, profile, rookieOn])
+  }, [scene, teams, facts, profile, fortress, rookieOn])
   // สำเนาให้ loop อ่าน — ไม่ต้อง restart loop ทุกครั้งที่พิมพ์ตัวเลข
   const unitsRef = useRef(drawUnits)
   const [ready, setReady] = useState(false)
@@ -494,7 +506,8 @@ export default function LobbyStudio({ admin = false }: Props) {
       // → จุดนั้นอยู่ที่เดิมเป๊ะ ตัวละครกลับด้านโดยเท้าไม่เลื่อน (ไม่ต้องชดเชย ox เพิ่ม)
       // ความทึบต้องส่งเข้าไปเป็นพารามิเตอร์ — renderSAMFrame ตั้ง globalAlpha ของแต่ละชิ้นเอง
       // ค่าที่ตั้งไว้ข้างนอกจึงถูกทับทิ้ง (นี่คือเหตุที่อนิเมชั่นเคยกระพริบแทนที่จะค่อยๆ เฟด)
-      renderSAMFrame(ctx, frame, l.sam.images, l.sprites, cx - l.cx * s, cy - l.cy * s, s, undefined, flip, l.cx, 0, alpha)
+      const z = s * (l.k ?? 1)
+      renderSAMFrame(ctx, frame, l.sam.images, l.sprites, cx - l.cx * z, cy - l.cy * z, z, undefined, flip, l.cx, 0, alpha)
     }
   }, [])
 
@@ -1268,11 +1281,12 @@ export default function LobbyStudio({ admin = false }: Props) {
         </>
         )}
 
-        {/* ── แผงแก้ไขโปรไฟล์ — อยู่เหนือแผงจัดทีมตามที่สั่ง ── */}
+        {/* ── แผงแก้ไขโปรไฟล์ — อยู่เหนือแผงจัดทีมตามที่สั่ง · ปุ่มเลือกป้อมอยู่ข้างรูปโปรไฟล์ ── */}
         <ProfilePanel
           profile={profile}
           featherMin={fMin}
           onChange={next => setProfile(pf => ({ ...pf, ...next }))}
+          beside={<FortressButton value={fortress} onChange={setFortress} />}
         />
 
         {/* ── แผงจัดทีม — ส่วนที่คนทั่วไปใช้ ── */}
@@ -1331,7 +1345,8 @@ export default function LobbyStudio({ admin = false }: Props) {
         {picking && (
           <RangerPicker
             title={`${tStat('Pick a ranger')} · ${tStat('Team')} ${picking.side} ${tStat('slot')} ${picking.index + 1}`}
-            allowAll={admin}
+            allowAll
+            extraRows={UPCOMING_RANGERS}
             view={pickerView}
             onViewChange={next => setPickerView(v => ({ ...v, ...next }))}
             onPick={pickRanger}

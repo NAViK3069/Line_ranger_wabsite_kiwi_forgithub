@@ -277,7 +277,16 @@ function CameraFields({ c }: { c: CameraCue }) {
         <Num label="X" value={c.center.x} onChange={(v, h) => p(k => { k.center.x = v }, h)} />
         <Num label="Y" value={c.center.y} onChange={(v, h) => p(k => { k.center.y = v }, h)} />
       </Row>
-      <Num label={L('ระยะเวลา', 'Duration')} unit={L('วิ', 's')} step={0.05} min={0} value={c.duration} onChange={(v, h) => p(k => { k.duration = v }, h)} />
+      <Num label={L('เวลาเลื่อน', 'Pan time')} unit={L('วิ', 's')} step={0.05} min={0} value={c.duration} onChange={(v, h) => p(k => { k.duration = v }, h)} />
+      {/* ซูมเสร็จพร้อมเลื่อน (ค่าเริ่มต้น) หรือแยกเวลาซูมเอง — สั้นกว่า = ซูมเสร็จก่อน · ยาวกว่า = ซูมเสร็จทีหลัง */}
+      <Toggle label={L('ซูมเสร็จพร้อมการเลื่อน', 'Zoom finishes with the pan')} value={c.zoomDuration == null}
+        onChange={v => p(k => { k.zoomDuration = v ? null : k.duration })} />
+      {c.zoomDuration != null && (
+        <>
+          <Num label={L('เวลาซูม', 'Zoom time')} unit={L('วิ', 's')} step={0.05} min={0} value={c.zoomDuration} onChange={(v, h) => p(k => { k.zoomDuration = v }, h)} />
+          <div className="muted small">{c.zoomDuration < c.duration ? L('ซูมเสร็จก่อนการเลื่อน', 'Zoom finishes before the pan') : c.zoomDuration > c.duration ? L('การเลื่อนเสร็จก่อนการซูม', 'Pan finishes before the zoom') : L('เสร็จพร้อมกัน', 'Both finish together')}</div>
+        </>
+      )}
       <Select label={L('จังหวะ', 'Easing')} value={c.ease} options={eases()} onChange={v => p(k => { k.ease = v })} />
       <Row>
         <button className="btn small" onClick={() => p(k => { k.zoom = 1; k.center = { x: scene.width / 2, y: scene.height / 2 } })}>{L('รีเซ็ตมุมกล้อง', 'Reset view')}</button>

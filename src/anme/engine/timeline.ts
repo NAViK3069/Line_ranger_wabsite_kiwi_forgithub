@@ -279,6 +279,7 @@ export function cueBodyDuration(scene: Scene, c: Cue, skill?: SkillTiming): numb
       const rt = assets.get(c.assetId)
       return rt?.kind === 'audio' ? Math.max(0.05, rt.duration - c.offset) : 1
     }
+    case 'camera': return Math.max(c.duration, c.zoomDuration ?? c.duration)
     default: return c.duration
   }
 }
@@ -405,9 +406,17 @@ export function cameraAt(scene: Scene, t: number): CameraState {
   const cams = scene.cues.filter((c): c is CameraCue => c.type === 'camera' && c.actorId === CAMERA_ID).sort((p, q) => p.start - q.start)
   for (const c of cams) {
     if (t < c.start) break
-    const k = c.duration > 0 ? clamp((t - c.start) / c.duration, 0, 1) : 1
-    const e = EASES[c.ease](k)
-    cx = lerp(cx, c.center.x, e); cy = lerp(cy, c.center.y, e); zoom = lerp(zoom, c.zoom, e)
+    const prog = (d: number) => EASES[c.ease](d > 0 ? clamp((t - c.start) / d, 0, 1) : 1)
+    const ep = prog(c.duration)                          // ความคืบหน้าการเลื่อน
+    const ez = prog(c.zoomDuration ?? c.duration)       // ความคืบหน้าการซูม
+    // ซูมแบบ log (ตาคนรับรู้การซูมเป็นอัตราส่วน — แบบเส้นตรงจะดูเหมือนซูมค้างช่วงท้าย)
+    const z0 = Math.max(0.05, zoom), z1 = Math.max(0.05, c.zoom)
+    const z = z0 * Math.pow(z1 / z0, ez)
+    // เลื่อนให้ "จุดปลายทางเคลื่อนบนจอสม่ำเสมอ": ระยะบนจอ = (ปลายทาง − กลางกล้อง) × ซูม ลดลงตามความคืบหน้าการเลื่อน
+    // → ภาพเลื่อนและซูมไปถึงพร้อมกันจริงๆ (เดิมเลื่อนดูเสร็จก่อนเพราะความเร็วบนจอขึ้นกับซูมขณะนั้น)
+    cx = c.center.x - (1 - ep) * (c.center.x - cx) * z0 / z
+    cy = c.center.y - (1 - ep) * (c.center.y - cy) * z0 / z
+    zoom = z
   }
   return { cx, cy, zoom }
 }

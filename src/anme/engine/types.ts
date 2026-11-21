@@ -211,7 +211,10 @@ export interface CameraCue extends CueBase {
   type: 'camera'
   center: Vec
   zoom: number
+  /** เวลาเลื่อนกล้อง (วินาที) */
   duration: number
+  /** เวลาซูม (วินาที) · ไม่มีค่า/null = เท่ากับเวลาเลื่อน (เสร็จพร้อมกัน) */
+  zoomDuration?: number | null
   ease: Ease
 }
 

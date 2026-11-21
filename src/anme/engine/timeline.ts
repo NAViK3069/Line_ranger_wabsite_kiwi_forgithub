@@ -409,14 +409,13 @@ export function cameraAt(scene: Scene, t: number): CameraState {
     const prog = (d: number) => EASES[c.ease](d > 0 ? clamp((t - c.start) / d, 0, 1) : 1)
     const ep = prog(c.duration)                          // ความคืบหน้าการเลื่อน
     const ez = prog(c.zoomDuration ?? c.duration)       // ความคืบหน้าการซูม
-    // ซูมแบบ log (ตาคนรับรู้การซูมเป็นอัตราส่วน — แบบเส้นตรงจะดูเหมือนซูมค้างช่วงท้าย)
-    const z0 = Math.max(0.05, zoom), z1 = Math.max(0.05, c.zoom)
-    const z = z0 * Math.pow(z1 / z0, ez)
-    // เลื่อนให้ "จุดปลายทางเคลื่อนบนจอสม่ำเสมอ": ระยะบนจอ = (ปลายทาง − กลางกล้อง) × ซูม ลดลงตามความคืบหน้าการเลื่อน
-    // → ภาพเลื่อนและซูมไปถึงพร้อมกันจริงๆ (เดิมเลื่อนดูเสร็จก่อนเพราะความเร็วบนจอขึ้นกับซูมขณะนั้น)
-    cx = c.center.x - (1 - ep) * (c.center.x - cx) * z0 / z
-    cy = c.center.y - (1 - ep) * (c.center.y - cy) * z0 / z
-    zoom = z
+    // "กรอบภาพ" เคลื่อนจากกรอบเดิมไปกรอบใหม่เป็นเส้นตรง (มุมทั้ง 4 ของกรอบวิ่งตรงไปหามุมปลายทาง):
+    //   กลางกรอบเลื่อนแบบเส้นตรง · ความกว้างกรอบ (= เวที ÷ ซูม) เปลี่ยนแบบเส้นตรง
+    //   → เลื่อนกับซูมไปพร้อมกันตลอดทาง ไม่มีช่วงที่ซูมออกก่อนแล้วค่อยเลื่อน
+    const w0 = 1 / Math.max(0.05, zoom), w1 = 1 / Math.max(0.05, c.zoom)
+    cx = lerp(cx, c.center.x, ep)
+    cy = lerp(cy, c.center.y, ep)
+    zoom = 1 / lerp(w0, w1, ez)
   }
   return { cx, cy, zoom }
 }

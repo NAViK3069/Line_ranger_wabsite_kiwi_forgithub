@@ -4,9 +4,13 @@
 // ====================================================
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { checkpoint } from '@/anme/engine/store'
+import { L } from '@/anme/engine/i18n'
 
 /** onChange(value, history) — history=false ระหว่างลาก (เรียก checkpoint ไปแล้วตอนเริ่ม) */
 type Change<T> = (v: T, history: boolean) => void
+
+// เวลาหมุนลูกกลิ้งครั้งล่าสุด (ระดับโมดูล — ช่องอาจถูกสร้างใหม่ระหว่างหมุน) · หมุนต่อเนื่อง = ย้อนทีเดียว
+let wheelAt = 0
 
 export function Num({ label, value, onChange, step = 1, min, max, unit, width, title, precision }: {
   label?: ReactNode; value: number; onChange: Change<number>; step?: number; min?: number; max?: number
@@ -16,12 +20,18 @@ export function Num({ label, value, onChange, step = 1, min, max, unit, width, t
   const prec = precision ?? (step >= 1 ? 0 : step >= 0.1 ? 1 : 2)
   const clampV = (v: number) => Math.min(max ?? Infinity, Math.max(min ?? -Infinity, v))
   const fmt = (v: number) => (Number.isFinite(v) ? String(Math.round(v * 10 ** prec) / 10 ** prec) : '0')
-  const onLabelDown = (e: React.PointerEvent) => {
+  // ค่าล่าสุดสำหรับตัวจับลูกกลิ้ง (ผูก listener ครั้งเดียว ไม่ให้ค่าค้าง)
+  const live = useRef({ value, onChange, step, clampV, fmt, editing: false })
+  live.current = { value, onChange, step, clampV, fmt, editing: text != null }
+  const rootRef = useRef<HTMLLabelElement>(null)
+
+  /** ลากซ้าย-ขวาเพื่อปรับค่า (ป้ายชื่อ หรือปุ่ม ↔) · Shift = ×10 · Alt = ×0.1 */
+  const onDragDown = (e: React.PointerEvent) => {
     e.preventDefault()
     const x0 = e.clientX, v0 = value
     let moved = false
     const el = e.currentTarget as HTMLElement
-    el.setPointerCapture(e.pointerId)
+    try { el.setPointerCapture(e.pointerId) } catch { /* จับไม่ได้ (เบราว์เซอร์บางตัว) — ลากต่อได้ตามปกติ */ }
     const move = (ev: PointerEvent) => {
       const dx = ev.clientX - x0
       if (!moved && Math.abs(dx) < 2) return
@@ -29,13 +39,38 @@ export function Num({ label, value, onChange, step = 1, min, max, unit, width, t
       const mul = ev.shiftKey ? 10 : ev.altKey ? 0.1 : 1
       onChange(clampV(+(v0 + Math.round(dx / 2) * step * mul).toFixed(4)), false)
     }
-    const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up) }
+    const up = () => { el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up) }
     el.addEventListener('pointermove', move)
     el.addEventListener('pointerup', up)
+    el.addEventListener('pointercancel', up)
   }
+
+  // เลื่อนลูกกลิ้งเมาส์บนช่อง = ปรับค่าขึ้น/ลงทีละ step (Shift = ×10 · Alt = ×0.1)
+  // หมุนต่อเนื่องนับเป็นการแก้ครั้งเดียว (Ctrl+Z ย้อนทีเดียวทั้งชุด) · ต้องใช้ listener แบบ passive:false ถึงกันหน้าเลื่อนได้
+  useEffect(() => {
+    const el = rootRef.current
+    if (!el) return
+    const h = (e: WheelEvent) => {
+      const d = e.deltaY || e.deltaX
+      if (!d) return
+      e.preventDefault()
+      const L = live.current
+      const now = performance.now()
+      const fresh = now - wheelAt > 700
+      wheelAt = now
+      if (fresh) checkpoint()
+      const mul = e.shiftKey ? 10 : e.altKey ? 0.1 : 1
+      const v = L.clampV(+(L.value + (d < 0 ? 1 : -1) * L.step * mul).toFixed(4))
+      L.onChange(v, false)
+      if (L.editing) setText(L.fmt(v))
+    }
+    el.addEventListener('wheel', h, { passive: false })
+    return () => el.removeEventListener('wheel', h)
+  }, [])
+
   return (
-    <label className="num" title={title} style={width ? { width } : undefined}>
-      {label != null && <span className="num-label" onPointerDown={onLabelDown}>{label}</span>}
+    <label ref={rootRef} className="num" title={title ?? L('↔ ลาก / ลูกกลิ้งเมาส์ = ปรับค่า · Shift ×10 · Alt ×0.1', '↔ drag / mouse wheel = adjust · Shift ×10 · Alt ×0.1')} style={width ? { width } : undefined}>
+      {label != null && <span className="num-label" onPointerDown={onDragDown}>{label}</span>}
       <input
         type="text" inputMode="decimal"
         value={text ?? fmt(value)}
@@ -53,6 +88,12 @@ export function Num({ label, value, onChange, step = 1, min, max, unit, width, t
         }}
       />
       {unit && <span className="num-unit">{unit}</span>}
+      {/* ปุ่มจับ ↔ — กดค้างแล้วลากซ้าย/ขวา (ใช้นิ้วบนมือถือได้) */}
+      <span className="num-drag" onPointerDown={onDragDown} aria-hidden>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 12h18" /><path d="m7 8-4 4 4 4" /><path d="m17 8 4 4-4 4" />
+        </svg>
+      </span>
     </label>
   )
 }

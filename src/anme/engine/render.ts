@@ -395,7 +395,8 @@ function drawRanges(ctx: CanvasRenderingContext2D, scene: Scene, t: number, orde
       const color = buff ? RANGE_BUFF_COLOR : RANGE_SKILL_COLOR
       path([[[cx - half, y + TICK], [cx - half, y], [cx + half, y], [cx + half, y + TICK]], [[cx, y], [cx, y + TICK]]], color)
       ctx.textBaseline = 'bottom'; ctx.textAlign = 'center'
-      const name = `${slot === 'skill1' ? 'Skill 1' : 'Skill 2'}${buff ? ' · Buff' : sr.basis === 'rear' ? ' · Rear' : ''}`
+      // ป้ายบอกชนิดเสมอ: Buff (รอบตัวเอง) · ATK (รอบเป้า) · ATK Rear (เป้าแนวหลัง)
+      const name = `${slot === 'skill1' ? 'Skill 1' : 'Skill 2'} · ${buff ? 'Buff' : sr.basis === 'rear' ? 'ATK Rear' : 'ATK'}`
       label(`${who}${name} ${sr.area * 2}pt`, cx, y - 7 * f, color)
     }
   }
@@ -416,28 +417,6 @@ function iconImg(url: string): HTMLImageElement | null {
   return iconCache.get(url) ?? null
 }
 
-/** ตัดบรรทัดตามความกว้าง — ตัดที่ช่องว่างก่อน คำยาวเกิน (ภาษาไทยไม่มีช่องว่าง) ค่อยตัดทีละตัวอักษร */
-function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
-  const out: string[] = []
-  let line = ''
-  const push = (w: string) => {
-    const next = line ? `${line} ${w}` : w
-    if (ctx.measureText(next).width <= maxW) { line = next; return }
-    if (line) out.push(line)
-    line = ''
-    if (ctx.measureText(w).width <= maxW) { line = w; return }
-    let part = ''
-    for (const ch of w) {
-      if (ctx.measureText(part + ch).width > maxW && part) { out.push(part); part = '' }
-      part += ch
-    }
-    line = part
-  }
-  for (const w of text.split(/\s+/).filter(Boolean)) push(w)
-  if (line) out.push(line)
-  return out
-}
-
 function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath()
   ctx.moveTo(x + r, y)
@@ -446,8 +425,12 @@ function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: n
   ctx.closePath()
 }
 
-/** วาดการ์ดหนึ่งใบที่ (x, y) · คืนความสูง (ใช้เรียงใบถัดไป) */
-function drawSkillCard(ctx: CanvasRenderingContext2D, card: SkillCard, x: number, y: number, u: number, maxW: number, life: number): number {
+/**
+ * วาดการ์ดหนึ่งใบที่ (x, y) · คืนความสูง (ใช้เรียงใบถัดไป)
+ * ไม่ตัดบรรทัด — ผลของสกิลข้อละ 1 บรรทัดเสมอ การ์ดกว้างตามข้อความที่ยาวที่สุด
+ * ขยาย (scale) = ขยายทั้งใบเท่ากันหมด (ตัวหนังสือ ไอคอน ระยะห่าง ความกว้าง)
+ */
+function drawSkillCard(ctx: CanvasRenderingContext2D, card: SkillCard, x: number, y: number, u: number, life: number): number {
   const pad = 14 * u, icon = 54 * u, gap = 12 * u
   const fTitle = `900 ${Math.round(25 * u)}px ${UI_FONT}`
   const fStat = `700 ${Math.round(14 * u)}px ${UI_FONT}`
@@ -461,13 +444,12 @@ function drawSkillCard(ctx: CanvasRenderingContext2D, card: SkillCard, x: number
   const nameW = ctx.measureText(card.name).width
   ctx.font = fStat
   const statW = card.stat ? ctx.measureText(card.stat).width : 0
-  const innerMax = maxW - pad * 2
   ctx.font = fBody
-  const lines = card.effects.flatMap(e => wrapText(ctx, e, innerMax - bullet).map((s, i) => ({ s, first: i === 0 })))
+  const lines = card.effects.map(s => ({ s, first: true }))
   const bodyW = Math.max(0, ...lines.map(l => ctx.measureText(l.s).width + bullet))
   ctx.font = fMeta
   const metaW = Math.max(0, ...metas.map(m => ctx.measureText(m).width + bullet))
-  const w = Math.min(maxW, Math.max(280 * u, icon + gap + Math.max(nameW, statW), bodyW, metaW) + pad * 2)
+  const w = Math.max(280 * u, icon + gap + Math.max(nameW, statW), bodyW, metaW) + pad * 2
   const headH = icon
   const h = pad + headH
     + (lines.length ? 10 * u + 1 + 9 * u + lines.length * bodyLH : 0)
@@ -609,7 +591,7 @@ function drawInfoCards(ctx: CanvasRenderingContext2D, scene: Scene, t: number) {
     const u = f * Math.max(0.3, c.scale)
     ctx.save()
     ctx.globalAlpha = al
-    const h = drawSkillCard(ctx, c.card, 18 * f + c.offsetX - (1 - ease) * 46 * u, y + c.offsetY, u, Math.min(scene.width * 0.42, 470 * u), life)
+    const h = drawSkillCard(ctx, c.card, 18 * f + c.offsetX - (1 - ease) * 46 * u, y + c.offsetY, u, life)
     ctx.restore()
     y += (h + 10 * f) * Math.max(ease, al)
   }

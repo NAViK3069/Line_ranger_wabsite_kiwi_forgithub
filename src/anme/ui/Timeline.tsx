@@ -2,12 +2,12 @@
 // Timeline.tsx — ไทม์ไลน์: แถวละ 1 actor (+ กล้อง) · บล็อกคิวลากย้าย/ยืดได้ · ลากหัวอ่าน
 // ====================================================
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { addCue, addLayerCue, addSkill, laneOf, placeCue, prevCueEnd, resequenceCue, rippleAfter, setActorLayer, skillPresets, uploadAudio } from '@/anme/engine/actions'
+import { addCue, addLayerCue, addSkill, laneOf, placeCue, prevCueEnd, resequenceCue, rippleAfter, setActorLayer, shiftCues, skillPresets, uploadAudio } from '@/anme/engine/actions'
 import { audioPlayer } from '@/anme/engine/audio'
 import { L } from '@/anme/engine/i18n'
 import { assets } from '@/anme/engine/assets'
 import { cueColor, cueLabel, rangeLabel } from '@/anme/engine/scene'
-import { checkpoint, getState, select, setMuted, setState, setTime, setVolume, toast, updateScene, useStore } from '@/anme/engine/store'
+import { checkpoint, getState, select, selectCues, selectedCueIds, setMuted, setState, setTime, setVolume, toast, toggleCueSelect, updateScene, useStore } from '@/anme/engine/store'
 import { buildTimeline, sceneEnd } from '@/anme/engine/timeline'
 import type { Scene } from '@/anme/engine/types'
 import type { Cue } from '@/anme/engine/types'
@@ -37,6 +37,7 @@ export function Timeline() {
   const loop = useStore(s => s.loop)
   const rate = useStore(s => s.rate)
   const sel = useStore(s => s.sel)
+  const multi = useStore(s => s.multi)
   const muted = useStore(s => s.muted)
   const volume = useStore(s => s.volume)
   useStore(s => s.lang)
@@ -45,6 +46,8 @@ export function Timeline() {
   const [pps, setPps] = useState(120)
   const [drag, setDrag] = useState<{ id: string; to: number } | null>(null)
   const [ins, setIns] = useState<{ id: string; before: boolean } | null>(null)
+  // กรอบลากเลือก (พิกัดจอ)
+  const [box, setBox] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   // ระยะเลื่อนแนวนอน — ใช้ซ่อนเส้นเวลาเมื่อมันเลื่อนไปอยู่ใต้กล่องชื่อเลเยอร์ (ไม่ให้วาดทะลุ)
   const [scrollX, setScrollX] = useState(0)
@@ -73,6 +76,36 @@ export function Timeline() {
     window.addEventListener('pointerup', up)
   }
 
+  /**
+   * กดบนพื้นที่ว่างของแถว: คลิกเฉยๆ = ย้ายหัวอ่าน (เหมือนเดิม) · ลากเกิน 4px = ลากกรอบเลือกบล็อกหลายอัน
+   * กด Shift/Ctrl ค้างตอนลาก = เพิ่มเข้ากลุ่มที่เลือกไว้แล้ว · ลากหัวอ่านแบบเดิมได้ที่ไม้บรรทัดด้านบน
+   */
+  const laneDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return
+    const x0 = e.clientX, y0 = e.clientY
+    const additive = e.shiftKey || e.ctrlKey || e.metaKey
+    let boxing = false
+    const pick = (x1: number, y1: number) => {
+      const l = Math.min(x0, x1), r = Math.max(x0, x1), t = Math.min(y0, y1), b = Math.max(y0, y1)
+      const ids = [...(scrollRef.current?.querySelectorAll<HTMLElement>('[data-cue]') ?? [])]
+        .filter(el => { const q = el.getBoundingClientRect(); return q.right > l && q.left < r && q.bottom > t && q.top < b })
+        .map(el => el.dataset.cue!)
+      selectCues(ids, additive)
+    }
+    const move = (ev: PointerEvent) => {
+      if (!boxing) { if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 4) return; boxing = true; setState({ playing: false }) }
+      setBox({ x0, y0, x1: ev.clientX, y1: ev.clientY })
+      pick(ev.clientX, ev.clientY)
+    }
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up)
+      setBox(null)
+      if (!boxing) { setState({ playing: false }); setTime(Math.max(0, timeAt(ev.clientX))) }
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+
   const timeAt = (clientX: number) => {
     const el = scrollRef.current!
     const r = el.getBoundingClientRect()
@@ -87,6 +120,11 @@ export function Timeline() {
    */
   const dragCue = (e: React.PointerEvent, c: Cue, mode: 'move' | 'resize' | 'resizeL') => {
     e.stopPropagation()
+    // Shift/Ctrl+คลิก = เพิ่ม/เอาออกจากกลุ่มที่เลือก (ไม่ลาก)
+    if (mode === 'move' && (e.shiftKey || e.ctrlKey || e.metaKey)) { toggleCueSelect(c.id); return }
+    // ลากบล็อกที่อยู่ในกลุ่มที่เลือก → ย้ายทั้งกลุ่มไปพร้อมกัน (ระยะห่างคงเดิม)
+    const group = selectedCueIds()
+    if (mode === 'move' && group.length > 1 && group.includes(c.id)) { dragGroup(e, group); return }
     select({ kind: 'cue', id: c.id })
     const x0 = e.clientX
     const start0 = c.start
@@ -139,6 +177,24 @@ export function Timeline() {
         updateScene(s => { resequenceCue(s, c.id, start0, h.id, h.before, durs); extendTo(s) }, false)
       }
       hint = null; setIns(null)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+
+  /** ลากกลุ่มบล็อกที่เลือก — ย้ายเท่ากันทุกอัน · ไม่เลยหน้า 0 วิ · กด Alt = ไม่ snap */
+  const dragGroup = (e: React.PointerEvent, ids: string[]) => {
+    const x0 = e.clientX
+    const starts = new Map(getState().scene.cues.filter(c => ids.includes(c.id)).map(c => [c.id, c.start]))
+    let started = false
+    const move = (ev: PointerEvent) => {
+      if (!started) { if (Math.abs(ev.clientX - x0) < 3) return; checkpoint(); started = true }
+      const dt = (ev.clientX - x0) / pps
+      updateScene(s => shiftCues(s, starts, ev.altKey ? dt : Math.round(dt / SNAP) * SNAP), false)
+    }
+    const up = () => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up)
+      if (started) updateScene(extendTo, false)
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
@@ -198,12 +254,12 @@ export function Timeline() {
   const renderCue = (c: Cue) => {
     const d = tl.dur.get(c.id) ?? 1
     const st = c.type === 'skill' ? tl.skill.get(c.id) : undefined
-    const selected = sel.kind === 'cue' && sel.id === c.id
+    const selected = (sel.kind === 'cue' && sel.id === c.id) || multi.includes(c.id)
     // ยืด/หดได้: เดิน · ท่าทาง (idle ฯลฯ — ไม่วนจะสลับเป็นวนเองตอนลาก) · ปรากฏ · กล้อง · เสียงที่ตัดความยาว
     const resizable = c.type === 'range' || c.type === 'info' || c.type === 'move' || c.type === 'show' || c.type === 'camera' || c.type === 'anim' || (c.type === 'sound' && c.duration > 0)
     const label = c.type === 'skill' ? c.label : c.type === 'anim' ? c.clip : c.type === 'info' ? c.card.name : c.type === 'range' ? rangeLabel(c) : c.type === 'sound' ? (scene.assets.find(d => d.id === c.assetId)?.name ?? cueLabel(c.type)) : cueLabel(c.type)
     return (
-      <div key={c.id} className={'cue cue-' + c.type + (selected ? ' sel' : '') + (resizable ? ' has-grips' : '') + (ins?.id === c.id ? (ins.before ? ' ins-before' : ' ins-after') : '')}
+      <div key={c.id} data-cue={c.id} className={'cue cue-' + c.type + (selected ? ' sel' : '') + (resizable ? ' has-grips' : '') + (ins?.id === c.id ? (ins.before ? ' ins-before' : ' ins-after') : '')}
         style={{ left: c.start * pps, width: Math.max(8, d * pps), ['--cc' as string]: cueColor[c.type] }}
         onPointerDown={e => dragCue(e, c, 'move')}
         title={`${cueLabel(c.type)} · ${label} · ${c.start.toFixed(2)}s → ${(c.start + d).toFixed(2)}s`}
@@ -310,7 +366,7 @@ export function Timeline() {
                     </button>
                   )}
                 </div>
-                <div className="tl-lane" style={{ width }} onPointerDown={scrub}>
+                <div className="tl-lane" style={{ width }} onPointerDown={laneDown}>
                   {cues.map(renderCue)}
                   {hits.map((h, i) => <div key={i} className="hit-marker" style={{ left: h.at * pps }} title={`${L('โดน', 'Hit by')} ${h.cue.label} @ ${h.at.toFixed(2)}s`} />)}
                 </div>
@@ -319,7 +375,7 @@ export function Timeline() {
               {actor && subLanes.map(lane => (
                 <div key={lane} className={'tl-row sub' + (r.visible ? '' : ' hidden-row')}>
                   <SubLabel actorId={actor.id} lane={lane} width={LABEL_W} />
-                  <div className="tl-lane" style={{ width }} onPointerDown={scrub}>
+                  <div className="tl-lane" style={{ width }} onPointerDown={laneDown}>
                     {scene.cues.filter(c => c.actorId === actor.id && laneOf(c) === lane).map(renderCue)}
                   </div>
                 </div>
@@ -327,6 +383,7 @@ export function Timeline() {
               </Fragment>
             )
           })}
+          {box && <div className="tl-marquee" style={{ left: Math.min(box.x0, box.x1), top: Math.min(box.y0, box.y1), width: Math.abs(box.x1 - box.x0), height: Math.abs(box.y1 - box.y0) }} />}
           {time * pps >= scrollX - 1 && <div className="playhead" style={{ left: LABEL_W + time * pps }}><div className="playhead-cap" /></div>}
         </div>
       </div>

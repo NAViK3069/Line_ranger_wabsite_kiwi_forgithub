@@ -11,12 +11,12 @@
 // จอกว้างกว่า 760px ใช้ App แบบ 3 แผงเดิมของ ANME (ดู App.tsx)
 // ====================================================
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { addCue, addSkill, deleteSelection, duplicateSelection, laneOf, placeCue, prevCueEnd, resequenceCue, rippleAfter, skillPresets, uploadAudio, type Lane } from '@/anme/engine/actions'
+import { addCue, addSkill, deleteSelection, duplicateSelection, laneOf, placeCue, prevCueEnd, resequenceCue, rippleAfter, shiftCues, skillPresets, uploadAudio, type Lane } from '@/anme/engine/actions'
 import { assets } from '@/anme/engine/assets'
 import { L } from '@/anme/engine/i18n'
 import { cueColor, cueLabel, rangeLabel } from '@/anme/engine/scene'
 import {
-  checkpoint, getState, redo, replaceScene, select, setLang, setMuted, setState, setTime, setVolume, toast, undo, updateScene, useStore,
+  checkpoint, getState, redo, replaceScene, select, selectedCueIds, setLang, setMuted, setState, setTime, setVolume, toast, toggleCueSelect, undo, updateScene, useStore,
 } from '@/anme/engine/store'
 import { buildTimeline, sceneEnd } from '@/anme/engine/timeline'
 import type { Cue, Scene } from '@/anme/engine/types'
@@ -146,6 +146,7 @@ function MobileTimeline({ onAdd }: { onAdd: () => void }) {
   const time = useStore(s => s.time)
   const playing = useStore(s => s.playing)
   const sel = useStore(s => s.sel)
+  const multi = useStore(s => s.multi)
   useStore(s => s.lang)
   useAssetsVersion()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -194,6 +195,14 @@ function MobileTimeline({ onAdd }: { onAdd: () => void }) {
   // ลากบล็อกที่เลือกอยู่ (ย้าย / ยืด) — บล็อกที่ยังไม่ได้เลือก แตะครั้งแรกแค่เลือก ไม่ลาก (จะได้ปัดไทม์ไลน์ได้สะดวก)
   const dragCue = (e: React.PointerEvent, c: Cue, mode: 'move' | 'resize' | 'resizeL') => {
     e.stopPropagation()
+    const group = selectedCueIds()
+    // โหมดเลือกหลายอัน: แตะบล็อกที่ยังไม่ได้เลือก = เพิ่มเข้ากลุ่ม · บล็อกในกลุ่ม = ลากย้ายทั้งกลุ่ม (แตะเฉยๆ = เอาออก)
+    if (mode === 'move' && getState().multiMode) {
+      if (!group.includes(c.id)) { toggleCueSelect(c.id); return }
+      dragGroup(e, group, () => toggleCueSelect(c.id))
+      return
+    }
+    if (mode === 'move' && group.length > 1 && group.includes(c.id)) { dragGroup(e, group); return }
     const isSel = getState().sel.kind === 'cue' && (getState().sel as { id: string }).id === c.id
     if (!isSel) { select({ kind: 'cue', id: c.id }); return }
     e.preventDefault()
@@ -238,6 +247,29 @@ function MobileTimeline({ onAdd }: { onAdd: () => void }) {
       target.removeEventListener('pointermove', move); target.removeEventListener('pointerup', up); target.removeEventListener('pointercancel', up)
       const ins = insert
       if (started) updateScene(s => { if (ins) resequenceCue(s, c.id, start0, ins.id, ins.before, durs); extendTo(s) }, false)
+    }
+    target.addEventListener('pointermove', move)
+    target.addEventListener('pointerup', up)
+    target.addEventListener('pointercancel', up)
+  }
+
+  /** ลากกลุ่มบล็อกที่เลือก — ย้ายเท่ากันทุกอัน (ระยะห่างคงเดิม) · ไม่ขยับเลย = onTap */
+  const dragGroup = (e: React.PointerEvent, ids: string[], onTap?: () => void) => {
+    e.preventDefault()
+    const x0 = e.clientX
+    const starts = new Map(getState().scene.cues.filter(c => ids.includes(c.id)).map(c => [c.id, c.start]))
+    let started = false
+    const target = e.currentTarget as HTMLElement
+    try { target.setPointerCapture(e.pointerId) } catch { /* ลากต่อได้ตามปกติ */ }
+    const move = (ev: PointerEvent) => {
+      if (!started) { if (Math.abs(ev.clientX - x0) < 4) return; checkpoint(); started = true }
+      const dt = (ev.clientX - x0) / pps
+      updateScene(s => shiftCues(s, starts, Math.round(dt / SNAP) * SNAP), false)
+    }
+    const up = () => {
+      target.removeEventListener('pointermove', move); target.removeEventListener('pointerup', up); target.removeEventListener('pointercancel', up)
+      if (started) updateScene(extendTo, false)
+      else onTap?.()
     }
     target.addEventListener('pointermove', move)
     target.addEventListener('pointerup', up)
@@ -294,7 +326,7 @@ function MobileTimeline({ onAdd }: { onAdd: () => void }) {
                 )}
                 {cues.map(c => {
                   const d = tl.dur.get(c.id) ?? 1
-                  const isSel = selCueId === c.id
+                  const isSel = selCueId === c.id || multi.includes(c.id)
                   const resizable = c.type === 'range' || c.type === 'info' || c.type === 'move' || c.type === 'show' || c.type === 'camera' || c.type === 'anim' || (c.type === 'sound' && c.duration > 0)
                   const label = c.type === 'skill' ? c.label : c.type === 'anim' ? c.clip : c.type === 'info' ? c.card.name : c.type === 'range' ? rangeLabel(c) : c.type === 'sound' ? (scene.assets.find(a => a.id === c.assetId)?.name ?? cueLabel(c.type)) : cueLabel(c.type)
                   return (
@@ -302,8 +334,8 @@ function MobileTimeline({ onAdd }: { onAdd: () => void }) {
                       style={{ left: half + c.start * pps, width: Math.max(14, d * pps), ['--cc' as string]: cueColor[c.type] }}
                       onPointerDown={e => dragCue(e, c, 'move')}>
                       <span>{c.type === 'skill' && <Icon name="bolt" size={11} />}{c.type === 'sound' && <Icon name="music" size={11} />} {label}</span>
-                      {isSel && resizable && <div className="m-cue-resize l" onPointerDown={e => dragCue(e, c, 'resizeL')} />}
-                      {isSel && resizable && <div className="m-cue-resize" onPointerDown={e => dragCue(e, c, 'resize')} />}
+                      {isSel && resizable && !multi.length && <div className="m-cue-resize l" onPointerDown={e => dragCue(e, c, 'resizeL')} />}
+                      {isSel && resizable && !multi.length && <div className="m-cue-resize" onPointerDown={e => dragCue(e, c, 'resize')} />}
                     </div>
                   )
                 })}
@@ -329,6 +361,8 @@ interface Tool { key: string; icon: IconName; label: string; run: () => void; to
 function MobileToolbar({ open, onAudio }: { open: (s: Sheet) => void; onAudio: () => void }) {
   const sel = useStore(s => s.sel)
   const scene = useStore(s => s.scene)
+  const multi = useStore(s => s.multi)
+  const multiMode = useStore(s => s.multiMode)
   useStore(s => s.lang)
   useAssetsVersion()
 
@@ -338,7 +372,15 @@ function MobileToolbar({ open, onAudio }: { open: (s: Sheet) => void; onAudio: (
 
   let tools: Tool[]
   let context: string | null = null
-  if (actor) {
+  if (multiMode || multi.length > 1) {
+    // เลือกหลายบล็อก — แตะบล็อกเพื่อเพิ่ม/เอาออก แล้วลากบล็อกไหนก็ได้ในกลุ่มเพื่อย้ายพร้อมกัน
+    const n = selectedCueIds().length
+    context = n ? L(`เลือก ${n} บล็อก · ลากเพื่อย้ายพร้อมกัน`, `${n} blocks selected · drag to move together`) : L('แตะบล็อกที่ต้องการเลือก', 'Tap the blocks to select')
+    tools = [
+      { key: 'done', icon: 'x', label: L('เสร็จ', 'Done'), run: () => { setState({ multiMode: false }); select({ kind: 'none' }) }, tone: 'accent' },
+      ...(n ? [{ key: 'del', icon: 'trash' as IconName, label: L('ลบที่เลือก', 'Delete selected'), run: () => { deleteSelection(); setState({ multiMode: false }) }, tone: 'danger' as const }] : []),
+    ]
+  } else if (actor) {
     context = actor.name
     tools = [
       ...(rt?.kind === 'ranger' ? skillPresets(rt).map(p => ({ key: p.key, icon: 'bolt' as IconName, label: p.label, run: () => addSkill(actor.id, p.key, getState().time), tone: 'accent' as const })) : []),
@@ -356,6 +398,7 @@ function MobileToolbar({ open, onAudio }: { open: (s: Sheet) => void; onAudio: (
     context = `${cueLabel(cue.type)}${cue.type === 'skill' ? ' · ' + cue.label : ''}`
     tools = [
       { key: 'edit', icon: 'edit', label: L('แก้ไข', 'Edit'), run: () => open('edit') },
+      { key: 'multi', icon: 'layers', label: L('เลือกหลายอัน', 'Select many'), run: () => setState({ multiMode: true }) },
       { key: 'dup', icon: 'copy', label: L('ทำซ้ำ', 'Duplicate'), run: duplicateSelection },
       { key: 'del', icon: 'trash', label: L('ลบ', 'Delete'), run: deleteSelection, tone: 'danger' },
     ]
@@ -379,7 +422,7 @@ function MobileToolbar({ open, onAudio }: { open: (s: Sheet) => void; onAudio: (
   return (
     <div className="m-toolbar">
       {context && (
-        <button className="m-tool-back" onClick={() => select({ kind: 'none' })} aria-label={L('กลับ', 'Back')}>
+        <button className="m-tool-back" onClick={() => { setState({ multiMode: false }); select({ kind: 'none' }) }} aria-label={L('กลับ', 'Back')}>
           <Icon name="back" size={20} />
         </button>
       )}

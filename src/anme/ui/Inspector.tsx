@@ -88,6 +88,7 @@ function SceneInspector() {
           <li><kbd>Del</kbd> {L('ลบ', 'Delete')} · <kbd>Ctrl</kbd>+<kbd>D</kbd> {L('ทำซ้ำ', 'Duplicate')}</li><li><kbd>←</kbd><kbd>→</kbd> {L('เลื่อนตัวละคร (Shift = 10px)', 'Nudge actor (Shift = 10px)')}</li>
           <li><kbd>,</kbd> <kbd>.</kbd> {L('ถอย/เดินหน้า 1 เฟรม', 'Step 1 frame')}</li><li>{L('ลากป้ายชื่อช่องตัวเลข = ปรับค่า', 'Drag a number label to scrub')}</li>
           <li>{L('ลากบล็อกไปทับบล็อกอื่น = สลับ/แทรก (Alt = วางอิสระ)', 'Drop a block on another = swap/insert (Alt = free)')}</li>
+          <li><kbd>Shift</kbd>/<kbd>Ctrl</kbd>+{L('คลิกบล็อก = เลือกหลายอัน · ลากบนที่ว่างในแถว = ลากกรอบเลือก · ลากบล็อกในกลุ่ม = ย้ายพร้อมกัน', 'click a block = multi-select · drag on empty lane = box select · drag a selected block = move them together')}</li>
         </ul>
       </Section>
     </>

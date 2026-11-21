@@ -372,6 +372,8 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px;
 .dur-input { width: 56px; height: 26px; border-radius: 7px; border: 1px solid var(--line2); background: var(--bg0); padding: 0 6px; }
 .tl-scroll { flex: 1; overflow: auto; position: relative; }
 .tl-inner { position: relative; min-height: 100%; }
+/* กรอบลากเลือกบล็อกหลายอัน (พิกัดจอ) */
+.tl-marquee { position: fixed; z-index: 50; pointer-events: none; border: 1px solid var(--cyan); background: rgba(51, 225, 255, 0.12); border-radius: 3px; }
 .tl-ruler { display: flex; position: sticky; top: 0; z-index: 7; height: 24px; background: #0a0e1c; border-bottom: 1px solid var(--line); cursor: ew-resize; }
 .tl-corner { position: sticky; left: 0; z-index: 2; background: #0a0e1c; border-right: 1px solid var(--line); flex: none; }
 .tl-ticks { position: relative; height: 100%; flex: none; }

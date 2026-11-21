@@ -376,6 +376,8 @@
 .anme-root .dur-input { width: 56px; height: 26px; border-radius: 7px; border: 1px solid var(--line2); background: var(--bg0); padding: 0 6px; }
 .anme-root .tl-scroll { flex: 1; overflow: auto; position: relative; }
 .anme-root .tl-inner { position: relative; min-height: 100%; }
+/* กรอบลากเลือกบล็อกหลายอัน (พิกัดจอ) */
+.anme-root .tl-marquee { position: fixed; z-index: 50; pointer-events: none; border: 1px solid var(--cyan); background: rgba(51, 225, 255, 0.12); border-radius: 3px; }
 .anme-root .tl-ruler { display: flex; position: sticky; top: 0; z-index: 7; height: 24px; background: #0a0e1c; border-bottom: 1px solid var(--line); cursor: ew-resize; }
 .anme-root .tl-corner { position: sticky; left: 0; z-index: 2; background: #0a0e1c; border-right: 1px solid var(--line); flex: none; }
 .anme-root .tl-ticks { position: relative; height: 100%; flex: none; }

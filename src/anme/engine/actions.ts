@@ -8,7 +8,7 @@ import { GAME_SPEED_TO_PXS } from './timeline'
 import {
   ART_FACES_LEFT, clamp, defaultFx, emptyScene, newSoundCue, defaultBackground, newActor, newAnimCue, newCameraCue, newMoveCue, newShowCue, newSkillCue, newRangeCue, newInfoCue, emptyCard, uid,
 } from './scene'
-import { getState, replaceScene, select, setState, toast, updateScene } from './store'
+import { getState, replaceScene, select, selectedCueIds, setState, toast, updateScene } from './store'
 import { actorPos, buildTimeline, sceneEnd } from './timeline'
 import type { Actor, ActorTag, AssetDef, Cue, InfoCue, SamSetUrls, Scene, SkillCard, SkillCue, SkillFx } from './types'
 import { AUDIO_ID, CAMERA_ID } from './types'
@@ -516,6 +516,20 @@ export async function addLayerCue(actorId: string, lane: 'range' | 'info', makeC
   select({ kind: 'cue', id: cue.id })
 }
 
+/**
+ * ย้ายบล็อกหลายอันพร้อมกัน (ระยะห่างระหว่างกันคงเดิม) — ใช้ตอนลากกลุ่มที่เลือก
+ * starts = เวลาเริ่มเดิมของแต่ละบล็อก (ตอนเริ่มลาก) · ทั้งกลุ่มไม่เลยหน้า 0 วิ
+ * ไม่จัดคิวชนกันให้ (แบบลากอิสระ) — วางทับกันได้ ผู้ใช้จัดเอง
+ */
+export function shiftCues(d: Scene, starts: Map<string, number>, dt: number) {
+  const minStart = Math.min(...starts.values())
+  const k = Math.max(dt, -minStart)
+  for (const c of d.cues) {
+    const s0 = starts.get(c.id)
+    if (s0 != null) c.start = +(s0 + k).toFixed(3)
+  }
+}
+
 export function deleteSelection() {
   const { sel } = getState()
   if (sel.kind === 'actor') {
@@ -525,7 +539,9 @@ export function deleteSelection() {
       pruneAssets(s)
     })
   } else if (sel.kind === 'cue') {
-    updateScene(s => { s.cues = s.cues.filter(c => c.id !== sel.id) })
+    // เลือกไว้หลายบล็อก → ลบทั้งกลุ่ม
+    const ids = new Set(selectedCueIds())
+    updateScene(s => { s.cues = s.cues.filter(c => !ids.has(c.id)) })
   } else return
   select({ kind: 'none' })
 }

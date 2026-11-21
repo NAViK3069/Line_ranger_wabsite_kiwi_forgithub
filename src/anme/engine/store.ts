@@ -20,6 +20,13 @@ export interface Toast { id: number; text: string; tone: 'info' | 'ok' | 'error'
 export interface AppState {
   scene: Scene
   sel: Selection
+  /**
+   * บล็อกที่เลือกพร้อมกันหลายอัน (Shift/Ctrl+คลิก · ลากกรอบบนไทม์ไลน์ · โหมดเลือกหลายอันบนมือถือ)
+   * ว่าง = เลือกอันเดียวตาม sel · มีของ = sel ชี้อันล่าสุดในกลุ่ม (แผงขวาแสดงอันนั้น)
+   */
+  multi: string[]
+  /** มือถือ: แตะบล็อก = เพิ่ม/เอาออกจากกลุ่มที่เลือก (ไม่มี Shift บนจอสัมผัส) */
+  multiMode: boolean
   time: number
   playing: boolean
   loop: boolean
@@ -61,7 +68,7 @@ function initialScene(): Scene {
 }
 
 let state: AppState = {
-  scene: initialScene(), sel: { kind: 'none' }, time: 0, playing: false, loop: true, rate: 1,
+  scene: initialScene(), sel: { kind: 'none' }, multi: [], multiMode: false, time: 0, playing: false, loop: true, rate: 1,
   guides: true, projectName: null, dirty: false, toasts: [], busy: null,
   lang: getLang(),
   muted: ls('anme.muted') === '1',
@@ -127,7 +134,7 @@ export function updateScene(fn: (draft: Scene) => void, history = true) {
 export function replaceScene(scene: Scene, projectName: string | null = null) {
   checkpoint()
   const s = normalizeScene(scene)
-  state = { ...state, scene: s, sel: { kind: 'none' }, time: 0, playing: false, projectName, dirty: false }
+  state = { ...state, scene: s, sel: { kind: 'none' }, multi: [], multiMode: false, time: 0, playing: false, projectName, dirty: false }
   assets.sync(s.assets)
   autosave()
   emit()
@@ -148,7 +155,26 @@ export function redo() {
   assets.sync(next.assets); autosave(); emit()
 }
 
-export const select = (sel: Selection) => setState({ sel })
+export const select = (sel: Selection) => setState({ sel, multi: [] })
+
+/** บล็อกที่เลือกอยู่ทั้งหมด (กลุ่ม หรืออันเดียว) — กรองอันที่ไม่มีแล้วออก (หลัง undo/ลบ) */
+export function selectedCueIds(s: AppState = state): string[] {
+  const ids = s.multi.length ? s.multi : s.sel.kind === 'cue' ? [s.sel.id] : []
+  return ids.filter(id => s.scene.cues.some(c => c.id === id))
+}
+
+/** เลือกบล็อกชุดนี้ (ลากกรอบ) · additive = เพิ่มเข้ากลุ่มเดิม (กด Shift ค้าง) */
+export function selectCues(ids: string[], additive = false) {
+  const all = additive ? [...new Set([...selectedCueIds(), ...ids])] : [...new Set(ids)]
+  setState({ sel: all.length ? { kind: 'cue', id: all[all.length - 1] } : { kind: 'none' }, multi: all.length > 1 ? all : [] })
+}
+
+/** เพิ่ม/เอาออกจากกลุ่ม (Shift/Ctrl+คลิก · แตะในโหมดเลือกหลายอัน) */
+export function toggleCueSelect(id: string) {
+  const cur = selectedCueIds()
+  const next = cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id]
+  setState({ sel: next.length ? { kind: 'cue', id: next.includes(id) ? id : next[next.length - 1] } : { kind: 'none' }, multi: next.length > 1 ? next : [] })
+}
 export const setTime = (time: number) => { state = { ...state, time: Math.max(0, time) }; emit() }
 
 let toastId = 0

@@ -288,8 +288,9 @@ export function buildTimeline(scene: Scene): Timeline {
       const tgt = scene.actors.find(a => a.id === c.targetId)
       hits.push({ at: st.launchAt, targetId: c.targetId, cue: c, shot: 0, point: tgt ? actorHitPoint(scene, tgt, st.launchAt) : { x: 0, y: 0 } })
     }
-    if (c.sound?.assetId) {
-      const snd = c.sound
+    // เสียงจากเกม (ร่าย/โดน — ปิดทีละอันได้) + เสียงที่ผู้ใช้ใส่เอง
+    for (const snd of [...(c.gameSounds ?? []), ...(c.sound ? [c.sound] : [])]) {
+      if (!snd.assetId || snd.enabled === false) continue
       const times = snd.at === 'cast' ? [st.castStart] : snd.at === 'release' ? [st.launchAt] : (st.shots.length ? st.shots.map(x => x.impactAt) : [st.launchAt])
       for (const at of times) sounds.push({ at, assetId: snd.assetId, offset: 0, dur: null, volume: snd.volume, fadeIn: 0, fadeOut: 0 })
     }

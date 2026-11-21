@@ -11,7 +11,7 @@
 // จอกว้างกว่า 760px ใช้ App แบบ 3 แผงเดิมของ ANME (ดู App.tsx)
 // ====================================================
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { addCue, addSkill, deleteSelection, duplicateSelection, skillPresets, uploadAudio } from '@/anme/engine/actions'
+import { addCue, addSkill, deleteSelection, duplicateSelection, placeCue, prevCueEnd, resequenceCue, rippleAfter, skillPresets, uploadAudio } from '@/anme/engine/actions'
 import { assets } from '@/anme/engine/assets'
 import { L } from '@/anme/engine/i18n'
 import { cueColor, cueLabel } from '@/anme/engine/scene'
@@ -192,14 +192,18 @@ function MobileTimeline({ onAdd }: { onAdd: () => void }) {
   const onTouchEnd = (e: React.TouchEvent) => { if (e.touches.length < 2) pinch.current = null }
 
   // ลากบล็อกที่เลือกอยู่ (ย้าย / ยืด) — บล็อกที่ยังไม่ได้เลือก แตะครั้งแรกแค่เลือก ไม่ลาก (จะได้ปัดไทม์ไลน์ได้สะดวก)
-  const dragCue = (e: React.PointerEvent, c: Cue, mode: 'move' | 'resize') => {
+  const dragCue = (e: React.PointerEvent, c: Cue, mode: 'move' | 'resize' | 'resizeL') => {
     e.stopPropagation()
     const isSel = getState().sel.kind === 'cue' && (getState().sel as { id: string }).id === c.id
     if (!isSel) { select({ kind: 'cue', id: c.id }); return }
     e.preventDefault()
     const x0 = e.clientX
     const start0 = c.start
-    const dur0 = 'duration' in c ? c.duration : 0
+    const scene0 = getState().scene
+    const durs = new Map(timelineOf(scene0).dur)
+    const len0 = durs.get(c.id) ?? ('duration' in c ? c.duration : 0)
+    const minStart = mode === 'resizeL' ? prevCueEnd(scene0, c, durs) : 0
+    let insert: { id: string; before: boolean } | null = null
     let started = false
     const target = e.currentTarget as HTMLElement
     try { target.setPointerCapture(e.pointerId) } catch { /* บางเบราว์เซอร์/อีเวนต์จำลอง capture ไม่ได้ — ลากต่อได้ตามปกติ */ }
@@ -210,13 +214,30 @@ function MobileTimeline({ onAdd }: { onAdd: () => void }) {
       updateScene(s => {
         const k = s.cues.find(x => x.id === c.id)
         if (!k) return
-        if (mode === 'move') k.start = Math.max(0, +snap(start0 + dt).toFixed(3))
-        else if ('duration' in k) k.duration = Math.max(0.05, +snap(dur0 + dt).toFixed(3))
+        if (mode === 'move') {
+          // ห้ามซ้อน: ชิดหัว/ท้ายบล็อกที่ทับ หรือแทรกแล้วดันแถวตอนปล่อย (ดู placeCue)
+          const pl = placeCue(scene0, c, Math.max(0, +snap(start0 + dt).toFixed(3)), len0, durs)
+          k.start = pl.start
+          insert = pl.insert
+          return
+        }
+        if (!('duration' in k)) return
+        if (k.type === 'anim' && !k.loop) k.loop = true
+        if (mode === 'resize') {
+          k.duration = Math.max(0.05, +snap(len0 + dt).toFixed(3))
+          rippleAfter(s, k.id)
+        } else {
+          const end = start0 + len0
+          const st = Math.min(end - 0.05, Math.max(minStart, +snap(start0 + dt).toFixed(3)))
+          k.start = +st.toFixed(3)
+          k.duration = +(end - st).toFixed(3)
+        }
       }, false)
     }
     const up = () => {
       target.removeEventListener('pointermove', move); target.removeEventListener('pointerup', up); target.removeEventListener('pointercancel', up)
-      if (started) updateScene(s => extendTo(s), false)
+      const ins = insert
+      if (started) updateScene(s => { if (ins) resequenceCue(s, c.id, start0, ins.id, ins.before, durs); extendTo(s) }, false)
     }
     target.addEventListener('pointermove', move)
     target.addEventListener('pointerup', up)
@@ -269,13 +290,14 @@ function MobileTimeline({ onAdd }: { onAdd: () => void }) {
                 {cues.map(c => {
                   const d = tl.dur.get(c.id) ?? 1
                   const isSel = selCueId === c.id
-                  const resizable = c.type === 'move' || c.type === 'show' || c.type === 'camera' || (c.type === 'anim' && c.loop) || (c.type === 'sound' && c.duration > 0)
+                  const resizable = c.type === 'move' || c.type === 'show' || c.type === 'camera' || c.type === 'anim' || (c.type === 'sound' && c.duration > 0)
                   const label = c.type === 'skill' ? c.label : c.type === 'anim' ? c.clip : c.type === 'sound' ? (scene.assets.find(a => a.id === c.assetId)?.name ?? cueLabel(c.type)) : cueLabel(c.type)
                   return (
                     <div key={c.id} className={'m-cue' + (isSel ? ' sel' : '')}
                       style={{ left: half + c.start * pps, width: Math.max(14, d * pps), ['--cc' as string]: cueColor[c.type] }}
                       onPointerDown={e => dragCue(e, c, 'move')}>
                       <span>{c.type === 'skill' && <Icon name="bolt" size={11} />}{c.type === 'sound' && <Icon name="music" size={11} />} {label}</span>
+                      {isSel && resizable && <div className="m-cue-resize l" onPointerDown={e => dragCue(e, c, 'resizeL')} />}
                       {isSel && resizable && <div className="m-cue-resize" onPointerDown={e => dragCue(e, c, 'resize')} />}
                     </div>
                   )

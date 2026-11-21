@@ -88,7 +88,7 @@ export function newSkillCue(actorId: string, start: number, p: Partial<SkillCue>
   return {
     id: uid('c'), type: 'skill', actorId, start, label: 'Skill', cast: [], release: 'attack', speed: 1,
     castSpeedCap: null, approach: defaultApproach(),
-    fx: null, targetId: null, hitReact: true, hitClip: 'target', flash: true, banner: '', sound: null,
+    fx: null, targetId: null, hitReact: true, hitClip: 'target', flash: true, banner: '', sound: null, gameSounds: [],
     ...p,
   }
 }

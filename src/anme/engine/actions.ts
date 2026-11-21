@@ -1,7 +1,7 @@
 // ====================================================
 // actions.ts — คำสั่งระดับสูงที่ UI เรียก (เพิ่มเรนเจอร์ / สื่อ / สกิล / ลบ / ทำซ้ำ ...)
 // ====================================================
-import { assets, fetchRangerListing, isAudioName, isVideoName, uploadFile, type MovePart, type RangerRuntime } from './assets'
+import { assets, fetchRangerListing, isAudioName, isVideoName, uploadFile, type MovePart, type RangerRuntime, type SkillSoundKind } from './assets'
 import { L, getLang } from './i18n'
 import { api, anmeFetch, rememberRanger } from './storage'
 import { GAME_SPEED_TO_PXS } from './timeline'
@@ -194,6 +194,13 @@ export async function uploadSequence(files: File[], fps: number) {
 }
 
 // ── สกิล ──
+/** ปุ่มสกิล → ชุดเสียงในข้อมูลเกม */
+const presetSoundKind = (key: string): SkillSoundKind => (key === 'skill1' || key === 'skill2' ? key : 'normal')
+/** ไฟล์เสียงบน lerico → เส้นทางในแอพ (/api/res/… วิ่งผ่าน Worker ได้ CORS ให้ Web Audio ถอดเสียงได้) */
+const gameSoundUrl = (url: string) => url.replace(/^https:\/\/rangers\.lerico\.net\/res\//, '/api/res/')
+/** ชื่อแสดงผล: ตัดเวลาท้ายชื่อไฟล์ออก (attrd_u1648sally_20261023112015993.ogg → attrd_u1648sally) */
+const gameSoundName = (url: string) => decodeURIComponent(url.split('/').pop() ?? url).replace(/_\d{17}\.ogg$/i, '').replace(/\.ogg$/i, '')
+
 export interface SkillPreset { key: string; label: string; cast: string[]; release: string; set: string | null; move: MovePart | null }
 
 export function skillPresets(rt: RangerRuntime): SkillPreset[] {
@@ -252,7 +259,16 @@ export function addSkill(actorId: string, presetKey: string, at?: number) {
   const start = at ?? nextFreeTime(s, actorId)
   const cue = newSkillCue(actorId, start, { label: p.label, cast: p.cast, release: p.release, targetId: defaultTarget(s, a) })
   if (p.set) cue.fx = fxFromGameData(rt, p.set, p.move)
-  updateScene(d => { d.cues.push(cue); rippleAfter(d, cue.id); extendDuration(d) })
+  // เสียงจากเกมของท่านี้: ร่าย (preparation) ตอนเริ่มร่าย + โดน (underAttack) ทุกครั้งที่กระทบ — เปิดไว้ทั้งคู่
+  const snd = rt.sounds?.[presetSoundKind(p.key)]
+  updateScene(d => {
+    if (snd) {
+      cue.gameSounds = ([['cast', snd.preparation], ['impact', snd.underAttack]] as const)
+        .filter((x): x is readonly ['cast' | 'impact', string] => !!x[1])
+        .map(([at, url]) => ({ assetId: ensureAudioAsset(d, gameSoundUrl(url), gameSoundName(url)), at, volume: 1, enabled: true }))
+    }
+    d.cues.push(cue); rippleAfter(d, cue.id); extendDuration(d)
+  })
   select({ kind: 'cue', id: cue.id })
 }
 
@@ -282,6 +298,48 @@ export function rippleAfter(d: Scene, cueId: string) {
   if (!later.length) return
   const shift = end - later[0].start
   if (shift > 1e-6) for (const c of later) c.start = +(c.start + shift).toFixed(3)
+}
+
+export interface Placement {
+  /** เวลาเริ่มที่จะวาง */
+  start: number
+  /** ไม่มีที่ว่างพอให้ชิด → แทรกก่อน/หลังบล็อกนี้แล้วจัดแถวใหม่ (resequenceCue) */
+  insert: { id: string; before: boolean } | null
+}
+const EPS = 1e-4
+
+/**
+ * ตำแหน่งวางบล็อกที่ลากมา — บล็อกในแถวเดียวกันห้ามซ้อนกัน (ยกเว้นคิว "ปรากฏ")
+ * เช็คจาก "ช่วงเวลาของบล็อก" ทั้งก้อน ไม่ใช่ตำแหน่งเมาส์ (เดิมจับหางแล้วดันหัวเข้าไปทับบล็อกหน้าได้)
+ *   ไม่ทับใคร → วางตรงที่ลากมา
+ *   ทับบล็อก X → กึ่งกลางบล็อกที่ลากอยู่ครึ่งหน้าของ X = ชิดหัว X (ต่อกันสนิทก่อน X) · ครึ่งหลัง = ชิดท้าย X
+ *   ชิดแล้วยังทับตัวอื่น / เลยหน้า 0 วิ (ไม่มีที่ว่าง) → แทรกแล้วดันแถว (insert)
+ */
+export function placeCue(s: Scene, cue: Cue, desired: number, dur: number, durs: Map<string, number>): Placement {
+  const s0 = Math.max(0, desired)
+  if (!isSeq(cue)) return { start: s0, insert: null }
+  const row = s.cues
+    .filter(c => c.id !== cue.id && c.actorId === cue.actorId && isSeq(c))
+    .map(c => ({ id: c.id, start: c.start, end: c.start + (durs.get(c.id) ?? 0) }))
+  const hits = (a: number) => row.filter(r => a < r.end - EPS && a + dur > r.start + EPS)
+  const over = hits(s0)
+  if (!over.length) return { start: +s0.toFixed(3), insert: null }
+  const ov = (r: { start: number; end: number }) => Math.min(s0 + dur, r.end) - Math.max(s0, r.start)
+  const x = over.reduce((a, b) => (ov(b) > ov(a) ? b : a))
+  const before = s0 + dur / 2 < (x.start + x.end) / 2
+  const cand = before ? x.start - dur : x.end
+  if (cand >= -EPS && !hits(Math.max(0, cand)).length) return { start: +Math.max(0, cand).toFixed(3), insert: null }
+  return { start: +s0.toFixed(3), insert: { id: x.id, before } }
+}
+
+/** ท้ายสุดของบล็อกก่อนหน้า (ในแถวเดียวกัน) — ใช้กันไม่ให้ยืดหัวบล็อกไปทับ */
+export function prevCueEnd(s: Scene, cue: Cue, durs: Map<string, number>): number {
+  let end = 0
+  for (const c of s.cues) {
+    if (c.id === cue.id || c.actorId !== cue.actorId || !isSeq(c) || c.start > cue.start - EPS) continue
+    end = Math.max(end, c.start + (durs.get(c.id) ?? 0))
+  }
+  return end
 }
 
 /**

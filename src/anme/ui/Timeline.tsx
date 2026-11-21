@@ -2,7 +2,7 @@
 // Timeline.tsx — ไทม์ไลน์: แถวละ 1 actor (+ กล้อง) · บล็อกคิวลากย้าย/ยืดได้ · ลากหัวอ่าน
 // ====================================================
 import { useEffect, useRef, useState } from 'react'
-import { addCue, addSkill, resequenceCue, skillPresets, uploadAudio } from '@/anme/engine/actions'
+import { addCue, addSkill, placeCue, prevCueEnd, resequenceCue, rippleAfter, skillPresets, uploadAudio } from '@/anme/engine/actions'
 import { audioPlayer } from '@/anme/engine/audio'
 import { L } from '@/anme/engine/i18n'
 import { assets } from '@/anme/engine/assets'
@@ -79,36 +79,57 @@ export function Timeline() {
   }
 
   /**
-   * ลากบล็อก: ปล่อยทับบล็อกอื่นในแถวเดียวกัน = สลับ/แทรก (ครึ่งซ้าย = แทรกก่อน, ครึ่งขวา = แทรกหลัง)
-   * ปล่อยที่ว่าง = ย้ายอิสระ · กด Alt ค้างไว้ = ย้ายอิสระเสมอและไม่ snap
+   * ลากบล็อก — บล็อกในแถวเดียวกันห้ามซ้อนกัน (ดู placeCue):
+   *   ทับครึ่งหน้าของบล็อกอื่น = ชิดหัวบล็อกนั้น · ทับครึ่งหลัง = ชิดท้ายต่อกันสนิท · ไม่มีที่ว่าง = แทรกแล้วดันแถว
+   * resize = ลากหาง (ยืด/หด ดันบล็อกหลังออกไป) · resizeL = ลากหัว (ไม่เกินท้ายบล็อกก่อนหน้า)
+   * กด Alt ค้างไว้ = ย้ายอิสระและไม่ snap
    */
-  const dragCue = (e: React.PointerEvent, c: Cue, mode: 'move' | 'resize') => {
+  const dragCue = (e: React.PointerEvent, c: Cue, mode: 'move' | 'resize' | 'resizeL') => {
     e.stopPropagation()
     select({ kind: 'cue', id: c.id })
     const x0 = e.clientX
     const start0 = c.start
-    const dur0 = 'duration' in c ? c.duration : 0
-    const tl0 = timelineOf(getState().scene)
+    const scene0 = getState().scene
+    const tl0 = timelineOf(scene0)
     const durs = new Map(tl0.dur)
-    const rowCues = getState().scene.cues.filter(x => x.actorId === c.actorId && x.id !== c.id && x.type !== 'show' && c.type !== 'show')
+    // ความยาวจริงของบล็อกตอนเริ่มลาก (ท่าที่ไม่วนยาวเท่าคลิป ไม่ใช่ค่า duration)
+    const len0 = durs.get(c.id) ?? ('duration' in c ? c.duration : 0)
+    const minStart = mode === 'resizeL' ? prevCueEnd(scene0, c, durs) : 0
     let started = false
     let hint: { id: string; before: boolean } | null = null
     const move = (ev: PointerEvent) => {
       const dt = (ev.clientX - x0) / pps
       if (!started) { if (Math.abs(ev.clientX - x0) < 3) return; checkpoint(); started = true }
       const snap = (v: number) => (ev.altKey ? v : Math.round(v / SNAP) * SNAP)
-      if (mode === 'move') {
-        const tp = timeAt(ev.clientX)
-        const over = ev.altKey ? undefined : rowCues.find(x => tp >= x.start && tp < x.start + (durs.get(x.id) ?? 0))
-        const next = over ? { id: over.id, before: tp < over.start + (durs.get(over.id) ?? 0) / 2 } : null
-        if (next?.id !== hint?.id || next?.before !== hint?.before) { hint = next; setIns(next) }
-      }
+      let next: { id: string; before: boolean } | null = null
       updateScene(s => {
         const k = s.cues.find(x => x.id === c.id)
         if (!k) return
-        if (mode === 'move') k.start = Math.max(0, +snap(start0 + dt).toFixed(3))
-        else if ('duration' in k) k.duration = Math.max(0.05, +snap(dur0 + dt).toFixed(3))
+        if (mode === 'move') {
+          const desired = Math.max(0, +snap(start0 + dt).toFixed(3))
+          if (ev.altKey) { k.start = desired; return }
+          const pl = placeCue(scene0, c, desired, len0, durs)
+          k.start = pl.start
+          next = pl.insert
+          return
+        }
+        if (!('duration' in k)) return
+        // ท่าที่ไม่วน → ยืดได้ด้วย: สลับเป็นวนตามความยาวที่ลาก
+        if (k.type === 'anim' && !k.loop) { k.loop = true }
+        if (mode === 'resize') {
+          k.duration = Math.max(0.05, +snap(len0 + dt).toFixed(3))
+          rippleAfter(s, k.id)   // ยืดแล้วชนบล็อกหลัง → ดันออกไป (ระยะห่างเดิมคงไว้)
+        } else {
+          const end = start0 + len0
+          const st = Math.min(end - 0.05, Math.max(minStart, +snap(start0 + dt).toFixed(3)))
+          k.start = +st.toFixed(3)
+          k.duration = +(end - st).toFixed(3)
+        }
       }, false)
+      if (mode === 'move') {
+        const n = next as { id: string; before: boolean } | null
+        if (n?.id !== hint?.id || n?.before !== hint?.before) { hint = n; setIns(n) }
+      }
     }
     const up = () => {
       window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up)
@@ -262,10 +283,11 @@ export function Timeline() {
                     const d = tl.dur.get(c.id) ?? 1
                     const st = c.type === 'skill' ? tl.skill.get(c.id) : undefined
                     const selected = sel.kind === 'cue' && sel.id === c.id
-                    const resizable = c.type === 'move' || c.type === 'show' || c.type === 'camera' || (c.type === 'anim' && c.loop) || (c.type === 'sound' && c.duration > 0)
+                    // ยืด/หดได้: เดิน · ท่าทาง (idle ฯลฯ — ไม่วนจะสลับเป็นวนเองตอนลาก) · ปรากฏ · กล้อง · เสียงที่ตัดความยาว
+                    const resizable = c.type === 'move' || c.type === 'show' || c.type === 'camera' || c.type === 'anim' || (c.type === 'sound' && c.duration > 0)
                     const label = c.type === 'skill' ? c.label : c.type === 'anim' ? c.clip : c.type === 'sound' ? (scene.assets.find(d => d.id === c.assetId)?.name ?? cueLabel(c.type)) : cueLabel(c.type)
                     return (
-                      <div key={c.id} className={'cue cue-' + c.type + (selected ? ' sel' : '') + (ins?.id === c.id ? (ins.before ? ' ins-before' : ' ins-after') : '')}
+                      <div key={c.id} className={'cue cue-' + c.type + (selected ? ' sel' : '') + (resizable ? ' has-grips' : '') + (ins?.id === c.id ? (ins.before ? ' ins-before' : ' ins-after') : '')}
                         style={{ left: c.start * pps, width: Math.max(8, d * pps), ['--cc' as string]: cueColor[c.type] }}
                         onPointerDown={e => dragCue(e, c, 'move')}
                         title={`${cueLabel(c.type)} · ${label} · ${c.start.toFixed(2)}s → ${(c.start + d).toFixed(2)}s`}
@@ -276,7 +298,9 @@ export function Timeline() {
                           <div key={s.index} className="cue-impact" style={{ left: (s.impactAt - c.start) * pps }} title={`${L('กระทบ', 'Impact')} ${s.impactAt.toFixed(2)}s`} />
                         ))}
                         <span className="cue-label">{c.type === 'skill' && <Icon name="bolt" size={11} />}{c.type === 'sound' && <Icon name="music" size={11} />} {label}</span>
-                        {resizable && <div className="cue-resize" onPointerDown={e => dragCue(e, c, 'resize')} />}
+                        {/* จับหัว/หางเพื่อปรับระยะเวลา — มีขีดจับให้เห็นชัด */}
+                        {resizable && <div className="cue-resize l" title={L('ลากเพื่อปรับจุดเริ่ม', 'Drag to change the start')} onPointerDown={e => dragCue(e, c, 'resizeL')} />}
+                        {resizable && <div className="cue-resize r" title={L('ลากเพื่อปรับความยาว', 'Drag to change the length')} onPointerDown={e => dragCue(e, c, 'resize')} />}
                       </div>
                     )
                   })}

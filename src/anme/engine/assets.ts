@@ -24,6 +24,23 @@ export interface GameDataLite {
 }
 export interface MovePart { part: string | null; speed: number; motion: string | null; rot: string | null; start?: Vec | null }
 
+/** ไฟล์เสียงของแต่ละท่า (จาก /data/ranger/projectile/<id>.json → soundUrls — เซิร์ฟเวอร์จับคู่ชื่อกับไฟล์บน lerico ไว้แล้ว) */
+export type SkillSoundKind = 'normal' | 'skill1' | 'skill2'
+export type SkillSoundUrls = Record<SkillSoundKind, { preparation: string | null; underAttack: string | null }>
+
+const soundUrlsCache = new Map<string, Promise<SkillSoundUrls | null>>()
+/** ตัวใหม่ที่ยังไม่มีข้อมูลเกม = null (ไม่ใส่เสียงให้) */
+export function fetchSkillSoundUrls(rangerId: string): Promise<SkillSoundUrls | null> {
+  const id = rangerId.trim().toLowerCase()
+  if (!soundUrlsCache.has(id)) {
+    soundUrlsCache.set(id, fetch(`/data/ranger/projectile/${encodeURIComponent(id)}.json`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((d: { soundUrls?: SkillSoundUrls | null } | null) => d?.soundUrls ?? null)
+      .catch(() => null))
+  }
+  return soundUrlsCache.get(id)!
+}
+
 export interface SamSet {
   sam: SAMParser
   sprites: SpriteMap
@@ -54,6 +71,8 @@ export interface RangerRuntime extends SamSet {
   thumb: string | null
   gamedata: GameDataLite | null
   rangerId: string | null
+  /** เสียงของท่า (ร่าย/โดน) จากข้อมูลเกม · ไม่มีข้อมูล = null */
+  sounds: SkillSoundUrls | null
 }
 
 export interface ImageRuntime {
@@ -116,7 +135,7 @@ function bulletOf(set: SamSet): BulletRuntime {
   return { ...set, flight, finish, selfArc }
 }
 
-function rangerOf(set: SamSet, gd: GameDataLite | null): Omit<RangerRuntime, 'bullets' | 'pending' | 'setKeys' | 'thumb' | 'rangerId'> {
+function rangerOf(set: SamSet, gd: GameDataLite | null): Omit<RangerRuntime, 'bullets' | 'pending' | 'setKeys' | 'thumb' | 'rangerId' | 'sounds'> {
   const { sam, sprites } = set
   const idle = IDLE_NAMES.find(n => sam.animations[n]?.length) ?? set.clips[0] ?? '_all'
   const med = animMedianBBox(sam, sprites, idle) ?? { x0: -50, x1: 50, y0: -150, y1: 0 }
@@ -324,8 +343,10 @@ class AssetStore {
       case 'ranger': {
         let bodyUrls: SamSetUrls, bullets: Record<string, SamSetUrls>, gd: GameDataLite | null = null
         let thumb: string | null = null, rangerId: string | null = null
+        let sounds: SkillSoundUrls | null = null
         if (def.source === 'lerico') {
-          const L = await fetchRangerListing(def.rangerId)
+          const [L, snd] = await Promise.all([fetchRangerListing(def.rangerId), fetchSkillSoundUrls(def.rangerId)])
+          sounds = snd
           const form = L.sets[def.form] ? def.form : 'body'
           if (!L.sets[form]) throw new Error(`ไม่มีร่าง ${def.form}`)
           bodyUrls = L.sets[form]
@@ -341,7 +362,7 @@ class AssetStore {
         const body = await loadSamSet(bodyUrls)
         const rt: RangerRuntime = {
           ...rangerOf(body, gd), bullets: {}, pending: new Set(Object.keys(bullets)),
-          setKeys: Object.keys(bullets).sort(), thumb, rangerId,
+          setKeys: Object.keys(bullets).sort(), thumb, rangerId, sounds,
         }
         // กระสุนโหลดตามหลัง — ตัวละครขึ้นจอได้ก่อน
         for (const [k, urls] of Object.entries(bullets)) {

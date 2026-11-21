@@ -148,8 +148,13 @@ export interface SkillCue extends CueBase {
   flash: boolean
   /** ป้ายชื่อสกิลกลางจอ */
   banner: string
-  /** เสียงประกอบสกิล (ไม่มี = null) */
+  /** เสียงประกอบสกิลที่ผู้ใช้เลือกเอง/อัปโหลด (ไม่มี = null) */
   sound: SkillSound | null
+  /**
+   * เสียงจากข้อมูลเกม (projectile_data → sounds) ใส่ให้อัตโนมัติตอนเพิ่มสกิล — เปิด/ปิดทีละอันได้
+   * ปกติ 2 อัน: เสียงร่าย (preparation → at 'cast') · เสียงโดน (underAttack → at 'impact')
+   */
+  gameSounds: SkillSound[]
 }
 
 export interface SkillSound {
@@ -157,6 +162,8 @@ export interface SkillSound {
   /** เล่นตอนเริ่มร่าย / ตอนปล่อยท่า / ทุกครั้งที่กระทบ */
   at: 'cast' | 'release' | 'impact'
   volume: number
+  /** false = ปิดไว้ (ไม่เล่น) · ไม่มีค่า = เปิด */
+  enabled?: boolean
 }
 
 /** เสียงบนแทร็กเสียง */

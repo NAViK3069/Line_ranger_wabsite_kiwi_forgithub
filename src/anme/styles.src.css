@@ -430,7 +430,19 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px;
 .cue-cast { position: absolute; left: 0; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.28) 0 5px, rgba(0, 0, 0, 0.12) 5px 10px); border-right: 1px dashed rgba(255, 255, 255, 0.5); }
 .cue-body-end { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dotted rgba(255, 255, 255, 0.45); }
 .cue-impact { position: absolute; top: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; transform: rotate(45deg); background: #fff; box-shadow: 0 0 6px #ff4fd8, 0 0 0 2px #ff4fd8; z-index: 1; }
-.cue-resize { position: absolute; right: 0; top: 0; bottom: 0; width: 8px; cursor: ew-resize; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35)); z-index: 2; }
+/* ขีดจับหัว/หางของบล็อกที่ปรับความยาวได้ (เดิน · ท่าทาง · ปรากฏ · กล้อง · เสียง) — เห็นชัดตลอด ไม่ต้องเดา */
+.cue-resize {
+  position: absolute; top: 0; bottom: 0; width: 11px; cursor: ew-resize; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255, 255, 255, 0.16); transition: background 0.12s;
+}
+.cue-resize.l { left: 0; border-right: 1px solid rgba(255, 255, 255, 0.28); border-radius: 6px 0 0 6px; }
+.cue-resize.r { right: 0; border-left: 1px solid rgba(255, 255, 255, 0.28); border-radius: 0 6px 6px 0; }
+.cue-resize::after { content: ''; width: 4px; height: 52%; border-left: 1.5px solid rgba(255, 255, 255, 0.9); border-right: 1.5px solid rgba(255, 255, 255, 0.9); }
+.cue-resize:hover, .cue.sel .cue-resize { background: rgba(255, 255, 255, 0.34); }
+.cue.has-grips .cue-label { padding: 0 13px; }
+.game-sound { padding: 6px 0; border-bottom: 1px dashed var(--line2, rgba(255, 255, 255, 0.12)); }
+.game-sound:last-of-type { border-bottom: none; }
 .hit-marker { position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; transform: rotate(45deg); background: var(--red); box-shadow: 0 0 8px var(--red); pointer-events: none; }
 .playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); pointer-events: none; z-index: 8; }
 .playhead-cap { position: sticky; top: 0; width: 12px; height: 12px; margin-left: -5px; background: var(--cyan); clip-path: polygon(0 0, 100% 0, 100% 55%, 50% 100%, 0 55%); }
@@ -580,6 +592,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px;
 .m-cue span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 3px; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
 .m-cue.sel { border: 2px solid #fff; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25), 0 4px 14px rgba(0, 0, 0, 0.5); touch-action: none; z-index: 2; }
 .m-cue-resize { position: absolute; right: 0; top: 0; bottom: 0; width: 18px; background: #fff; border-radius: 0 6px 6px 0; touch-action: none; }
+.m-cue-resize.l { right: auto; left: 0; border-radius: 6px 0 0 6px; }
 .m-cue-resize::after { content: ''; position: absolute; left: 7px; top: 30%; bottom: 30%; width: 3px; border-radius: 2px; background: #333; }
 .m-row-label {
   position: sticky; left: 6px; top: 0; margin-top: 11px; z-index: 3; display: inline-flex; align-items: center; gap: 5px;

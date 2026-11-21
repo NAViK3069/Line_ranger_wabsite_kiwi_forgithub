@@ -478,7 +478,30 @@ function SkillFields({ c }: { c: SkillCue }) {
         </>}
       </Section>
 
-      <Section title={L('เสียงประกอบสกิล', 'Skill sound')} accent={cueColor.sound} defaultOpen={!!c.sound}>
+      <Section title={L('เสียงประกอบสกิล', 'Skill sound')} accent={cueColor.sound} defaultOpen={!!c.sound || (c.gameSounds?.length ?? 0) > 0}>
+        {/* เสียงจากเกม — ใส่ให้อัตโนมัติตอนเพิ่มสกิล (ร่าย + โดน) · เปิด/ปิดทีละอันได้ */}
+        {(c.gameSounds?.length ?? 0) > 0 && <>
+          <div className="sub-head">{L('เสียงจากเกม', 'Game sounds')}</div>
+          {c.gameSounds.map((g, i) => {
+            const def = scene.assets.find(d => d.id === g.assetId)
+            const on = g.enabled !== false
+            const title = g.at === 'cast' ? L('เสียงร่าย (preparation)', 'Cast sound (preparation)')
+              : g.at === 'impact' ? L('เสียงโดน (underAttack)', 'Hit sound (underAttack)') : L('เสียงตอนปล่อย', 'Release sound')
+            return (
+              <div key={i} className="game-sound">
+                <Row>
+                  <Toggle label={title} value={on} onChange={v => p(k => { k.gameSounds[i].enabled = v })}
+                    hint={def?.name} />
+                  <button className="btn small" style={{ marginLeft: 'auto' }} disabled={!def || !('url' in def)}
+                    onClick={() => def && 'url' in def && previewSound(def.url)}><Icon name="play" size={13} /> {L('ฟัง', 'Play')}</button>
+                </Row>
+                {on && <Slider label={def?.name ?? L('ความดัง', 'Volume')} value={g.volume} min={0} max={2} step={0.01}
+                  onChange={(v, h) => p(k => { k.gameSounds[i].volume = v }, h)} fmt={v => Math.round(v * 100) + '%'} />}
+              </div>
+            )
+          })}
+          <div className="sub-head">{L('เสียงเพิ่มเติม', 'Extra sound')}</div>
+        </>}
         <Row>
           <Select label={L('ไฟล์เสียง', 'Audio file')} value={c.sound?.assetId ?? ''} options={[{ value: '', label: L('— ไม่มีเสียง', '— no sound') }, ...audios.map(d => ({ value: d.id, label: d.name }))]}
             onChange={v => p(k => { k.sound = v ? { assetId: v, at: k.sound?.at ?? 'release', volume: k.sound?.volume ?? 1 } : null })} />

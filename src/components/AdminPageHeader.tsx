@@ -30,6 +30,7 @@ export default function AdminPageHeader({ icon, title, description, viewHref, vi
         <Link
           href={viewHref}
           target="_blank"
+          rel="noopener noreferrer"
           title={viewLabel}
           className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm text-gray-200 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
         >

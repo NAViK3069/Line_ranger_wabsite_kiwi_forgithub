@@ -17,7 +17,16 @@ GITHUB_BRANCH = "main"
 # สถิติคนเข้าเว็บ (Cloudflare Web Analytics) — ต้องตั้ง secret CF_API_TOKEN ด้วย (สิทธิ์ Account Analytics: Read)
 CF_ACCOUNT_ID = "24b63abc82564f67cf4ab5e97b324e7e"
 # โดเมนที่เรียก /api/admin/* ได้ (คั่นด้วย ,)
+# (localhost:3000 ไว้ให้ npm run dev ใช้ API จริงได้ — ความเสี่ยงต่ำเพราะ API ใช้ Bearer token ไม่ใช่คุกกี้
+#  เว็บอื่นจึงเรียกแทนแอดมินไม่ได้อยู่แล้ว · ถ้าไม่ได้ใช้ ลบออกได้)
 ALLOWED_ORIGINS = "http://localhost:3000,https://ranger-kiwi.com,https://www.ranger-kiwi.com"
+
+# จำกัดการล็อกอิน: 5 ครั้ง / 60 วินาที / IP (Workers Rate Limiting — ใช้ได้ทั้งแพลนฟรีและเสีย)
+# namespace_id เป็นเลขอะไรก็ได้ที่ไม่ซ้ำกับ Worker อื่นในบัญชี
+[[ratelimits]]
+name = "LOGIN_LIMITER"
+namespace_id = "3069"
+simple = { limit = 5, period = 60 }
 # หน้าเว็บอยู่ที่ GitHub Pages (ranger-kiwi.com) แล้ว — Worker ไม่ต้องเสิร์ฟหน้าเว็บ จึงไม่ใส่ PAGES_ORIGIN
 
 # Worker อยู่ที่ api.ranger-kiwi.com (Cloudflare สร้าง DNS + ใบรับรองให้ตอน deploy · ได้ edge cache ด้วย)

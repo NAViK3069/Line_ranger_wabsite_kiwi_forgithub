@@ -193,8 +193,9 @@ const freshTiers = (): Tier[] => DEFAULT_TIERS.map(t => ({ ...t, id: uid(), item
 function tiersFrom(pub: PublishedTierList | null, withItems: boolean): Tier[] {
   if (!pub?.tiers?.length) return freshTiers()
   return pub.tiers.map(t => ({
-    id: uid(), label: String(t.label ?? ''), bg: t.bg || '#ff7f7f', fg: t.fg || '#1a1a1a',
-    items: withItems && Array.isArray(t.items) ? [...new Set(t.items.filter(x => typeof x === 'string'))] : [],
+    id: uid(), label: String(t.label ?? ''),
+    bg: COLOR_RE.test(String(t.bg)) ? t.bg : '#ff7f7f', fg: COLOR_RE.test(String(t.fg)) ? t.fg : '#1a1a1a',
+    items: withItems ? [...new Set(idList(t.items))] : [],
   }))
 }
 // ── ไฟล์ .txt (นำเข้า / ส่งออก) ─────────────────────────
@@ -318,10 +319,33 @@ function syncMeta(b: Board, fresh: string[]): Board {
   return { ...b, pool, meta: fresh }
 }
 
+/** รายการรหัสเรนเจอร์จากข้อมูลที่ไม่น่าไว้ใจ — เอาเฉพาะสตริงที่หน้าตาเป็นรหัสจริง (ใช้ประกอบ URL รูป) */
+const idList = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && ID_RE.test(x)) : [])
+
 function loadBoard(): Board | null {
   try {
-    const b = JSON.parse(localStorage.getItem(STORE_KEY) ?? 'null') as Board | null
-    return b && Array.isArray(b.tiers) && Array.isArray(b.pool) ? b : null
+    const b = JSON.parse(localStorage.getItem(STORE_KEY) ?? 'null') as Record<string, unknown> | null
+    if (!b || typeof b !== 'object' || !Array.isArray(b.tiers) || !Array.isArray(b.pool)) return null
+    // ข้อมูลในเครื่องอาจเก่า/ถูกแก้มือ — กรองให้เหลือแต่ค่าที่ถูกรูปแบบ (สี / รหัส / ข้อความ) ก่อนใช้
+    return {
+      title: typeof b.title === 'string' ? b.title.slice(0, 60) : DEFAULT_TITLE,
+      tiers: (b.tiers as unknown[]).slice(0, 50).map(raw => {
+        const t = (raw ?? {}) as Record<string, unknown>
+        return {
+          id: typeof t.id === 'string' && t.id ? t.id.slice(0, 20) : uid(),
+          label: String(t.label ?? '').slice(0, 40),
+          bg: COLOR_RE.test(String(t.bg)) ? String(t.bg) : '#ff7f7f',
+          fg: COLOR_RE.test(String(t.fg)) ? String(t.fg) : '#1a1a1a',
+          items: idList(t.items),
+        }
+      }),
+      pool: idList(b.pool),
+      meta: Array.isArray(b.meta) ? idList(b.meta) : undefined,
+      removed: idList(b.removed),
+      metaOff: b.metaOff === true,
+      base: typeof b.base === 'string' ? b.base : null,
+      edited: b.edited === true,
+    }
   } catch { return null }
 }
 

@@ -18,7 +18,7 @@
     "framer-motion": "^11.3.8",
     "gifenc": "^1.0.3",
     "mp4-muxer": "^5.2.2",
-    "next": "^16.2.2",
+    "next": "^16.4.6",
     "react": "^18",
     "react-dom": "^18",
     "zod": "^3.23.8"

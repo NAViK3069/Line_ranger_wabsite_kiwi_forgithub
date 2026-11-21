@@ -3,13 +3,12 @@
 // ====================================================
 // Admin Dashboard — หน้าหลักของหลังบ้าน
 // • การ์ดเมนูแบ่งกลุ่ม: เนื้อหาบนเว็บ / ข้อมูลเกม / เครื่องมือ
-// • รายการ build ล่าสุด อ่านง่าย (สถานะ + ที่มา + เวลา)
+// • การอัปเดตเว็บล่าสุด (กรองตามประเภทได้) — ดู src/components/AdminBuildLog.tsx
 // เพิ่มเมนูใหม่ที่ SECTIONS ที่เดียว (เมนูที่ใช้บ่อยใส่ใน AdminNav ด้วย)
 // ====================================================
 
 import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
-import { getRuns, type WorkflowRun } from '@/lib/adminApi'
+import AdminBuildLog from '@/components/AdminBuildLog'
 
 interface MenuItem {
   href: string
@@ -63,92 +62,6 @@ const KIND_TAG: Record<MenuItem['kind'], { label: string; cls: string }> = {
   tool: { label: 'เครื่องมือ', cls: 'text-gray-300 bg-white/5 border-white/15' },
 }
 
-/** สถานะ build เป็นภาษาคน */
-function runStatus(r: WorkflowRun): { label: string; icon: string; cls: string; spin?: boolean } {
-  if (r.status !== 'completed') return { label: 'กำลังทำงาน', icon: 'autorenew', cls: 'text-yellow-300', spin: true }
-  if (r.conclusion === 'success') return { label: 'สำเร็จ', icon: 'check_circle', cls: 'text-green-400' }
-  if (r.conclusion === 'cancelled') return { label: 'ยกเลิก (มีรอบใหม่แทน)', icon: 'do_not_disturb_on', cls: 'text-gray-400' }
-  return { label: 'ล้มเหลว', icon: 'error', cls: 'text-red-400' }
-}
-
-const RUN_NAME: Record<string, string> = { Deploy: 'อัปเดตหน้าเว็บ', 'Daily Data': 'ดึงข้อมูลเกม' }
-const RUN_EVENT: Record<string, string> = { push: 'จากการบันทึก', schedule: 'อัตโนมัติรายวัน', workflow_dispatch: 'สั่งเอง' }
-
-function timeAgo(iso: string): string {
-  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
-  if (s < 60) return 'เมื่อสักครู่'
-  if (s < 3600) return `${Math.floor(s / 60)} นาทีที่แล้ว`
-  if (s < 86400) return `${Math.floor(s / 3600)} ชั่วโมงที่แล้ว`
-  return `${Math.floor(s / 86400)} วันที่แล้ว`
-}
-
-function RecentBuilds() {
-  const [runs, setRuns] = useState<WorkflowRun[] | null>(null)
-  const load = useCallback(() => { getRuns().then(r => setRuns(r.slice(0, 5))).catch(() => setRuns([])) }, [])
-  useEffect(() => {
-    load()
-    const t = setInterval(load, 30000)
-    return () => clearInterval(t)
-  }, [load])
-  // มีรอบที่ยังทำงานอยู่ → เช็คถี่ขึ้น (15 วินาที) ให้สถานะเปลี่ยนเป็นสำเร็จเองโดยไม่ต้องรีเฟรช
-  const running = !!runs?.some(r => r.status !== 'completed')
-  useEffect(() => {
-    if (!running) return
-    const t = setTimeout(load, 15000)
-    return () => clearTimeout(t)
-  }, [running, runs, load])
-
-  // แถบพับได้: ปิดอยู่ก็เห็นสถานะรอบล่าสุดในบรรทัดเดียว · กดเพื่อดูรายการ
-  const latest = runs?.[0]
-  const lst = latest ? runStatus(latest) : null
-  return (
-    <details className="group card-glass rounded-2xl border border-white/10">
-      <summary className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
-        <span className="material-icons-round text-gray-300 text-xl">history</span>
-        <span className="font-semibold text-white text-sm whitespace-nowrap">การอัปเดตเว็บล่าสุด</span>
-        {latest && lst && (
-          <span className={`hidden sm:flex items-center gap-1 text-xs ${lst.cls} min-w-0`}>
-            <span className={`material-icons-round text-base ${lst.spin ? 'animate-spin' : ''}`}>{lst.icon}</span>
-            <span className="truncate">{lst.label} · {timeAgo(latest.updatedAt)}</span>
-          </span>
-        )}
-        {latest && lst && <span className="sm:hidden inline-flex"><span className={`material-icons-round text-base ${lst.cls} ${lst.spin ? 'animate-spin' : ''}`}>{lst.icon}</span></span>}
-        <span className="material-icons-round ml-auto text-gray-400 transition-transform group-open:rotate-180">expand_more</span>
-      </summary>
-      <div className="px-4 pb-3">
-      <div className="flex justify-end -mt-1 mb-1">
-        <button onClick={load} className="text-xs text-gray-400 hover:text-white flex items-center gap-1" title="โหลดใหม่">
-          <span className="material-icons-round text-base">refresh</span>รีเฟรช
-        </button>
-      </div>
-      {runs === null ? (
-        <p className="text-sm text-gray-500 py-3">กำลังโหลด...</p>
-      ) : runs.length === 0 ? (
-        <p className="text-sm text-gray-500 py-3">ยังไม่มีข้อมูล (หรืออ่านจาก GitHub ไม่ได้)</p>
-      ) : (
-        <ul className="divide-y divide-white/5">
-          {runs.map(r => {
-            const st = runStatus(r)
-            return (
-              <li key={r.url}>
-                <a href={r.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 py-2.5 hover:bg-white/[0.03] -mx-2 px-2 rounded-lg">
-                  <span className={`material-icons-round text-xl ${st.cls} ${st.spin ? 'animate-spin' : ''}`}>{st.icon}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm text-white truncate">{RUN_NAME[r.name] ?? r.name} <span className="text-gray-500">· {RUN_EVENT[r.event] ?? r.event}</span></p>
-                    <p className={`text-xs ${st.cls}`}>{st.label}</p>
-                  </div>
-                  <span className="text-xs text-gray-500 whitespace-nowrap">{timeAgo(r.updatedAt)}</span>
-                </a>
-              </li>
-            )
-          })}
-        </ul>
-      )}
-      </div>
-    </details>
-  )
-}
-
 export default function AdminDashboardPage() {
   return (
     <div className="space-y-7">
@@ -158,7 +71,7 @@ export default function AdminDashboardPage() {
           <h1 className="text-xl sm:text-2xl font-black text-white leading-tight">Admin Panel</h1>
           <p className="text-sm text-gray-400">จัดการเนื้อหาของเว็บ Line Ranger Kiwi</p>
         </div>
-        <RecentBuilds />
+        <AdminBuildLog />
       </div>
 
       {/* เมนูแบ่งกลุ่ม */}

@@ -4,6 +4,7 @@
 
 import Link from 'next/link'
 import profileData from '../../../content/site-profile.json'
+import { safeUrl } from '@/lib/safeUrl'
 
 // ข้อมูลอ่านจาก content/site-profile.json ตอน build (แอดมินแก้ → commit → build ใหม่)
 
@@ -18,7 +19,7 @@ function linkifyText(text: string) {
   const parts = text.split(urlRegex)
   return parts.map((part, i) =>
     urlRegex.test(part) ? (
-      <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+      <a key={i} href={safeUrl(part)} target="_blank" rel="noopener noreferrer"
         className="underline hover:text-yellow-200 transition-colors break-all">
         {part}
       </a>
@@ -65,7 +66,7 @@ export default function AboutPage() {
                 {profile.profileImage ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={profile.profileImage}
+                    src={safeUrl(profile.profileImage)}
                     alt={profile.displayName}
                     className="w-28 h-28 rounded-full object-cover border-2 border-purple-500/50 shrink-0"
                   />
@@ -92,7 +93,7 @@ export default function AboutPage() {
                     )}
                     {profile.facebookName && (
                       <a
-                        href={profile.facebookUrl || '#'}
+                        href={safeUrl(profile.facebookUrl) ?? '#'}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-1.5 text-sm text-gray-300 hover:text-white transition-colors"
@@ -124,7 +125,7 @@ export default function AboutPage() {
                   {(profile.links as unknown as LinkEntry[]).map((link, i) => (
                     <a
                       key={i}
-                      href={link.url}
+                      href={safeUrl(link.url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="px-4 py-2 rounded-xl text-sm font-semibold text-white bg-white/10 hover:bg-white/20 border border-white/10 transition-all hover:scale-105 flex items-center gap-1.5"

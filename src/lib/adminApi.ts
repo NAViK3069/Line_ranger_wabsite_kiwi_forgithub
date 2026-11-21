@@ -66,11 +66,34 @@ export async function verifySession(): Promise<boolean> {
   try { return (await worker('/api/admin/me')).ok } catch { return false }
 }
 
-export interface WorkflowRun { name: string; status: string; conclusion: string | null; event: string; createdAt: string; updatedAt: string; url: string }
+export interface WorkflowRun {
+  name: string; status: string; conclusion: string | null; event: string; createdAt: string; updatedAt: string; url: string
+  // ↓ มีเมื่อ Worker เป็นเวอร์ชันใหม่ (deploy หลัง 2026-11-21) — เวอร์ชันเก่าไม่มี หน้าแอดมินต้องรับได้ทั้งสองแบบ
+  id?: number; startedAt?: string; workflow?: string; title?: string; runNumber?: number; attempt?: number; sha?: string; actor?: string
+}
 export async function getRuns(): Promise<WorkflowRun[]> {
   const res = await worker('/api/admin/runs')
   if (!res.ok) return []
   return ((await res.json()) as { runs: WorkflowRun[] }).runs
+}
+
+/** ประวัติ workflow ทีละหน้า (workflow = กรองเฉพาะไฟล์นั้น เช่น data.yml) */
+export async function getRunsPage(opts: { page?: number; perPage?: number; workflow?: string } = {}): Promise<{ runs: WorkflowRun[]; total: number | null }> {
+  const q = new URLSearchParams({ page: String(opts.page ?? 1), per_page: String(opts.perPage ?? 30) })
+  if (opts.workflow) q.set('workflow', opts.workflow)
+  const res = await worker(`/api/admin/runs?${q}`)
+  if (!res.ok) throw new Error(`โหลดประวัติไม่สำเร็จ (${res.status})`)
+  const d = (await res.json()) as { runs: WorkflowRun[]; total?: number }
+  return { runs: d.runs, total: typeof d.total === 'number' ? d.total : null }
+}
+
+export interface RunStep { name: string; status: string; conclusion: string | null; number: number; startedAt: string | null; completedAt: string | null }
+export interface RunJob { name: string; status: string; conclusion: string | null; startedAt: string | null; completedAt: string | null; url: string; steps: RunStep[] }
+/** ขั้นตอนของรอบนั้น — null = Worker เวอร์ชันเก่ายังไม่มี endpoint นี้ / อ่านไม่ได้ */
+export async function getRunJobs(id: number): Promise<RunJob[] | null> {
+  const res = await worker(`/api/admin/run-jobs?id=${encodeURIComponent(String(id))}`)
+  if (!res.ok) return null
+  return ((await res.json()) as { jobs: RunJob[] }).jobs
 }
 
 export async function dispatchWorkflow(workflow: 'data.yml' | 'deploy.yml'): Promise<{ ok: boolean; error?: string }> {
@@ -215,7 +238,8 @@ async function poolsApi(k: PoolKind, rest: string[], method: string, body: Recor
     for (const key of ['isActive', 'isNew', 'isEvent', 'isTest']) if (typeof body[key] === 'boolean') changed[key] = body[key] as boolean
     if (!Object.keys(changed).length) return json({ error: 'ไม่มีฟิลด์ที่อัปเดตได้' }, 400)
     Object.assign(row, changed, { updatedAt: now() })
-    await commit(`admin: toggle ${Object.keys(changed).join(',')} on "${row.name}"`, [contentFile(k.file, rows)])
+    // ใส่ชื่อชนิดตู้ (k.label) ไว้ด้วย — หน้าแรกแอดมินใช้แยกว่าเป็น Gacha เรนเจอร์หรือเกียร์
+    await commit(`admin: toggle ${k.label} ${Object.keys(changed).join(',')} on "${row.name}"`, [contentFile(k.file, rows)])
     return json({ pool: { id: row.id, isActive: row.isActive, isNew: row.isNew, isEvent: row.isEvent, isTest: row.isTest } })
   }
 

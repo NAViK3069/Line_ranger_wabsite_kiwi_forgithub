@@ -9,6 +9,33 @@ import { LanguageProvider } from '@/contexts/LanguageContext'
 import { SoundProvider } from '@/contexts/SoundContext'
 import { SITE_URL } from '@/lib/site'
 import UiClickSound from '@/components/UiClickSound'
+import { WORKER_URL } from '@/lib/staticApi'
+
+/**
+ * Content-Security-Policy แบบ <meta> (GitHub Pages ตั้ง header เองไม่ได้)
+ * - script: เฉพาะไฟล์ของเว็บ + สคริปต์นับสถิติ Cloudflare · 'unsafe-inline' จำเป็น เพราะ Next (static export)
+ *   ฝังสคริปต์ข้อมูลหน้าไว้ใน HTML และ static site ใช้ nonce ไม่ได้ — แต่โหลดสคริปต์จากโดเมนอื่นไม่ได้แล้ว
+ * - img/media/connect: เปิด https: ไว้ (รูปจาก lerico/Worker, ฟีเจอร์ "นำเข้าจากลิงก์" ในหน้า custom-video)
+ * - object-src 'none' / base-uri / form-action: ปิดช่อง <object>, <base> ปลอม, ฟอร์มส่งออกนอกเว็บ
+ * (frame-ancestors ใส่ใน <meta> ไม่ได้ — ต้องเป็น header เท่านั้น)
+ */
+const isDev = process.env.NODE_ENV === 'development'
+// (Worker ในเครื่องเป็น http://127.0.0.1:8787 — ต้องใส่ origin ตรงๆ เพราะ https: ไม่ครอบคลุม)
+const workerOrigin = (() => { try { return WORKER_URL ? ` ${new URL(WORKER_URL).origin}` : '' } catch { return '' } })()
+const CSP = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://static.cloudflareinsights.com`,
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  `img-src 'self' data: blob: https:${workerOrigin}`,
+  `media-src 'self' data: blob: https:${workerOrigin}`,
+  `connect-src 'self' https: data: blob:${workerOrigin}${isDev ? ' ws: http://localhost:* http://127.0.0.1:*' : ''}`,
+  "worker-src 'self' blob:",
+  "frame-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ')
 
 
 export const metadata: Metadata = {
@@ -67,6 +94,8 @@ export default function RootLayout({
   return (
     <html lang="th">
       <head>
+        <meta httpEquiv="Content-Security-Policy" content={CSP} />
+        <meta name="referrer" content="strict-origin-when-cross-origin" />
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/icon?family=Material+Icons+Round"

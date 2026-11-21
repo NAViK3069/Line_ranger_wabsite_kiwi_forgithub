@@ -5,7 +5,7 @@
 // ====================================================
 import { useRef } from 'react'
 import {
-  addCue, addSkill, deleteSelection, duplicateSelection, facingFor, fxFromGameData, moveLayer, patchActor, patchCue,
+  addCue, addSkill, deleteSelection, duplicateSelection, facingFor, fxFromGameData, moveLayer, patchActor, patchCue, presetSoundKind,
   patchSkill, setSkillSound, skillPresets,
 } from '@/anme/engine/actions'
 import { previewSound } from '@/anme/engine/audio'
@@ -391,7 +391,7 @@ function SkillFields({ c }: { c: SkillCue }) {
       </Section>
 
       <Section title={L('กระสุน / เอฟเฟกต์', 'Projectile / effect')} accent="#33e1ff" right={
-        <Toggle label="" value={!!fx} onChange={v => p(k => { k.fx = v ? (rt ? fxFromGameData(rt, preset?.set ?? rt.setKeys[0] ?? 'bul', preset?.move ?? null) : defaultFx('bul')) : null })} />
+        <Toggle label="" value={!!fx} onChange={v => p(k => { k.fx = v ? (rt ? fxFromGameData(rt, preset?.set ?? rt.setKeys[0] ?? 'bul', preset?.move ?? null, presetSoundKind(preset?.key)) : defaultFx('bul')) : null })} />
       }>
         {!fx && <div className="muted small">{L('ปิดอยู่ — ท่าจะไม่มีเอฟเฟกต์ (เป้าโดนที่เฟรมปล่อย)', 'Off — no effect (target is hit at the release frame)')}</div>}
         {fx && <>
@@ -399,7 +399,7 @@ function SkillFields({ c }: { c: SkillCue }) {
             <Select label={L('ไฟล์กระสุน', 'Bullet file')} value={fx.set} options={(rt?.setKeys.length ? rt.setKeys : [fx.set]).map(x => ({ value: x, label: x }))}
               onChange={v => p(k => { k.fx!.set = v; const b = rt?.bullets[v]; if (b) { k.fx!.flight = b.flight; k.fx!.finish = b.finish } })} />
             {rt && <button className="btn small" style={{ alignSelf: 'flex-end' }} title={L('ตั้งค่าทั้งหมดตามข้อมูลเกม (projectile_data)', 'Reset everything from game data (projectile_data)')}
-              onClick={() => p(k => { k.fx = { ...fxFromGameData(rt, k.fx!.set, preset?.move ?? null), scale: k.fx!.scale, blend: k.fx!.blend } })}><Icon name="reset" size={13} /> {L('ข้อมูลเกม', 'Game data')}</button>}
+              onClick={() => p(k => { k.fx = { ...fxFromGameData(rt, k.fx!.set, preset?.move ?? null, presetSoundKind(preset?.key)), scale: k.fx!.scale, blend: k.fx!.blend } })}><Icon name="reset" size={13} /> {L('ข้อมูลเกม', 'Game data')}</button>}
           </Row>
           {rt && !rt.bullets[fx.set] && !rt.pending.has(fx.set) && <div className="error-box small">{L(`ไม่พบชุด “${fx.set}” ในเรนเจอร์นี้`, `Set “${fx.set}” not found in this ranger`)}</div>}
 
@@ -451,6 +451,16 @@ function SkillFields({ c }: { c: SkillCue }) {
           </>}
 
           <div className="sub-head">{L('ตำแหน่ง', 'Positions')}</div>
+          {(fx.mode === 'projectile' || fx.mode === 'target') && <Seg value={fx.aim ?? 'face'} onChange={v => p(k => { k.fx!.aim = v })} options={[
+            { value: 'center', label: L('เล็งกลางตัว', 'Aim: body'), title: L('กลางลำตัว (ระดับอก) — ค่าเริ่มต้นของกระสุนบิน', 'Body centre (chest) — default for flying bullets') },
+            { value: 'face', label: L('จุดรับดาเมจ', 'Aim: hit point') },
+            { value: 'ground', label: L('ลงพื้น', 'Aim: ground'), title: L('จุดยืนของเป้า (hitPointRate = 0)', 'Target feet (hitPointRate = 0)') },
+          ]} />}
+          <Seg value={fx.anchor ?? 'origin'} onChange={v => p(k => { k.fx!.anchor = v })} options={[
+            { value: 'center', label: L('ยึดกลางภาพ', 'Pin: image centre'), title: L('กึ่งกลางภาพเฟรมแรกของช่วงบิน/ระเบิด — แบบตัวเล่นอนิเมชั่น', 'First-frame image centre of flight/burst — like the animation player') },
+            { value: 'stand', label: L('ยึดจุดยืน', 'Pin: stand'), title: L('จุดยืนของผู้ร่ายในไฟล์ — ไฟล์บัฟ/ของตกลงพื้น', 'Caster stand point in the file — buffs / ground drops') },
+            { value: 'origin', label: L('จุด 0,0', 'Pin: 0,0') },
+          ]} />
           <div className="muted small">{L('ลากจุดบนเวทีได้: ● ฟ้า = จุดปล่อย · ◆ ชมพู = จุดกระทบ · ◆ ม่วง = จุดระเบิด · ■ เหลือง = จุดกำหนด', 'Drag on stage: ● cyan = muzzle · ◆ pink = impact · ◆ purple = burst · ■ yellow = point')}</div>
           {(fx.mode === 'projectile' || fx.mode === 'caster') && <Row>
             <Num label={L('ปล่อย X', 'Muzzle X')} value={fx.launch.x} onChange={(v, h) => p(k => { k.fx!.launch.x = v }, h)} />

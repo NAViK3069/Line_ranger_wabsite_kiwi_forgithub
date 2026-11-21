@@ -195,7 +195,7 @@ export async function uploadSequence(files: File[], fps: number) {
 
 // ── สกิล ──
 /** ปุ่มสกิล → ชุดเสียงในข้อมูลเกม */
-const presetSoundKind = (key: string): SkillSoundKind => (key === 'skill1' || key === 'skill2' ? key : 'normal')
+export const presetSoundKind = (key: string | undefined): SkillSoundKind => (key === 'skill1' || key === 'skill2' ? key : 'normal')
 /** ไฟล์เสียงบน lerico → เส้นทางในแอพ (/api/res/… วิ่งผ่าน Worker ได้ CORS ให้ Web Audio ถอดเสียงได้) */
 const gameSoundUrl = (url: string) => url.replace(/^https:\/\/rangers\.lerico\.net\/res\//, '/api/res/')
 /** ชื่อแสดงผล: ตัดเวลาท้ายชื่อไฟล์ออก (attrd_u1648sally_20261023112015993.ogg → attrd_u1648sally) */
@@ -225,17 +225,44 @@ export function skillPresets(rt: RangerRuntime): SkillPreset[] {
   return out
 }
 
-/** ค่าเอฟเฟกต์ตั้งต้นจากข้อมูลเกม (projectile_data): บิน/เกิดที่เป้า · ความเร็ว · โค้ง · จุดปล่อย */
-export function fxFromGameData(rt: RangerRuntime, set: string, move: MovePart | null): SkillFx {
-  const flies = !!move && move.speed > 0 && !!move.motion && move.motion !== 'NONE'
-  const fx = defaultFx(set, flies ? 'projectile' : 'target')
+/**
+ * สกิลบัฟหรือสกิลโจมตี — กฎเดียวกับตัวเล่นอนิเมชั่นเรนเจอร์:
+ *   ตัวชี้ขาดคือ 觸發基準 ใต้คำอธิบายสกิล: self = บัฟตัวเอง · front/rear = โจมตี
+ *   ไม่มีข้อมูลนั้น → ถอยไปดู motion.type === 'NONE' · ท่าโจมตีปกติ = โจมตีเสมอ
+ */
+export function skillIsBuff(rt: RangerRuntime, kind: SkillSoundKind, move: MovePart | null): boolean {
+  if (kind === 'normal') return false
+  const basis = rt.gamedata?.basis?.[kind] ?? null
+  return basis ? basis === 'self' : move?.motion === 'NONE'
+}
+
+/**
+ * ค่าเอฟเฟกต์ตั้งต้นจากข้อมูลเกม (projectile_data) — ตรรกะเดียวกับตัวเล่นอนิเมชั่นเรนเจอร์ (spawnBullet):
+ *   บัฟ                 → เกิดที่ตัวผู้ร่าย ยึดจุดยืน (ไฟล์วาดในพิกัดเดียวกับตัวละคร) · ไม่ล็อกเป้า (ดู addSkill)
+ *   ไม่พุ่งจริง          → เกิดคาตัวเป้า: motion.enabled=false · moveSpeed=0 · start={0,0} (ของตกจากฟ้า/โผล่คาตัว)
+ *   กระสุนบิน           → บินจากจุดปล่อย (start) ไปชน "กลางลำตัว" ของเป้า (ไม่ใช่หัว)
+ *   hitPointRate = 0    → ลงพื้นตรงจุดยืนของเป้า · 0 < rate ≤ 1 (กระสุนบิน) → ชนจุดรับดาเมจ
+ *   จุดยึดภาพ = กึ่งกลางภาพเฟรมแรกของช่วงบิน/ระเบิด (ท่าลงพื้นยึดจุดยืนของผู้ร่ายในไฟล์)
+ */
+export function fxFromGameData(rt: RangerRuntime, set: string, move: MovePart | null, kind: SkillSoundKind = 'normal'): SkillFx {
+  const buff = skillIsBuff(rt, kind, move)
+  const st = move?.start
+  const noStart = !st || (!st.x && !st.y)
+  const flies = !!move && move.enabled !== false && move.speed > 0 && !noStart && !!move.motion && move.motion !== 'NONE'
+  const rate = move?.hitRate ?? 100
+  const fx = defaultFx(set, buff ? 'caster' : flies ? 'projectile' : 'target')
   if (move && move.speed > 0) fx.speed = Math.round(move.speed * GAME_SPEED_TO_PXS)
   fx.arc = move?.motion === 'CURVE' ? null : 0
-  const st = move?.start
-  fx.launch = st && (st.x || st.y)
-    // start ของข้อมูลเกม: x = ไปข้างหน้า, y = นับขึ้นจากพื้น (หน่วยเดียวกับไฟล์ .sam)
-    ? { x: Math.round(st.x * (ART_FACES_LEFT ? -1 : 1)), y: Math.round(-st.y) }
-    : { x: Math.round(rt.hit.x + (ART_FACES_LEFT ? -40 : 40)), y: Math.round(rt.hit.y) }
+  if (buff) {
+    fx.launch = { x: 0, y: 0 }
+  } else {
+    fx.launch = !noStart
+      // start ของข้อมูลเกม: x = ไปข้างหน้า, y = นับขึ้นจากพื้น (หน่วยเดียวกับไฟล์ .sam)
+      ? { x: Math.round(st!.x * (ART_FACES_LEFT ? -1 : 1)), y: Math.round(-st!.y) }
+      : { x: Math.round(rt.hit.x + (ART_FACES_LEFT ? -40 : 40)), y: Math.round(rt.hit.y) }
+  }
+  fx.aim = rate === 0 ? 'ground' : (flies && rate > 0 && rate <= 1) ? 'face' : 'center'
+  fx.anchor = buff || rate === 0 ? 'stand' : 'center'
   const b = rt.bullets[set]
   if (b) { fx.flight = b.flight; fx.finish = b.finish }
   return fx
@@ -257,10 +284,13 @@ export function addSkill(actorId: string, presetKey: string, at?: number) {
   const p = skillPresets(rt).find(x => x.key === presetKey)
   if (!p) return
   const start = at ?? nextFreeTime(s, actorId)
-  const cue = newSkillCue(actorId, start, { label: p.label, cast: p.cast, release: p.release, targetId: defaultTarget(s, a) })
-  if (p.set) cue.fx = fxFromGameData(rt, p.set, p.move)
+  const kind = presetSoundKind(p.key)
+  // สกิลบัฟ → ไม่ล็อกเป้าหมายตั้งแต่แรก (เอฟเฟกต์เกิดที่ตัวเอง ไม่มีใครโดน)
+  const buff = skillIsBuff(rt, kind, p.move)
+  const cue = newSkillCue(actorId, start, { label: p.label, cast: p.cast, release: p.release, targetId: buff ? null : defaultTarget(s, a) })
+  if (p.set) cue.fx = fxFromGameData(rt, p.set, p.move, kind)
   // เสียงจากเกมของท่านี้: ร่าย (preparation) ตอนเริ่มร่าย + โดน (underAttack) ทุกครั้งที่กระทบ — เปิดไว้ทั้งคู่
-  const snd = rt.sounds?.[presetSoundKind(p.key)]
+  const snd = rt.sounds?.[kind]
   updateScene(d => {
     if (snd) {
       cue.gameSounds = ([['cast', snd.preparation], ['impact', snd.underAttack]] as const)

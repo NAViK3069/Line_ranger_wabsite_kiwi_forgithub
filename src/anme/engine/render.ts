@@ -230,9 +230,17 @@ function drawSkillFx(ctx: CanvasRenderingContext2D, scene: Scene, tl: Timeline, 
     const z = fx.scale * caster.scale
     // renderSAMFrame หมุนก่อนแล้วค่อยมิเรอร์ → ตอนกลับด้าน มุมต้องสะท้อนเป็น π − มุม
     const toRot = (ang: number) => (caster.flip ? Math.PI - ang : ang) + (fx.rotOffset * Math.PI) / 180
+    // จุดยึดภาพ (ดู SkillFx.anchor): center = กึ่งกลางภาพเฟรมแรกของช่วงนั้น · stand = จุดยืนของผู้ร่ายในไฟล์ · อื่นๆ = 0,0
+    const casterRt = assets.get(caster.assetId)
+    const standRef = casterRt?.kind === 'ranger' ? casterRt.stand : null
+    const refFor = (flight: boolean): Vec => {
+      if (fx.anchor === 'center') return (flight ? b.flightRef ?? b.burstRef : b.burstRef ?? b.flightRef) ?? { x: 0, y: 0 }
+      if (fx.anchor === 'stand') return standRef ?? { x: 0, y: 0 }
+      return { x: 0, y: 0 }
+    }
     for (const s of st.shots) {
       if (t < s.launchAt || t >= s.endAt) continue
-      let pos: Vec, rot = 0, clip: string | null, local: number, loop = false
+      let pos: Vec, rot = 0, clip: string | null, local: number, loop = false, inFlight = true
       const flightFrames = fx.flight ? b.sam.animations[fx.flight]?.length ?? 0 : 0
       if (t < s.impactAt) {
         clip = fx.flight
@@ -254,6 +262,7 @@ function drawSkillFx(ctx: CanvasRenderingContext2D, scene: Scene, tl: Timeline, 
           pos = fx.mode === 'caster' ? fxLaunchPoint(scene, c, caster, s.launchAt) : fxImpactPoint(scene, c, t)
         }
       } else {
+        inFlight = false
         clip = fx.finish
         local = (t - s.impactAt) * fps
         pos = fxFinishPoint(scene, c, s.impactAt)
@@ -275,7 +284,12 @@ function drawSkillFx(ctx: CanvasRenderingContext2D, scene: Scene, tl: Timeline, 
       const frame = scene.smooth ? lerpSAMFrame(fa, fb, local - Math.floor(local)) : fa
       ctx.save()
       ctx.globalCompositeOperation = fx.blend
-      renderSAMFrame(ctx, frame, b.sam.images, b.sprites, pos.x, pos.y, z, undefined, caster.flip, 0, rot)
+      // วางจุดยึด (ref) ลงที่ pos: renderSAMFrame หมุนรอบ 0,0 ของไฟล์ก่อนแล้วค่อยกลับด้าน (แกน 0)
+      // → ตำแหน่งของ ref หลังหมุน/กลับด้าน = mirror(R·ref) · เลื่อนจุดเริ่มวาดถอยกลับเท่านั้น
+      const ref = refFor(inFlight)
+      const cr = Math.cos(rot), sr = Math.sin(rot)
+      const rx = (cr * ref.x - sr * ref.y) * (caster.flip ? -1 : 1), ry = sr * ref.x + cr * ref.y
+      renderSAMFrame(ctx, frame, b.sam.images, b.sprites, pos.x - rx * z, pos.y - ry * z, z, undefined, caster.flip, 0, rot)
       ctx.restore()
     }
   }

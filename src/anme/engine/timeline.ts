@@ -9,7 +9,7 @@
 import type { SamFrame } from '@/anme/lib/animation/samParser'
 import { assets, readyLength, type BulletRuntime, type RangerRuntime, type SamSet } from './assets'
 import { ART_FACES_LEFT, EASES, clamp, lerp } from './scene'
-import type { Actor, CameraCue, Cue, Ease, MoveCue, Scene, ShowCue, SkillCue, Vec } from './types'
+import type { Actor, CameraCue, Cue, Ease, MoveCue, Scene, ShowCue, SkillCue, SkillFx, Vec } from './types'
 import { CAMERA_ID } from './types'
 
 export const HIT_FLASH = 0.18
@@ -110,6 +110,21 @@ export function actorHitPoint(scene: Scene, a: Actor, t: number): Vec {
   return { x: p.x + rt.hit.x * a.scale * dir, y: p.y + rt.hit.y * a.scale }
 }
 
+/** กลางลำตัว (ระดับอก) ของ actor ณ เวลา t — จุดที่กระสุนบินพุ่งชนตามค่าเริ่มต้น */
+export function actorCenterPoint(scene: Scene, a: Actor, t: number): Vec {
+  const p = actorPos(scene, a, t)
+  const rt = rangerOfActor(scene, a)
+  if (!rt) return p
+  return { x: p.x, y: p.y + rt.center.y * a.scale }
+}
+
+/** จุดบนตัวเป้าตาม fx.aim (ไม่มีค่า = จุดรับดาเมจ เหมือนฉากเก่า) */
+function aimPoint(scene: Scene, target: Actor, aim: SkillFx['aim'], t: number): Vec {
+  if (aim === 'ground') return actorPos(scene, target, t)
+  if (aim === 'center') return actorCenterPoint(scene, target, t)
+  return actorHitPoint(scene, target, t)
+}
+
 // ── สกิล ──
 export interface ShotTiming { index: number; launchAt: number; impactAt: number; endAt: number; flightDur: number; finishDur: number }
 export interface SkillTiming {
@@ -208,7 +223,7 @@ export function fxImpactPoint(scene: Scene, cue: SkillCue, t: number): Vec {
     const p = actorPos(scene, caster, t)
     return { x: p.x + facing(caster) * 450 * caster.scale, y: p.y - 60 * caster.scale }
   }
-  const h = actorHitPoint(scene, target, t)
+  const h = aimPoint(scene, target, fx.aim, t)
   return { x: h.x + fx.impact.x, y: h.y + fx.impact.y }
 }
 

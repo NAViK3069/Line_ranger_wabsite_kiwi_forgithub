@@ -6,7 +6,7 @@
 // ====================================================
 import { SAMParser } from '@/anme/lib/animation/samParser'
 import {
-  loadSprites, disposeSprites, animMedianBBox, animBodyBBox, animStandPoint, anchorFromRatio, animCenterX, animSelfArcRise,
+  loadSprites, disposeSprites, animMedianBBox, animBodyBBox, animStandPoint, anchorFromRatio, animCenterX, animSelfArcRise, animFrame0Center,
   type SpriteMap,
 } from '@/anme/lib/animation/samRenderer'
 import type { AssetDef, SamSetUrls, Vec } from './types'
@@ -21,24 +21,68 @@ export interface GameDataLite {
   n: MovePart | null
   s1: MovePart | null
   s2: MovePart | null
+  /** 觸發基準 ของสกิล (จากคำอธิบายสกิล): self = บัฟตัวเอง · front/rear = โจมตี — ตัวชี้ขาดสกิลบัฟ/โจมตีแบบตัวเล่นอนิเมชั่น */
+  basis?: { skill1: SkillBasis; skill2: SkillBasis }
 }
-export interface MovePart { part: string | null; speed: number; motion: string | null; rot: string | null; start?: Vec | null }
+export type SkillBasis = 'self' | 'front' | 'rear' | null
+export interface MovePart {
+  part: string | null; speed: number; motion: string | null; rot: string | null; start?: Vec | null
+  /** motion.enabled — false = ไม่มีการพุ่งจริง (เอฟเฟกต์เกิดคาตัวเป้า) */
+  enabled?: boolean
+  /** hitTiming.*HitPointRate — 100 = จุดรับดาเมจ · 0 = ลงพื้น · 0–1 = กระสุนชนจุดรับดาเมจ */
+  hitRate?: number
+}
 
 /** ไฟล์เสียงของแต่ละท่า (จาก /data/ranger/projectile/<id>.json → soundUrls — เซิร์ฟเวอร์จับคู่ชื่อกับไฟล์บน lerico ไว้แล้ว) */
 export type SkillSoundKind = 'normal' | 'skill1' | 'skill2'
 export type SkillSoundUrls = Record<SkillSoundKind, { preparation: string | null; underAttack: string | null }>
 
-const soundUrlsCache = new Map<string, Promise<SkillSoundUrls | null>>()
+// ── ข้อมูลเกมล่าสุด (อัปเดตทุกวันโดย Daily Data) — ชุดเดียวกับที่ตัวเล่นอนิเมชั่นเรนเจอร์ใช้ ──
+// /data/ranger/projectile/<id>.json = ท่าโจมตี (ไฟล์กระสุน · จุดปล่อย · ความเร็ว · การพุ่ง) + เสียง
+// /data/ranger/stats/<id>.json      = สกิล (觸發基準 self/front/rear)
+// เดิมใช้ gamedata-index.json ที่ติดมากับแอพ ซึ่งไม่มีเรนเจอร์ตัวใหม่ๆ (เช่น u1648e-sally = null)
+const jsonCache = new Map<string, Promise<any | null>>()
+function dataJson(path: string): Promise<any | null> {
+  if (!jsonCache.has(path)) jsonCache.set(path, fetch(path).then(r => (r.ok ? r.json() : null)).catch(() => null))
+  return jsonCache.get(path)!
+}
+const projectileJson = (id: string) => dataJson(`/data/ranger/projectile/${encodeURIComponent(id.trim().toLowerCase())}.json`)
+const statsJson = (id: string) => dataJson(`/data/ranger/stats/${encodeURIComponent(id.trim().toLowerCase())}.json`)
+
 /** ตัวใหม่ที่ยังไม่มีข้อมูลเกม = null (ไม่ใส่เสียงให้) */
-export function fetchSkillSoundUrls(rangerId: string): Promise<SkillSoundUrls | null> {
-  const id = rangerId.trim().toLowerCase()
-  if (!soundUrlsCache.has(id)) {
-    soundUrlsCache.set(id, fetch(`/data/ranger/projectile/${encodeURIComponent(id)}.json`)
-      .then(r => (r.ok ? r.json() : null))
-      .then((d: { soundUrls?: SkillSoundUrls | null } | null) => d?.soundUrls ?? null)
-      .catch(() => null))
+export async function fetchSkillSoundUrls(rangerId: string): Promise<SkillSoundUrls | null> {
+  return ((await projectileJson(rangerId))?.soundUrls as SkillSoundUrls | undefined) ?? null
+}
+
+/** ข้อมูลเกมล่าสุดของเรนเจอร์ (รูปแบบเดียวกับ GameDataLite) · ไม่มีข้อมูล = null → ใช้ gamedata-index เดิม */
+export async function fetchFreshGameData(rangerId: string): Promise<GameDataLite | null> {
+  const [p, st] = await Promise.all([projectileJson(rangerId), statsJson(rangerId)])
+  const u = p?.unit
+  if (!u) return null
+  const ht = u.hitTiming ?? {}
+  const part = (m: any, rate: unknown): MovePart | null => (m ? {
+    part: m.animationPart ?? null,
+    speed: typeof m.moveSpeed === 'number' ? m.moveSpeed : 0,
+    motion: m.motion?.type ?? null,
+    rot: m.motion?.rotation ?? null,
+    start: m.start ?? null,
+    enabled: m.motion?.enabled ?? true,
+    hitRate: typeof rate === 'number' ? rate : 100,
+  } : null)
+  const basisOf = (i: number): SkillBasis => {
+    const t = st?.skills?.[i]?.triggerBasis?.type
+    return t === 'self' || t === 'front' || t === 'rear' ? t : null
   }
-  return soundUrlsCache.get(id)!
+  return {
+    sc: u.render?.shadowCenter ?? null,
+    fc: u.render?.faceCenter ?? null,
+    fly: u.render?.flightYn ?? 0,
+    ms: u.movement?.movingSpeed ?? null,
+    n: part(u.normal, ht.normalHitPointRate),
+    s1: part(u.skill1, ht.skill1HitPointRate),
+    s2: part(u.skill2, ht.skill2HitPointRate),
+    basis: { skill1: basisOf(0), skill2: basisOf(1) },
+  }
 }
 
 export interface SamSet {
@@ -51,6 +95,9 @@ export interface SamSet {
 export interface BulletRuntime extends SamSet {
   flight: string | null
   finish: string | null
+  /** กึ่งกลางภาพเฟรมแรกของช่วงบิน / ช่วงระเบิด — จุดยึด anchor 'center' (แบบ spawnRef / burstRef ของตัวเล่นอนิเมชั่น) */
+  flightRef: Vec | null
+  burstRef: Vec | null
   /** คลิปบินลอยขึ้น-ลงในตัวเองอยู่แล้ว (≥ 40 หน่วย) → โค้งอัตโนมัติจะไม่ซ้อนทับ */
   selfArc: boolean
 }
@@ -61,6 +108,8 @@ export interface RangerRuntime extends SamSet {
   stand: Vec
   /** จุดรับดาเมจ — เทียบกับจุดยืน (ยังไม่กลับด้าน) */
   hit: Vec
+  /** กลางลำตัว (ระดับอก) — เทียบกับจุดยืน · จุดที่กระสุนบินพุ่งเข้าชน (centerAnchor ของตัวเล่นอนิเมชั่น) */
+  center: Vec
   /** ขอบบน/ล่าง/ซ้าย/ขวา เทียบกับจุดยืน (กรอบมัธยฐานของท่ายืน) */
   box: { x0: number; x1: number; y0: number; y1: number }
   idle: string
@@ -132,7 +181,9 @@ function bulletOf(set: SamSet): BulletRuntime {
   const flight = set.sam.animations['normal']?.length ? 'normal' : set.clips.find(c => c !== 'finish') ?? null
   const finish = set.sam.animations['finish']?.length ? 'finish' : null
   const selfArc = !!flight && animSelfArcRise(set.sam, set.sprites, flight) >= 40
-  return { ...set, flight, finish, selfArc }
+  const flightRef = flight ? animFrame0Center(set.sam, set.sprites, flight) : null
+  const burstRef = finish ? animFrame0Center(set.sam, set.sprites, finish) : null
+  return { ...set, flight, finish, selfArc, flightRef, burstRef }
 }
 
 function rangerOf(set: SamSet, gd: GameDataLite | null): Omit<RangerRuntime, 'bullets' | 'pending' | 'setKeys' | 'thumb' | 'rangerId' | 'sounds'> {
@@ -147,6 +198,7 @@ function rangerOf(set: SamSet, gd: GameDataLite | null): Omit<RangerRuntime, 'bu
   return {
     ...set, kind: 'ranger', stand, idle, gamedata: gd,
     hit: { x: face.x - stand.x, y: face.y - stand.y },
+    center: { x: 0, y: (med.y0 + med.y1) / 2 - stand.y },
     box: { x0: med.x0 - stand.x, x1: med.x1 - stand.x, y0: med.y0 - stand.y, y1: Math.max(med.y1, stand.y) - stand.y + 4 },
   }
 }
@@ -345,13 +397,13 @@ class AssetStore {
         let thumb: string | null = null, rangerId: string | null = null
         let sounds: SkillSoundUrls | null = null
         if (def.source === 'lerico') {
-          const [L, snd] = await Promise.all([fetchRangerListing(def.rangerId), fetchSkillSoundUrls(def.rangerId)])
+          const [L, snd, fresh] = await Promise.all([fetchRangerListing(def.rangerId), fetchSkillSoundUrls(def.rangerId), fetchFreshGameData(def.rangerId)])
           sounds = snd
           const form = L.sets[def.form] ? def.form : 'body'
           if (!L.sets[form]) throw new Error(`ไม่มีร่าง ${def.form}`)
           bodyUrls = L.sets[form]
           bullets = bulletSetsFor(form, L.sets)
-          gd = L.gamedata
+          gd = fresh ?? L.gamedata
           thumb = L.thumbs[form] ?? L.thumbs.body ?? null
           rangerId = L.id
         } else {

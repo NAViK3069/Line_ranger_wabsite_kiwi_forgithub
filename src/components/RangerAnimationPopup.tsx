@@ -186,9 +186,10 @@ const DUMMY_HIT_ANIM = 'target'
 
 // ── เสียงของท่าโจมตี (จาก projectile_data → sounds) ──
 // เซิร์ฟเวอร์จับคู่ชื่อเสียงกับไฟล์จริงบน lerico ให้แล้ว (ดู api/ranger/projectile)
-//   preparation = ตอนเริ่มร่าย (ต้นช่วง Cast Time) — เสียงเดียวที่เล่นอยู่ตอนนี้
-//   attack / underAttack (ตอนปล่อยท่า / ตอนลงเป้า) ข้อมูลยังมากับ API แต่ไม่ได้เล่นแล้ว
-//   ผู้ใช้ลองแล้วเลือกให้เหลือแค่เสียงร่าย ถ้าจะเปิดกลับดูประวัติ git ของ commit ที่ใส่เสียง
+//   preparation = ตอนเริ่มร่าย (ต้นช่วง Cast Time) — เล่นเสมอ ซิงก์กับเฟรม (syncUnitSound)
+//   underAttack = ตอนท่าโจมตีลงเป้า (ชื่อไฟล์ขึ้นต้น hit_/skhit_) — เล่นเฉพาะตอนเปิดพื้นหลัง (ปุ่ม wallpaper)
+//                 เพราะต้องมีกระสอบทรายให้โดน · ทริกเกอร์จังหวะเดียวกับที่กระสอบทรายกระพริบ/กระเด็น (playHitSound)
+//   attack      = ตอนปล่อยท่า (เสียงฟึ่บ) — ข้อมูลมากับ API แต่ไม่ได้เล่น
 type AttackKind = 'normal' | 'skill1' | 'skill2'
 type SoundField = 'preparation' | 'attack' | 'underAttack'
 type UnitSoundUrls = Record<AttackKind, Record<SoundField, string | null>>
@@ -214,7 +215,7 @@ function soundAudioFor(url: string): HTMLAudioElement {
 function warmSounds(urls: UnitSoundUrls | null): void {
   if (!urls || typeof window === 'undefined') return
   for (const set of Object.values(urls)) {
-    for (const url of [set.preparation]) {
+    for (const url of [set.preparation, set.underAttack]) {
       if (!url || warmedSounds.has(url)) continue
       try {
         const a = new Audio()
@@ -350,6 +351,7 @@ interface ActiveBullet {
   startX: number; startY: number
   targetX: number; targetY: number
   travelTicks: number
+  kind: AttackKind         // ท่าไหนยิงนัดนี้ — ใช้เลือกเสียงตอนโดน (underAttack)
   isSkill: boolean         // ใช้เลือกปฏิกิริยาของเป้าหมายตอนโดน (กระพริบ vs เล่นท่าโดนตี)
   isAttack: boolean        // false = ท่าบัฟ (motion.type NONE) — ไม่สั่งปฏิกิริยาใส่เป้าหมาย
   hitRear: boolean         // true = นัดนี้เล็งเป้าหมายแนวหลัง
@@ -1138,8 +1140,27 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     startAt(audio, offset)
   }, [animSoundCues, stopUnitSound, fadeAndPause, startAt])
   // กดหยุด → เงียบ / ปิด popup → หยุดทันที
-  useEffect(() => { if (!playing) stopUnitSound() }, [playing, stopUnitSound])
-  useEffect(() => () => stopUnitSound(0), [stopUnitSound])
+  // ── เสียงตอนโดน (underAttack) — เสียงสั้นแบบยิงครั้งเดียว ซ้อนกันได้ (หลายนัดโดนพร้อมกัน)
+  // ไม่ผ่าน syncUnitSound เพราะไม่ได้ผูกกับเฟรมของตัวละคร แต่ผูกกับจังหวะที่กระสุน/ท่าไปถึงกระสอบทราย
+  // ใช้สำเนาของตัวที่อุ่นไว้ (cloneNode) — ไฟล์มาจากแคชเดียวกัน แต่เล่นซ้อนกันเองได้
+  const hitAudiosRef = useRef(new Set<HTMLAudioElement>())
+  const playHitSound = useCallback((kind: AttackKind) => {
+    if (!playingRef.current || volumeRef.current <= 0) return
+    const url = soundUrlsRef.current?.[kind]?.underAttack
+    if (!url) return
+    const a = soundAudioFor(url).cloneNode(true) as HTMLAudioElement
+    a.volume = Math.max(0, Math.min(1, volumeRef.current * SKILL_SOUND_VOLUME))
+    const set = hitAudiosRef.current
+    set.add(a)
+    a.onended = () => set.delete(a)
+    a.play().catch(() => set.delete(a))
+  }, [])
+  const stopHitSounds = useCallback(() => {
+    for (const a of hitAudiosRef.current) a.pause()
+    hitAudiosRef.current.clear()
+  }, [])
+  useEffect(() => { if (!playing) { stopUnitSound(); stopHitSounds() } }, [playing, stopUnitSound, stopHitSounds])
+  useEffect(() => () => { stopUnitSound(0); stopHitSounds() }, [stopUnitSound, stopHitSounds])
   // จุดยิงของ _all คำนวณครั้งเดียวต่อไฟล์ — เดิมสร้าง Map+array+sort ใหม่ทุกเฟรม
   const allTriggerCacheRef = useRef<{ sam: SAMParser | null; list: ReturnType<typeof allAttackTriggers> }>({ sam: null, list: [] })
   const activeBulletsRef = useRef<ActiveBullet[]>([])
@@ -1228,6 +1249,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
           kind === 'normal' ? 0 : (skillAreasRef.current?.[kind] ?? 0) * PT_TO_WORLD,
           dummyPointWorld(dummy, dummy.anchor ?? dummy.faceAnchor, off, yOff).x,
         )
+        playHitSound(kind)
       }
       return
     }
@@ -1368,7 +1390,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       suffix, spawnTick: sceneTickRef.current,
       startX: isInstant ? endX : startX, startY: isInstant ? endY : startY,
       targetX: endX, targetY: endY,
-      travelTicks, isSkill: kind !== 'normal', isAttack: !isBuff, hitRear: useRear, areaWorld, areaCenterX,
+      travelTicks, kind, isSkill: kind !== 'normal', isAttack: !isBuff, hitRear: useRear, areaWorld, areaCenterX,
       fitNormal: ov?.fitNormal === true,
       arcStartDeg: meta.angleStart, arcEndDeg: meta.angleEnd,
       motionType: meta.motionType, motionRotation: meta.motionRotation, selfArc: asset.selfArc,
@@ -1393,7 +1415,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       finishAnchorY: ov?.finishMain ? 0 : (aimGround ? flightA.y : (asset.burstRef?.y ?? flightA.y)),
       normalFrames, finishFrames, bulletFps,
     })
-  }, [applyHitReaction, sceneGroundY, targetGroundY])   // identity คงที่ทุกตัว — spawnBullet จึงไม่ถูกสร้างใหม่
+  }, [applyHitReaction, playHitSound, sceneGroundY, targetGroundY])   // identity คงที่ทุกตัว — spawnBullet จึงไม่ถูกสร้างใหม่
   const frameLabelRef = useRef<HTMLSpanElement>(null)  // counter "X/Y" — อัปเดตผ่าน textContent
   // grid cache — grid เป็น static (เปลี่ยนแค่ตอน zoom/origin/size) → render ครั้งเดียวเก็บไว้ blit
   const gridCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -1761,7 +1783,10 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
         if (T < b.travelTicks) b.hitFired = false
         if (T >= b.travelTicks && !b.hitFired) {
           b.hitFired = true
-          if (b.isAttack) applyHitReaction(b.hitRear, b.isSkill, b.areaWorld, b.areaCenterX)
+          if (b.isAttack) {
+            applyHitReaction(b.hitRear, b.isSkill, b.areaWorld, b.areaCenterX)
+            playHitSound(b.kind)
+          }
         }
         if (T < 0 || T > b.travelTicks + finishTicksEq) continue   // ยังไม่ถึงเวลา หรือเล่นจบแล้ว → ตัดทิ้ง
         alive.push(b)

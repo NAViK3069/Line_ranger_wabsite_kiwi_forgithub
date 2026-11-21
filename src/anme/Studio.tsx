@@ -14,13 +14,15 @@
 import { useEffect } from 'react'
 import './anme.css'
 import { App } from './ui/App'
-import { setLang } from './engine/store'
+import { bindSiteLang, setLang } from './engine/store'
 import { useLanguage } from '@/contexts/LanguageContext'
 
 export default function Studio() {
   // ภาษาเริ่มต้นตามภาษาของเว็บ (ในสตูดิโอเปลี่ยนเองได้จากปุ่มบนแถบ)
-  const { lang } = useLanguage()
+  // ปุ่ม TH/EN ในสตูดิโอ → เปลี่ยนภาษาของเว็บด้วย (สองทาง) — คำแปลสกิลบนการ์ดใช้ภาษาของเว็บ
+  const { lang, setLang: setSiteLang } = useLanguage()
   useEffect(() => { setLang(lang === 'th' ? 'th' : 'en') }, [lang])
+  useEffect(() => { bindSiteLang(l => { if (l !== lang) setSiteLang(l) }); return () => bindSiteLang(null) }, [lang, setSiteLang])
 
   return (
     <>

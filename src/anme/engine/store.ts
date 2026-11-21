@@ -78,9 +78,15 @@ let state: AppState = {
   volume: initialVolume(),
 }
 
+// ภาษาของเว็บ (LanguageContext) — ผูกจาก Studio.tsx ให้ปุ่ม TH/EN ในสตูดิโอเปลี่ยนภาษาของเว็บไปด้วย
+// (ชื่อ/คำอธิบายสกิลแปลด้วยตัวแปลของเว็บ ถ้าภาษาไม่ตรงกัน การ์ดคำอธิบายจะออกมาคนละภาษากับสตูดิโอ)
+let siteLang: ((lang: Lang) => void) | null = null
+export function bindSiteLang(fn: ((lang: Lang) => void) | null) { siteLang = fn }
+
 export function setLang(lang: Lang) {
   applyLang(lang)
   setState({ lang })
+  siteLang?.(lang)
 }
 export function setMuted(muted: boolean) {
   try { localStorage.setItem('anme.muted', muted ? '1' : '0') } catch { /* */ }

@@ -4,14 +4,14 @@
 //   • แต่ละบล็อกบนแถวย่อยกำหนดว่าแสดงอะไร ช่วงเวลาไหน (ลากย้าย/ยืดได้เหมือนบล็อกอื่น)
 // เนื้อหาการ์ดดึงจากข้อมูลเกมชุดเดียวกับ Ranger Book (ชื่อ/คำอธิบายแปลไทยด้วยตัวแปลของเว็บ) แล้วแก้ข้อความเองได้
 // ====================================================
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { apiFetch } from '@/lib/staticApi'
 import { addLayerCue, patchCue, setActorLayer } from '@/anme/engine/actions'
 import { assets, fetchRangerStats, type RangerRuntime } from '@/anme/engine/assets'
 import { L } from '@/anme/engine/i18n'
 import { cueColor } from '@/anme/engine/scene'
-import { useStore } from '@/anme/engine/store'
+import { getState, updateScene, useStore } from '@/anme/engine/store'
 import type { Actor, InfoCue, RangeCue, SkillCard } from '@/anme/engine/types'
 import { Icon, Num, Row, Section, Seg, Slider, Text, Toggle } from './widgets'
 
@@ -52,11 +52,10 @@ function castTimes(id: string) {
   return castCache.get(id)!
 }
 
-/** ตัวสร้างเนื้อหาการ์ดของเรนเจอร์ตัวนี้ (ต้องใช้คำแปลของเว็บ จึงเป็น hook) */
-export function useSkillCardMaker(rt: RangerRuntime | null) {
-  const { tSkill, tSkillDesc } = useLanguage()
-  return useCallback(async (slot: Slot): Promise<SkillCard> => {
-    const id = rt?.rangerId
+type Tr = (code: string, fallback: string) => string
+
+/** เนื้อหาการ์ดจากข้อมูลเกม — ข้อความตายตัวใช้ภาษาของสตูดิโอ (L) · ชื่อ/คำอธิบายสกิลใช้ตัวแปลของเว็บ */
+export async function buildSkillCard(id: string | null | undefined, slot: Slot, tSkill: Tr, tSkillDesc: Tr): Promise<SkillCard> {
     const [st, ct] = id ? await Promise.all([fetchRangerStats(id), castTimes(id)]) : [null, null]
     // สกิลที่ใช้งานได้ตัวที่ 1/2 ตามลำดับ (ข้าม passive) — ตรงกับท่า s_attack / s2_attack
     const active = ((st?.skills ?? []) as any[]).filter(sk => sk?.slot !== 'passive')
@@ -87,7 +86,43 @@ export function useSkillCardMaker(rt: RangerRuntime | null) {
       target: [who, area].filter(Boolean).join(' · '),
       timing,
     }
-  }, [rt?.rangerId, tSkill, tSkillDesc])
+}
+
+/** ตัวสร้างเนื้อหาการ์ดของเรนเจอร์ตัวนี้ (ต้องใช้คำแปลของเว็บ จึงเป็น hook) */
+export function useSkillCardMaker(rt: RangerRuntime | null) {
+  const { tSkill, tSkillDesc } = useLanguage()
+  return useCallback((slot: Slot) => buildSkillCard(rt?.rangerId, slot, tSkill, tSkillDesc), [rt?.rangerId, tSkill, tSkillDesc])
+}
+
+/**
+ * เปลี่ยนภาษา → แปลการ์ดคำอธิบายสกิลทุกใบในฉากเป็นภาษานั้น (ทั้งที่สร้างไว้แล้วและฉากที่เปิดเข้ามา)
+ * ยกเว้นการ์ดที่ผู้ใช้แก้ข้อความเอง (card.edited) · คงตำแหน่ง/ขนาด/ช่วงเวลาเดิม · ไม่นับเป็นประวัติ undo
+ */
+export function useCardLanguage() {
+  const { tSkill, tSkillDesc } = useLanguage()
+  const lang = useStore(s => s.lang)
+  // รายการการ์ดที่ต้องแปล (เปลี่ยนเมื่อมีการ์ดใหม่/ลบ/เปลี่ยนช่องสกิล)
+  const key = useStore(s => s.scene.cues.filter(c => c.type === 'info' && !c.card.edited).map(c => `${c.id}:${(c as InfoCue).slot}`).join(','))
+  useEffect(() => {
+    if (!key) return
+    let alive = true
+    ;(async () => {
+      const sc = getState().scene
+      const todo = sc.cues.filter((c): c is InfoCue => c.type === 'info' && !c.card.edited)
+      const next = new Map<string, SkillCard>()
+      for (const c of todo) {
+        const a = sc.actors.find(x => x.id === c.actorId)
+        const def = a && sc.assets.find(d => d.id === a.assetId)
+        const id = def?.type === 'ranger' && def.source === 'lerico' ? def.rangerId : null
+        if (!id) continue
+        const card = await buildSkillCard(id, c.slot, tSkill, tSkillDesc)
+        if (card.name && JSON.stringify(card) !== JSON.stringify(c.card)) next.set(c.id, card)
+      }
+      if (!alive || !next.size) return
+      updateScene(d => { for (const c of d.cues) if (c.type === 'info' && next.has(c.id) && !c.card.edited) c.card = next.get(c.id)! }, false)
+    })()
+    return () => { alive = false }
+  }, [lang, key, tSkill, tSkillDesc])
 }
 
 /** ตั้งค่าเรนเจอร์รายตัว → เปิด/ปิดเลเยอร์ระยะ + คำอธิบายสกิล */
@@ -164,11 +199,15 @@ export function InfoFields({ c }: { c: InfoCue }) {
         <Num label={L('ระยะเวลา', 'Duration')} unit={L('วิ', 's')} step={0.05} min={0.2} value={c.duration} onChange={(v, h) => p(k => { k.duration = v }, h)} />
       </Section>
       <Section title={L('ข้อความบนการ์ด', 'Card text')} accent={cueColor.info}>
-        <Text label={L('ชื่อสกิล', 'Skill name')} value={c.card.name} onChange={v => p(k => { k.card.name = v })} />
-        <Text label={L('อัตราใช้ / คูลดาวน์', 'Use rate / cooldown')} value={c.card.stat} onChange={v => p(k => { k.card.stat = v })} />
-        <EffectsBox value={c.card.effects} onChange={v => p(k => { k.card.effects = v })} />
-        <Text label={L('เป้าหมาย / ระยะ', 'Target / area')} value={c.card.target} onChange={v => p(k => { k.card.target = v })} />
-        <Text label={L('เวลาร่าย / กลับตำแหน่ง', 'Cast / recovery')} value={c.card.timing} onChange={v => p(k => { k.card.timing = v })} />
+        {/* แก้ข้อความเอง = การ์ดใบนี้จะไม่แปลตามภาษาอัตโนมัติอีก (กด "ดึงข้อความจากเกมใหม่" เพื่อกลับเป็นอัตโนมัติ) */}
+        <Text label={L('ชื่อสกิล', 'Skill name')} value={c.card.name} onChange={v => p(k => { k.card.name = v; k.card.edited = true })} />
+        <Text label={L('อัตราใช้ / คูลดาวน์', 'Use rate / cooldown')} value={c.card.stat} onChange={v => p(k => { k.card.stat = v; k.card.edited = true })} />
+        <EffectsBox value={c.card.effects} onChange={v => p(k => { k.card.effects = v; k.card.edited = true })} />
+        <Text label={L('เป้าหมาย / ระยะ', 'Target / area')} value={c.card.target} onChange={v => p(k => { k.card.target = v; k.card.edited = true })} />
+        <Text label={L('เวลาร่าย / กลับตำแหน่ง', 'Cast / recovery')} value={c.card.timing} onChange={v => p(k => { k.card.timing = v; k.card.edited = true })} />
+        <div className="muted small">{c.card.edited
+          ? L('แก้ข้อความเองแล้ว — การ์ดนี้จะไม่เปลี่ยนภาษาตามอัตโนมัติ', 'Edited by hand — this card no longer follows the language switch')
+          : L('ข้อความเปลี่ยนตามภาษาที่เลือกอัตโนมัติ', 'Text follows the selected language automatically')}</div>
       </Section>
       <Section title={L('ตำแหน่ง', 'Position')} accent={cueColor.info} defaultOpen={false}>
         <Row>

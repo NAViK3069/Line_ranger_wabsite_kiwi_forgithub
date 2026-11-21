@@ -4,6 +4,7 @@ import { copySelection, deleteSelection, duplicateSelection, pasteClipboard, pat
 import { getState, redo, setState, setTime, undo, useStore } from '@/anme/engine/store'
 import { L } from '@/anme/engine/i18n'
 import { Inspector } from './Inspector'
+import { useCardLanguage } from './LayerPanels'
 import { Library } from './Library'
 import { StageView } from './StageView'
 import { Timeline, usePlayback } from './Timeline'
@@ -136,6 +137,7 @@ export function App() {
   useStore(s => s.lang)
   usePlayback()
   useShortcuts()
+  useCardLanguage()   // การ์ดคำอธิบายสกิลเปลี่ยนภาษาตามภาษาที่เลือก
   const mobile = useIsMobile()
   const [layout, setLayout] = useLayout()
   const appRef = useRef<HTMLDivElement>(null)

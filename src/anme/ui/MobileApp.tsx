@@ -11,7 +11,7 @@
 // จอกว้างกว่า 760px ใช้ App แบบ 3 แผงเดิมของ ANME (ดู App.tsx)
 // ====================================================
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { addCue, addSkill, deleteSelection, duplicateSelection, laneOf, placeCue, prevCueEnd, resequenceCue, rippleAfter, shiftCues, skillPresets, uploadAudio, type Lane } from '@/anme/engine/actions'
+import { addCue, addSkill, copySelection, deleteSelection, duplicateSelection, laneOf, pasteClipboard, placeCue, prevCueEnd, resequenceCue, rippleAfter, shiftCues, skillPresets, uploadAudio, type Lane } from '@/anme/engine/actions'
 import { assets } from '@/anme/engine/assets'
 import { L } from '@/anme/engine/i18n'
 import { cueColor, cueLabel, rangeLabel } from '@/anme/engine/scene'
@@ -363,6 +363,7 @@ function MobileToolbar({ open, onAudio }: { open: (s: Sheet) => void; onAudio: (
   const scene = useStore(s => s.scene)
   const multi = useStore(s => s.multi)
   const multiMode = useStore(s => s.multiMode)
+  const clipboard = useStore(s => s.clipboard)
   useStore(s => s.lang)
   useAssetsVersion()
 
@@ -378,6 +379,7 @@ function MobileToolbar({ open, onAudio }: { open: (s: Sheet) => void; onAudio: (
     context = n ? L(`เลือก ${n} บล็อก · ลากเพื่อย้ายพร้อมกัน`, `${n} blocks selected · drag to move together`) : L('แตะบล็อกที่ต้องการเลือก', 'Tap the blocks to select')
     tools = [
       { key: 'done', icon: 'x', label: L('เสร็จ', 'Done'), run: () => { setState({ multiMode: false }); select({ kind: 'none' }) }, tone: 'accent' },
+      ...(n ? [{ key: 'copy', icon: 'copy' as IconName, label: L('คัดลอก', 'Copy'), run: () => { copySelection() } }] : []),
       ...(n ? [{ key: 'del', icon: 'trash' as IconName, label: L('ลบที่เลือก', 'Delete selected'), run: () => { deleteSelection(); setState({ multiMode: false }) }, tone: 'danger' as const }] : []),
     ]
   } else if (actor) {
@@ -399,6 +401,8 @@ function MobileToolbar({ open, onAudio }: { open: (s: Sheet) => void; onAudio: (
     tools = [
       { key: 'edit', icon: 'edit', label: L('แก้ไข', 'Edit'), run: () => open('edit') },
       { key: 'multi', icon: 'layers', label: L('เลือกหลายอัน', 'Select many'), run: () => setState({ multiMode: true }) },
+      { key: 'copy', icon: 'copy', label: L('คัดลอก', 'Copy'), run: () => { copySelection() } },
+      ...(clipboard.length ? [{ key: 'paste', icon: 'download' as IconName, label: L(`วาง (${clipboard.length})`, `Paste (${clipboard.length})`), run: () => { pasteClipboard() } }] : []),
       { key: 'dup', icon: 'copy', label: L('ทำซ้ำ', 'Duplicate'), run: duplicateSelection },
       { key: 'del', icon: 'trash', label: L('ลบ', 'Delete'), run: deleteSelection, tone: 'danger' },
     ]
@@ -416,6 +420,7 @@ function MobileToolbar({ open, onAudio }: { open: (s: Sheet) => void; onAudio: (
       { key: 'maps', icon: 'layers', label: L('ฉาก', 'Stage'), run: () => open('maps') },
       { key: 'camera', icon: 'camera', label: L('กล้อง', 'Camera'), run: () => addCue('camera', CAMERA_ID) },
       { key: 'scene', icon: 'edit', label: L('ตั้งค่าฉาก', 'Scene'), run: () => open('edit') },
+      ...(clipboard.length ? [{ key: 'paste', icon: 'download' as IconName, label: L(`วาง (${clipboard.length})`, `Paste (${clipboard.length})`), run: () => { pasteClipboard() } }] : []),
     ]
   }
 

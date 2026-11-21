@@ -530,6 +530,54 @@ export function shiftCues(d: Scene, starts: Map<string, number>, dt: number) {
   }
 }
 
+// ── คัดลอก / วางบล็อก (Ctrl+C / Ctrl+V) ──
+/** คัดลอกบล็อกที่เลือก (อันเดียวหรือทั้งกลุ่ม) · คืนจำนวนที่คัดลอก */
+export function copySelection(): number {
+  const ids = new Set(selectedCueIds())
+  const cues = getState().scene.cues.filter(c => ids.has(c.id))
+  if (!cues.length) return 0
+  setState({ clipboard: structuredClone(cues) })
+  toast(L(`คัดลอก ${cues.length} บล็อก`, `Copied ${cues.length} block${cues.length > 1 ? 's' : ''}`), 'info', 1500)
+  return cues.length
+}
+
+/**
+ * วางบล็อกที่คัดลอกไว้ ณ หัวอ่าน — แถวเดิมของแต่ละบล็อก (ตัวละครเดิม) ระยะห่างระหว่างกันคงเดิม
+ * ทับบล็อกที่มีอยู่ → ดันบล็อกหลังๆ ในแถวนั้นออกไป (แบบแทรก) · ตัวละครที่ถูกลบไปแล้ว = ข้าม
+ */
+export function pasteClipboard(): number {
+  const { clipboard, scene, time } = getState()
+  const alive = clipboard.filter(c => c.actorId === CAMERA_ID || c.actorId === AUDIO_ID || scene.actors.some(a => a.id === c.actorId))
+  if (!alive.length) return 0
+  const t0 = Math.min(...alive.map(c => c.start))
+  const fresh = alive
+    .map(c => {
+      const k = { ...structuredClone(c), id: uid('c'), start: +(time + c.start - t0).toFixed(3) } as Cue
+      // เป้าที่ไม่มีแล้ว / กลายเป็นฝั่งเดียวกัน → ปลด
+      if (k.type === 'skill' && k.targetId) {
+        const caster = scene.actors.find(a => a.id === k.actorId), tg = scene.actors.find(a => a.id === k.targetId)
+        if (!caster || !tg || !canTarget(caster, tg)) k.targetId = null
+      }
+      return k
+    })
+    .sort((p, q) => p.start - q.start)
+  updateScene(d => {
+    d.cues.push(...fresh)
+    for (const c of fresh) rippleAfter(d, c.id)
+    // เลเยอร์ใต้เรนเจอร์ที่ปิดอยู่ → เปิดให้ ไม่งั้นบล็อกที่วางจะมองไม่เห็น
+    for (const c of fresh) {
+      const lane = laneOf(c)
+      if (lane === 'main') continue
+      const a = d.actors.find(x => x.id === c.actorId)
+      if (a && !a.layers?.[lane]) a.layers = { ...a.layers, [lane]: true }
+    }
+    extendDuration(d)
+  })
+  const ids = fresh.map(c => c.id)
+  setState({ sel: { kind: 'cue', id: ids[ids.length - 1] }, multi: ids.length > 1 ? ids : [] })
+  return ids.length
+}
+
 export function deleteSelection() {
   const { sel } = getState()
   if (sel.kind === 'actor') {
@@ -592,7 +640,8 @@ export const CAMERA = CAMERA_ID
 export async function loadDemo() {
   const { replaceScene } = await import('./store')
   // ฉากตัวอย่างของเว็บ Line Ranger Kiwi (เจ้าของเว็บจัดไว้เอง — src/anme/engine/demoScene.json):
-  // Darkpaw Brown (ฝ่ายเรา) ยืน → เดินเข้าหา → โจมตี → สกิล 1 → สกิล 2 ใส่ Shogun Moon (ศัตรู) · ฉาก battle05 · 9 วิ
+  // Darkpaw Brown (ฝ่ายเรา) ซูมเปิด → เดินเข้าหา → โจมตี 2 ครั้ง (แถบระยะ ATK) → สกิล 1 ×2 (การ์ด + แถบระยะ) → สกิล 2 ×2 ใส่ Shogun Moon (ศัตรู)
+  // ฉาก battle05 · 21 วิ · มีเสียงจากเกม + กล้องแพน/ซูม · การ์ดคำอธิบายเป็นภาษาไทย
   // แก้ฉากตัวอย่าง: จัดฉากในสตูดิโอ → เมนู "ส่งออกไฟล์ฉาก (.json)" → แทนที่ไฟล์นี้
   const { default: demo } = await import('./demoScene.json')
   const scene = structuredClone(demo) as unknown as Scene

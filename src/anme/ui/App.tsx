@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { MobileApp } from './MobileApp'
-import { deleteSelection, duplicateSelection, patchActor } from '@/anme/engine/actions'
+import { copySelection, deleteSelection, duplicateSelection, pasteClipboard, patchActor } from '@/anme/engine/actions'
 import { getState, redo, setState, setTime, undo, useStore } from '@/anme/engine/store'
 import { Inspector } from './Inspector'
 import { Library } from './Library'
@@ -12,14 +12,25 @@ function useShortcuts() {
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return
-      const st = getState()
       const mod = e.ctrlKey || e.metaKey
       const k = e.key.toLowerCase()
+      // ช่องตัวเลข/ข้อความบรรทัดเดียว/ตัวเลือก ที่ยังโฟกัสค้างหลังแก้ค่า → Ctrl+Z/Y ย้อนการแก้ของสตูดิโอ
+      // (ปล่อยโฟกัสก่อนให้ค่าที่พิมพ์ถูกบันทึก แล้วค่อยย้อน) · ช่องข้อความหลายบรรทัดใช้ย้อนของเบราว์เซอร์ตามปกติ
+      if (mod && (k === 'z' || k === 'y') && el && (el.tagName === 'INPUT' || el.tagName === 'SELECT')) {
+        e.preventDefault()
+        el.blur()
+        setTimeout(() => (k === 'y' || e.shiftKey ? redo() : undo()), 0)
+        return
+      }
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return
+      const st = getState()
       if (k === ' ') { e.preventDefault(); setState({ playing: !st.playing }) }
       else if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); undo() }
       else if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); redo() }
       else if (mod && k === 'd') { e.preventDefault(); duplicateSelection() }
+      // คัดลอก/วางบล็อกบนไทม์ไลน์ (ไม่มีบล็อกที่เลือก/ไม่มีของในคลิปบอร์ด = ปล่อยให้เบราว์เซอร์ทำตามปกติ)
+      else if (mod && k === 'c' && !window.getSelection()?.toString()) { if (copySelection()) e.preventDefault() }
+      else if (mod && k === 'v') { if (pasteClipboard()) e.preventDefault() }
       else if (k === 'delete' || k === 'backspace') { e.preventDefault(); deleteSelection() }
       else if (k === 'home') { setState({ playing: false }); setTime(0) }
       else if (k === ',' || k === '.') { setState({ playing: false }); setTime(st.time + (k === ',' ? -1 : 1) / st.scene.fps) }

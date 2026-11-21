@@ -27,6 +27,8 @@ export interface AppState {
   multi: string[]
   /** มือถือ: แตะบล็อก = เพิ่ม/เอาออกจากกลุ่มที่เลือก (ไม่มี Shift บนจอสัมผัส) */
   multiMode: boolean
+  /** บล็อกที่คัดลอกไว้ (Ctrl+C) — วางด้วย Ctrl+V ณ หัวอ่าน · ไม่บันทึกลงฉาก */
+  clipboard: Cue[]
   time: number
   playing: boolean
   loop: boolean
@@ -68,7 +70,7 @@ function initialScene(): Scene {
 }
 
 let state: AppState = {
-  scene: initialScene(), sel: { kind: 'none' }, multi: [], multiMode: false, time: 0, playing: false, loop: true, rate: 1,
+  scene: initialScene(), sel: { kind: 'none' }, multi: [], multiMode: false, clipboard: [], time: 0, playing: false, loop: true, rate: 1,
   guides: true, projectName: null, dirty: false, toasts: [], busy: null,
   lang: getLang(),
   muted: ls('anme.muted') === '1',

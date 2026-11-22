@@ -225,10 +225,29 @@ async function poolsApi(k: PoolKind, rest: string[], method: string, body: Recor
 
   if (method === 'GET') return json(row)
 
+  // สำเนาตู้ — ข้อมูลเหมือนเดิมทุกอย่าง แต่ได้ id ใหม่ ชื่อต่อท้าย "(สำเนา)" และเริ่มแบบปิดไว้ (แอดมินกดเปิดเอง)
+  // วางต่อจากตู้ต้นฉบับในลำดับ · รูป banner ใช้ไฟล์เดิมร่วมกัน (อัปรูปใหม่ให้ตู้สำเนาเมื่อไหร่ จะได้ไฟล์ชื่อ id ใหม่ของมันเอง)
+  if (rest[1] === 'duplicate' && method === 'POST') {
+    const copy: Row = {
+      ...structuredClone(row),
+      id: cuid(), name: `${String(row.name ?? '').trim()} (สำเนา)`, isActive: false,
+      createdAt: now(), updatedAt: now(),
+    }
+    const ordered = sortPools(rows)
+    ordered.splice(ordered.findIndex(r => r.id === id) + 1, 0, copy)
+    ordered.forEach((r, i) => { r.sortOrder = i })
+    await commit(`admin: duplicate ${k.label} "${row.name}"`, [contentFile(k.file, ordered)])
+    return json({ pool: { id: copy.id, name: copy.name, isActive: false } }, 201)
+  }
+
   if (method === 'PUT') {
     if (!String(body.name ?? '').trim()) return json({ error: `กรุณาใส่ชื่อ${k.label}` }, 400)
     const img = imageFile(body.imageUrl as string, k.imgDir, id)
-    Object.assign(row, poolFields(k, body), { imageUrl: img?.url ?? (body.imageUrl as string) ?? null, updatedAt: now() })
+    Object.assign(row, poolFields(k, body), {
+      // ไม่ส่ง isActive มา = คงสถานะเปิด/ปิดเดิม (แก้ไขตู้ที่ปิดอยู่แล้วกดบันทึก ตู้ต้องยังปิดอยู่)
+      isActive: typeof body.isActive === 'boolean' ? body.isActive : row.isActive,
+      imageUrl: img?.url ?? (body.imageUrl as string) ?? null, updatedAt: now(),
+    })
     await commit(`admin: update ${k.label} "${row.name}"`, [contentFile(k.file, rows), ...(img ? [img.file] : [])])
     return json({ pool: { id: row.id, name: row.name, isActive: row.isActive } })
   }

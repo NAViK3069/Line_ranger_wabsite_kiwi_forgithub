@@ -108,6 +108,8 @@ export default function AdminPoolsPage() {
   const [pools, setPools] = useState<PoolSummary[]>([])
   const [loadingPools, setLoadingPools] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+  const [listMsg, setListMsg] = useState('')
 
   // Drag-and-drop state
   const dragIndexRef = useRef<number | null>(null)
@@ -136,6 +138,11 @@ export default function AdminPoolsPage() {
   const [copied, setCopied] = useState(false)
   const [guarText, setGuarText] = useState('')
   const [guarCopied, setGuarCopied] = useState(false)
+
+  // แทนที่ข้อความ (เช่นบัฟเรท 0.12 → 1.25) — ใช้กับช่องโค้ดข้อมูลตู้ และตารางข้อมูลอัตราสุ่ม
+  const [replaceNew, setReplaceNew] = useState('')
+  const [replaceOld, setReplaceOld] = useState('')
+  const [replaceMsg, setReplaceMsg] = useState('')
 
   const bannerRef = useRef<HTMLInputElement>(null)
 
@@ -183,6 +190,7 @@ export default function AdminPoolsPage() {
   }
 
   async function startEdit(pool: PoolSummary) {
+    setListMsg('')
     setEditPoolId(pool.id)
     setPoolName(pool.name)
     setResults(null)
@@ -238,6 +246,24 @@ export default function AdminPoolsPage() {
     }
   }
 
+  // สำเนาตู้ (ข้อมูลเหมือนเดิมทุกอย่าง) — ตู้สำเนาเริ่มแบบปิดไว้ ต้องกด "เปิด" เองถึงจะแสดงบนเว็บ
+  async function duplicatePool(pool: PoolSummary) {
+    if (duplicatingId) return
+    setDuplicatingId(pool.id)
+    setListMsg('')
+    try {
+      const res = await adminFetch(`/api/admin/gacha/pools/${pool.id}/duplicate`, { method: 'POST' })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(d.error ?? 'สำเนาไม่สำเร็จ')
+      await fetchPools()
+      setListMsg(`✓ สร้าง "${d.pool?.name ?? pool.name}" แล้ว (ปิดไว้ก่อน — กด "เปิด" เมื่อพร้อมแสดง)`)
+    } catch (err) {
+      setListMsg(`✗ ${err instanceof Error ? err.message : 'สำเนาไม่สำเร็จ'}`)
+    } finally {
+      setDuplicatingId(null)
+    }
+  }
+
   async function toggleActive(id: string, current: boolean) {
     setPools(prev => prev.map(p => p.id === id ? { ...p, isActive: !current } : p))
     try {
@@ -260,7 +286,8 @@ export default function AdminPoolsPage() {
       let imageUrl = existingImageUrl
       if (bannerFile) imageUrl = await fileToBase64(bannerFile)
 
-      const body = { name: poolName.trim(), imageUrl, rangers: results, guaranteedRangers, isActive: true, isNew: badge === 'new', isEvent: badge === 'event', isTest, isFrog: poolMode === 'frog' }
+      // ตู้ใหม่ = เปิดเลย · แก้ไขตู้เดิม = ไม่ส่ง isActive (คงเปิด/ปิดเดิม — ตู้สำเนาที่ปิดอยู่จะยังปิดหลังบันทึก)
+      const body = { name: poolName.trim(), imageUrl, rangers: results, guaranteedRangers, ...(editPoolId ? {} : { isActive: true }), isNew: badge === 'new', isEvent: badge === 'event', isTest, isFrog: poolMode === 'frog' }
       const url = editPoolId ? `/api/admin/gacha/pools/${editPoolId}` : '/api/admin/gacha/pools'
       const method = editPoolId ? 'PUT' : 'POST'
 
@@ -285,6 +312,35 @@ export default function AdminPoolsPage() {
     setResults(null); setError('')
     setTextInput(''); setTextErrors([]); setEditingIdx(null); setEditPoolId(null)
     setGuaranteedRangers([]); setEditingGuarIdx(null); setBadge('none'); setCopied(false); setPoolMode('normal'); setGuarText('')
+    setReplaceNew(''); setReplaceOld(''); setReplaceMsg(''); setListMsg('')
+  }
+
+  // แทนที่ "ข้อความเดิม" ทุกจุดด้วย "ข้อความใหม่" (ตรงตัว ไม่ใช่ regex)
+  //   ช่องโค้ดข้อมูลตู้ → แทนในข้อความ
+  //   ตารางข้อมูลอัตราสุ่ม (ถ้ามี) → แทนในชื่อ / ดาว / เรท ของทุกแถวด้วย — ตู้ที่เปิดมาแก้ไขหรือสำเนามาไม่มีข้อความในช่องโค้ด
+  //     เรทที่แทนแล้วไม่ใช่ตัวเลข จะคงค่าเดิมไว้
+  function applyReplace() {
+    const from = replaceOld
+    if (!from) { setReplaceMsg('ใส่ข้อความเดิมที่ต้องการแทนที่ก่อน'); return }
+    const count = (s: string) => s.split(from).length - 1
+    const swap = (s: string) => s.split(from).join(replaceNew)
+
+    const textHits = count(textInput)
+    if (textHits) setTextInput(swap(textInput))
+
+    let tableHits = 0
+    if (results?.length) {
+      setResults(results.map(r => {
+        const rate = String(r.rate)
+        tableHits += count(r.name) + count(r.grade) + count(rate)
+        const nextRate = parseFloat(swap(rate))
+        return { ...r, name: swap(r.name), grade: swap(r.grade), rate: isNaN(nextRate) ? r.rate : nextRate }
+      }))
+      setEditingIdx(null)
+    }
+
+    const parts = [textHits && `ช่องโค้ด ${textHits} จุด`, tableHits && `ตาราง ${tableHits} จุด`].filter(Boolean)
+    setReplaceMsg(parts.length ? `✓ แทนที่ "${from}" → "${replaceNew}" แล้ว: ${parts.join(' · ')}` : `ไม่พบ "${from}"`)
   }
 
   function handleBanner(e: React.ChangeEvent<HTMLInputElement>) {
@@ -475,6 +531,15 @@ export default function AdminPoolsPage() {
           </div>
         </div>
 
+        {listMsg && (
+          <div className={`mb-4 px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 ${listMsg.startsWith('✓') ? 'bg-green-500/15 text-green-300' : 'bg-red-500/15 text-red-300'}`}>
+            <span className="flex-1">{listMsg}</span>
+            <button onClick={() => setListMsg('')} className="text-current opacity-60 hover:opacity-100" aria-label="close">
+              <span className="material-icons-round text-base">close</span>
+            </button>
+          </div>
+        )}
+
         {loadingPools ? (
           <div className="card-glass p-12 text-center">
             <span className="material-icons-round text-5xl text-gray-600 animate-spin">refresh</span>
@@ -587,6 +652,18 @@ export default function AdminPoolsPage() {
                     >
                       <span className="material-icons-round text-sm">edit</span>แก้ไข
                     </button>
+                    {/* สำเนาตู้ — ตู้ใหม่เริ่มแบบปิดไว้ */}
+                    <button
+                      onClick={() => duplicatePool(pool)}
+                      disabled={!!duplicatingId}
+                      title="สำเนาตู้นี้ (ตู้สำเนาจะปิดไว้ก่อน)"
+                      className="flex-1 py-2 text-xs bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 disabled:opacity-50 disabled:cursor-wait rounded-lg transition-colors flex items-center justify-center gap-1 font-medium"
+                    >
+                      <span className={`material-icons-round text-sm ${duplicatingId === pool.id ? 'animate-spin' : ''}`}>
+                        {duplicatingId === pool.id ? 'refresh' : 'content_copy'}
+                      </span>
+                      สำเนา
+                    </button>
                     <button
                       onClick={() => toggleActive(pool.id, pool.isActive)}
                       className={`flex-1 py-2 text-xs rounded-lg transition-colors flex items-center justify-center gap-1 font-medium ${pool.isActive ? 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30' : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'}`}
@@ -697,6 +774,38 @@ export default function AdminPoolsPage() {
               <code className="text-xs text-cyan-400 font-mono">{`{"ชื่อ Ranger","เรท"},`}</code>
               <p className="text-xs text-gray-600 mt-1.5">ระดับดาวดึงจาก Ranger Book ให้เองจากชื่อ → id ไม่ต้องพิมพ์</p>
               <p className="text-xs text-gray-600 mt-0.5">อยากกำหนดดาวเองก็ใส่ตรงกลางได้เหมือนเดิม: <code className="text-cyan-600 font-mono">{`{"ชื่อ","ดาว","เรท"}`}</code> หรือแก้ในตารางข้างล่าง</p>
+            </div>
+
+            {/* แทนที่ข้อความ: [ข้อความใหม่] ← [ข้อความเดิม] — เช่นบัฟเรท ใส่ 1.25 ← 0.12 แล้วกดแทนที่ */}
+            <div className="bg-white/5 rounded-xl px-3 py-3 border border-white/10">
+              <p className="text-xs text-gray-400 mb-2 flex items-center gap-1">
+                <span className="material-icons-round text-sm text-amber-400">find_replace</span>
+                แทนที่ข้อความทั้งหมด (ช่องโค้ดข้างล่าง + ตารางอัตราสุ่ม)
+              </p>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <input
+                  type="text" value={replaceNew} onChange={e => { setReplaceNew(e.target.value); setReplaceMsg('') }}
+                  onKeyDown={e => { if (e.key === 'Enter') applyReplace() }}
+                  placeholder="ข้อความใหม่ เช่น 1.25"
+                  className="flex-1 min-w-0 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-600 font-mono text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                />
+                <span className="material-icons-round text-gray-500 self-center rotate-90 sm:rotate-0" title="แทนที่ด้วย">arrow_back</span>
+                <input
+                  type="text" value={replaceOld} onChange={e => { setReplaceOld(e.target.value); setReplaceMsg('') }}
+                  onKeyDown={e => { if (e.key === 'Enter') applyReplace() }}
+                  placeholder="ข้อความเดิม เช่น 0.12"
+                  className="flex-1 min-w-0 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-600 font-mono text-sm focus:outline-none focus:border-amber-500 transition-colors"
+                />
+                <button
+                  onClick={applyReplace} disabled={!replaceOld}
+                  className="whitespace-nowrap px-4 py-2 text-sm bg-amber-500/20 border border-amber-500/30 text-amber-300 rounded-lg hover:bg-amber-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1 font-semibold"
+                >
+                  <span className="material-icons-round text-sm">swap_horiz</span>แทนที่
+                </button>
+              </div>
+              {replaceMsg && (
+                <p className={`text-xs mt-2 ${replaceMsg.startsWith('✓') ? 'text-green-400' : 'text-gray-400'}`}>{replaceMsg}</p>
+              )}
             </div>
             <textarea
               value={textInput}

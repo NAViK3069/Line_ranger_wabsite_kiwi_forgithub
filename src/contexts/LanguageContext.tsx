@@ -144,7 +144,7 @@ const STAT_LABELS_TH: Record<string, string> = {
   'Clear all':                      'ล้างทั้งหมด',
   'Back':                           'กลับหน้าหลัก',
   'Back to Custom':                 'กลับไปหน้า Custom',
-  'Search ranger name or ID...':    'ค้นหาชื่อหรือ ID เรนเจอร์...',
+  'Search ranger name or ID...':    'ค้นหาชื่อ (ไทย/อังกฤษ) หรือ ID เรนเจอร์...',
   'Search gear name...':            'ค้นหาชื่อเกียร์...',
   'Search gear name or ID...':      'ค้นหาชื่อเกียร์ หรือ ID…',
   'Select Gear':                    'เลือกเกียร์',

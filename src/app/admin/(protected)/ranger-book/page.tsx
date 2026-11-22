@@ -5,6 +5,7 @@
 // ====================================================
 
 import { adminFetch } from '@/lib/adminApi'
+import { makeRangerMatcher, useRangerNames } from '@/lib/rangerSearch'
 import { useState, useEffect, useMemo } from 'react'
 import GachaRangerDetailPopup from '@/components/GachaRangerDetailPopup'
 import Pagination from '@/components/Pagination'
@@ -112,6 +113,9 @@ export default function AdminRangerBookPage() {
       .catch(() => setLoading(false))
   }, [])
 
+  // ชื่อไทย + อังกฤษ สำหรับค้นข้ามภาษา — โหลดตอนเริ่มพิมพ์ค้นหาครั้งแรก
+  const names = useRangerNames(search.trim() !== '')
+
   // Reset page when search/filter/pageSize changes
   useEffect(() => { setPage(0) }, [search, filters, pageSize])
 
@@ -154,15 +158,16 @@ export default function AdminRangerBookPage() {
       if (aSpecial !== bSpecial) return aSpecial ? 1 : -1
       return b.sortOrder - a.sortOrder
     })
-    const q = search.trim().toLowerCase()
-    if (q) list = list.filter(r => r.name.toLowerCase().includes(q) || r.id.toLowerCase().includes(q))
+    // ค้นได้ทั้งชื่อไทย ชื่ออังกฤษ และ id (src/lib/rangerSearch.ts)
+    const match = makeRangerMatcher(search, names)
+    if (match) list = list.filter(r => match(r.id, r.name))
     if (filters.grades.length > 0)     list = list.filter(r => r.grade != null && filters.grades.includes(r.grade))
     if (filters.evolutions.length > 0) list = list.filter(r => filters.evolutions.includes(r.evolution ?? 'normal'))
     if (filters.types.length > 0)      list = list.filter(r => r.type != null && filters.types.includes(r.type))
     if (filters.roles.length > 0)      list = list.filter(r => r.role != null && filters.roles.includes(r.role))
     if (filters.elements.length > 0)   list = list.filter(r => filters.elements.includes(r.element ?? 'none'))
     return list
-  }, [rangers, search, filters])
+  }, [rangers, search, filters, names])
 
   const totalPages = Math.max(1, Math.ceil(displayed.length / pageSize))
   const safePage = Math.min(page, totalPages - 1)
@@ -208,7 +213,7 @@ export default function AdminRangerBookPage() {
             <span className="material-icons-round absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none">search</span>
             <input
               type="text"
-              placeholder="ค้นหาชื่อหรือ ID เรนเจอร์..."
+              placeholder="ค้นหาชื่อ (ไทย/อังกฤษ) หรือ ID เรนเจอร์..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="w-full pl-10 pr-9 py-2 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-purple-500/50 transition-all"

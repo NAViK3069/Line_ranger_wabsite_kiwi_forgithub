@@ -2,11 +2,13 @@
 
 // ====================================================
 // RangerPicker — ป๊อปอัพเลือกเรนเจอร์ลงช่องทีมของหน้า /lobby
-// ฟิลเตอร์ชุดเดียวกับ Ranger Book (ดาว / ร่าง / ชนิด / บทบาท / ธาตุ) + ค้นหาชื่อหรือ ID
+// ฟิลเตอร์ชุดเดียวกับ Ranger Book (ดาว / ร่าง / ชนิด / บทบาท / ธาตุ)
+// + ค้นหาชื่อไทย / อังกฤษ / ID ได้ทุกโหมดภาษา (src/lib/rangerSearch.ts)
 // ต่างกันตรงเป็นตารางกริดรูปให้กดเลือก ไม่ใช่ลิสต์ข้อมูล
 // ====================================================
 
 import { apiFetch } from '@/lib/staticApi'
+import { makeRangerMatcher, useRangerNames } from '@/lib/rangerSearch'
 import { useEffect, useMemo, useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import Pagination from '@/components/Pagination'
@@ -40,9 +42,6 @@ export function loadRangerBook(): Promise<RangerRow[]> {
   return bookPromise
 }
 
-// ชื่อไทย — โหลดเฉพาะตอนอยู่โหมด EN แล้วผู้ใช้พิมพ์อักษรไทย (เหมือนหน้า Ranger Book)
-let altNameCache: Record<string, string> | null = null
-const hasNonAscii = (s: string) => /[^\x20-\x7e]/.test(s)
 
 const GRADES = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 const EVOLUTIONS = [
@@ -119,11 +118,10 @@ interface Props {
 }
 
 export default function RangerPicker({ title, allowAll = false, minGrade = 0, view, onViewChange, onPick, onClose, extraRows }: Props) {
-  const { lang, tRanger, tStat } = useLanguage()
+  const { tRanger, tStat } = useLanguage()
   const [rows, setRows] = useState<RangerRow[]>(bookCache ?? [])
   const [loading, setLoading] = useState(!bookCache)
   const [filterOpen, setFilterOpen] = useState(false)
-  const [altNames, setAltNames] = useState<Record<string, string> | null>(altNameCache)
 
   const { search, filters, page } = view
   const setSearch = (v: string) => onViewChange({ search: v, page: 0 })
@@ -140,14 +138,8 @@ export default function RangerPicker({ title, allowAll = false, minGrade = 0, vi
   }, [rows, extraRows])
   const allRows = useMemo(() => (extraIds.size ? [...rows, ...(extraRows ?? []).filter(r => extraIds.has(r.id))] : rows), [rows, extraRows, extraIds])
 
-  // ค้นหาข้ามภาษา: อยู่โหมด EN แล้วพิมพ์ไทย → ค่อยไปดึงชุดชื่อไทยมาเทียบ
-  useEffect(() => {
-    if (altNames || lang !== 'en' || !hasNonAscii(search)) return
-    apiFetch('/api/translations/th?only=names')
-      .then(r => r.json())
-      .then((d: Record<string, string>) => { altNameCache = d; setAltNames(d) })
-      .catch(() => {})
-  }, [search, lang, altNames])
+  // ชื่อไทย + อังกฤษ สำหรับค้นข้ามภาษา — โหลดตอนเริ่มพิมพ์ค้นหาครั้งแรก
+  const names = useRangerNames(search.trim() !== '')
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -174,21 +166,15 @@ export default function RangerPicker({ title, allowAll = false, minGrade = 0, vi
       if (aSpecial !== bSpecial) return aSpecial ? 1 : -1
       return b.sortOrder - a.sortOrder
     })
-    const q = search.trim().toLowerCase()
-    if (q) list = list.filter(r => {
-      const altName = altNames?.[`${r.id}_nm`]?.toLowerCase() ?? ''
-      return r.name.toLowerCase().includes(q)
-        || tRanger(r.id, r.name).toLowerCase().includes(q)
-        || altName.includes(q)
-        || r.id.toLowerCase().includes(q)
-    })
+    const match = makeRangerMatcher(search, names)
+    if (match) list = list.filter(r => match(r.id, r.name, tRanger(r.id, r.name)))
     if (filters.grades.length > 0)     list = list.filter(r => r.grade != null && filters.grades.includes(r.grade))
     if (filters.evolutions.length > 0) list = list.filter(r => filters.evolutions.includes(r.evolution ?? 'normal'))
     if (filters.types.length > 0)      list = list.filter(r => r.type != null && filters.types.includes(r.type))
     if (filters.roles.length > 0)      list = list.filter(r => r.role != null && filters.roles.includes(r.role))
     if (filters.elements.length > 0)   list = list.filter(r => filters.elements.includes(r.element ?? 'none'))
     return list
-  }, [allRows, allowAll, minGrade, search, filters, altNames, tRanger])
+  }, [allRows, allowAll, minGrade, search, filters, names, tRanger])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages - 1)

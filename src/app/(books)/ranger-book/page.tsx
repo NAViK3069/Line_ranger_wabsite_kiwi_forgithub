@@ -5,6 +5,7 @@
 // ====================================================
 
 import { apiFetch } from '@/lib/staticApi'
+import { makeRangerMatcher, useRangerNames } from '@/lib/rangerSearch'
 import { useState, useEffect, useMemo } from 'react'
 import GachaRangerDetailPopup from '@/components/GachaRangerDetailPopup'
 import type { AbilityOption } from '@/server/api/ranger-abilities/route'
@@ -191,15 +192,8 @@ function toggleItem<T>(arr: T[], item: T): T[] {
 }
 
 
-// ชื่อเรนเจอร์ภาษาไทย โหลดเฉพาะตอนต้องใช้จริง (อยู่โหมด EN แล้วผู้ใช้พิมพ์ไทย)
-// โหมด TH ไม่ต้องใช้ เพราะชื่อ EN คือ fallback ที่มีอยู่แล้ว ค้นได้ทั้งสองภาษาอยู่แล้ว
-// module-level cache → เปลี่ยนหน้าไปมาก็ยิงครั้งเดียว
-let altNameCache: Record<string, string> | null = null
-const hasNonAscii = (s: string) => /[^ -]/.test(s)
-
 export default function PublicRangerBookPage() {
   const { t, lang, tRanger, tStat, tAbility } = useLanguage()
-  const [altNames, setAltNames] = useState<Record<string, string> | null>(altNameCache)
   const [rangers, setRangers] = useState<RangerRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -222,17 +216,8 @@ export default function PublicRangerBookPage() {
 
   useEffect(() => { setPage(0) }, [search, filters, pageSize])
 
-  // ยิงตอนพิมพ์ตัวอักษรที่ไม่ใช่ ASCII ขณะอยู่โหมด EN เท่านั้น — ใช้งานปกติจึงไม่โหลดอะไรเพิ่มเลย
-  const needAltNames = lang === 'en' && hasNonAscii(search)
-  useEffect(() => {
-    if (!needAltNames || altNameCache) return
-    let cancelled = false
-    apiFetch('/api/translations/th?only=names')
-      .then(r => r.json() as Promise<Record<string, string>>)
-      .then(d => { altNameCache = d; if (!cancelled) setAltNames(d) })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [needAltNames])
+  // ชื่อไทย + อังกฤษ สำหรับค้นข้ามภาษา — โหลดตอนเริ่มพิมพ์ค้นหาครั้งแรก (src/lib/rangerSearch.ts)
+  const names = useRangerNames(search.trim() !== '')
 
   // โหลดตอนเปิดหน้าต่าง Filter ครั้งแรกเท่านั้น — คนที่ไม่ได้ใช้ตัวกรองไม่ต้องโหลดอะไรเพิ่ม
   useEffect(() => {
@@ -291,14 +276,9 @@ export default function PublicRangerBookPage() {
       if (aSpecial !== bSpecial) return aSpecial ? 1 : -1
       return b.sortOrder - a.sortOrder
     })
-    const q = search.trim().toLowerCase()
-    if (q) list = list.filter(r => {
-      // ค้นหาได้ทั้งชื่อ EN เดิม, ชื่อแปล (ตามภาษาที่เลือก), ชื่ออีกภาษาที่โหลดมาเสริม, และ id
-      const enName = r.name.toLowerCase()
-      const trName = tRanger(r.id, r.name).toLowerCase()
-      const altName = altNames?.[`${r.id}_nm`]?.toLowerCase() ?? ''
-      return enName.includes(q) || trName.includes(q) || altName.includes(q) || r.id.toLowerCase().includes(q)
-    })
+    // ค้นได้ทั้งชื่อไทย ชื่ออังกฤษ และ id ไม่ว่าอยู่โหมดภาษาไหน
+    const match = makeRangerMatcher(search, names)
+    if (match) list = list.filter(r => match(r.id, r.name, tRanger(r.id, r.name)))
     if (filters.grades.length > 0)     list = list.filter(r => r.grade != null && filters.grades.includes(r.grade))
     if (filters.evolutions.length > 0) list = list.filter(r => filters.evolutions.includes(r.evolution ?? 'normal'))
     if (filters.types.length > 0)      list = list.filter(r => r.type != null && filters.types.includes(r.type))
@@ -324,7 +304,7 @@ export default function PublicRangerBookPage() {
       })
     }
     return list
-  }, [rangers, search, filters, altNames, tRanger, abilityData, skillFxData])
+  }, [rangers, search, filters, names, tRanger, abilityData, skillFxData])
 
   const totalPages = Math.max(1, Math.ceil(displayed.length / pageSize))
   const safePage = Math.min(page, totalPages - 1)

@@ -2315,7 +2315,7 @@
     "name": "New November Rangers Odds UP for Sally & Crush!",
     "description": null,
     "imageUrl": "/content-images/pools/cmwrkoktd3i3s3y6p5a3r-mwrkrred.png",
-    "isActive": false,
+    "isActive": true,
     "isNew": false,
     "isEvent": true,
     "isTest": false,
@@ -4620,7 +4620,7 @@
     "startDate": null,
     "endDate": null,
     "createdAt": "2026-11-22T08:26:10.657Z",
-    "updatedAt": "2026-11-22T08:28:39.157Z"
+    "updatedAt": "2026-11-22T08:28:54.091Z"
   },
   {
     "id": "cmw21ffyq0000zsogcei2sjkq",

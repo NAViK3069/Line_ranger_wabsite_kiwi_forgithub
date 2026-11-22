@@ -1,79 +1,80 @@
-# ขั้นตอนตั้งค่า (ทำครั้งเดียว)
+# การตั้งค่าเว็บ (อ้างอิง)
 
-## ส่วนที่ 1 — GitHub
+ตั้งค่าครบแล้ว เว็บใช้งานจริงอยู่ที่ **https://ranger-kiwi.com**
+เอกสารนี้เก็บไว้ดูว่าตั้งอะไรไว้ที่ไหน และไว้ใช้ตอนต้องทำใหม่ (เช่น token หมดอายุ หรือย้ายบัญชี)
 
-> ⚠ หน้าเว็บอ้างรูปด้วย path แบบ `/gacha/...` จึงต้องอยู่ที่ราก (root) ของโดเมน
+| ส่วน | ที่อยู่ |
+|---|---|
+| หน้าเว็บ | GitHub Pages → `ranger-kiwi.com` (+ `www`) |
+| Worker | Cloudflare Worker `line-ranger-kiwi` → `api.ranger-kiwi.com` (ลิงก์ `*.workers.dev` ปิดแล้ว) |
+| โดเมน | ซื้อที่ Cloudflare Registrar (2026-11-19) |
+
+> ⚠ หน้าเว็บอ้างไฟล์ด้วย path แบบ `/gacha/...` จึงต้องอยู่ที่ราก (root) ของโดเมน
 > URL แบบ `navik3069.github.io/Line_ranger_wabsite_kiwi_forgithub/` จะโหลดรูป/ไฟล์ไม่ครบ
-> → ช่วงที่ยังไม่มีโดเมน ให้เปิดเว็บผ่าน Worker แทน: `https://line-ranger-kiwi.<บัญชี>.workers.dev/`
->   (Worker ดึงหน้าเว็บจาก GitHub Pages มาเสิร์ฟที่ราก — ตั้งไว้แล้วใน `PAGES_ORIGIN` ของ wrangler.toml)
 
-1. repo ต้องเป็น **Public** (Settings → General → Danger Zone → Change visibility)
+## 1. GitHub
+
+1. repo ต้องเป็น **Public** (branch `data` ถูกดึงตอน build โดยไม่ใช้ token)
 2. **Settings → Pages → Build and deployment → Source = GitHub Actions**
-3. **Settings → Actions → General → Workflow permissions = Read and write permissions** → Save
-4. **Actions** → เลือก **Deploy** → **Run workflow** (ครั้งแรก)
+3. **Settings → Pages → Custom domain** = `ranger-kiwi.com` + ติ๊ก **Enforce HTTPS**
+4. **Settings → Actions → General → Workflow permissions = Read and write permissions**
+5. **Settings → Secrets and variables → Actions → Variables**
 
-## ส่วนที่ 2 — Cloudflare Worker
+   | ชื่อ | ค่า |
+   |---|---|
+   | `WORKER_URL` | `https://api.ranger-kiwi.com` |
+   | `SITE_URL` | `https://ranger-kiwi.com` |
+   | `CUSTOM_DOMAIN` | `ranger-kiwi.com` |
+   | `CF_BEACON_TOKEN` | token สคริปต์ Cloudflare Web Analytics (ไม่ใช่ความลับ · เว้นว่าง = ไม่นับสถิติ) |
 
-### 2.1 สมัคร + deploy
-1. สมัครที่ https://dash.cloudflare.com/sign-up (ฟรี ไม่ต้องใช้บัตร)
-2. ในเครื่อง:
-   ```bash
-   cd worker
-   npm install
-   npx wrangler login        # เปิดเบราว์เซอร์ให้กด Allow
-   npx wrangler deploy       # ได้ URL แบบ https://line-ranger-kiwi.<ชื่อบัญชี>.workers.dev
-   ```
+แก้ค่าแล้วต้อง **Actions → Deploy → Run workflow** ใหม่ (ค่าพวกนี้ถูกฝังตอน build)
 
-### 2.2 GitHub token สำหรับ Worker (ให้หน้าแอดมิน commit ได้)
-GitHub → Settings (ของบัญชี) → Developer settings → Personal access tokens → **Fine-grained tokens** → Generate new token
-- Repository access: **Only select repositories** → `Line_ranger_wabsite_kiwi_forgithub`
-- Permissions → Repository permissions:
-  - **Contents: Read and write**
-  - **Actions: Read and write**
-- Expiration: เลือกตามสะดวก (หมดอายุแล้วต้องสร้างใหม่ + ใส่ secret ใหม่)
+## 2. Cloudflare DNS (โดเมน ranger-kiwi.com)
 
-### 2.3 ใส่ความลับให้ Worker (พิมพ์ค่าเองตอนถูกถาม — ไม่ต้องบอกใคร)
+| Type | Name | Content | Proxy |
+|---|---|---|---|
+| CNAME | `@` | `navik3069.github.io` | DNS only (เมฆสีเทา) |
+| CNAME | `www` | `navik3069.github.io` | DNS only |
+
+`api.ranger-kiwi.com` ไม่ต้องเพิ่มเอง — `wrangler deploy` สร้าง DNS + ใบรับรองให้จาก `[[routes]]` ใน `worker/wrangler.toml`
+
+## 3. Cloudflare Worker
+
+ค่าทั่วไปอยู่ใน `worker/wrangler.toml` → `[vars]`
+(`ADMIN_USERNAME`, `GITHUB_REPO`, `GITHUB_BRANCH`, `ALLOWED_ORIGINS`, `CF_ACCOUNT_ID`)
+`workers_dev = false` ต้องคงไว้ — พอมี `[[routes]]` แล้ว ถ้าไม่ระบุ wrangler จะปิด workers.dev ให้เองและขึ้น error 1042
+
+### 3.1 deploy (ทุกครั้งที่แก้โค้ดใน `worker/`)
+workflow Deploy ของ GitHub **ไม่** deploy Worker ให้ — ต้องรันเองในเครื่อง:
 ```bash
 cd worker
-npx wrangler secret put ADMIN_PASSWORD    # รหัสผ่านแอดมินที่จะใช้ล็อกอิน (ยาวๆ)
-npx wrangler secret put SESSION_SECRET    # สุ่มยาวๆ เช่นจาก: node -e "console.log(crypto.randomUUID()+crypto.randomUUID())"
-npx wrangler secret put GITHUB_TOKEN      # token จากข้อ 2.2
+npm install
+npx wrangler login        # ครั้งแรกในเครื่องนั้น
+npx wrangler deploy
 ```
-ชื่อผู้ใช้แอดมินตั้งที่ `worker/wrangler.toml` → `ADMIN_USERNAME`
 
-### 2.4 บอก GitHub ว่า Worker อยู่ที่ไหน
-GitHub repo → Settings → Secrets and variables → Actions → **Variables** → New repository variable
-- `WORKER_URL` = URL จากข้อ 2.1 (เช่น `https://line-ranger-kiwi.xxx.workers.dev`)
-- `SITE_URL` = URL ของเว็บ (ช่วงนี้ใส่ URL ของ Worker เดียวกัน)
+### 3.2 GitHub token ของ Worker (ให้หน้าแอดมิน commit / สั่งรัน workflow ได้)
+GitHub → Settings (ของบัญชี) → Developer settings → Personal access tokens → **Fine-grained tokens** → Generate new token
+- Repository access: **Only select repositories** → `Line_ranger_wabsite_kiwi_forgithub`
+- Repository permissions: **Contents: Read and write**, **Actions: Read and write**
+- หมดอายุแล้ว → สร้างใหม่ แล้ว `npx wrangler secret put GITHUB_TOKEN` อีกรอบ
 
-แล้ว Actions → Deploy → Run workflow อีกรอบ → เปิด `https://line-ranger-kiwi.<บัญชี>.workers.dev/` ได้เลย
+### 3.3 ความลับ (Worker Secrets — พิมพ์ค่าเองตอนถูกถาม)
+```bash
+cd worker
+npx wrangler secret put ADMIN_PASSWORD    # รหัสผ่านแอดมิน (ยาวๆ)
+npx wrangler secret put SESSION_SECRET    # สุ่มยาว ≥ 32 ตัว เช่น: node -e "console.log(crypto.randomUUID()+crypto.randomUUID())"
+npx wrangler secret put GITHUB_TOKEN      # token จากข้อ 3.2
+npx wrangler secret put CF_API_TOKEN      # (หน้าสถิติแอดมิน) Cloudflare API token สิทธิ์ Account Analytics: Read
+```
+ถ้า `ADMIN_PASSWORD` / `SESSION_SECRET` / `GITHUB_TOKEN` ขาดตัวใดตัวหนึ่ง Worker จะปิดระบบแอดมินทั้งหมด (ล็อกอินไม่ได้)
 
-## ส่วนที่ 3 — โดเมน (เมื่อซื้อแล้ว)
+### 3.4 กันเดารหัสผ่าน
+- Worker จำกัดล็อกอินไว้แล้ว 5 ครั้ง / 60 วินาที / IP (`[[ratelimits]]` ใน wrangler.toml)
+- (เสริม) Cloudflare → โดเมน → **Security → WAF → Rate limiting rules**:
+  URI Path contains `/api/admin/login` → 10 requests / 1 minute → Block
 
-> โดเมนที่ใช้: **ranger-kiwi.com** (ซื้อที่ Cloudflare 2026-11-19) · Worker = `api.ranger-kiwi.com` (ตั้งไว้แล้วใน wrangler.toml) · ลิงก์เก่า `*.workers.dev` ปิดแล้ว
+## 4. ของเก่า
 
-1. Cloudflare Dashboard → **Domain Registration → Register Domains** → ซื้อโดเมน (ราคาทุน)
-   (ถ้าซื้อที่อื่น: Cloudflare → Add a site → ทำตามที่บอกให้เปลี่ยน nameserver)
-2. Cloudflare → โดเมน → **DNS → Records** → เพิ่ม:
-   | Type | Name | Content | Proxy |
-   |---|---|---|---|
-   | CNAME | `@` | `navik3069.github.io` | DNS only (เมฆสีเทา) ตอนแรก |
-   | CNAME | `www` | `navik3069.github.io` | DNS only |
-3. GitHub repo → Settings → Pages → **Custom domain** = โดเมนของคุณ → Save → รอจนติ๊ก **Enforce HTTPS** ได้ แล้วติ๊ก
-4. GitHub Variables: `CUSTOM_DOMAIN` = โดเมน, `SITE_URL` = `https://โดเมน`
-5. Worker ใช้โดเมนย่อย `api.โดเมน` (ได้ cache ที่ edge ด้วย):
-   - แก้ `worker/wrangler.toml` → เปิดส่วน `[[routes]]` ใส่ `api.โดเมน`
-   - เพิ่ม `https://โดเมน` ใน `ALLOWED_ORIGINS`
-   - ลบ `PAGES_ORIGIN` และตั้ง `workers_dev = false` (ปิดลิงก์ `*.workers.dev` — ใช้แค่ `api.โดเมน`)
-     ⚠ ถ้าอยากเก็บลิงก์เก่าไว้ให้พาคนไปโดเมนใหม่: `workers_dev = true` + เก็บ `PAGES_ORIGIN`
-     (พอมี `[[routes]]` แล้ว wrangler ปิด workers.dev ให้เองถ้าไม่ได้ระบุ → error 1042)
-   - `npx wrangler deploy`
-   - GitHub Variable `WORKER_URL` = `https://api.โดเมน` → Run workflow Deploy
-6. (แนะนำ) Cloudflare → โดเมน → **Security → WAF → Rate limiting rules** → สร้าง rule:
-   URI Path contains `/api/admin/login` → 10 requests / 1 minute → Block (กันเดารหัสผ่าน)
-
-## ปิดของเก่า (หลังเว็บใหม่ใช้งานได้แล้ว)
-- Vercel: ลบ project
-- Neon: ลบ project (ข้อมูลที่แอดมินแก้ถูกย้ายมาไว้ใน `content/` แล้ว)
-- Upstash Redis: ลบ database
-- Cloudinary: รูปตู้กาชาถูกย้ายมาไว้ใน `public/content-images/` แล้ว — ลบได้ถ้าไม่ได้ใช้อย่างอื่น
+โปรเจคเดิม (Vercel + Neon + Upstash Redis + Cloudinary) เลิกใช้แล้ว
+ข้อมูลที่แอดมินแก้อยู่ใน `content/` และรูปตู้กาชาอยู่ใน `public/content-images/`

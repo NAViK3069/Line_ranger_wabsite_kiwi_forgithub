@@ -17,9 +17,9 @@ export default function HomePage() {
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
       </div>
 
-      {/* About Me + Folder + Donate + Beta + Language — มุมขวาบน
-          มือถือ: แถว 1 = About/Folder/Donate (wrap ได้กันล้นจอ), แถว 2 = Language + Beta ต่อท้าย
-          เดสก์ท็อป: ทุกปุ่มแถวเดียวกัน (Language ซ้ายสุด, Beta ขวาสุดหลัง Donate) — Beta render ซ้ำ 2 จุด โชว์ตามจอ */}
+      {/* About Me + Folder + Donate + Language — มุมขวาบน
+          มือถือ: แถว 1 = About/Folder/Donate (wrap ได้กันล้นจอ), แถว 2 = Language
+          เดสก์ท็อป: ทุกปุ่มแถวเดียวกัน (Language ซ้ายสุด) */}
       <div className="fixed top-2 right-2 left-2 sm:left-auto z-50 flex flex-col sm:flex-row items-end sm:items-center gap-1.5">
         <div className="flex items-center flex-wrap justify-end gap-1.5">
           <Link
@@ -29,7 +29,7 @@ export default function HomePage() {
             <span className="material-icons-round text-sm sm:text-base">person</span>
             About
           </Link>
-          {/* Folder — โผล่เฉพาะคนที่ปลดล็อค Beta (ตัดสินฝั่ง client จึงแยกเป็นคอมโพเนนต์) */}
+          {/* Folder — ลิงก์ไปหน้า /res (ดู ResFolderLink.tsx) */}
           <ResFolderLink />
           <a
             href="https://ko-fi.com/navik3069"
@@ -41,7 +41,7 @@ export default function HomePage() {
             Donate
           </a>
         </div>
-        {/* language: มือถือ = แถวถัดไป (มี Beta ต่อท้ายขวา), เดสก์ท็อป = แถวเดียวกัน (sm:order-first ให้อยู่ซ้ายสุดบน desktop) */}
+        {/* language: มือถือ = แถวถัดไป, เดสก์ท็อป = แถวเดียวกัน (sm:order-first ให้อยู่ซ้ายสุดบน desktop) */}
         <div className="flex items-center gap-1.5 sm:order-first">
           <LanguageSwitcher />
         </div>

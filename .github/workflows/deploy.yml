@@ -4,9 +4,9 @@ name: Deploy
 # รันเมื่อ: push ขึ้น main (รวมถึงตอนแอดมินกดบันทึก — Worker commit ให้), หลัง "Daily Data" เสร็จ, หรือกดรันเอง
 #
 # ตั้งค่าที่ GitHub → Settings → Secrets and variables → Actions → Variables:
-#   WORKER_URL     เช่น https://api.example.com  (หรือ https://line-ranger-kiwi.xxx.workers.dev)
-#   SITE_URL       เช่น https://example.com
-#   CUSTOM_DOMAIN  เช่น example.com              (เว้นว่างได้ถ้ายังไม่มีโดเมน)
+#   WORKER_URL     https://api.ranger-kiwi.com
+#   SITE_URL       https://ranger-kiwi.com
+#   CUSTOM_DOMAIN  ranger-kiwi.com
 #   CF_BEACON_TOKEN  token สคริปต์ Cloudflare Web Analytics (เว้นว่างได้ = ไม่นับสถิติ)
 
 on:

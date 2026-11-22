@@ -190,7 +190,7 @@ export const STAGE_ICON_OPTIONS: PartOption[] = [
 // ข้อความระดับ 46-60x14-16 / ข้อความ level 46x16
 export const PROFILE_FRAME = img(`${IMG}/intro_myhome_profile.png`)
 
-// รูปโปรไฟล์จาก lerico (101 รูป) — โหลดผ่านด่าน Pro เดิมเหมือนไฟล์อนิเมชั่น
+// รูปโปรไฟล์จาก lerico (101 รูป) — โหลดผ่าน Worker เหมือนไฟล์อนิเมชั่น
 const PROFILE_DIR = `${LERICO}/user_profile_img`
 export const PROFILE_IMG_OPTIONS: PartOption[] = [
   'profile_evt_2603_1', 'profile_evt_2603_2', 'profile_evt_2603_3', 'profile_evt_2603_4', 'profile_img_001', 'profile_img_002',

@@ -3,7 +3,7 @@
 // ====================================================
 // RangerAnimationPopup — ดู .sam animation ของ ranger
 // • ซ้อนทับ RangerDetailPopup (z-index สูงกว่า)
-// • โหลดไฟล์ผ่าน /api/lerico-proxy (CORS bypass + cache 30d)
+// • โหลดไฟล์ lerico ผ่าน Cloudflare Worker (proxyFile / fetchSamList ใน src/lib/staticApi.ts — ได้ CORS + cache ที่ edge)
 // • Cleanup memory เมื่อปิด popup (sprites.bitmap.close())
 // ====================================================
 
@@ -53,8 +53,8 @@ interface Props {
   // เรนเจอร์ประเภทบิน (ability ab201_flight) — ลอยอยู่เหนือพื้น คนละระดับกับตัวเดินดิน
   isFlyer?: boolean
   // รายชื่อไฟล์ .sam ที่จะให้เล่น — ใส่มาเองได้ (หน้า /res รู้อยู่แล้วจากรายการโฟลเดอร์)
-  // ถ้าไม่ใส่ จะไปถาม /api/lerico-proxy/list/<rangerId> เหมือนเดิม
-  // จำเป็นเพราะ API ตัวนั้นรับได้แค่ชื่อชั้นเดียว ใช้กับพาธซ้อนอย่าง hd/area ไม่ได้
+  // ถ้าไม่ใส่ จะอ่านรายชื่อจากโฟลเดอร์ res/<rangerId>/ ผ่าน fetchSamList()
+  // จำเป็นเพราะ fetchSamList รับได้แค่ชื่อชั้นเดียว ใช้กับพาธซ้อนอย่าง hd/area ไม่ได้
   samFilesOverride?: string[]
   // ฝังอยู่ในหน้าเลย ไม่ใช่ป๊อปอัพลอยทับจอ — หน้า /res บนจอใหญ่ใช้แบบนี้
   // ต่างกันที่: ไม่มีฉากดำคลุม ไม่ล็อกการเลื่อนหน้า ไม่ปิดด้วย ESC และไม่มีปุ่มกากบาท
@@ -116,8 +116,7 @@ function HoldStepButton({ onStep, children, className }: { onStep: () => void; c
   )
 }
 
-// แนบ Beta/Pro code จาก localStorage ไปด้วยทุกครั้ง — server เช็คสิทธิ์จริงก่อนคืนไฟล์
-// (กันคน bypass ด้วยการปลอม isPro ฝั่ง client แล้วยิง endpoint พวกนี้ตรงๆ)
+// URL ไฟล์ lerico ผ่าน Worker (ไม่มีระบบโค้ด Pro/Beta แล้ว — ทุกคนโหลดได้)
 const PROXY_FILE = proxyFile
 
 const BG_PRESETS = [

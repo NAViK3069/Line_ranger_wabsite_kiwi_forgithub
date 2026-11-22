@@ -174,7 +174,7 @@ let abilityCache: AbilityData | null = null
 // ⚠️ ต้องบวกเลขนี้ทุกครั้งที่แก้วิธีตั้งชื่อ/จัดกลุ่ม ability ใน /api/ranger-abilities
 // คำตอบของ API ถูก cache ในเบราว์เซอร์ 7 วัน แก้ฝั่ง server เฉยๆ คนที่เคยเปิดจะยังเห็นของเก่า
 // จนกว่าจะหมดอายุ — เลขนี้อยู่ใน URL พอเปลี่ยนก็กลายเป็นคนละรายการ cache ทันที
-// (เจอมาแล้วกับ /res — ที่นั่นใช้ตัวแปร DIR_RULES_VERSION ด้วยเหตุผลเดียวกัน)
+// (เคยเจอมาแล้วกับ /res สมัยที่ยังเป็น API บนเซิร์ฟเวอร์)
 // v2 = เลิกเชื่อ nameCode ก่อน `${code}_nm` ซึ่งทำให้กลุ่มคนละเรื่องถูกยุบรวมกัน
 //      (Delicious in Dungeon โดนรวมเข้า Chained Soldier / Attack on Titan2 เข้า Re:ZERO
 //       / GACHIAKUTA เข้า CHAINSAW MAN)

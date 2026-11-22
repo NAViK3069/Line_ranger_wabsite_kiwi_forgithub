@@ -24,7 +24,7 @@ export interface Env {
   GITHUB_REPO: string
   GITHUB_BRANCH: string
   ALLOWED_ORIGINS: string
-  /** (ชั่วคราว ก่อนมีโดเมน) เช่น https://navik3069.github.io/Line_ranger_wabsite_kiwi_forgithub */
+  /** (ไม่ได้ใช้แล้ว — เว็บอยู่ที่ ranger-kiwi.com) เผื่ออยากให้ Worker เสิร์ฟหน้าเว็บจาก GitHub Pages อีก */
   PAGES_ORIGIN?: string
   /** สถิติคนเข้าเว็บ (Cloudflare Web Analytics) — token สิทธิ์ Account Analytics: Read (secret) */
   CF_API_TOKEN?: string
@@ -538,7 +538,7 @@ async function analytics(url: URL, env: Env, cors: Record<string, string>): Prom
   return new Response(body, { headers: { 'Content-Type': 'application/json', ...cors } })
 }
 
-// ── (ชั่วคราว) เสิร์ฟเว็บจาก GitHub Pages ───────────────
+// ── (ไม่ได้ใช้แล้ว) เสิร์ฟเว็บจาก GitHub Pages — ทำงานเฉพาะเมื่อตั้ง PAGES_ORIGIN ──
 
 async function servePages(req: Request, url: URL, origin: string): Promise<Response> {
   if (req.method !== 'GET' && req.method !== 'HEAD') return new Response('Method not allowed', { status: 405 })
@@ -574,9 +574,8 @@ export default {
       }
     }
 
-    // ช่วงที่ยังไม่มีโดเมน: เสิร์ฟหน้าเว็บจาก GitHub Pages ผ่าน Worker ที่รากของ *.workers.dev
-    // (เว็บอ้างไฟล์แบบ /gacha/... จึงต้องอยู่ที่ราก — github.io/<repo>/ โหลดไม่ครบ)
-    // มีโดเมนแล้ว → ลบ PAGES_ORIGIN ออกจาก wrangler.toml ได้เลย
+    // (ไม่ได้ใช้แล้ว) สมัยยังไม่มีโดเมน Worker เคยเสิร์ฟหน้าเว็บจาก GitHub Pages ที่รากของ *.workers.dev
+    // ตอนนี้เว็บอยู่ที่ ranger-kiwi.com และ wrangler.toml ไม่ได้ตั้ง PAGES_ORIGIN → บรรทัดนี้ไม่ทำงาน
     if (env.PAGES_ORIGIN) return servePages(req, url, env.PAGES_ORIGIN)
 
     if (url.pathname === '/') return new Response('Line Ranger Kiwi worker OK', { headers: { 'Content-Type': 'text/plain' } })

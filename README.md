@@ -12,9 +12,9 @@ GitHub Actions
   ├─ Daily Data (ทุกวัน 07:00 น.)  scrape lerico/warmycat → public/data/*.json → เก็บใน branch `data`
   └─ Deploy (push main / หลัง Daily Data)  next build (static export) → GitHub Pages
 
-Cloudflare Worker (ฟรี)  worker/
+Cloudflare Worker (ฟรี)  worker/  →  https://api.ranger-kiwi.com
   ├─ /lerico/*   proxy ไป rangers.lerico.net (ต้นทางไม่มี CORS) — ตัวเล่นอนิเมชัน, /res, Lobby, export รูป
-  └─ /admin/*    ล็อกอินแอดมิน + commit content/*.json ขึ้น GitHub → Deploy รันเอง
+  └─ /api/admin/*  ล็อกอินแอดมิน, commit content/*.json ขึ้น GitHub (→ Deploy รันเอง), ดู build log, สถิติคนเข้า
 ```
 
 | โฟลเดอร์ | คืออะไร |
@@ -54,4 +54,7 @@ npm run build && npm run serve
 | Worker Secret | `ADMIN_PASSWORD` | รหัสผ่านแอดมิน |
 | Worker Secret | `SESSION_SECRET` | เซ็น token ล็อกอิน (สุ่มยาวๆ) |
 | Worker Secret | `GITHUB_TOKEN` | fine-grained token: repo นี้เท่านั้น, Contents + Actions = Read and write |
-| GitHub Variable | `WORKER_URL`, `SITE_URL`, `CUSTOM_DOMAIN` | ค่าตอน build |
+| Worker Secret | `CF_API_TOKEN` | หน้าสถิติแอดมิน — Cloudflare API token สิทธิ์ Account Analytics: Read |
+| GitHub Variable | `WORKER_URL`, `SITE_URL`, `CUSTOM_DOMAIN`, `CF_BEACON_TOKEN` | ค่าตอน build |
+
+ขั้นตอนตั้งค่าทั้งหมด (และค่าที่ใช้จริงตอนนี้) ดู [docs/SETUP.md](docs/SETUP.md)

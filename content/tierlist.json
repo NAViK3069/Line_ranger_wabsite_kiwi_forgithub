@@ -3,35 +3,78 @@
   "title": "Line Rangers Tier List",
   "tiers": [
     {
-      "label": "S",
+      "label": "SSS",
       "bg": "#ff7f7f",
       "fg": "#1a1a1a",
-      "items": []
+      "items": [
+        "u1556e-af",
+        "u1618e-ka",
+        "u1563e-pew"
+      ]
+    },
+    {
+      "label": "SS",
+      "bg": "#ffbf7f",
+      "fg": "#1a1a1a",
+      "items": [
+        "u1535e-brown",
+        "u1554e-yf",
+        "u1571e-qs",
+        "u1635e-su",
+        "u1518e-ron",
+        "u1588e-es",
+        "u1539e-en",
+        "u1633e-le",
+        "u1646e-jessica",
+        "u1631e-sally"
+      ]
+    },
+    {
+      "label": "S",
+      "bg": "#ffdf7f",
+      "fg": "#1a1a1a",
+      "items": [
+        "u1569e-cony",
+        "u1550e-moon",
+        "u1364e-cony",
+        "u1603e-sh",
+        "u1370e-boss"
+      ]
     },
     {
       "label": "A",
-      "bg": "#ffbf7f",
+      "bg": "#bfff7f",
       "fg": "#1a1a1a",
-      "items": []
+      "items": [
+        "u1489e-is",
+        "u1434e-boss",
+        "u1397e-rd",
+        "u3006e-cony",
+        "u1265e-re",
+        "u1355e-aq",
+        "u1520e-de",
+        "u1472e-ma"
+      ]
     },
     {
       "label": "B",
-      "bg": "#ffdf7f",
-      "fg": "#1a1a1a",
-      "items": []
-    },
-    {
-      "label": "C",
-      "bg": "#bfff7f",
-      "fg": "#1a1a1a",
-      "items": []
-    },
-    {
-      "label": "D",
       "bg": "#7fbfff",
       "fg": "#1a1a1a",
-      "items": []
+      "items": [
+        "u1291e-moon",
+        "u1468e-james",
+        "u1522e-po",
+        "u1215h-ron",
+        "u1260e-brown",
+        "u1584e-moon",
+        "u1505e-so",
+        "u1357e-mg",
+        "u1616e-brown",
+        "u1408e-iy",
+        "u1552e-lf",
+        "u1181u-sally"
+      ]
     }
   ],
-  "updatedAt": "2026-11-19T11:09:32.501Z"
+  "updatedAt": "2026-11-22T05:59:21.067Z"
 }

@@ -2312,9 +2312,9 @@
   },
   {
     "id": "cmwrkoktd3i3s3y6p5a3r",
-    "name": "New November Rangers Odds UP for Jessica & Crush! (สำเนา)",
+    "name": "New November Rangers Odds UP for Sally & Crush!",
     "description": null,
-    "imageUrl": "/content-images/pools/cmw21hadn0001zsog0qrrm6j2.png",
+    "imageUrl": "/content-images/pools/cmwrkoktd3i3s3y6p5a3r-mwrkrred.png",
     "isActive": false,
     "isNew": false,
     "isEvent": true,
@@ -2323,2279 +2323,2280 @@
     "sortOrder": 1,
     "rangers": [
       {
-        "name": "Inn Staff Jessica",
-        "rate": 1.5,
-        "grade": "8star",
-        "special": true,
-        "confetti": true,
-        "rangerId": "u1645e-jessica"
-      },
-      {
-        "name": "Cleaner Crush",
-        "rate": 1.5,
-        "grade": "8star",
-        "special": true,
-        "confetti": true,
-        "rangerId": "u1641e-crush"
-      },
-      {
-        "name": "Master Cleaner Crush",
-        "rate": 0.22,
-        "grade": "8+star",
-        "special": true,
-        "confetti": true,
-        "rangerId": "u1641u-crush"
-      },
-      {
         "name": "Teacup Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 1.5,
+        "rangerId": "u1643e-sally",
         "confetti": true,
-        "rangerId": "u1643e-sally"
+        "special": true
       },
       {
         "name": "Blue Teacup Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.21,
+        "rangerId": "u1643u-sally",
         "confetti": true,
-        "rangerId": "u1643u-sally"
+        "special": true
+      },
+      {
+        "name": "Cleaner Crush",
+        "grade": "8star",
+        "rate": 1.5,
+        "rangerId": "u1641e-crush",
+        "special": true,
+        "confetti": true
+      },
+      {
+        "name": "Master Cleaner Crush",
+        "grade": "8+star",
+        "rate": 0.21,
+        "rangerId": "u1641u-crush",
+        "special": true,
+        "confetti": true
+      },
+      {
+        "name": "Inn Staff Jessica",
+        "grade": "8star",
+        "rate": 0.12,
+        "rangerId": "u1645e-jessica",
+        "confetti": true
       },
       {
         "name": "★7 Ultra Leonard",
-        "rate": 0.71,
         "grade": "7+star",
+        "rate": 0.71,
         "rangerId": "u0007u-leonard"
       },
       {
         "name": "★8 Ultra Leonard",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u0008u-leonard"
       },
       {
         "name": "★7 Super Leonard",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u010s-leonard"
       },
       {
         "name": "★8 Super Leonard",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u016s-leonard"
       },
       {
         "name": "Aries Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1626e-cony"
       },
       {
         "name": "Dawn Aries Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1626u-cony"
       },
       {
         "name": "Gemini Boss",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1628e-boss"
       },
       {
         "name": "Blue Gemini Boss",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1628u-boss"
       },
       {
         "name": "Mantis Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1613e-moon"
       },
       {
         "name": "Sharp Mantis Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1613u-moon"
       },
       {
         "name": "Honeybee Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1611e-cony"
       },
       {
         "name": "Bee Princess Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1611u-cony"
       },
       {
         "name": "Starter Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1596e-moon"
       },
       {
         "name": "Seasoned Starter Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1596u-moon"
       },
       {
         "name": "Mechanic Clark",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1598e-clark"
       },
       {
         "name": "Maintenance Genius Clark",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1598u-clark"
       },
       {
         "name": "Taekwondo Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1579e-sally"
       },
       {
         "name": "Blue Taeguk Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1579u-sally"
       },
       {
         "name": "Best Disciple Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1581e-cony"
       },
       {
         "name": "Iron Wall Prodigy Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1581u-cony"
       },
       {
         "name": "Candle Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1566e-sally"
       },
       {
         "name": "Dimly Lit Candle Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1566u-sally"
       },
       {
         "name": "Sleepyhead Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1564e-moon"
       },
       {
         "name": "Soft & Fluffy Sleepyhead Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1564u-moon"
       },
       {
         "name": "One-Horned Oni Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1545e-brown"
       },
       {
         "name": "Blue Oni Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1545u-brown"
       },
       {
         "name": "Poor Ghost Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1547e-cony"
       },
       {
         "name": "Pure White Ghost Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1547u-cony"
       },
       {
         "name": "Farmer Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1532e-sally"
       },
       {
         "name": "Skilled Farmer Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1532u-sally"
       },
       {
         "name": "Field Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1530e-moon"
       },
       {
         "name": "Green Onion Field Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1530u-moon"
       },
       {
         "name": "Kayak Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1515e-sally"
       },
       {
         "name": "Power Kayak Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1515u-sally"
       },
       {
         "name": "Beach Volleyball Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1513e-moon"
       },
       {
         "name": "Sand Beach Volleyball Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1513u-moon"
       },
       {
         "name": "Butler KSM",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1497e-ksm"
       },
       {
         "name": "Super Butler KSM",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1497u-ksm"
       },
       {
         "name": "Parfait Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1499e-sally"
       },
       {
         "name": "Soda Parfait Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1499u-sally"
       },
       {
         "name": "Chinese Opera Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1480e-cony"
       },
       {
         "name": "Hero Chinese Opera Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1480u-cony"
       },
       {
         "name": "Samurai Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1486e-moon"
       },
       {
         "name": "Ninja Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1486u-moon"
       },
       {
         "name": "Short Track Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1465e-moon"
       },
       {
         "name": "Ace Short Track Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1465u-moon"
       },
       {
         "name": "Biathlon Crush",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1463e-crush"
       },
       {
         "name": "Ace Biathlon Crush",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1463u-crush"
       },
       {
         "name": "Sorcerer Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1448e-brown"
       },
       {
         "name": "Nature Sorcerer Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1448u-brown"
       },
       {
         "name": "Sister Jessica",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1446e-jessica"
       },
       {
         "name": "Shape Shifter Sister Jessica",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1446u-jessica"
       },
       {
         "name": "Sheriff Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1429e-moon"
       },
       {
         "name": "Sheriff of the West Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1429u-moon"
       },
       {
         "name": "Japanese Inn Daughter Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1431e-cony"
       },
       {
         "name": "Daughter of the West Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1431u-cony"
       },
       {
         "name": "Gymnast Chichi",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1416e-chichi"
       },
       {
         "name": "Ace Gymnast Chichi",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1416u-chichi"
       },
       {
         "name": "Fencer Sheep",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1414e-yang"
       },
       {
         "name": "Ace Fencer Sheep",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1414u-yang"
       },
       {
         "name": "Musketeer James",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1390e-james"
       },
       {
         "name": "Swordsman Musketeer James",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1390u-james"
       },
       {
         "name": "Musketeer Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1392e-moon"
       },
       {
         "name": "Huge Musketeer Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1392u-moon"
       },
       {
         "name": "Trainee Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1382e-brown"
       },
       {
         "name": "Perfomer Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1382u-brown"
       },
       {
         "name": "Trainee Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1384e-cony"
       },
       {
         "name": "Vocalist Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1384u-cony"
       },
       {
         "name": "Blue Dragon & Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1365e-moon"
       },
       {
         "name": "Sunrise Dragon & Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1365u-moon"
       },
       {
         "name": "Water Thrower Cherina",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1367e-cherina"
       },
       {
         "name": "Begone Bad Mojo Cherina",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1367u-cherina"
       },
       {
         "name": "Mystery Hand & Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1350e-sally"
       },
       {
         "name": "Cursed Hand & Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1350u-sally"
       },
       {
         "name": "Twins Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1349e-cony"
       },
       {
         "name": "Suspicious Twins Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1349u-cony"
       },
       {
         "name": "Quest Hunter Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1338e-moon"
       },
       {
         "name": "Dungeon Hunter Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1338u-moon"
       },
       {
         "name": "Little Mage Leonard",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1337e-leonard"
       },
       {
         "name": "Shaman Leonard",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1337u-leonard"
       },
       {
         "name": "Cowardly Lion & Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1326e-sally"
       },
       {
         "name": "Cheerful Lion & Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1326u-sally"
       },
       {
         "name": "Tin Bear Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1325e-brown"
       },
       {
         "name": "Brave Tin Bear Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1325u-brown"
       },
       {
         "name": "Tycoon's Daughter Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1313e-cony"
       },
       {
         "name": "Village Belle Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1313u-cony"
       },
       {
         "name": "Croc Prince Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1314e-moon"
       },
       {
         "name": "Giant Croc Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1314u-moon"
       },
       {
         "name": "Catcher Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1300e-moon"
       },
       {
         "name": "Ace Catcher Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1300u-moon"
       },
       {
         "name": "Batter Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1301e-brown"
       },
       {
         "name": "Batter No. 3 Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1301u-brown"
       },
       {
         "name": "Balance Ball Boss",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1288e-boss"
       },
       {
         "name": "Mirror Balance Ball Boss",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1288u-boss"
       },
       {
         "name": "Exercise Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1287e-sally"
       },
       {
         "name": "Zumba Dance Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1287u-sally"
       },
       {
         "name": "Tuna Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1269e-brown"
       },
       {
         "name": "Swordfish Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1269u-brown"
       },
       {
         "name": "Gunkan-Maki Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1270e-sally"
       },
       {
         "name": "Salmon Roll Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1270u-sally"
       },
       {
         "name": "Slate Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1254e-sally"
       },
       {
         "name": "Sound Marker Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1254u-sally"
       },
       {
         "name": "Indie Film Edward",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1253e-edward"
       },
       {
         "name": "Action Film Edward",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1253u-edward"
       },
       {
         "name": "Bastet Jessica",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1239e-jessica"
       },
       {
         "name": "Love Bastet Jessica",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1239u-jessica"
       },
       {
         "name": "Horus Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1238e-sally"
       },
       {
         "name": "Sky Horus Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1238u-sally"
       },
       {
         "name": "The Hatter Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1230e-moon"
       },
       {
         "name": "Tea Party & The Hatter Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1230u-moon"
       },
       {
         "name": "Alice Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1231e-cony"
       },
       {
         "name": "Cat & Alice Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1231u-cony"
       },
       {
         "name": "Guitarist Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1223e-moon"
       },
       {
         "name": "Guitar Star Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1223u-moon"
       },
       {
         "name": "Keyboard Girl Cony",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u1221e-cony"
       },
       {
         "name": "Keyboardist Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1222e-cony"
       },
       {
         "name": "Keyboard Star Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1222u-cony"
       },
       {
         "name": "Sweet Grape Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1213e-sally"
       },
       {
         "name": "Choco Banana Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1213u-sally"
       },
       {
         "name": "Seal Elle",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1214e-elle"
       },
       {
         "name": "Penguin Elle",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1214u-elle"
       },
       {
         "name": "Little Devil Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1205e-sally"
       },
       {
         "name": "Little Reaper Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1205u-sally"
       },
       {
         "name": "Skeleton Candy Brown",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u1203e-brown"
       },
       {
         "name": "Wolf Candy Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1204e-brown"
       },
       {
         "name": "Pumpkin Candy Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1204u-brown"
       },
       {
         "name": "Remote Worker Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1195e-moon"
       },
       {
         "name": "Remote Manager Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1195u-moon"
       },
       {
         "name": "Commuter Train Leonard",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1196e-leonard"
       },
       {
         "name": "Nonstop Train Leonard",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1196u-leonard"
       },
       {
         "name": "Paint Gunner Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1187e-moon"
       },
       {
         "name": "Colorful Paint Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1187u-moon"
       },
       {
         "name": "Paint Roller Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1188e-brown"
       },
       {
         "name": "Colorful Paint Roller Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1188u-brown"
       },
       {
         "name": "Chess Knight Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1181e-sally"
       },
       {
         "name": "White Knight Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1181u-sally"
       },
       {
         "name": "Chess Queen Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1180e-cony"
       },
       {
         "name": "White Queen Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1180u-cony"
       },
       {
         "name": "Casino Dealer Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1170e-sally"
       },
       {
         "name": "Angel Casino Dealer Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1170u-sally"
       },
       {
         "name": "Magician Moon",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u1171e-moon"
       },
       {
         "name": "Sawed-in-Half Magician Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1172e-moon"
       },
       {
         "name": "Lucky 7 Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1172u-moon"
       },
       {
         "name": "Board Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1161e-cony"
       },
       {
         "name": "Snow Pro Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1161u-cony"
       },
       {
         "name": "Ice Sled Sally",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u1162e-sally"
       },
       {
         "name": "Sled Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1163e-sally"
       },
       {
         "name": "Samoyed Sled Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1163u-sally"
       },
       {
         "name": "Little Red Riding Hood Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1151e-sally"
       },
       {
         "name": "Shotgun Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1151u-sally"
       },
       {
         "name": "Little Witch Cony",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u1152e-cony"
       },
       {
         "name": "Apprentice Witch Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1153e-cony"
       },
       {
         "name": "Pumpkin Witch Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1153u-cony"
       },
       {
         "name": "Coffee Maker Steve",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1144e-steve"
       },
       {
         "name": "Megabrew Coffee Maker Steve",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1144u-steve"
       },
       {
         "name": "Barista Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1145e-brown"
       },
       {
         "name": "Expert Barista Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1145u-brown"
       },
       {
         "name": "Black Jersey Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1134e-brown"
       },
       {
         "name": "Super Dark Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1134u-brown"
       },
       {
         "name": "Correspondent Moon",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u1135e-moon"
       },
       {
         "name": "Blue Jersey Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1136e-moon"
       },
       {
         "name": "Super Blue Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1136u-moon"
       },
       {
         "name": "Alien Edward",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1127e-edward"
       },
       {
         "name": "Mechanical Armor Edward",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1127u-edward"
       },
       {
         "name": "Pirate Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1128e-moon"
       },
       {
         "name": "Space Pirate Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1128u-moon"
       },
       {
         "name": "Elementary Schooler Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1117e-cony"
       },
       {
         "name": "Middle Schooler Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1117u-cony"
       },
       {
         "name": "Elementary Schooler Brown",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u1118e-brown"
       },
       {
         "name": "Middle Schooler Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1119e-brown"
       },
       {
         "name": "High Schooler Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1119u-brown"
       },
       {
         "name": "Wooden Box Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1110e-cony"
       },
       {
         "name": "Pine Tree Box Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1110u-cony"
       },
       {
         "name": "Jiangshi Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1098e-moon"
       },
       {
         "name": "Black Magic Jiangshi Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1098u-moon"
       },
       {
         "name": "Vampire James",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u1099e-james"
       },
       {
         "name": "Iron Vampire James",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1100e-james"
       },
       {
         "name": "Cursed Vampire James",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1100u-james"
       },
       {
         "name": "Croc Game Boss",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1090e-boss"
       },
       {
         "name": "Scary Croc Game Boss",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1090u-boss"
       },
       {
         "name": "Boatswain Hunt",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u1091e-hunt"
       },
       {
         "name": "Chief Mate Hunt",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1092e-hunt"
       },
       {
         "name": "Pirate Hunt",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1092u-hunt"
       },
       {
         "name": "Mariachi Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1080e-moon"
       },
       {
         "name": "Black Mariachi Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1080u-moon"
       },
       {
         "name": "Cactus Sally",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u1081e-sally"
       },
       {
         "name": "Percussion Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1082e-sally"
       },
       {
         "name": "Food-Fight Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1082u-sally"
       },
       {
         "name": "Make It Rain Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1074e-cony"
       },
       {
         "name": "Big Money Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1074u-cony"
       },
       {
         "name": "Bad Boy Brown",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u1072e-brown"
       },
       {
         "name": "Big Bully Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1073e-brown"
       },
       {
         "name": "Big Bad Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1073u-brown"
       },
       {
         "name": "Clown Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1063e-brown"
       },
       {
         "name": "Showy Clown Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1063u-brown"
       },
       {
         "name": "Balloon Rookie Cony",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u1064e-cony"
       },
       {
         "name": "Balloon Expert Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1065e-cony"
       },
       {
         "name": "Balloon Master Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1065u-cony"
       },
       {
         "name": "Kotatsu Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1056e-brown"
       },
       {
         "name": "Piping Hot Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1056u-brown"
       },
       {
         "name": "Mountain Boar Moon",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u1057e-moon"
       },
       {
         "name": "Wayward Traveler Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1058e-moon"
       },
       {
         "name": "Samurai Underboss Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1058u-moon"
       },
       {
         "name": "Susanoo Fishu",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1047e-susa"
       },
       {
         "name": "Sea God Susanoo Fishu",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1047u-susa"
       },
       {
         "name": "HIME",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u1048e-hime"
       },
       {
         "name": "Kushinada Hime",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1049e-hime"
       },
       {
         "name": "Earth Kushinada Hime",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1049u-hime"
       },
       {
         "name": "Mini Mushroom Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1040e-sally"
       },
       {
         "name": "Fungus Fairy Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1040u-sally"
       },
       {
         "name": "Tree Stump Leonard",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u1041e-leonard"
       },
       {
         "name": "Tree Spirit Leonard",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1042e-leonard"
       },
       {
         "name": "Forest Fairy Leonard",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1042u-leonard"
       },
       {
         "name": "Fan Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1033e-cony"
       },
       {
         "name": "Fan Club President Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1033u-cony"
       },
       {
         "name": "Yellow Card Dane",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u1034e-dane"
       },
       {
         "name": "Red Card Dane",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1035e-dane"
       },
       {
         "name": "Ultra-Strict Ref Dane",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1035u-dane"
       },
       {
         "name": "Toy Soldier Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1026e-moon"
       },
       {
         "name": "Marching Band Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1026u-moon"
       },
       {
         "name": "Duck Car Sally",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u1027e-sally"
       },
       {
         "name": "Chicken Car Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1028e-sally"
       },
       {
         "name": "Goose Car Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1028u-sally"
       },
       {
         "name": "Liu Bei Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1020e-moon"
       },
       {
         "name": "Liu Bei Xuande Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1020u-moon"
       },
       {
         "name": "Ruffian Brown",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u1021e-brown"
       },
       {
         "name": "Zhang Fei Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1022e-brown"
       },
       {
         "name": "Zhang Fei Yide BROWN",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1022u-brown"
       },
       {
         "name": "Mochi Apprentice Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1013e-brown"
       },
       {
         "name": "Mochi Master Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1013u-brown"
       },
       {
         "name": "Miko Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1014e-cony"
       },
       {
         "name": "Beautiful Miko Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1014u-cony"
       },
       {
         "name": "DinoBrown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1008e-brown"
       },
       {
         "name": "RedDinoBrown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1008u-brown"
       },
       {
         "name": "Cave Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1009e-sally"
       },
       {
         "name": "Afro Cave Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1009u-sally"
       },
       {
         "name": "Mozart James",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1005e-james"
       },
       {
         "name": "Conductor Mozart James",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1005u-james"
       },
       {
         "name": "Shakespeare Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1006e-moon"
       },
       {
         "name": "Playwright Shakespeare Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1006u-moon"
       },
       {
         "name": "Daruma Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1015e-sally"
       },
       {
         "name": "Cutie Daruma Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1015u-sally"
       },
       {
         "name": "Dino Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1007e-cony"
       },
       {
         "name": "Hip Hop Dino Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1007u-cony"
       },
       {
         "name": "DaVinci Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1004e-sally"
       },
       {
         "name": "Inventor DaVinci Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1004u-sally"
       },
       {
         "name": "Zeus Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1001e-brown"
       },
       {
         "name": "Allfather Zeus Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1001u-brown"
       },
       {
         "name": "Ares Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1002e-cony"
       },
       {
         "name": "Destructor Ares Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1002u-cony"
       },
       {
         "name": "Athena Jessica",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u1003e-jessica"
       },
       {
         "name": "Wise Athena Jessica",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u1003u-jessica"
       },
       {
         "name": "New Year Cony",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u419e-cony"
       },
       {
         "name": "Dumpling Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u420e-cony"
       },
       {
         "name": "Festival Bazooka Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u420u-cony"
       },
       {
         "name": "Novice Priestess Jessica",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u457e-jessica"
       },
       {
         "name": "Senior Priestess Jessica",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u458e-jessica"
       },
       {
         "name": "Acolyte Jessica",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u458u-jessica"
       },
       {
         "name": "Lifeguard Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u406e-cony"
       },
       {
         "name": "Coast Guard Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u406u-cony"
       },
       {
         "name": "Red Crab Edward",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u433e-edward"
       },
       {
         "name": "Sea Crab Edward",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u434e-edward"
       },
       {
         "name": "King Crab Edward",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u434u-edward"
       },
       {
         "name": "Luxury Sheep",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u025e-yang"
       },
       {
         "name": "Rocketeer Charles",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u124e-charles"
       },
       {
         "name": "Spaceman Charles",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u126e-charles"
       },
       {
         "name": "Super Rocketeer Charles",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u126u-charles"
       },
       {
         "name": "Chariot James",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u460e-james"
       },
       {
         "name": "Winged Chariot James",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u461e-james"
       },
       {
         "name": "Hero James",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u461u-james"
       },
       {
         "name": "Champagne Cony",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u430e-cony"
       },
       {
         "name": "Pink Champagne Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u431e-cony"
       },
       {
         "name": "Gold Champagne Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u431u-cony"
       },
       {
         "name": "Splish Splash Cony",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u470e-cony"
       },
       {
         "name": "Summer Vacay Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u471e-cony"
       },
       {
         "name": "Shining Sea Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u471u-cony"
       },
       {
         "name": "Diver Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u405e-brown"
       },
       {
         "name": "Scuba Diver Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u405u-brown"
       },
       {
         "name": "Collector Brownie",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u436e-brownie"
       },
       {
         "name": "Adventurer Brownie",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u437e-brownie"
       },
       {
         "name": "Explorer Brownie",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u437u-brownie"
       },
       {
         "name": "Drillmaster Brown",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u285e-brown"
       },
       {
         "name": "Lucky Cat Sally",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u417e-sally"
       },
       {
         "name": "Luck-Bringer Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u418e-sally"
       },
       {
         "name": "Cash Cat Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u418u-sally"
       },
       {
         "name": "Novice Knight Moon",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u455e-moon"
       },
       {
         "name": "Senior Knight Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u456e-moon"
       },
       {
         "name": "Paladin Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u456u-moon"
       },
       {
         "name": "Dune Dood Pico",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u472e-pico"
       },
       {
         "name": "Sit Back & Sea Pico",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u473e-pico"
       },
       {
         "name": "Starlit Sea Pico",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u473u-pico"
       },
       {
         "name": "Marshmallow Brown",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u463e-brown"
       },
       {
         "name": "Corn Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u464e-brown"
       },
       {
         "name": "Shish Kebab Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u464u-brown"
       },
       {
         "name": "Mega Machine Sally",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u319e-sally"
       },
       {
         "name": "Ultra Machine Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u320e-sally"
       },
       {
         "name": "Death Machine Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u320u-sally"
       },
       {
         "name": "Rocket Toti",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u397e-toti"
       },
       {
         "name": "Super Rocket Toti",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u397u-toti"
       },
       {
         "name": "Gourmet Tiger",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u398e-tiger"
       },
       {
         "name": "Chef Tiger",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u398u-tiger"
       },
       {
         "name": "Martial Artist Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u407e-brown"
       },
       {
         "name": "Drunken Fist Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u407u-brown"
       },
       {
         "name": "Agent Somchai",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u438e-somchai"
       },
       {
         "name": "Bodyguard Somchai",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u438u-somchai"
       },
       {
         "name": "Eye Patch Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u439e-moon"
       },
       {
         "name": "Beard Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u439u-moon"
       },
       {
         "name": "Shortcake Brown",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u428e-brown"
       },
       {
         "name": "Choco Cake Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u429e-brown"
       },
       {
         "name": "Party Cake Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u429u-brown"
       },
       {
         "name": "Bubbly Cony",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u303e-cony"
       },
       {
         "name": "Bath Goddess Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u304e-cony"
       },
       {
         "name": "Golden Goddess Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u304u-cony"
       },
       {
         "name": "Heavy Metal Boss",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u409e-boss"
       },
       {
         "name": "Hard Rock Boss",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u409u-boss"
       },
       {
         "name": "Fire Magician Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u435e-cony"
       },
       {
         "name": "Snow Magician Cony",
-        "rate": 0.12,
         "grade": "8+star",
+        "rate": 0.12,
         "rangerId": "u435u-cony"
       },
       {
         "name": "Ice Suit Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u408e-brown"
       },
       {
         "name": "Fire Suit Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u408u-brown"
       },
       {
         "name": "Champion Bob",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u440e-bob"
       },
       {
         "name": "Legend Bob",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u440u-bob"
       },
       {
         "name": "Sentinel Mike",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u399e-mike"
       },
       {
         "name": "Garrison Mike",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u400e-mike"
       },
       {
         "name": "Special Force Member Mike",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u400u-mike"
       },
       {
         "name": "Ballerina Lia",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u364e-lia"
       },
       {
         "name": "Prima Donna Lia",
-        "rate": 0.71,
         "grade": "7+star",
+        "rate": 0.71,
         "rangerId": "u364u-lia"
       },
       {
         "name": "Dragon's Son Dumpy",
-        "rate": 0.71,
         "grade": "7+star",
+        "rate": 0.71,
         "rangerId": "u266u-dumpy"
       },
       {
         "name": "Pink Hood Cony",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u196e-cony"
       },
       {
         "name": "Fairy Hood Cony",
-        "rate": 0.71,
         "grade": "7+star",
+        "rate": 0.71,
         "rangerId": "u196u-cony"
       },
       {
         "name": "Rocker ALICE",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u099e-alice"
       },
       {
         "name": "Heart Queen Alice",
-        "rate": 0.71,
         "grade": "7+star",
+        "rate": 0.71,
         "rangerId": "u099u-alice"
       },
       {
         "name": "Invincible Honey",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u093e-honey"
       },
       {
         "name": "Hatchling Honey",
-        "rate": 0.71,
         "grade": "7+star",
+        "rate": 0.71,
         "rangerId": "u093u-honey"
       },
       {
         "name": "Pro Golfer KSM",
-        "rate": 0.71,
         "grade": "7+star",
+        "rate": 0.71,
         "rangerId": "u091u-ksm"
       },
       {
         "name": "Vagabond Brown",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u019e-brown"
       },
       {
         "name": "Floating Brown",
-        "rate": 0.71,
         "grade": "7star",
+        "rate": 0.71,
         "rangerId": "u122e-brown"
       },
       {
         "name": "Sky Rider Moon",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u278e-moon"
       },
       {
         "name": "Unpretty Mong",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u288e-mong"
       },
       {
         "name": "Venus Cony",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u375e-cony"
       },
       {
         "name": "Oak Barrel Edward",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u378e-edward"
       },
       {
         "name": "Red Raptor Sally",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u381e-sally"
       },
       {
         "name": "T-Rex Sally",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u382e-sally"
       },
       {
         "name": "Devilodon Sally",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u382u-sally"
       },
       {
         "name": "Duck Boat Cony",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u383e-cony"
       },
       {
         "name": "Unicorn Cony",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u384e-cony"
       },
       {
         "name": "Mermaid Cony",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u384u-cony"
       },
       {
         "name": "Surfer Brown",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u385e-brown"
       },
       {
         "name": "Motor Boat Brown",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u386e-brown"
       },
       {
         "name": "Poseidon Brown",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u386u-brown"
       },
       {
         "name": "Robin Hood Moon",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u387e-moon"
       },
       {
         "name": "Gladiator Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u388e-moon"
       },
       {
         "name": "Super Hero Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u388u-moon"
       },
       {
         "name": "Apple Kart Dennis",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u389e-awl"
       },
       {
         "name": "Watermelon Kart Dennis",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u390e-awl"
       },
       {
         "name": "Lemon Kart Dennis",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u390u-awl"
       },
       {
         "name": "Mage James",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u401e-james"
       },
       {
         "name": "White Mage James",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u402e-james"
       },
       {
         "name": "Legendary Mage James",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u402u-james"
       },
       {
         "name": "Native American Jessica",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u403e-jessica"
       },
       {
         "name": "Cowboy Jessica",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u404e-jessica"
       },
       {
         "name": "Goddess Jessica",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u404u-jessica"
       },
       {
         "name": "Frozen Daniel",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u421e-daniel"
       },
       {
         "name": "Electro Daniel",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u422e-daniel"
       },
       {
         "name": "Immolator Daniel",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u422u-daniel"
       },
       {
         "name": "Martial Artist Simon",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u410e-simon"
       },
       {
         "name": "Fighter Simon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u411e-simon"
       },
       {
         "name": "Kickboxer Simon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u411u-simon"
       },
       {
         "name": "Girl Scout Merry",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u465e-merry"
       },
       {
         "name": "Sailor Merry",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u466e-merry"
       },
       {
         "name": "Navy Merry",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u466u-merry"
       },
       {
         "name": "Marine Moon",
-        "rate": 1.21,
         "grade": "7star",
+        "rate": 1.21,
         "rangerId": "u306e-moon"
       },
       {
         "name": "Commander Moon",
-        "rate": 0.12,
         "grade": "8star",
+        "rate": 0.12,
         "rangerId": "u307e-moon"
       },
       {
         "name": "Pirate Captain Moon",
-        "rate": 0.02,
         "grade": "8+star",
+        "rate": 0.02,
         "rangerId": "u307u-moon"
       }
     ],
@@ -4619,7 +4620,7 @@
     "startDate": null,
     "endDate": null,
     "createdAt": "2026-11-22T08:26:10.657Z",
-    "updatedAt": "2026-11-22T08:26:10.657Z"
+    "updatedAt": "2026-11-22T08:28:39.157Z"
   },
   {
     "id": "cmw21ffyq0000zsogcei2sjkq",

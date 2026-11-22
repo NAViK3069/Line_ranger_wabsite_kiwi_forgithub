@@ -11716,6 +11716,125 @@
     "updatedAt": "2026-11-04T11:34:23.431Z"
   },
   {
+    "id": "cmo5u0km40000wdxnsfn821u6",
+    "name": "Special Leonard",
+    "description": null,
+    "imageUrl": "/content-images/pools/cmo5u0km40000wdxnsfn821u6.png",
+    "isActive": true,
+    "isNew": false,
+    "isEvent": false,
+    "isTest": false,
+    "isFrog": true,
+    "sortOrder": 5,
+    "rangers": [
+      {
+        "name": "★9 Super Leonard",
+        "rate": 1.25,
+        "grade": "9star",
+        "confetti": true,
+        "rangerId": "u019s-leonard"
+      },
+      {
+        "name": "★9 Super Leonard (AGI)",
+        "rate": 1.25,
+        "grade": "9star",
+        "confetti": true,
+        "rangerId": "u019s-leonard_agi"
+      },
+      {
+        "name": "★9 Super Leonard (INT)",
+        "rate": 1.25,
+        "grade": "9star",
+        "confetti": true,
+        "rangerId": "u019s-leonard_int"
+      },
+      {
+        "name": "★9 Super Leonard (STR)",
+        "rate": 1.25,
+        "grade": "9star",
+        "confetti": true,
+        "rangerId": "u019s-leonard_str"
+      },
+      {
+        "name": "★8 Hyper Leonard",
+        "rate": 7.9,
+        "grade": "8#star",
+        "rangerId": "u0008h-leonard"
+      },
+      {
+        "name": "★8 Hyper Leonard (AGI)",
+        "rate": 7.9,
+        "grade": "8#star",
+        "rangerId": "u0008h-leonard_agi"
+      },
+      {
+        "name": "★8 Hyper Leonard (INT)",
+        "rate": 7.9,
+        "grade": "8#star",
+        "rangerId": "u0008h-leonard_int"
+      },
+      {
+        "name": "★8 Hyper Leonard (STR)",
+        "rate": 7.9,
+        "grade": "8#star",
+        "rangerId": "u0008h-leonard_str"
+      },
+      {
+        "name": "★8 Ultra Leonard",
+        "rate": 7.9,
+        "grade": "8+star",
+        "rangerId": "u0008u-leonard"
+      },
+      {
+        "name": "★8 Ultra Leonard (AGI)",
+        "rate": 7.9,
+        "grade": "8+star",
+        "rangerId": "u0008u-leonard_agi"
+      },
+      {
+        "name": "★8 Ultra Leonard (INT)",
+        "rate": 7.9,
+        "grade": "8+star",
+        "rangerId": "u0008u-leonard_int"
+      },
+      {
+        "name": "★8 Ultra Leonard (STR)",
+        "rate": 7.9,
+        "grade": "8+star",
+        "rangerId": "u0008u-leonard_str"
+      },
+      {
+        "name": "★8 Super Leonard",
+        "rate": 7.95,
+        "grade": "8star",
+        "rangerId": "u016s-leonard"
+      },
+      {
+        "name": "★8 Super Leonard (AGI)",
+        "rate": 7.95,
+        "grade": "8star",
+        "rangerId": "u016s-leonard_agi"
+      },
+      {
+        "name": "★8 Super Leonard (INT)",
+        "rate": 7.95,
+        "grade": "8star",
+        "rangerId": "u016s-leonard_int"
+      },
+      {
+        "name": "★8 Super Leonard (STR)",
+        "rate": 7.95,
+        "grade": "8star",
+        "rangerId": "u016s-leonard_str"
+      }
+    ],
+    "guaranteedRangers": [],
+    "startDate": null,
+    "endDate": null,
+    "createdAt": "2026-04-19T13:58:52.252Z",
+    "updatedAt": "2026-11-04T11:34:23.431Z"
+  },
+  {
     "id": "cmusakpyt000010ecm52jzgg2",
     "name": "CODE GEASS Odds UP for Lelouch and Sukazu",
     "description": null,
@@ -11725,7 +11844,7 @@
     "isEvent": false,
     "isTest": false,
     "isFrog": false,
-    "sortOrder": 5,
+    "sortOrder": 6,
     "rangers": [
       {
         "name": "Lelouch",
@@ -14063,7 +14182,7 @@
     "isEvent": false,
     "isTest": false,
     "isFrog": false,
-    "sortOrder": 6,
+    "sortOrder": 7,
     "rangers": [
       {
         "name": "C.C.",
@@ -16401,7 +16520,7 @@
     "isEvent": false,
     "isTest": false,
     "isFrog": false,
-    "sortOrder": 7,
+    "sortOrder": 8,
     "rangers": [
       {
         "name": "Lelouch",
@@ -18743,7 +18862,7 @@
     "isEvent": false,
     "isTest": false,
     "isFrog": false,
-    "sortOrder": 8,
+    "sortOrder": 9,
     "rangers": [
       {
         "name": "Suzaku",
@@ -21085,7 +21204,7 @@
     "isEvent": false,
     "isTest": false,
     "isFrog": false,
-    "sortOrder": 9,
+    "sortOrder": 10,
     "rangers": [
       {
         "name": "Lelouch",
@@ -23403,7 +23522,7 @@
     "isEvent": false,
     "isTest": false,
     "isFrog": false,
-    "sortOrder": 10,
+    "sortOrder": 11,
     "rangers": [
       {
         "name": "Radish Brown",
@@ -25685,125 +25804,6 @@
     "startDate": null,
     "endDate": null,
     "createdAt": "2026-09-11T03:53:48.469Z",
-    "updatedAt": "2026-11-04T11:34:23.431Z"
-  },
-  {
-    "id": "cmo5u0km40000wdxnsfn821u6",
-    "name": "Special Leonard",
-    "description": null,
-    "imageUrl": "/content-images/pools/cmo5u0km40000wdxnsfn821u6.png",
-    "isActive": true,
-    "isNew": false,
-    "isEvent": false,
-    "isTest": false,
-    "isFrog": true,
-    "sortOrder": 11,
-    "rangers": [
-      {
-        "name": "★9 Super Leonard",
-        "rate": 1.25,
-        "grade": "9star",
-        "confetti": true,
-        "rangerId": "u019s-leonard"
-      },
-      {
-        "name": "★9 Super Leonard (AGI)",
-        "rate": 1.25,
-        "grade": "9star",
-        "confetti": true,
-        "rangerId": "u019s-leonard_agi"
-      },
-      {
-        "name": "★9 Super Leonard (INT)",
-        "rate": 1.25,
-        "grade": "9star",
-        "confetti": true,
-        "rangerId": "u019s-leonard_int"
-      },
-      {
-        "name": "★9 Super Leonard (STR)",
-        "rate": 1.25,
-        "grade": "9star",
-        "confetti": true,
-        "rangerId": "u019s-leonard_str"
-      },
-      {
-        "name": "★8 Hyper Leonard",
-        "rate": 7.9,
-        "grade": "8#star",
-        "rangerId": "u0008h-leonard"
-      },
-      {
-        "name": "★8 Hyper Leonard (AGI)",
-        "rate": 7.9,
-        "grade": "8#star",
-        "rangerId": "u0008h-leonard_agi"
-      },
-      {
-        "name": "★8 Hyper Leonard (INT)",
-        "rate": 7.9,
-        "grade": "8#star",
-        "rangerId": "u0008h-leonard_int"
-      },
-      {
-        "name": "★8 Hyper Leonard (STR)",
-        "rate": 7.9,
-        "grade": "8#star",
-        "rangerId": "u0008h-leonard_str"
-      },
-      {
-        "name": "★8 Ultra Leonard",
-        "rate": 7.9,
-        "grade": "8+star",
-        "rangerId": "u0008u-leonard"
-      },
-      {
-        "name": "★8 Ultra Leonard (AGI)",
-        "rate": 7.9,
-        "grade": "8+star",
-        "rangerId": "u0008u-leonard_agi"
-      },
-      {
-        "name": "★8 Ultra Leonard (INT)",
-        "rate": 7.9,
-        "grade": "8+star",
-        "rangerId": "u0008u-leonard_int"
-      },
-      {
-        "name": "★8 Ultra Leonard (STR)",
-        "rate": 7.9,
-        "grade": "8+star",
-        "rangerId": "u0008u-leonard_str"
-      },
-      {
-        "name": "★8 Super Leonard",
-        "rate": 7.95,
-        "grade": "8star",
-        "rangerId": "u016s-leonard"
-      },
-      {
-        "name": "★8 Super Leonard (AGI)",
-        "rate": 7.95,
-        "grade": "8star",
-        "rangerId": "u016s-leonard_agi"
-      },
-      {
-        "name": "★8 Super Leonard (INT)",
-        "rate": 7.95,
-        "grade": "8star",
-        "rangerId": "u016s-leonard_int"
-      },
-      {
-        "name": "★8 Super Leonard (STR)",
-        "rate": 7.95,
-        "grade": "8star",
-        "rangerId": "u016s-leonard_str"
-      }
-    ],
-    "guaranteedRangers": [],
-    "startDate": null,
-    "endDate": null,
-    "createdAt": "2026-04-19T13:58:52.252Z",
     "updatedAt": "2026-11-04T11:34:23.431Z"
   },
   {

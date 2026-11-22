@@ -2315,7 +2315,7 @@
     "name": "New November Rangers Odds UP for Jessica & Sally!",
     "description": null,
     "imageUrl": "/content-images/pools/cmw21ffyq0000zsogcei2sjkq.png",
-    "isActive": true,
+    "isActive": false,
     "isNew": false,
     "isEvent": true,
     "isTest": false,
@@ -4619,7 +4619,7 @@
     "startDate": null,
     "endDate": null,
     "createdAt": "2026-11-04T11:32:57.357Z",
-    "updatedAt": "2026-11-04T11:34:23.431Z"
+    "updatedAt": "2026-11-22T08:13:53.062Z"
   },
   {
     "id": "cmvw2f7sj000013q81zibtnow",

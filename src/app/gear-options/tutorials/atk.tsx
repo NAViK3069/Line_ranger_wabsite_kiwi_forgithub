@@ -301,7 +301,8 @@ function Banner({ t, start, end, title, sub, color }: { t: number; start: number
 
 /**
  * หลอดเลือดเป้าหมาย
- *   รีเลือด (TL.refill) หลอดแดงวิ่งเต็มจากซ้ายไปขวา + แสงเขียววาบ (รอบที่แล้วตาย = หลอดค่อยๆ โผล่กลับมาพร้อมรีเลือด)
+ *   ฮิล (TL.refill)   เฉพาะรอบที่แล้วโดนตีแต่ไม่ตาย: หลอดแดงวิ่งเต็ม + แสงเขียววาบ + เอฟเฟกต์ HealFx ที่ตัว
+ *                     รอบแรก / เพิ่งเกิดใหม่ = เลือดเต็มอยู่แล้ว หลอดเต็มโผล่มาเลย ไม่ฮิล
  *   โดนตี             หลอดขาวค้างที่ค่าเดิม · หลอดแดงไหลลง · ค้างสักพักหลอดขาวค่อยหดตาม · หลอดสั่น + แสงวาบ
  *   ตัวเลขดาเมจ       ป้ายแดงเด้งขึ้นบนหลอด ค้างไว้จนรีเลือดรอบถัดไป
  *   ตาย (ดาเมจ ≥ HP)  หลอดจางหายให้วิญญาณลอยผ่าน จนกว่าจะรีเลือดรอบถัดไป
@@ -326,7 +327,9 @@ function HpBar({ c, t, d, rounds }: { c: OverlayCtx; t: number; d: Data; rounds:
     * (1 - span(t, TL.skillCard[0] - 0.1, TL.skillCard[1] + 0.1, 0.3, 0.3).alpha) * (1 - dead) * back
   if (vis <= 0) return null
 
-  const prevLeft = prev ? Math.max(0, max - prev.dmg) : 0
+  // ฮิลเฉพาะรอบที่เลือดไม่เต็ม (รอบที่แล้วโดนตีแต่ไม่ตาย) · รอบแรก / เพิ่งเกิดใหม่ = เลือดเต็มอยู่แล้ว ไม่ต้องฮิล
+  const heals = !!prev && !prevDead
+  const prevLeft = heals ? Math.max(0, max - prev.dmg) : max
   const refill = easeInOut(prog(t, cur.refill, cur.refill + 0.6))
   let red = prevLeft + (max - prevLeft) * refill
   let white = red
@@ -339,7 +342,7 @@ function HpBar({ c, t, d, rounds }: { c: OverlayCtx; t: number; d: Data; rounds:
     shake = Math.sin((t - cur.at) * 70) * 7 * k
     flash = k
   }
-  const refillGlow = t >= cur.refill ? 1 - prog(t, cur.refill + 0.35, cur.refill + 0.9) : 0
+  const refillGlow = heals && t >= cur.refill ? 1 - prog(t, cur.refill + 0.35, cur.refill + 0.9) : 0
   const dmgOn = t >= cur.at
   const pop = dmgOn ? easeOutBack(prog(t, cur.at, cur.at + 0.3)) : 0
   const W = 360
@@ -656,7 +659,9 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
         {/* ── รอบ 1 ── */}
         <Banner t={t} start={20.8} end={24.2} title={T('รอบที่ 1 · ยังไม่ใส่เกียร์', 'Round 1 · No gear')}
           sub={`${T('โจมตีปกติ', 'Normal attack')} · ATK ${fmtInt(d.atkBefore)}`} color="bg-gradient-to-r from-slate-700 to-slate-600 border-2 border-white/15" />
-        {rounds.map(r => <HealFx key={r.refill} c={c} t={t} at={r.refill} />)}
+        {/* ฮิลเฉพาะรอบที่เลือดไม่เต็ม — รอบแรกและหลังเกิดใหม่เลือดเต็มอยู่แล้ว */}
+        {rounds.map((r, i) => (i > 0 && rounds[i - 1].dmg < d.enemy.baseStats.hp
+          ? <HealFx key={r.refill} c={c} t={t} at={r.refill} /> : null))}
         <HpBar c={c} t={t} d={d} rounds={rounds} />
 
         {/* ── ใส่เกียร์: การ์ดช่องเกียร์ + ไอคอนบินลงช่องอาวุธ ── */}

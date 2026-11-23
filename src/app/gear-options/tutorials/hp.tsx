@@ -8,20 +8,19 @@
 //   โครงเรื่อง / เวลา / ชิ้นส่วนหน้าตา: ./kit.tsx
 //
 // ตัวเลขทั้งหมดคำนวณสดจากข้อมูลชุดเดียวกับ Ranger Book / Gear Book (ไม่พิมพ์ตายตัว):
-//   HP หลังใส่เกียร์ = aggregateGearBonuses + applyBonus (โลจิกเดียวกับ RangerStatPanel)
+//   HP หลังใส่เกียร์ = aggregateGearBonuses + gearStat (ฐาน × (1 + %) แบบในเกม)
 //   ตีปกติที่เราโดน = normalHit: ATK กายภาพศัตรู × K/(K + DEF กายภาพเรา) + ATK เวทศัตรู × K/(K + DEF เวทเรา) (แบบในเกม)
 //   สกิล = ATK รวมศัตรู × ความแรงสกิล × (1 − ต้านสกิลของเรา) — ไม่โดน DEF
 // ====================================================
 
 import ScenePlayer, { type OverlayCtx } from '@/components/ScenePlayer'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { applyBonus } from '@/lib/gearEffectParser'
 import type { GearEffect } from '@/lib/pvpScraper'
 import { clamp01, easeOut, easeOutBack, fmtInt, popStyle, prog, span } from './anim'
 import {
   BANNER_COLOR, Banner, EquipCard, GearCard, GearSlots, HpBar, Heals, ICON, LoadBox, NormalFormulaCard, Opening,
   RangerCard, SkillFormulaCard, Souls, StatRow, SummaryShell, TL, firstSkill, gearIconUrl, loadGear, loadStats,
-  defParts, makeRounds, normalHit, pct, skillMultiplier, totalAtk, useTutorialData,
+  defParts, gearStat, makeRounds, normalHit, pct, skillMultiplier, totalAtk, useTutorialData,
 } from './kit'
 
 const SCENE = '/gear-options/scenes/hp.anme.json'
@@ -32,7 +31,7 @@ const GEAR = 'eq_2212_wpn_07'
 async function loadData() {
   const [ally, enemy, { gear, bonus: b }] = await Promise.all([loadStats(ALLY.ranger), loadStats(ENEMY.ranger), loadGear(GEAR)])
   const hpBefore = ally.baseStats.hp
-  const hpAfter = Math.round(applyBonus(hpBefore, b.hp))
+  const hpAfter = gearStat(hpBefore, b.hp)
   const enemyAtk = totalAtk(enemy)
   const hit = normalHit(enemy.baseStats.phyAtk, enemy.baseStats.magAtk, ally.baseStats)
   const ourRes = ally.rates.skillResistance ?? 0
@@ -126,7 +125,7 @@ export default function HpTutorial({ autoPlay }: { autoPlay: boolean }) {
         <HpBar c={c} t={t} actor={ALLY.actor} rounds={rounds} />
 
         <EquipCard t={t} T={T} gearIcon={gearIcon} gearName={gearName} bonusPct={d.hpPct}
-          statIcon={ICON.hp} statLabel={T('พลังชีวิต', 'HP')} before={hpB} after={hpA} />
+          stats={[{ icon: ICON.hp, label: T('พลังชีวิต', 'HP'), before: hpB, after: hpA }]} />
 
         <SkillFormulaCard t={t} T={T} skill={d.skill} skillName={skillName} mul={d.skillMul}
           atkLabel={T('ATK ของศัตรู', 'Enemy ATK')} atk={d.enemyAtk}

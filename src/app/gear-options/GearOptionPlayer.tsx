@@ -11,11 +11,13 @@ import type { ComponentType } from 'react'
 import ScenePlayer from '@/components/ScenePlayer'
 import AtkTutorial from './tutorials/atk'
 import HpTutorial from './tutorials/hp'
+import DefTutorial from './tutorials/def'
 
 /** id ของออพชั่น (options.ts) → วิดีโอสอน · เพิ่มออพชั่นใหม่ = เพิ่มบรรทัดที่นี่ */
 export const TUTORIALS: Record<string, ComponentType<{ autoPlay: boolean }>> = {
   atk: AtkTutorial,
   hp: HpTutorial,
+  def: DefTutorial,
 }
 
 export default function GearOptionPlayer({ optionId, src, autoPlay }: { optionId: string; src: string; autoPlay: boolean }) {

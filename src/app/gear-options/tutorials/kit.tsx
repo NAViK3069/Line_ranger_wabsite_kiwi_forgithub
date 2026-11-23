@@ -18,7 +18,7 @@
 import { useEffect, useState } from 'react'
 import type { OverlayCtx } from '@/components/ScenePlayer'
 import { apiFetch, DATA_BASE, gearEffectsFile, lericoProxy } from '@/lib/staticApi'
-import { aggregateGearBonuses, type StatBonusMap } from '@/lib/gearEffectParser'
+import { aggregateGearBonuses, type StatBonus, type StatBonusMap } from '@/lib/gearEffectParser'
 import { recalcGearEffects } from '@/lib/gearLevelCalc'
 import type { GearEffect, GearEffects } from '@/lib/pvpScraper'
 import { assets, type RangerRuntime } from '@/anme/engine/assets'
@@ -71,6 +71,24 @@ export async function loadGear(code: string): Promise<{ gear: GearEffects; bonus
 }
 
 export const totalAtk = (r: RangerStats) => r.baseStats.phyAtk + r.baseStats.magAtk
+
+/**
+ * ค่าพลังหลังใส่เกียร์แบบในเกม: ฐาน + ตัดเศษ(ฐาน × %รวม + ค่าบวกตรงรวม)
+ *   % จากหลายแหล่งบวกกันก่อนแล้วค่อยคูณฐาน · เกมคิด float32 แล้วตัดเศษทิ้ง (ยืนยันจากโค้ดเกม)
+ */
+export function gearStat(base: number, b: StatBonus | undefined): number {
+  if (!b) return base
+  const f = Math.fround
+  return base + Math.trunc(f(f(f(base) * f(b.pct)) + b.flat))
+}
+
+/** ชนิดช่องเกียร์ (ลำดับเดียวกับแถวช่องในเกม: อาวุธ · เกราะ · เครื่องประดับ) */
+export type GearKind = 'weapon' | 'armor' | 'acc'
+export const GEAR_KIND: Record<GearKind, { icon: string; th: string; en: string; slot: number }> = {
+  weapon: { icon: '/gacha/images/gear_weapon.png', th: 'อาวุธ', en: 'Weapon', slot: 0 },
+  armor: { icon: '/gacha/images/gear_armor.png', th: 'เกราะ', en: 'Armor', slot: 1 },
+  acc: { icon: '/gacha/images/gear_accessory.png', th: 'เครื่องประดับ', en: 'Accessory', slot: 2 },
+}
 
 /** ดาเมจโจมตีปกติ 1 ส่วน (กายภาพ หรือ เวท) */
 export interface HitPart { kind: 'phy' | 'mag'; atk: number; def: number; factor: number; dmg: number }
@@ -230,12 +248,12 @@ const GLOW_FPS = 16
  *   กรอบช่อง = gear_main_slot_bg · ป้ายทองแดงทับขอบบน = gear_main_slot_plate_bg + ไอคอนชนิดช่อง (ไม่มีข้อความ)
  *   ช่องว่าง = ไอคอนมืดแบบสลัก · ช่องที่ใส่ของแล้ว = ไอคอน _on เรืองแสง
  */
-export function GearSlots({ t, equip }: { t: number; equip?: { at: number; icon: string } }) {
+export function GearSlots({ t, equip }: { t: number; equip?: { at: number; icon: string; kind?: GearKind } }) {
   return (
     <div className="relative mx-auto" style={{ width: SLOT_W * 3, height: 140 }}>
       {SLOT_KINDS.map((key, i) => {
         const cx = SLOT_W * i + SLOT_W / 2
-        const eq = key === 'weapon' && equip && t >= equip.at ? equip : null
+        const eq = equip && i === GEAR_KIND[equip.kind ?? 'weapon'].slot && t >= equip.at ? equip : null
         // แสงช่องเล่นครั้งเดียว (ไม่วน) แล้วจางลงเหลือกรอบช่องปกติ
         const gi = eq ? Math.floor((t - eq.at) * GLOW_FPS) : -1
         const glowFrame = eq && gi < SLOT_GLOW.length ? SLOT_GLOW[gi] : null
@@ -336,9 +354,12 @@ export function Opening({ t, lang, T, title }: { t: number; lang: string; T: (th
  * การ์ดเกียร์ (หน้าตาเดียวกับหน้าต่างเกียร์บนเว็บ) — ไฮไลท์ Basic ช่องแรก (ค่าที่ทดสอบ) ตอน 3.8 วิ
  *   แถวอื่นค่อยๆ มืด · แถวที่ทดสอบค่อยๆ ขยาย + เปลี่ยนสี (ไม่เด้งทีเดียว) · ลูกศร "ทดสอบค่านี้" ผูกกับแถวนั้น
  */
-export function GearCard({ t, T, gear, icon, name, effName, switchable }: {
+export function GearCard({ t, T, gear, icon, name, effName, switchable, kind = 'weapon', grade = 7, tested = [0] }: {
   t: number; T: (th: string, en: string) => string; gear: GearEffects; icon: string; name: string
   effName: (e: GearEffect) => string; switchable: GearEffect | null
+  kind?: GearKind; grade?: number
+  /** ลำดับค่า Basic ที่วิดีโอนี้ทดสอบ (ไฮไลท์ทุกตัว · ลูกศรชี้กึ่งกลางกลุ่ม) */
+  tested?: number[]
 }) {
   const s = span(t, 2.1, 7.4, 0.55, 0.4)
   if (!s.on) return null
@@ -352,10 +373,10 @@ export function GearCard({ t, T, gear, icon, name, effName, switchable }: {
         <div>
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/gacha/images/gear_weapon.png" alt="" className="h-9" />
-            <span className="text-[24px] text-gray-300 font-bold">{T('อาวุธ', 'Weapon')}</span>
+            <img src={GEAR_KIND[kind].icon} alt="" className="h-9" />
+            <span className="text-[24px] text-gray-300 font-bold">{T(GEAR_KIND[kind].th, GEAR_KIND[kind].en)}</span>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/gacha/images/7star.png" alt="" className="h-8" />
+            <img src={`/gacha/images/${grade}star.png`} alt="" className="h-8" />
           </div>
           <div className="text-[46px] font-black text-white leading-tight">{name}</div>
         </div>
@@ -370,18 +391,21 @@ export function GearCard({ t, T, gear, icon, name, effName, switchable }: {
       <div className="mt-4 rounded-2xl border-2 border-blue-400/30 bg-[#0f1d3a] p-3.5">
         <div className="text-[20px] font-black text-blue-200 tracking-wider mb-1.5 px-2">BASIC EFFECT</div>
         {gear.basic.map((e, i) => {
-          const tested = i === 0
+          const isTested = tested.includes(i)
+          // ลูกศรอยู่ที่แถวแรกของกลุ่ม · ทดสอบหลายแถว → เลื่อนลงไปกึ่งกลางกลุ่ม (แถวละ ~44px)
+          const arrowRow = i === tested[0]
+          const arrowShift = (tested.length - 1) * 22
           return (
-            <Highlight key={e.nameKey ?? e.name} t={t} at={tested ? 3.8 : null} radius={12}>
-              <div className="relative flex items-center justify-between px-3 py-1.5" style={tested ? undefined : { opacity: 1 - 0.5 * hlK }}>
-                <span className="text-[28px] font-bold" style={{ color: tested ? mix(C.blue100, C.amber100, hlK) : mix(C.blue100, C.blue100, 1) }}>{effName(e)}</span>
+            <Highlight key={e.nameKey ?? e.name} t={t} at={isTested ? 3.8 : null} radius={12}>
+              <div className="relative flex items-center justify-between px-3 py-1.5" style={isTested ? undefined : { opacity: 1 - 0.5 * hlK }}>
+                <span className="text-[28px] font-bold" style={{ color: isTested ? mix(C.blue100, C.amber100, hlK) : mix(C.blue100, C.blue100, 1) }}>{effName(e)}</span>
                 <span className="font-black tabular-nums"
-                  style={tested ? { color: mix(C.white, C.amber200, hlK), fontSize: 28 + 8 * hlK } : { color: 'white', fontSize: 28 }}>{e.value}</span>
-                {tested && hl && (
+                  style={isTested ? { color: mix(C.white, C.amber200, hlK), fontSize: 28 + 8 * hlK } : { color: 'white', fontSize: 28 }}>{e.value}</span>
+                {arrowRow && hl && (
                   <div className="absolute left-full top-1/2 ml-6 flex items-center gap-2 whitespace-nowrap"
-                    style={{ opacity: easeOut(prog(t, 4.6, 5.1)), transform: `translateY(-50%) translateX(${(1 - easeOut(prog(t, 4.6, 5.1))) * 40 + Math.sin(t * 5) * 6}px)` }}>
+                    style={{ opacity: easeOut(prog(t, 4.6, 5.1)), transform: `translateY(calc(-50% + ${arrowShift}px)) translateX(${(1 - easeOut(prog(t, 4.6, 5.1))) * 40 + Math.sin(t * 5) * 6}px)` }}>
                     <span className="material-icons-round text-amber-300 text-[56px]">west</span>
-                    <span className="px-4 py-2 rounded-xl bg-amber-400 text-[26px] font-black text-[#1a1200]">{T('ทดสอบค่านี้', 'Testing this')}</span>
+                    <span className="px-4 py-2 rounded-xl bg-amber-400 text-[26px] font-black text-[#1a1200]">{tested.length > 1 ? T(`ทดสอบ ${tested.length} ค่านี้`, `Testing these ${tested.length}`) : T('ทดสอบค่านี้', 'Testing this')}</span>
                   </div>
                 )}
               </div>
@@ -522,42 +546,59 @@ export function SkillFormulaCard({ t, T, skill, skillName, mul, atkLabel, atk, r
 // ── ใส่เกียร์: การ์ดค่าก่อน→หลัง + ไอคอนบินลงช่องอาวุธ ─────────
 
 const EQ_CARD = { x: 690, y: 70 }
-export function EquipCard({ t, T, gearIcon, gearName, bonusPct, statIcon, statLabel, before, after }: {
+/** ค่าพลัง 1 แถวบนการ์ดใส่เกียร์ (ก่อน → หลัง) */
+export interface EquipStat { icon: string; label: string; before: number; after: number }
+/** ความสูงคงที่ของแต่ละแถวค่าพลัง — ไอคอนที่บินมาต้องลงช่องพอดี (slotTarget คิดจากค่านี้) */
+const EQ_ROW_H = 84
+const EQ_ROW_GAP = 10
+
+export function EquipCard({ t, T, gearIcon, gearName, bonusPct, kind = 'weapon', stats }: {
   t: number; T: (th: string, en: string) => string; gearIcon: string; gearName: string; bonusPct: number
-  statIcon: string; statLabel: string; before: number; after: number
+  kind?: GearKind
+  /** 1 แถว = ตัวเลขใหญ่ · หลายแถว (เช่น DEF กายภาพ / เวท) = เล็กลงนิดหน่อย */
+  stats: EquipStat[]
 }) {
   const at = TL.equip
   const s = span(t, at - 0.9, at + 2.7, 0.4, 0.35)
   if (!s.on) return null
-  const slotTarget = { x: EQ_CARD.x + 24 + (560 - 48 - SLOT_W * 3) / 2 + SLOT_W / 2, y: EQ_CARD.y + 236 + SLOT_Y }
+  const extra = (stats.length - 1) * (EQ_ROW_H + EQ_ROW_GAP)
+  const slotTarget = {
+    x: EQ_CARD.x + 24 + (560 - 48 - SLOT_W * 3) / 2 + SLOT_W * GEAR_KIND[kind].slot + SLOT_W / 2,
+    y: EQ_CARD.y + 236 + extra + SLOT_Y,
+  }
   const fly = prog(t, at - 0.65, at)
-  const now = countUp(t, at + 0.55, at + 1.85, before, after)
+  const big = stats.length === 1
   return (
     <>
       <div className={`absolute w-[560px] p-6 ${CARD}`} style={{ left: EQ_CARD.x, top: EQ_CARD.y, ...popStyle(s) }}>
         <div className="flex items-center gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={gearIcon} alt="" crossOrigin="anonymous" className="w-16 h-16 object-contain" />
-          {/* ชื่อบรรทัดเดียวเสมอ — ความสูงการ์ดต้องคงที่ ไอคอนที่บินมาถึงจะลงช่องอาวุธพอดี (slotTarget) */}
+          {/* ชื่อบรรทัดเดียวเสมอ — ความสูงการ์ดต้องคงที่ ไอคอนที่บินมาถึงจะลงช่องพอดี (slotTarget) */}
           <div className="min-w-0 flex-1">
             <div className="text-[20px] text-gray-400 font-bold">{t >= at ? T('ใส่เกียร์แล้ว', 'Equipped') : T('กำลังใส่เกียร์', 'Equipping')}</div>
             <div className="font-black text-white leading-tight whitespace-nowrap overflow-hidden text-ellipsis" style={{ fontSize: gearName.length > 16 ? 25 : 30 }}>{gearName} +{GEAR_LEVEL}</div>
           </div>
           <span className="shrink-0 px-3.5 py-1.5 rounded-xl bg-amber-400 text-[26px] font-black text-[#1a1200]">+{(bonusPct * 100).toFixed(0)}%</span>
         </div>
-        <div className="mt-4 flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={statIcon} alt="" className="w-11 h-11" />
-          <span className="text-[26px] text-gray-200 font-bold">{statLabel}</span>
-          <span className="ml-auto text-[50px] font-black text-amber-200 tabular-nums leading-none" style={{ textShadow: `0 0 ${14 + 14 * pulse(t, 3) * (t > at + 0.55 && t < at + 1.85 ? 1 : 0)}px rgba(251,191,36,0.75)` }}>
-            {fmtInt(now)}
-          </span>
-        </div>
-        <div className="mt-1 text-right text-[22px] text-gray-400 tabular-nums" style={{ opacity: easeOut(prog(t, at + 1.75, at + 2.15)) }}>
-          {fmtInt(before)} × {(1 + bonusPct).toFixed(2)}
-        </div>
+        {stats.map((st, i) => (
+          <div key={st.label} className="flex flex-col justify-center" style={{ height: EQ_ROW_H, marginTop: i === 0 ? 16 : EQ_ROW_GAP }}>
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={st.icon} alt="" className="w-11 h-11" />
+              <span className="text-[26px] text-gray-200 font-bold">{st.label}</span>
+              <span className="ml-auto font-black text-amber-200 tabular-nums leading-none"
+                style={{ fontSize: big ? 50 : 42, textShadow: `0 0 ${14 + 14 * pulse(t, 3) * (t > at + 0.55 && t < at + 1.85 ? 1 : 0)}px rgba(251,191,36,0.75)` }}>
+                {fmtInt(countUp(t, at + 0.55 + i * 0.15, at + 1.85 + i * 0.15, st.before, st.after))}
+              </span>
+            </div>
+            <div className="mt-1 text-right text-[22px] text-gray-400 tabular-nums" style={{ opacity: easeOut(prog(t, at + 1.75, at + 2.15)) }}>
+              {fmtInt(st.before)} × {(1 + bonusPct).toFixed(2)}
+            </div>
+          </div>
+        ))}
         <div className="mt-3 pt-3 border-t-2 border-white/10">
-          <GearSlots t={t} equip={{ at, icon: gearIcon }} />
+          <GearSlots t={t} equip={{ at, icon: gearIcon, kind }} />
         </div>
       </div>
       {t >= at - 0.65 && fly < 1 && (() => {

@@ -1,0 +1,215 @@
+'use client'
+
+// ====================================================
+// วิดีโอสอน: พลังป้องกัน (DEF) — ใช้เครื่องประดับ "[MIKU] Snowman" (eq_acc_36miku) +5 (DEF กายภาพ +438% · DEF เวท +438%)
+//   ฝั่งเดียวกับวิดีโอ HP: เรา = Executor Anubis Brown (ซ้าย, ใส่เกียร์) · ศัตรู = Rock Legend Brown (ขวา, ไม่ใส่เกียร์) เป็นฝ่ายตีเรา
+//   บทเรียน: DEF ลดดาเมจ "โจมตีปกติ" ได้มาก แต่ "สกิล" ไม่โดนลดด้วย DEF → โดนสกิลแล้วตายเท่าเดิม
+//   ฉาก: public/gear-options/scenes/def.anme.json ← scripts/gear-options/build-def-scene.cjs
+//   โครงเรื่อง / เวลา / ชิ้นส่วนหน้าตา: ./kit.tsx
+//
+// ทุกสูตรยืนยันจากโค้ดเกม (libgame.so) แล้ว:
+//   DEF หลังใส่เกียร์ = gearStat: ฐาน + ตัดเศษ(ฐาน × %รวม) — DEF กายภาพ/เวท แยกกัน
+//   ตีปกติที่เราโดน = normalHit: ATK กายภาพ × K/(K + DEF กายภาพ) + ATK เวท × K/(K + DEF เวท) · K = 18000
+//   สกิล = ATK รวม × ความแรงสกิล × (1 − ต้านสกิล) — ไม่มี DEF ในสูตร
+// ====================================================
+
+import ScenePlayer, { type OverlayCtx } from '@/components/ScenePlayer'
+import { useLanguage } from '@/contexts/LanguageContext'
+import type { GearEffect } from '@/lib/pvpScraper'
+import { clamp01, easeOut, easeOutBack, fmtInt, popStyle, prog, span } from './anim'
+import {
+  BANNER_COLOR, Banner, EquipCard, GearCard, GearSlots, HpBar, Heals, ICON, LoadBox, NormalFormulaCard, Opening,
+  RangerCard, SkillFormulaCard, Souls, StatRow, SummaryShell, TL, defParts, firstSkill, gearIconUrl, gearStat, loadGear,
+  loadStats, makeRounds, normalHit, pct, skillMultiplier, totalAtk, useTutorialData, type Round,
+} from './kit'
+
+const SCENE = '/gear-options/scenes/def.anme.json'
+const ALLY = { actor: 'ak1zzx9ceu', ranger: 'u1242e-brown' }    // เรา — ใส่เกียร์ (ตรงกับ build-def-scene.cjs)
+const ENEMY = { actor: 'a9ijjdi134', ranger: 'u1260e-brown' }   // ศัตรู — ไม่ใส่เกียร์ เป็นฝ่ายตี
+const GEAR = 'eq_acc_36miku'
+const GEAR_GRADE = 6
+
+async function loadData() {
+  const [ally, enemy, { gear, bonus: b }] = await Promise.all([loadStats(ALLY.ranger), loadStats(ENEMY.ranger), loadGear(GEAR)])
+  const a = ally.baseStats, e = enemy.baseStats
+  const defBefore = { phyDef: a.phyDef, magDef: a.magDef }
+  const defAfter = { phyDef: gearStat(a.phyDef, b.phyDef), magDef: gearStat(a.magDef, b.magDef) }
+  const hitBefore = normalHit(e.phyAtk, e.magAtk, defBefore)
+  const hitAfter = normalHit(e.phyAtk, e.magAtk, defAfter)
+  const ourRes = ally.rates.skillResistance ?? 0
+  const skill = firstSkill(enemy)
+  const skillMul = skillMultiplier(skill)
+  const enemyAtk = totalAtk(enemy)
+  return {
+    ally, enemy, gear, defBefore, defAfter, defPct: b.phyDef?.pct ?? b.magDef?.pct ?? 0,
+    hitBefore, hitAfter, enemyAtk, ourRes, skill, skillMul,
+    dmgSkill: Math.round(enemyAtk * skillMul * (1 - ourRes)),
+  }
+}
+
+export default function DefTutorial({ autoPlay }: { autoPlay: boolean }) {
+  const { lang, t: tr, tGear, tRanger, tSkill } = useLanguage()
+  const T = (th: string, en: string) => (lang === 'th' ? th : en)
+  const { d, err } = useTutorialData(loadData)
+  if (!d) return <LoadBox err={err} T={T} />
+
+  const gearIcon = gearIconUrl(GEAR)
+  const gearName = tGear(GEAR, '[MIKU] Snowman')
+  const allyName = tRanger(ALLY.ranger, 'Executor Anubis Brown')
+  const enemyName = tRanger(ENEMY.ranger, 'Rock Legend Brown')
+  const skillName = tSkill(d.skill.code, d.skill.name)
+  const effName = (e: GearEffect) => (e.nameKey ? tr('equip', e.nameKey, e.name) : e.name)
+  const hp = d.ally.baseStats.hp
+  const dmgN = d.hitBefore.total, dmgN2 = d.hitAfter.total, dmgS = d.dmgSkill
+  const hitsToDie = (dmg: number) => Math.ceil(hp / dmg)
+  const defTxt = (x: { phyDef: number; magDef: number }) => `${fmtInt(x.phyDef)} / ${fmtInt(x.magDef)}`
+  const cut = 1 - dmgN2 / dmgN   // ดาเมจตีปกติลดลงกี่ %
+
+  const overlay = (c: OverlayCtx) => {
+    const t = c.t
+    // 4 รอบ: ศัตรูตีปกติ / ใช้สกิล × เรายังไม่ใส่เกียร์ / ใส่เกียร์แล้ว · เกียร์นี้ไม่เพิ่ม HP หลอดเลือดยาวเท่าเดิม
+    const rounds = makeRounds(c, [dmgN, dmgS, dmgN2, dmgS], [hp, hp, hp, hp])
+    const allyPos = c.actorAt(ALLY.actor)
+
+    // ป้ายข้างหลอดเลือดหลังโดนตี (รอบ 3 = ดาเมจลดลง · รอบ 4 = สกิลแรงเท่าเดิม)
+    const badge = (r: Round, end: number, cls: string, title: string, sub: string) => {
+      const s = span(t, r.at + 0.5, end, 0.35, 0.35)
+      if (!s.on || !allyPos) return null
+      const sp = c.project({ x: allyPos.x, y: allyPos.y - 205 })
+      const pop = easeOutBack(clamp01(s.enter))
+      return (
+        // วางข้างขวาของหลอดเลือด (หลอดกว้าง 360 จัดกลางที่ x เดียวกับ HpBar) — ไม่ทับป้ายหัวรอบด้านบน
+        <div className="absolute" style={{ left: Math.min(Math.max(sp.x, 220), 1060) + 196, top: sp.y, transform: `translateY(-100%) scale(${0.6 + 0.4 * pop})`, transformOrigin: 'left bottom', opacity: s.alpha }}>
+          <div className={`px-6 py-2.5 rounded-2xl border-2 text-center whitespace-nowrap ${cls}`}>
+            <div className="text-[34px] font-black text-white leading-tight">{title}</div>
+            <div className="text-[22px] font-bold text-white/95 tabular-nums">{sub}</div>
+          </div>
+        </div>
+      )
+    }
+
+    // ── สรุป ──
+    const S = TL.summary
+    const bar = (a: number) => easeOut(prog(t, a, a + 0.9))
+    const dmgRows = [
+      { label: T('ไม่ใส่เกียร์', 'No gear'), v: dmgN, cls: 'from-rose-600 to-orange-400', at: S + 0.6 },
+      { label: T(`ใส่${gearName} +5`, `${gearName} +5`), v: dmgN2, cls: 'from-sky-500 to-cyan-300', at: S + 1.1 },
+    ]
+    const keepTxt = (h: typeof d.hitBefore) => h.parts.map(p => pct(p.factor, 1)).join(' / ')
+    const cmp = [
+      { label: T('DEF กายภาพ / เวท', 'Physical / Magical DEF'), a: defTxt(d.defBefore), b: defTxt(d.defAfter), small: true },
+      { label: T('ดาเมจทะลุ DEF', 'Damage through DEF'), a: keepTxt(d.hitBefore), b: keepTxt(d.hitAfter), small: true },
+      { label: T('โดนตีปกติ 1 ครั้ง เสีย HP', 'HP lost per normal hit'), a: pct(dmgN / hp, 2), b: pct(dmgN2 / hp, 2) },
+      { label: T('ตีปกติกี่ครั้งถึงตาย', 'Normal hits to die'), a: fmtInt(hitsToDie(dmgN)), b: fmtInt(hitsToDie(dmgN2)) },
+      { label: T(`โดนสกิล ${skillName} 1 ครั้ง`, `Hit by ${skillName} once`), a: T('ตาย', 'Dead'), b: T('ตาย', 'Dead'), dead: true },
+    ]
+
+    return (
+      <>
+        <Opening t={t} lang={lang} T={T} title={T('พลังป้องกัน', 'DEF')} />
+        <GearCard t={t} T={T} gear={d.gear} icon={gearIcon} name={gearName} effName={effName} switchable={null}
+          kind="acc" grade={GEAR_GRADE} tested={[0, 1]} />
+
+        {/* ค่าพลัง + ช่องเกียร์ของเรา — ฝั่งที่โดนตี: DEF ลดดาเมจตีปกติ · ต้านสกิลลดดาเมจสกิล */}
+        <RangerCard r={d.ally} name={allyName} s={span(t, 8.2, 11.9)} x={680} y={24}
+          tag={T('เรนเจอร์ของเรา', 'Our ranger')} tagColor="bg-cyan-500/25 text-cyan-200"
+          rows={<>
+            <StatRow t={t} icon={ICON.def} label={T('พลังป้องกัน', 'DEF')} parts={defParts(d.ally, T)} hlAt={8.75} />
+            <StatRow t={t} icon={ICON.hp} label={T('พลังชีวิต', 'HP')} value={fmtInt(hp)} dim />
+            <StatRow t={t} label={T('ต้านสกิล', 'Skill Resistance')} value={pct(d.ourRes)} dim
+              note={T('DEF ไม่ช่วยกันสกิล ตัวนี้ต่างหาก (ดูรอบที่ 2)', 'DEF does not stop skills — this does (see round 2)')} />
+          </>}
+          slots={<GearSlots t={t} />} />
+
+        {/* ศัตรู — ไม่ใส่เกียร์ · ATK แยก กายภาพ / เวท เพราะโดน DEF คนละตัว */}
+        <RangerCard r={d.enemy} name={enemyName} s={span(t, 12.5, 15.9)} x={40} y={24}
+          tag={T('ศัตรู · ไม่ใส่เกียร์', 'Enemy · no gear')} tagColor="bg-rose-500/25 text-rose-200"
+          rows={<>
+            <StatRow t={t} icon={ICON.atk} label={T('พลังโจมตี', 'ATK')} hlAt={13.05} parts={[
+              { label: T('กายภาพ', 'PHY'), value: fmtInt(d.enemy.baseStats.phyAtk) },
+              { label: T('เวท', 'MAG'), value: fmtInt(d.enemy.baseStats.magAtk) },
+            ]} />
+            <StatRow t={t} icon={ICON.hp} label={T('พลังชีวิต', 'HP')} value={fmtInt(d.enemy.baseStats.hp)} dim />
+            <StatRow t={t} icon={ICON.def} label={T('พลังป้องกัน', 'DEF')} parts={defParts(d.enemy, T)} dim />
+          </>}
+          slots={<GearSlots t={t} />} />
+
+        <NormalFormulaCard t={t} T={T} heading={T('ศัตรูโจมตีปกติ: DEF ของเราช่วยลดดาเมจ', 'Enemy normal attack: our DEF reduces damage')}
+          defOwner={T('ของเรา', '(ours)')} hit={d.hitBefore} />
+
+        <Banner t={t} start={20.8} end={24.2} title={T('รอบที่ 1 · ยังไม่ใส่เกียร์', 'Round 1 · No gear')}
+          sub={`${T('ศัตรูโจมตีปกติ', 'Enemy normal attack')} · DEF ${defTxt(d.defBefore)}`} color={BANNER_COLOR.normalNoGear} />
+        <Heals c={c} t={t} actor={ALLY.actor} rounds={rounds} />
+        <HpBar c={c} t={t} actor={ALLY.actor} rounds={rounds} />
+
+        <EquipCard t={t} T={T} gearIcon={gearIcon} gearName={gearName} bonusPct={d.defPct} kind="acc"
+          stats={[
+            { icon: ICON.def, label: T('DEF กายภาพ', 'Physical DEF'), before: d.defBefore.phyDef, after: d.defAfter.phyDef },
+            { icon: ICON.def, label: T('DEF เวท', 'Magical DEF'), before: d.defBefore.magDef, after: d.defAfter.magDef },
+          ]} />
+
+        <SkillFormulaCard t={t} T={T} skill={d.skill} skillName={skillName} mul={d.skillMul}
+          atkLabel={T('ATK ของศัตรู', 'Enemy ATK')} atk={d.enemyAtk}
+          resLabel={T('ต้านสกิลของเรา', 'Our Skill Resistance')} res={d.ourRes} dmg={dmgS} />
+
+        <Banner t={t} start={29.3} end={34.6} title={T('รอบที่ 2 · ยังไม่ใส่เกียร์', 'Round 2 · No gear')}
+          sub={`${T('ศัตรูใช้สกิล', 'Enemy skill')} ${skillName} · HP ${fmtInt(hp)}`} color={BANNER_COLOR.skillNoGear} />
+        <Banner t={t} start={38.7} end={42.3} title={T(`รอบที่ 3 · ใส่${gearName}`, `Round 3 · ${gearName}`)}
+          sub={`${T('ศัตรูโจมตีปกติ', 'Enemy normal attack')} · DEF ${defTxt(d.defAfter)}`} color={BANNER_COLOR.normalGear} />
+        <Banner t={t} start={42.4} end={47.6} title={T(`รอบที่ 4 · ใส่${gearName}`, `Round 4 · ${gearName}`)}
+          sub={`${T('ศัตรูใช้สกิล', 'Enemy skill')} ${skillName} · ${T('DEF สูงแค่ไหน สกิลก็ไม่ลด', 'DEF does not reduce skills')}`} color={BANNER_COLOR.skillGear} />
+
+        <Souls c={c} t={t} actor={ALLY.actor} rounds={rounds} />
+
+        {badge(rounds[2], 42.3, 'bg-gradient-to-r from-sky-600 to-cyan-500 border-sky-200/70 shadow-[0_10px_30px_rgba(14,165,233,0.55)]',
+          T(`ดาเมจลด ${pct(cut)}`, `${pct(cut)} less damage`), `${fmtInt(dmgN)} → ${fmtInt(dmgN2)}`)}
+        {badge(rounds[3], 47.6, 'bg-gradient-to-r from-rose-700 to-fuchsia-600 border-rose-200/60 shadow-[0_10px_30px_rgba(225,29,72,0.5)]',
+          T('สกิลไม่โดน DEF', 'Skills ignore DEF'), `${T('ดาเมจเท่าเดิม', 'Same damage')} ${fmtInt(dmgS)}`)}
+
+        <SummaryShell t={t} T={T} top={-352} title={T('ดาเมจตีปกติที่เราโดน (ศัตรูตัวเดิม ไม่ใส่เกียร์)', 'Normal-hit damage we take (same enemy, no gear)')}>
+          {dmgRows.map(r => (
+            <div key={r.label} className="mt-2" style={{ opacity: easeOut(prog(t, r.at - 0.2, r.at + 0.2)) }}>
+              <div className="flex justify-between text-[24px]">
+                <span className="text-gray-200 font-bold">{r.label}</span>
+                <span className="font-black text-white tabular-nums">{fmtInt(r.v * bar(r.at))}</span>
+              </div>
+              <div className="h-5 rounded-full bg-white/10 mt-1 overflow-hidden">
+                <div className={`h-full rounded-full bg-gradient-to-r ${r.cls}`} style={{ width: `${(r.v / dmgN) * 100 * bar(r.at)}%` }} />
+              </div>
+            </div>
+          ))}
+          {/* ตารางเทียบ ไม่ใส่ / ใส่เกียร์ */}
+          <div className="mt-3 rounded-2xl border-2 border-white/10 overflow-hidden text-[22px]" style={{ opacity: easeOut(prog(t, S + 1.7, S + 2.1)) }}>
+            <div className="grid grid-cols-[1.45fr_1fr_1fr] bg-white/5 text-[20px] font-black text-gray-400">
+              <span className="px-4 py-1 text-[16px] font-bold text-gray-500 self-center">{T('เลเวลเต็ม · ไม่รวมคริ / ธาตุ', 'Max level · no crit / element')}</span>
+              <span className="px-4 py-1.5 text-center">{T('ไม่ใส่เกียร์', 'No gear')}</span>
+              <span className="px-4 py-1.5 text-center text-sky-300">{T('ใส่เกียร์', 'With gear')}</span>
+            </div>
+            {cmp.map((r, i) => (
+              <div key={r.label} className="grid grid-cols-[1.45fr_1fr_1fr] border-t-2 border-white/10 items-center" style={{ opacity: easeOut(prog(t, S + 1.9 + i * 0.25, S + 2.3 + i * 0.25)) }}>
+                <span className="px-4 py-1 font-bold text-gray-200">{r.label}</span>
+                <span className={`px-3 py-1 text-center font-black tabular-nums ${r.dead ? 'text-rose-400' : 'text-white'} ${r.small ? 'text-[19px]' : ''}`}>{r.a}</span>
+                <span className={`px-3 py-1 text-center font-black tabular-nums ${r.dead ? 'text-rose-400' : 'text-sky-300'} ${r.small ? 'text-[19px]' : ''}`}>{r.b}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-4" style={popStyle(span(t, S + 3.3, TL.end, 0.5, 0.6))}>
+            <div className="rounded-2xl bg-[#08203a] border-2 border-sky-400/50 px-3 py-2 text-center">
+              <div className="text-[22px] text-gray-300 font-bold">{T('ดาเมจตีปกติ', 'Normal-hit damage')}</div>
+              <div className="text-[40px] font-black text-sky-300 leading-none mt-1">−{pct(cut)}</div>
+            </div>
+            <div className="rounded-2xl bg-[#250a2a] border-2 border-fuchsia-400/50 px-3 py-2 text-center">
+              <div className="text-[22px] text-gray-300 font-bold">{T(`ดาเมจสกิล ${skillName}`, `${skillName} damage`)}</div>
+              <div className="text-[36px] font-black text-fuchsia-300 leading-none mt-1.5">{T('เท่าเดิม', 'Unchanged')}</div>
+            </div>
+          </div>
+          <div className="mt-2.5 text-center text-[20px] font-bold text-amber-200" style={{ opacity: easeOut(prog(t, S + 3.8, S + 4.2)) }}>
+            {T('DEF ลดได้แค่โจมตีปกติ · กันสกิลต้องเพิ่ม ต้านสกิล หรือ พลังชีวิต', 'DEF only reduces normal attacks · against skills, raise Skill Resistance or HP')}
+          </div>
+        </SummaryShell>
+      </>
+    )
+  }
+
+  return <ScenePlayer src={SCENE} autoPlay={autoPlay} overlay={overlay} />
+}

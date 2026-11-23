@@ -8,20 +8,19 @@
 //
 // ตัวเลขทั้งหมดคำนวณสดจากข้อมูลชุดเดียวกับ Ranger Book / Gear Book (ไม่พิมพ์ตายตัว):
 //   ค่าพลังเลเวลเต็ม = /data/ranger/stats/<id>.json → baseStats / rates / skills
-//   ATK หลังใส่เกียร์ = aggregateGearBonuses + applyBonus (โลจิกเดียวกับ RangerStatPanel · Overall ATK เข้าทั้ง phy และ mag)
+//   ATK หลังใส่เกียร์ = aggregateGearBonuses + gearStat (ฐาน × (1 + %) แบบในเกม · Overall ATK เข้าทั้ง phy และ mag)
 //   ค่าเกียร์ +5 = recalcGearEffects (+5 = Basic เต็มแล้ว · ทดสอบแค่ค่า Basic จึงไม่ต้องตีถึง +10)
 //   โจมตีปกติ = normalHit (กายภาพ/เวท คนละ DEF แล้วรวม — แบบในเกม) · สกิล = ATK รวม × ความแรงสกิล × (1 − ต้านสกิล) ไม่โดน DEF
 // ====================================================
 
 import ScenePlayer, { type OverlayCtx } from '@/components/ScenePlayer'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { applyBonus } from '@/lib/gearEffectParser'
 import type { GearEffect } from '@/lib/pvpScraper'
 import { easeOut, fmtInt, popStyle, prog, span } from './anim'
 import {
   BANNER_COLOR, Banner, EquipCard, GearCard, GearSlots, HpBar, Heals, ICON, LoadBox, NormalFormulaCard, Opening,
   RangerCard, SkillFormulaCard, Souls, StatRow, SummaryShell, TL, firstSkill, gearIconUrl, loadGear, loadStats,
-  defParts, makeRounds, normalHit, pct, skillMultiplier, switchableOf, totalAtk, useTutorialData,
+  defParts, gearStat, makeRounds, normalHit, pct, skillMultiplier, switchableOf, totalAtk, useTutorialData,
 } from './kit'
 
 const SCENE = '/gear-options/scenes/atk.anme.json'
@@ -34,8 +33,8 @@ async function loadData() {
   const [ally, enemy, { gear, bonus: b }] = await Promise.all([loadStats(ALLY.ranger), loadStats(ENEMY.ranger), loadGear(GEAR)])
   const s = ally.baseStats
   const atkBefore = totalAtk(ally)
-  const phyAfter = Math.round(applyBonus(s.phyAtk, b.phyAtk))
-  const magAfter = Math.round(applyBonus(s.magAtk, b.magAtk))
+  const phyAfter = gearStat(s.phyAtk, b.phyAtk)
+  const magAfter = gearStat(s.magAtk, b.magAtk)
   const atkAfter = phyAfter + magAfter
   const hitBefore = normalHit(s.phyAtk, s.magAtk, enemy.baseStats)
   const hitAfter = normalHit(phyAfter, magAfter, enemy.baseStats)
@@ -120,7 +119,7 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
         <HpBar c={c} t={t} actor={ENEMY.actor} rounds={rounds} />
 
         <EquipCard t={t} T={T} gearIcon={gearIcon} gearName={gearName} bonusPct={d.atkPct}
-          statIcon={ICON.atk} statLabel={T('พลังโจมตี', 'ATK')} before={d.atkBefore} after={d.atkAfter} />
+          stats={[{ icon: ICON.atk, label: T('พลังโจมตี', 'ATK'), before: d.atkBefore, after: d.atkAfter }]} />
 
         <SkillFormulaCard t={t} T={T} skill={d.skill} skillName={skillName} mul={d.skillMul}
           atkLabel={T('ATK (ยังไม่ใส่เกียร์)', 'ATK (no gear)')} atk={d.atkBefore}

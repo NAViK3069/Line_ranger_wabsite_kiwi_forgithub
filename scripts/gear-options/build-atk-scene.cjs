@@ -103,7 +103,7 @@ scene.assets.push(
 )
 const sfx = (id, assetId, start, volume = 1, extra = {}) =>
   ({ id, type: 'sound', actorId: '__audio', start, assetId, volume, offset: 0, duration: 0, fadeIn: 0, fadeOut: 0, ...extra })
-const BGM_VOLUME = 0.3
+const BGM_VOLUME = 0.5
 scene.cues.push(
   sfx('bgm', 'snd_bgm', 0, BGM_VOLUME, { duration: T.end, fadeIn: 1, fadeOut: 2 }),
   sfx('sfx_equip', 'snd_equip', T.equip),

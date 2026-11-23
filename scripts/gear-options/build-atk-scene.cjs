@@ -29,7 +29,7 @@ const T = {
   end: 55,
 }
 const HIT_OFFSET = 1.533   // คิวสกิลเริ่ม → กระสุนโดน (วัดจากไทม์ไลน์ของตัวเล่น)
-const DEATH = { knock: 0.02, fadeFrom: 1.5, fadeTo: 2.3 }   // นับจากจังหวะโดน: knockback → ค้างเฟรมสุดท้าย → ค่อยๆ จางหาย
+const DEATH = { knock: 0.02, fadeFrom: 1.5, fadeTo: 1.8 }   // นับจากจังหวะโดน: knockback → ค้างเฟรมสุดท้าย → ค่อยๆ จางหาย
 
 const WIDE = [640, 360, 1]
 const SKILL_CAM = [660, 420, 1.12]

@@ -56,7 +56,7 @@ const TL = {
   summary: 48.0,
   end: 55,
 }
-/** ตายแล้ว (นับจากจังหวะโดน): knockback → ค้างท่าสุดท้าย → ร่างจางหาย 1.5–2.3 (อยู่ในฉาก) · วิญญาณออกจากร่างตอน SOUL */
+/** ตายแล้ว (นับจากจังหวะโดน): knockback → ค้างท่าสุดท้าย → ร่างจางหาย 1.5–1.8 (อยู่ในฉาก) · วิญญาณออกจากร่างตอน SOUL */
 const DEATH = { fadeFrom: 1.5, soul: 1.6, soulDur: 1.9 }
 
 interface Skill { slot: string; code: string; name: string; description?: string; iconUrl?: string }

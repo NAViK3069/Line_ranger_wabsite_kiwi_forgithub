@@ -1,6 +1,6 @@
 {
  "version": 1,
- "name": "DEF — [MIKU] Snowman vs Wizard Brown",
+ "name": "DEF — [MIKU] Snowman vs Crocodile Hunter Brown",
  "width": 1280,
  "height": 720,
  "duration": 55,
@@ -75,12 +75,12 @@
    "name": "Brown อนูบิสเพชฌฆาต"
   },
   {
-   "id": "r_u1316h-brown",
+   "id": "r_u1317e-brown",
    "type": "ranger",
    "source": "lerico",
-   "rangerId": "u1316h-brown",
+   "rangerId": "u1317e-brown",
    "form": "body",
-   "name": "Brown ผู้มีวิชาอาคม"
+   "name": "Brown พรานจระเข้"
   },
   {
    "id": "fx_light_b",
@@ -162,8 +162,8 @@
   },
   {
    "id": "a9ijjdi134",
-   "name": "Brown ผู้มีวิชาอาคม",
-   "assetId": "r_u1316h-brown",
+   "name": "Brown พรานจระเข้",
+   "assetId": "r_u1317e-brown",
    "tag": "enemy",
    "x": 898,
    "y": 560,
@@ -678,7 +678,7 @@
    "id": "cam_wide3",
    "type": "camera",
    "actorId": "__camera",
-   "start": 47.835,
+   "start": 47.867999999999995,
    "center": {
     "x": 640,
     "y": 360
@@ -724,7 +724,7 @@
    "id": "victim_knockback0",
    "type": "anim",
    "actorId": "ak1zzx9ceu",
-   "start": 31.855,
+   "start": 31.888,
    "clip": "knockback",
    "speed": 1,
    "loop": false,
@@ -736,7 +736,7 @@
    "type": "show",
    "actorId": "ak1zzx9ceu",
    "start": 0,
-   "duration": 33.385,
+   "duration": 33.418,
    "fadeIn": 0,
    "fadeOut": 0.15000000000000013
   },
@@ -744,7 +744,7 @@
    "id": "victim_knockback1",
    "type": "anim",
    "actorId": "ak1zzx9ceu",
-   "start": 44.955000000000005,
+   "start": 44.988,
    "clip": "knockback",
    "speed": 1,
    "loop": false,
@@ -756,7 +756,7 @@
    "type": "show",
    "actorId": "ak1zzx9ceu",
    "start": 34.4,
-   "duration": 12.085,
+   "duration": 12.117999999999995,
    "fadeIn": 0.5,
    "fadeOut": 0.15000000000000013
   },
@@ -788,7 +788,7 @@
    "id": "sfx_death0",
    "type": "sound",
    "actorId": "__audio",
-   "start": 33.235,
+   "start": 33.268,
    "assetId": "snd_death",
    "volume": 1,
    "offset": 0,
@@ -800,7 +800,7 @@
    "id": "sfx_death1",
    "type": "sound",
    "actorId": "__audio",
-   "start": 46.335,
+   "start": 46.367999999999995,
    "assetId": "snd_death",
    "volume": 1,
    "offset": 0,

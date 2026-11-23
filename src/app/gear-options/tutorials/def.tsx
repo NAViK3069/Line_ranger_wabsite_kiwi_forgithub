@@ -2,7 +2,7 @@
 
 // ====================================================
 // วิดีโอสอน: พลังป้องกัน (DEF) — ใช้เครื่องประดับ "[MIKU] Snowman" (eq_acc_36miku) +5 (DEF กายภาพ +438% · DEF เวท +438%)
-//   เรา = Executor Anubis Brown (ซ้าย, ใส่เกียร์ DEF) · ศัตรู = Brown ผู้มีวิชาอาคม (ไกรทอง ร่างไฮเปอร์ u1316h ธาตุแสง, ขวา)
+//   เรา = Executor Anubis Brown (ซ้าย, ใส่เกียร์ DEF) · ศัตรู = Brown พรานจระเข้ (ไกรทอง 9★ u1317e ธาตุแสง, ขวา)
 //   ศัตรูใส่เกียร์ ATK เต็มที่ 3 ชิ้น (ค่า Basic +5) ให้ดาเมจตีปกติเห็นชัด · ตีกายภาพล้วน → ใช้แค่ DEF กายภาพของเรา
 //   กระสุนหอก / เทียนเวทมนตร์ บินตามวิถีในเกมเป๊ะ (fx.game ในฉาก — ถอดจาก libgame.so)
 //   บทเรียน: DEF ลดดาเมจ "โจมตีปกติ" ได้มาก แต่ "สกิล" ไม่โดนลดด้วย DEF → โดนสกิลแล้วตายเท่าเดิม
@@ -28,7 +28,7 @@ import { aggregateGearBonuses } from '@/lib/gearEffectParser'
 
 const SCENE = '/gear-options/scenes/def.anme.json'
 const ALLY = { actor: 'ak1zzx9ceu', ranger: 'u1242e-brown' }    // เรา — ใส่เกียร์ (ตรงกับ build-def-scene.cjs)
-const ENEMY = { actor: 'a9ijjdi134', ranger: 'u1316h-brown' }   // ศัตรู — ไกรทอง (ตรงกับ build-def-scene.cjs)
+const ENEMY = { actor: 'a9ijjdi134', ranger: 'u1317e-brown' }   // ศัตรู — ไกรทอง 9★ พรานจระเข้ (ตรงกับ build-def-scene.cjs)
 const GEAR = 'eq_acc_36miku'
 const GEAR_GRADE = 6
 /** เกียร์ ATK ของศัตรู — ค่า Basic ATK สูงสุดของแต่ละช่องในคลังเกียร์ (+5) */
@@ -73,7 +73,7 @@ export default function DefTutorial({ autoPlay }: { autoPlay: boolean }) {
   const gearIcon = gearIconUrl(GEAR)
   const gearName = tGear(GEAR, '[MIKU] Snowman')
   const allyName = tRanger(ALLY.ranger, 'Executor Anubis Brown')
-  const enemyName = tRanger(ENEMY.ranger, 'Wizard Brown')
+  const enemyName = tRanger(ENEMY.ranger, 'Crocodile Hunter Brown')
   const enemyGearIcons = Object.fromEntries(ENEMY_GEARS.map(g => [g.kind, gearIconUrl(g.code)])) as Partial<Record<GearKind, string>>
   const skillName = tSkill(d.skill.code, d.skill.name)
   const effName = (e: GearEffect) => (e.nameKey ? tr('equip', e.nameKey, e.name) : e.name)

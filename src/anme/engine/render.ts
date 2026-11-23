@@ -7,7 +7,7 @@ import type { SamFrame } from '@/anme/lib/animation/samParser'
 import { assets, type RangerRuntime } from './assets'
 import {
   BANNER_TIME, HIT_FLASH, actorPos, activePose, arcHeight, arcPos, buildTimeline, cameraAt, fxFinishPoint, fxImpactPoint,
-  facing, fxLaunchPoint, gamePathPos, gameRotation, poseFrames, visibility, type Timeline,
+  GAME_PX_PER_PT, facing, fxLaunchPoint, gamePathPos, gameRotation, poseFrames, visibility, type Timeline,
 } from './timeline'
 import { ART_FACES_LEFT, clamp } from './scene'
 import type { Actor, InfoCue, Scene, SkillCard, Vec } from './types'
@@ -312,7 +312,8 @@ function drawSkillFx(ctx: CanvasRenderingContext2D, scene: Scene, tl: Timeline, 
 // ── แถบบอกระยะ (เลเยอร์ "ระยะ" ใต้เรนเจอร์ — แบบปุ่มระยะโจมตีของตัวเล่นอนิเมชั่นเรนเจอร์) ──
 // หน่วย pt ของเกม → หน่วยของไฟล์ .sam ด้วยตัวคูณเดียวกับตัวเล่นอนิเมชั่น (PT_TO_WORLD) แล้วคูณ scale ของตัวละคร
 // ขนาดเส้น/ตัวหนังสือคิดเทียบเวที 720p (จอใหญ่/เล็กกว่าก็ได้สัดส่วนเดิม) · เส้นมีขอบดำรอง อ่านออกบนฉากสว่าง
-const PT_TO_WORLD = 2.1
+// เกม: 1 pt = 2 พิกเซลของไฟล์ .sam (contentScaleFactor — ยืนยันจาก SuperAnimNode::init ใน libgame.so · เดิมจูนด้วยตา 2.1)
+const PT_TO_WORLD = GAME_PX_PER_PT
 const RANGE_ATK_COLOR = '#ffffff'
 const RANGE_BUFF_COLOR = '#4ade80'
 const RANGE_SKILL_COLOR = '#fb923c'

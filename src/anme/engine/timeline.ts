@@ -275,10 +275,62 @@ export function gamePathPos(g: GameProjectile, from: Vec, to: Vec, k: number, fo
 /** มุมหมุนกระสุนแบบเกม (เรเดียน, บวก = ตามเข็ม) — setRotation(start) แล้ว CCRotateTo(เวลาบิน, end) */
 export const gameRotation = (g: GameProjectile, k: number) => ((g.angle.start + (g.angle.end - g.angle.start) * k) * Math.PI) / 180
 
+// ── การตรวจจับ / ล็อคเป้าแบบเกม (UnitNode::searchTarget — ถอดจาก libgame.so) ──
+//   hitbox ของยูนิต   = CCRect(x − contentWidth/2, 0, contentWidth, 320) → แกน X = กว้างเท่ากรอบไฟล์ .sam คร่อมตำแหน่ง
+//   ช่องตรวจจับ        = CCRect(ตัวเอง → ข้างหน้า attackRange × (1 + บัฟระยะ), 0 … 320) — แกน Y คลุมทั้งเลน
+//   ในระยะ            = ช่องตรวจจับ intersectsRect hitbox ของศัตรู
+//   ล็อคเป้า           = เรียงตาม |x เป้า − x ตัวเอง| (แกน X อย่างเดียว) ใกล้สุดก่อน
+//   กระสุนทุกลูก (ตีปกติ / สกิล) ยิงใส่เป้าที่ล็อคไว้ตัวเดียวกัน · ปลายทางคำนวณตอนปล่อย (CCBezierBy/MoveBy แบบสัมพัทธ์ — ไม่ตามเป้าที่ขยับหลังปล่อย)
+/** ช่วงแกน X ของ hitbox ยูนิต (พิกเซลเวที) */
+export function gameHitbox(scene: Scene, a: Actor, t: number): { x0: number; x1: number } {
+  const p = actorPos(scene, a, t)
+  const rt = rangerOfActor(scene, a)
+  const cx = p.x + gameAnchorOffset(rt).x * a.scale * (a.flip ? -1 : 1)
+  const half = ((rt?.sam.canvas.w ?? 0) / 2) * a.scale
+  return { x0: cx - half, x1: cx + half }
+}
+/** ช่วงแกน X ของช่องตรวจจับ (ไม่มีระยะโจมตีในข้อมูลเกม = null) */
+export function gameDetectRange(scene: Scene, a: Actor, t: number): { x0: number; x1: number } | null {
+  const rt = rangerOfActor(scene, a)
+  const range = rt?.gamedata?.range
+  if (!rt || !range) return null
+  const x = actorPos(scene, a, t).x + gameAnchorOffset(rt).x * a.scale * (a.flip ? -1 : 1)
+  const len = range * GAME_PX_PER_PT * a.scale
+  return facing(a) > 0 ? { x0: x, x1: x + len } : { x0: x - len, x1: x }
+}
+/** เป้าที่เกมล็อค ณ เวลา t: ศัตรูที่มองเห็นและ hitbox ทับช่องตรวจจับ ใกล้สุดตามแกน X · ไม่มี = null */
+export function gameLockTarget(scene: Scene, caster: Actor, t: number): Actor | null {
+  const det = gameDetectRange(scene, caster, t)
+  if (!det || caster.tag === 'prop') return null
+  const me = actorPos(scene, caster, t).x
+  let best: Actor | null = null, bestD = Infinity
+  for (const a of scene.actors) {
+    if (a.id === caster.id || a.tag === 'prop' || a.tag === caster.tag || !a.visible) continue
+    if (!rangerOfActor(scene, a)) continue
+    const vis = visibility(scene, a, t)
+    if (!vis || vis.alpha <= 0) continue
+    const hb = gameHitbox(scene, a, t)
+    if (hb.x1 < det.x0 || hb.x0 > det.x1) continue
+    const d = Math.abs(actorPos(scene, a, t).x - me)
+    if (d < bestD) { best = a; bestD = d }
+  }
+  return best
+}
+/**
+ * เป้าของคิวสกิล: กระสุนแบบเกม (fx.game) → ล็อคเป้าตามเกม ณ ต้นคิว (ไม่เจอในระยะ → ใช้ targetId ที่ตั้งไว้)
+ * อื่นๆ → targetId ตามที่ตั้ง
+ */
+export function cueTarget(scene: Scene, cue: SkillCue): Actor | null {
+  const set = scene.actors.find(a => a.id === cue.targetId) ?? null
+  if (!cue.fx?.game) return set
+  const caster = scene.actors.find(a => a.id === cue.actorId)
+  return (caster && gameLockTarget(scene, caster, cue.start)) ?? set
+}
+
 export function fxImpactPoint(scene: Scene, cue: SkillCue, t: number): Vec {
   const fx = cue.fx!
   if (fx.mode === 'point') return { ...fx.point }
-  const target = scene.actors.find(a => a.id === cue.targetId)
+  const target = cueTarget(scene, cue)
   const caster = scene.actors.find(a => a.id === cue.actorId)
   if (fx.mode === 'caster' && caster) return fxLaunchPoint(scene, cue, caster, t)
   if (!target) {
@@ -295,7 +347,7 @@ export function fxImpactPoint(scene: Scene, cue: SkillCue, t: number): Vec {
 /** จุดเล่น finish (ระเบิด) — แยกจากปลายทางกระสุนได้ */
 export function fxFinishPoint(scene: Scene, cue: SkillCue, t: number): Vec {
   const fx = cue.fx!
-  const target = scene.actors.find(a => a.id === cue.targetId)
+  const target = cueTarget(scene, cue)
   if (fx.finishSplit && target && fx.mode !== 'point' && fx.mode !== 'caster') {
     const h = actorHitPoint(scene, target, t)
     return { x: h.x + fx.finishOffset.x, y: h.y + fx.finishOffset.y }
@@ -364,7 +416,8 @@ export function buildTimeline(scene: Scene): Timeline {
     skill.set(c.id, st)
     dur.set(c.id, st.end - c.start)
     if (c.fx && st.shots.length) {
-      for (const s of st.shots) hits.push({ at: s.impactAt, targetId: c.targetId, cue: c, shot: s.index, point: fxImpactPoint(scene, c, s.impactAt) })
+      const tid = cueTarget(scene, c)?.id ?? c.targetId
+      for (const s of st.shots) hits.push({ at: s.impactAt, targetId: tid, cue: c, shot: s.index, point: fxImpactPoint(scene, c, s.impactAt) })
     } else if (c.targetId) {
       // ไม่มีเอฟเฟกต์ (ตีประชิด) → โดนที่เฟรมปล่อย
       const tgt = scene.actors.find(a => a.id === c.targetId)

@@ -73,12 +73,12 @@ function RangerTopGear({ gear }: { gear?: RangerStat['topGear'] }) {
           <div key={it.iconUrl} className="relative">
             <div className="w-7 h-7 sm:w-9 sm:h-9 bg-white/5 rounded flex items-center justify-center" title={it.name}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={it.iconUrl} alt={it.name} className="w-6 h-6 sm:w-8 sm:h-8 object-contain"
+              <img loading="lazy" decoding="async" src={it.iconUrl} alt={it.name} className="w-6 h-6 sm:w-8 sm:h-8 object-contain"
                 onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
             </div>
             {it.grade != null && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={`/gacha/images/${it.grade}star.png`} alt={`${it.grade}★`}
+              <img loading="lazy" decoding="async" src={`/gacha/images/${it.grade}star.png`} alt={`${it.grade}★`}
                 className="absolute left-1/2 -translate-x-1/2 object-contain pointer-events-none h-2 sm:h-2.5"
                 style={{ bottom: '-0.4rem' }}
                 onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
@@ -112,7 +112,7 @@ function SlotImage({ slot, className = 'h-4 object-contain' }: { slot: string; c
   const src = SLOT_IMG[slot]
   if (!src) return <span className="text-xs text-gray-400">{slot}</span>
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={slot} className={className} />
+  return <img loading="lazy" decoding="async" src={src} alt={slot} className={className} />
 }
 
 function StarImage({ grade, className = 'h-3.5 object-contain' }: { grade: number | null; className?: string }) {
@@ -120,7 +120,7 @@ function StarImage({ grade, className = 'h-3.5 object-contain' }: { grade: numbe
   const src = STAR_IMG[grade]
   if (!src) return null
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={`${grade}★`} className={className} />
+  return <img loading="lazy" decoding="async" src={src} alt={`${grade}★`} className={className} />
 }
 
 // ======================================================
@@ -361,7 +361,7 @@ export default function MetaPage() {
                         <td className="px-1 sm:px-2 py-1">
                           <div className="rounded-lg bg-white/5 overflow-hidden flex items-center justify-center w-9 h-[50px] sm:w-14 sm:h-20">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={ranger.imageUrl} alt={ranger.name}
+                            <img loading="lazy" decoding="async" src={ranger.imageUrl} alt={ranger.name}
                               style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}
                               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                             />
@@ -420,7 +420,7 @@ export default function MetaPage() {
                     {slot === 'all' ? 'ทั้งหมด' : (
                       <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={SLOT_IMG[slot]} alt={slot} className="h-4 object-contain" />
+                        <img loading="lazy" decoding="async" src={SLOT_IMG[slot]} alt={slot} className="h-4 object-contain" />
                         <span>{slot}</span>
                       </>
                     )}
@@ -464,7 +464,7 @@ export default function MetaPage() {
                             <td className="px-1 sm:px-2 py-1 sm:py-2">
                               <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-lg bg-white/5 overflow-hidden flex items-center justify-center">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img src={gear.iconUrl} alt={gear.name}
+                                <img loading="lazy" decoding="async" src={gear.iconUrl} alt={gear.name}
                                   style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}
                                   onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
                                 />

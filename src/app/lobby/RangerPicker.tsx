@@ -246,7 +246,7 @@ export default function RangerPicker({ title, allowAll = false, minGrade = 0, vi
                   <button key={t.value} type="button" className={chip(filters.types.includes(t.value))}
                     onClick={() => setFilters(f => ({ ...f, types: toggle(f.types, t.value) }))}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={t.img} alt={t.value} className="h-4 w-4 object-contain" />
+                    <img loading="lazy" decoding="async" src={t.img} alt={t.value} className="h-4 w-4 object-contain" />
                     {t.value}
                   </button>
                 ))}
@@ -265,7 +265,7 @@ export default function RangerPicker({ title, allowAll = false, minGrade = 0, vi
                     onClick={() => setFilters(f => ({ ...f, elements: toggle(f.elements, e.value) }))}>
                     {e.img && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={e.img} alt={e.label} className="h-4 w-4 object-contain" />
+                      <img loading="lazy" decoding="async" src={e.img} alt={e.label} className="h-4 w-4 object-contain" />
                     )}
                     {tStat(e.label)}
                   </button>
@@ -297,7 +297,7 @@ export default function RangerPicker({ title, allowAll = false, minGrade = 0, vi
                         <span className="absolute top-0 right-0 z-10 px-1 rounded bg-pink-500 text-[9px] font-black leading-[14px] text-white shadow" title="ตัวใหม่ — ยังไม่มีข้อมูลใน Ranger Book">NEW</span>
                       )}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={thumb(r.id)} alt={r.name}
                         className="max-h-full max-w-full object-contain pointer-events-none"
                         onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
@@ -306,7 +306,7 @@ export default function RangerPicker({ title, allowAll = false, minGrade = 0, vi
                     {star && (
                       <div className="flex justify-center mt-0.5">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={star} alt="" className="h-3 object-contain pointer-events-none"
+                        <img loading="lazy" decoding="async" src={star} alt="" className="h-3 object-contain pointer-events-none"
                           onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                       </div>
                     )}

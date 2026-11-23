@@ -2,7 +2,7 @@
 // About Me — หน้าสาธารณะแสดงข้อมูลเจ้าของเว็บ
 // ====================================================
 
-import Link from 'next/link'
+import BackHomeLink from '@/components/BackHomeLink'
 import profileData from '../../../content/site-profile.json'
 import { safeUrl } from '@/lib/safeUrl'
 
@@ -35,13 +35,7 @@ export default function AboutPage() {
       <div className="max-w-5xl mx-auto">
 
         {/* Back */}
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-gray-400 hover:text-white text-sm transition-colors mb-8"
-        >
-          <span className="material-icons-round text-sm">arrow_back</span>
-          กลับหน้าหลัก
-        </Link>
+        <BackHomeLink className="inline-flex items-center gap-1.5 text-gray-400 hover:text-white text-sm transition-colors mb-8" />
 
         {!profile || (!profile.displayName && !profile.description && !profile.profileImage) ? (
           <div className="card-glass rounded-2xl p-10 text-center text-gray-400">

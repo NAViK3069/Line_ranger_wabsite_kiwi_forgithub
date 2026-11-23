@@ -368,7 +368,7 @@ export default function GearPickerModal({
           {/* Header */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10 shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={SLOT_IMG[slot]} alt={slot} className="h-6 object-contain shrink-0" />
+            <img loading="lazy" decoding="async" src={SLOT_IMG[slot]} alt={slot} className="h-6 object-contain shrink-0" />
             <h3 className="text-white font-bold flex-1 text-sm">{tStat('Select Gear')} — {tStat(SLOT_LABEL[slot])}</h3>
             <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
               <span className="material-icons-round text-xl">close</span>
@@ -514,7 +514,7 @@ export default function GearPickerModal({
                         }`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={`/gacha/images/${gr}star.png`} alt={`${gr}★`}
+                        <img loading="lazy" decoding="async" src={`/gacha/images/${gr}star.png`} alt={`${gr}★`}
                           className="h-4 object-contain"
                           onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                       </button>
@@ -542,7 +542,7 @@ export default function GearPickerModal({
                         }`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={imgSrc} alt={sw} className="h-4 w-4 object-contain" />
+                        <img loading="lazy" decoding="async" src={imgSrc} alt={sw} className="h-4 w-4 object-contain" />
                         {sw}
                       </button>
                     )
@@ -609,7 +609,7 @@ function GearRow({ gear, tier, badge, onPreview }: {
       }`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={gear.iconUrl} alt={displayName}
+      <img loading="lazy" decoding="async" src={gear.iconUrl} alt={displayName}
         className="w-10 h-10 object-contain shrink-0"
         onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
 
@@ -618,13 +618,13 @@ function GearRow({ gear, tier, badge, onPreview }: {
         <div className="flex items-center gap-1.5 mt-0.5">
           {gear.grade != null && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={`/gacha/images/${gear.grade}star.png`} alt={`${gear.grade}★`}
+            <img loading="lazy" decoding="async" src={`/gacha/images/${gear.grade}star.png`} alt={`${gear.grade}★`}
               className="h-3 object-contain"
               onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
           )}
           {sw && TRIG_IMG[sw] && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={TRIG_IMG[sw]} alt={sw} className="h-3.5 w-3.5 object-contain"
+            <img loading="lazy" decoding="async" src={TRIG_IMG[sw]} alt={sw} className="h-3.5 w-3.5 object-contain"
               onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
           )}
         </div>

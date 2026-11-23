@@ -108,7 +108,7 @@ export default function AwakeningTalentRanking({ rangerId, league }: Props) {
                 <div key={u.code} className="flex items-center gap-2">
                   {ab?.iconUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={ab.iconUrl}
                       alt={name}
                       className="w-8 h-8 rounded object-contain bg-white/5 shrink-0"
@@ -139,7 +139,7 @@ export default function AwakeningTalentRanking({ rangerId, league }: Props) {
             {usage.talentUsage.map((u) => (
               <div key={u.code} className="flex items-center gap-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <img loading="lazy" decoding="async"
                   src={TALENT_STAGE_ICON[u.code] ?? '/gacha/images/tltno.png'}
                   alt=""
                   className="w-8 h-8 rounded object-contain bg-white/5 shrink-0"

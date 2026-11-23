@@ -205,7 +205,7 @@ function SlotImage({ slot, className = 'h-5 object-contain' }: { slot: string; c
   const src = SLOT_IMG[slot]
   if (!src) return <span className="text-xs text-gray-400">{slot}</span>
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={slot} className={className} />
+  return <img loading="lazy" decoding="async" src={src} alt={slot} className={className} />
 }
 
 function StarImage({ grade, className = 'h-4 object-contain' }: { grade: number | string | null; className?: string }) {
@@ -219,7 +219,7 @@ function StarImage({ grade, className = 'h-4 object-contain' }: { grade: number 
     : STAR_IMG[grade]
   if (!src) return null
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={`${grade}★`} className={className} />
+  return <img loading="lazy" decoding="async" src={src} alt={`${grade}★`} className={className} />
 }
 
 // แยก description string (อาจมี \n และ * bullet) ออกเป็น segments แต่ละบรรทัด
@@ -505,7 +505,7 @@ export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gear
           {/* Gear icon */}
           <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-white/5 shrink-0 flex items-center justify-center overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <img loading="lazy" decoding="async"
               src={gearIconUrl}
               alt={displayGearName}
               className="w-full h-full object-contain"
@@ -587,7 +587,7 @@ export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gear
                   <div className="flex items-center gap-1.5 mb-2">
                     <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">Basic Effect</span>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={effectLevelIcon('Basic_Effect', iconLevels.basic)} alt="" className="h-5 object-contain ml-0.5"
+                    <img loading="lazy" decoding="async" src={effectLevelIcon('Basic_Effect', iconLevels.basic)} alt="" className="h-5 object-contain ml-0.5"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                   </div>
                   <div className="space-y-1.5">
@@ -600,7 +600,7 @@ export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gear
                             <span className="font-bold text-white">{tUnit(e.value)}</span>
                             {cmp && (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img
+                              <img loading="lazy" decoding="async"
                                 src={CMP_ICON[cmp]}
                                 alt={cmp}
                                 className="h-5 w-5 object-contain scale-[2] shrink-0"
@@ -644,7 +644,7 @@ export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gear
                       <div className="flex items-center gap-1.5 mb-2">
                         {mainTrigType && TRIG_IMG[mainTrigType] ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img
+                          <img loading="lazy" decoding="async"
                             src={TRIG_IMG[mainTrigType]}
                             alt={mainTrigType}
                             className="h-4 object-contain"
@@ -654,7 +654,7 @@ export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gear
                         )}
                         <span className="text-xs font-bold text-orange-300 uppercase tracking-wider">Switchable Effect</span>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={effectLevelIcon('Switchable_Effect', iconLevels.switchable)} alt="" className="h-5 object-contain ml-0.5"
+                        <img loading="lazy" decoding="async" src={effectLevelIcon('Switchable_Effect', iconLevels.switchable)} alt="" className="h-5 object-contain ml-0.5"
                           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                         {effects.switchable.allEffects.length > 1 && (
                           <button
@@ -697,7 +697,7 @@ export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gear
                                 >
                                   {trig && TRIG_IMG[trig] ? (
                                     // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={TRIG_IMG[trig]} alt={trig}
+                                    <img loading="lazy" decoding="async" src={TRIG_IMG[trig]} alt={trig}
                                       className={`h-3.5 w-3.5 object-contain shrink-0 ${isOccupied && !isSelected ? 'opacity-40' : ''}`} />
                                   ) : null}
                                   <span className={`truncate flex-1 leading-snug text-xs ${isOccupied && !isSelected ? 'text-orange-200/40' : 'text-orange-200'}`}>
@@ -726,7 +726,7 @@ export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gear
                               <div key={i} className="flex items-center gap-2 text-sm">
                                 {o.trigType && TRIG_IMG[o.trigType] ? (
                                   // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={TRIG_IMG[o.trigType]} alt={o.trigType} className="h-3.5 object-contain shrink-0" />
+                                  <img loading="lazy" decoding="async" src={TRIG_IMG[o.trigType]} alt={o.trigType} className="h-3.5 object-contain shrink-0" />
                                 ) : null}
                                 <span className="text-orange-200 truncate flex-1">{o.effect.nameKey ? t('equip', o.effect.nameKey, o.effect.name) : o.effect.name}</span>
                                 <span className="font-bold text-white shrink-0">{tUnit(o.effect.value)}</span>
@@ -750,7 +750,7 @@ export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gear
                   <div className="flex items-center gap-1.5 mb-2">
                     <span className="text-xs font-bold text-green-300 uppercase tracking-wider">SKILL+</span>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={effectLevelIcon('SKILL+', iconLevels.skillPlus)} alt="" className="h-5 object-contain ml-0.5"
+                    <img loading="lazy" decoding="async" src={effectLevelIcon('SKILL+', iconLevels.skillPlus)} alt="" className="h-5 object-contain ml-0.5"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                   </div>
                   <div className="space-y-1.5">
@@ -891,7 +891,7 @@ export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gear
                     {/* Ranger image */}
                     <div className="w-8 h-11 sm:w-10 sm:h-14 rounded-lg bg-white/5 overflow-hidden flex items-center justify-center shrink-0">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
+                      <img loading="lazy" decoding="async"
                         src={r.imageUrl}
                         alt={r.name}
                         className="max-h-full max-w-full object-contain"

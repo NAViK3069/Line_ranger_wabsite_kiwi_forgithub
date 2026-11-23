@@ -125,7 +125,7 @@ export default function GachaSimulator({ initial }: { initial: Kind }) {
                   }`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={KINDS[k].img} alt="" width={28} height={28} className="w-7 h-7 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]" />
+                  <img loading="lazy" decoding="async" src={KINDS[k].img} alt="" width={28} height={28} className="w-7 h-7 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]" />
                   {KINDS[k].label}
                 </button>
               )
@@ -171,7 +171,7 @@ export default function GachaSimulator({ initial }: { initial: Kind }) {
                 <div className={`relative h-44 bg-gradient-to-br ${cfg.bg} overflow-hidden flex items-center justify-center`}>
                   {pool.imageUrl ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={pool.imageUrl}
                       alt={pool.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
@@ -182,7 +182,7 @@ export default function GachaSimulator({ initial }: { initial: Kind }) {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                   {(pool.isNew || pool.isEvent) && (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={pool.isEvent ? '/gacha/images/gacha_event.png' : '/gacha/images/gacha_new.png'}
                       alt={pool.isEvent ? 'EVENT' : 'NEW'}
                       className="absolute object-contain pointer-events-none"

@@ -103,7 +103,7 @@ function GearSlotSection({
         <div className="text-xs font-semibold mb-2">
           <span className={`flex items-center gap-1 ${SLOT_LABEL_COLOR[slot]}`}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={SLOT_IMG[slot]} alt={slot} className="h-4 object-contain" />
+            <img loading="lazy" decoding="async" src={SLOT_IMG[slot]} alt={slot} className="h-4 object-contain" />
             {tStat(SLOT_LABEL[slot])}
           </span>
         </div>
@@ -118,7 +118,7 @@ function GearSlotSection({
       <div className="text-xs font-semibold mb-2">
         <span className={`flex items-center gap-1 ${SLOT_LABEL_COLOR[slot]}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={SLOT_IMG[slot]} alt={slot} className="h-4 object-contain" />
+          <img loading="lazy" decoding="async" src={SLOT_IMG[slot]} alt={slot} className="h-4 object-contain" />
           {SLOT_LABEL[slot]}
         </span>
       </div>
@@ -134,7 +134,7 @@ function GearSlotSection({
             >
               <span className="text-xs text-gray-500 w-4 shrink-0">#{offset + idx + 1}</span>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <img loading="lazy" decoding="async"
                 src={gear.iconUrl}
                 alt={gear.name}
                 className="w-7 h-7 rounded object-contain bg-white/5 shrink-0"
@@ -209,9 +209,9 @@ function TopSetsSection({
                     onClick={() => onSelectGear({ name: slot.name, iconUrl: slot.img }, slot.slotKey)}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={slot.slotImg} alt="" className="h-5 object-contain" style={{ width: '3rem' }} />
+                    <img loading="lazy" decoding="async" src={slot.slotImg} alt="" className="h-5 object-contain" style={{ width: '3rem' }} />
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={slot.img}
                       alt={slot.name}
                       className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
@@ -397,7 +397,7 @@ export default function RangerDetailPopup({
         <div className="flex items-center gap-3 p-4 sm:p-6 pb-4 border-b border-white/10 shrink-0">
           <div className="rounded-xl bg-white/5 overflow-hidden shrink-0 flex items-center justify-center" style={{ width: 52, height: 74 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <img loading="lazy" decoding="async"
               src={viewImageUrl}
               alt={displayName}
               style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}

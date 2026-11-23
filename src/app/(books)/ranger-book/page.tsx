@@ -143,7 +143,7 @@ function CheckGrid({ title, loading, loadingText, searchText, options, selected,
                 <input type="checkbox" checked={on} onChange={() => onToggle(o.code)} className="w-4 h-4 shrink-0 accent-purple-500" />
                 {o.icon && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={o.icon} alt="" loading="lazy" className="w-6 h-6 object-contain shrink-0"
+                  <img decoding="async" src={o.icon} alt="" loading="lazy" className="w-6 h-6 object-contain shrink-0"
                     onError={e => { (e.target as HTMLImageElement).style.visibility = 'hidden' }} />
                 )}
                 <span className="truncate">{o.label}</span>
@@ -428,7 +428,7 @@ export default function PublicRangerBookPage() {
                       className={`p-1 rounded-lg border transition-colors ${filters.grades.includes(g) ? 'border-yellow-400 bg-yellow-400/20' : 'border-white/15 bg-white/5 hover:border-white/30'}`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={gradeImg(g)} alt={`${g}★`} className="h-4 object-contain"
+                      <img loading="lazy" decoding="async" src={gradeImg(g)} alt={`${g}★`} className="h-4 object-contain"
                         onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
                     </button>
                   ))}
@@ -458,7 +458,7 @@ export default function PublicRangerBookPage() {
                       className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-colors ${filters.types.includes(t.value) ? 'border-yellow-400 bg-yellow-400/20 text-yellow-200' : 'border-white/15 bg-white/5 text-gray-300 hover:border-white/30'}`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={t.img} alt={t.value} className="h-4 object-contain" />
+                      <img loading="lazy" decoding="async" src={t.img} alt={t.value} className="h-4 object-contain" />
                       {t.value}
                     </button>
                   ))}
@@ -475,7 +475,7 @@ export default function PublicRangerBookPage() {
                     >
                       {el.img
                         // eslint-disable-next-line @next/next/no-img-element
-                        ? <img src={el.img} alt={el.label} className="h-4 object-contain" />
+                        ? <img loading="lazy" decoding="async" src={el.img} alt={el.label} className="h-4 object-contain" />
                         : null}
                       {tStat(el.label)}
                     </button>
@@ -595,7 +595,7 @@ export default function PublicRangerBookPage() {
                       <td className="py-2 px-1">
                         <div className="w-9 h-12 rounded-lg bg-white/5 overflow-hidden flex items-center justify-center">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={`https://rangers.lerico.net/res/${r.id}/${r.id}-thum.png`} alt={r.name}
+                          <img loading="lazy" decoding="async" src={`https://rangers.lerico.net/res/${r.id}/${r.id}-thum.png`} alt={r.name}
                             className="max-h-full max-w-full object-contain"
                             onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
                         </div>
@@ -604,7 +604,7 @@ export default function PublicRangerBookPage() {
                         <p className="text-white font-semibold leading-tight text-xs sm:text-sm break-words">{t('unit', `${r.id}_nm`, r.name)}</p>
                         {r.grade != null && (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={gradeImg(r.grade, r.evolution)} alt={`${r.grade}★`}
+                          <img loading="lazy" decoding="async" src={gradeImg(r.grade, r.evolution)} alt={`${r.grade}★`}
                             className="h-3 mt-0.5 object-contain sm:hidden"
                             onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
                         )}
@@ -613,7 +613,7 @@ export default function PublicRangerBookPage() {
                       <td className="py-2 px-2 text-center hidden sm:table-cell">
                         {r.grade != null ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={gradeImg(r.grade, r.evolution)} alt={`${r.grade}★`} className="h-5 sm:h-6 object-contain mx-auto"
+                          <img loading="lazy" decoding="async" src={gradeImg(r.grade, r.evolution)} alt={`${r.grade}★`} className="h-5 sm:h-6 object-contain mx-auto"
                             onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
                         ) : <span className="text-gray-600">—</span>}
                       </td>
@@ -625,7 +625,7 @@ export default function PublicRangerBookPage() {
                       <td className="py-2 px-2 text-center">
                         {tImg
                           // eslint-disable-next-line @next/next/no-img-element
-                          ? <img src={tImg} alt={r.type ?? ''} className="h-5 sm:h-7 object-contain mx-auto" />
+                          ? <img loading="lazy" decoding="async" src={tImg} alt={r.type ?? ''} className="h-5 sm:h-7 object-contain mx-auto" />
                           : <span className="text-gray-600">—</span>}
                       </td>
                       <td className="py-2 px-2 text-center hidden sm:table-cell">
@@ -636,7 +636,7 @@ export default function PublicRangerBookPage() {
                       <td className="py-2 px-2 text-center">
                         {eImg
                           // eslint-disable-next-line @next/next/no-img-element
-                          ? <img src={eImg} alt={r.element ?? ''} className="h-5 sm:h-7 object-contain mx-auto" />
+                          ? <img loading="lazy" decoding="async" src={eImg} alt={r.element ?? ''} className="h-5 sm:h-7 object-contain mx-auto" />
                           : <span className="text-gray-500 text-xs">—</span>}
                       </td>
                     </tr>

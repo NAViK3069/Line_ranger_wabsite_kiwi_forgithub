@@ -91,7 +91,7 @@ function SlotImage({ slot, className = 'h-4 object-contain' }: { slot: string; c
   const src = SLOT_IMG[slot]
   if (!src) return <span className="text-xs text-gray-400">{slot}</span>
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={slot} className={className} />
+  return <img loading="lazy" decoding="async" src={src} alt={slot} className={className} />
 }
 
 function StarImage({ grade, className = 'h-3.5 object-contain' }: { grade: number | null; className?: string }) {
@@ -99,7 +99,7 @@ function StarImage({ grade, className = 'h-3.5 object-contain' }: { grade: numbe
   const src = STAR_IMG[grade]
   if (!src) return null
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={`${grade}★`} className={className} />
+  return <img loading="lazy" decoding="async" src={src} alt={`${grade}★`} className={className} />
 }
 
 function TrigImage({ trigType }: { trigType: string | null }) {
@@ -109,7 +109,7 @@ function TrigImage({ trigType }: { trigType: string | null }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={trigType} className="h-5 sm:h-6 object-contain mx-auto" />
+      <img loading="lazy" decoding="async" src={src} alt={trigType} className="h-5 sm:h-6 object-contain mx-auto" />
       <span className="text-[9px] text-gray-400 hidden sm:block">{trigType}</span>
     </div>
   )
@@ -338,7 +338,7 @@ export default function PublicGearBookPage() {
                     >
                       {STAR_IMG[g]
                         // eslint-disable-next-line @next/next/no-img-element
-                        ? <img src={STAR_IMG[g]} alt={`${g}★`} className="h-4 object-contain" onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
+                        ? <img loading="lazy" decoding="async" src={STAR_IMG[g]} alt={`${g}★`} className="h-4 object-contain" onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
                         : <span className="text-xs text-gray-400 px-1">{g}★</span>
                       }
                     </button>
@@ -373,7 +373,7 @@ export default function PublicGearBookPage() {
                     >
                       {TRIG_IMG[sw]
                         // eslint-disable-next-line @next/next/no-img-element
-                        ? <img src={TRIG_IMG[sw]} alt={sw} className="h-4 object-contain" />
+                        ? <img loading="lazy" decoding="async" src={TRIG_IMG[sw]} alt={sw} className="h-4 object-contain" />
                         : null}
                       {sw}
                     </button>
@@ -504,7 +504,7 @@ export default function PublicGearBookPage() {
                         <td className="py-1.5 sm:py-2 px-2 sm:px-3">
                           <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-lg bg-white/5 overflow-hidden flex items-center justify-center">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={item.iconUrl} alt={item.name}
+                            <img loading="lazy" decoding="async" src={item.iconUrl} alt={item.name}
                               style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}
                               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                           </div>

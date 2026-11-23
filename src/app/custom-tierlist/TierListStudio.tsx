@@ -177,14 +177,14 @@ function CardFace({ id, info, alt }: { id: string; info?: RangerInfo; alt: strin
     <>
       <span className={'tl-card' + (el ? ' has-el' : '')} style={{ backgroundImage: el ? `url(${bgSrc(el)})` : darkCss(frameOf(info)) }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={thumb(id)} alt={alt} draggable={false} loading="lazy" />
+        <img decoding="async" src={thumb(id)} alt={alt} draggable={false} loading="lazy" />
       </span>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      {el && <img className="tl-el" src={elSrc(el)} alt="" draggable={false} />}
+      {el && <img loading="lazy" decoding="async" className="tl-el" src={elSrc(el)} alt="" draggable={false} />}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      {typeSrc(info?.type) && <img className="tl-type" src={typeSrc(info?.type)!} alt={info?.type} draggable={false} />}
+      {typeSrc(info?.type) && <img loading="lazy" decoding="async" className="tl-type" src={typeSrc(info?.type)!} alt={info?.type} draggable={false} />}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      {stars && <img className="tl-stars" src={stars} alt={`${info?.grade ?? ''}★`} draggable={false} />}
+      {stars && <img loading="lazy" decoding="async" className="tl-stars" src={stars} alt={`${info?.grade ?? ''}★`} draggable={false} />}
     </>
   )
 }
@@ -842,7 +842,7 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
         <div className="tl-dock">
           <div className="tl-dock-top">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={thumb(selected)} alt="" />
+            <img loading="lazy" decoding="async" src={thumb(selected)} alt="" />
             <b>{nameOf(selected)}</b>
             <button className="tl-dock-x" onClick={() => setSelected(null)} aria-label={T('ยกเลิก', 'Cancel')}><span className="material-icons-round">close</span></button>
           </div>
@@ -869,7 +869,7 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
         <div ref={ctxRef} className="tl-ctx" style={{ left: ctx.x, top: ctx.y, visibility: 'hidden' }} role="menu" onContextMenu={e => e.preventDefault()}>
           <div className="tl-ctx-head">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={thumb(ctx.id)} alt="" />
+            <img loading="lazy" decoding="async" src={thumb(ctx.id)} alt="" />
             <b>{nameOf(ctx.id)}</b>
           </div>
           <div className="tl-ctx-tiers">

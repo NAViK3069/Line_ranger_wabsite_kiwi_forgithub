@@ -1,0 +1,255 @@
+'use client'
+
+// ====================================================
+// ScenePlayer — เล่นฉากของ Video Studio (.anme.json) แบบดูอย่างเดียว (ไม่มีตัวแก้ไข)
+// ใช้ในหน้า /gear-options (วิดีโอสอนออพชั่นเกียร์) — วาดสดลง canvas ด้วย engine ตัวเดียวกับสตูดิโอ
+// จึงไม่ต้องอัดเป็นไฟล์ MP4 (ไฟล์ฉากเล็กแค่ ~10KB · ภาพ/เสียงเรนเจอร์โหลดผ่าน Worker และแคชที่ edge อยู่แล้ว)
+//
+//   • ไม่ import store.ts ของสตูดิโอ (นั่นคือสถานะของตัวแก้ไข + autosave) — ถือเวลา/สถานะเล่นเองในคอมโพเนนต์นี้
+//   • การ์ดคำอธิบายสกิล (ที่ไม่ได้แก้ข้อความเอง) แปลตามภาษาของเว็บ เหมือนในสตูดิโอ
+//   • ระดับเสียง = ปุ่มเสียงของทั้งเว็บ (SoundContext)
+//   • หยุดแล้วไม่วาดซ้ำทุกเฟรม — วาดใหม่เฉพาะตอนเล่น / ลากแถบเวลา / ภาพเพิ่งโหลดเสร็จ / ขนาดจอเปลี่ยน
+// ====================================================
+
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLanguage } from '@/contexts/LanguageContext'
+import { useSound } from '@/contexts/SoundContext'
+import { assets } from '@/anme/engine/assets'
+import { audioPlayer } from '@/anme/engine/audio'
+import { applyLang } from '@/anme/engine/i18n'
+import { renderScene } from '@/anme/engine/render'
+import { normalizeScene } from '@/anme/engine/scene'
+import { buildSkillCard } from '@/anme/engine/skillCard'
+import { buildTimeline, sceneEnd } from '@/anme/engine/timeline'
+import type { AppState } from '@/anme/engine/store'
+import type { InfoCue, Scene } from '@/anme/engine/types'
+
+interface Props {
+  /** URL ของไฟล์ฉาก เช่น /gear-options/scenes/sample.anme.json */
+  src: string
+  /** โหลดเสร็จแล้วเล่นเลย (ต้องมีการกดอะไรในหน้าก่อนแล้ว ไม่งั้นเบราว์เซอร์ไม่ให้เปิดเสียง) */
+  autoPlay?: boolean
+  /** ถึงท้ายฉากแล้วเริ่มใหม่ */
+  loop?: boolean
+}
+
+function useAssetsVersion() {
+  const [v, setV] = useState(assets.version)
+  useEffect(() => assets.subscribe(() => setV(assets.version)), [])
+  return v
+}
+
+const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+
+/** ทุกอย่างที่ฉากต้องใช้โหลดเสร็จหรือยัง (เรนเจอร์ เสียง รูป + ฉากหลังจากด่าน) */
+function sceneReady(scene: Scene): boolean {
+  for (const d of scene.assets) {
+    const st = assets.statusOf(d.id)?.state
+    if (!st || st === 'loading') return false
+  }
+  const bg = scene.background
+  if (bg.kind === 'stage' && bg.stage) return !!assets.stage(bg.stage) || assets.stageFailed(bg.stage)
+  return true
+}
+
+export default function ScenePlayer({ src, autoPlay = false, loop = true }: Props) {
+  const { lang, tSkill, tSkillDesc } = useLanguage()
+  const { volume } = useSound()
+  const version = useAssetsVersion()
+
+  const [raw, setRaw] = useState<Scene | null>(null)
+  const [scene, setScene] = useState<Scene | null>(null)
+  const [error, setError] = useState('')
+  const [playing, setPlaying] = useState(false)
+  const [shownTime, setShownTime] = useState(0)
+
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const timeRef = useRef(0)
+  const dirtyRef = useRef(true)
+  /** กำลังลากแถบเวลาอยู่ → หยุดเดินเวลา + ปิดเสียงไว้ จนกว่าจะปล่อย (ไม่งั้นภาพวิ่งหนีนิ้ว) */
+  const scrubRef = useRef(false)
+  const live = useRef({ playing, volume, loop })
+  live.current = { playing, volume, loop }
+
+  // ── โหลดไฟล์ฉาก ──
+  useEffect(() => {
+    let alive = true
+    setRaw(null); setScene(null); setError(''); setPlaying(false)
+    timeRef.current = 0; setShownTime(0)
+    fetch(src)
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+      .then(j => { if (alive) setRaw(normalizeScene(j)) })
+      .catch(e => { if (alive) setError(e instanceof Error ? e.message : String(e)) })
+    return () => { alive = false }
+  }, [src])
+
+  // ── โหลดเรนเจอร์/เสียงของฉาก (asset store ใช้ร่วมกับสตูดิโอ — ตัวที่โหลดแล้วไม่โหลดซ้ำ) ──
+  useEffect(() => { if (raw) assets.sync(raw.assets) }, [raw])
+
+  // ── การ์ดคำอธิบายสกิลตามภาษาของเว็บ (ข้อความที่ผู้สร้างฉากแก้เอง = คงไว้) ──
+  useEffect(() => {
+    if (!raw) return
+    let alive = true
+    applyLang(lang === 'th' ? 'th' : 'en')   // ข้อความตายตัวบนการ์ด (ร่าย / CD …) ใช้ภาษานี้
+    setScene(raw)
+    ;(async () => {
+      const cues = await Promise.all(raw.cues.map(async c => {
+        if (c.type !== 'info' || (c as InfoCue).card.edited) return c
+        const a = raw.actors.find(x => x.id === c.actorId)
+        const def = a && raw.assets.find(d => d.id === a.assetId)
+        const id = def?.type === 'ranger' && def.source === 'lerico' ? def.rangerId : null
+        if (!id) return c
+        try {
+          const card = await buildSkillCard(id, (c as InfoCue).slot, tSkill, tSkillDesc)
+          return card.name ? { ...c, card } : c
+        } catch { return c }
+      }))
+      if (alive) setScene({ ...raw, cues })
+    })()
+    return () => { alive = false }
+  }, [raw, lang, tSkill, tSkillDesc])
+
+  const ready = !!scene && sceneReady(scene)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const tl = useMemo(() => (scene ? buildTimeline(scene) : null), [scene, version])
+  const end = scene && tl ? Math.max(0.5, Math.min(scene.duration, sceneEnd(scene, tl) + 0.6)) : 0
+
+  // ── เล่นเองเมื่อพร้อม ──
+  useEffect(() => { if (ready && autoPlay) setPlaying(true) }, [ready, autoPlay])
+
+  // ── ขนาด canvas ตามกล่อง (คมชัดตาม DPR สูงสุด 2) ──
+  useEffect(() => {
+    const el = wrapRef.current, cv = canvasRef.current
+    if (!el || !cv || !scene) return
+    const fit = () => {
+      const dpr = Math.min(2, window.devicePixelRatio || 1)
+      const w = el.clientWidth
+      cv.width = Math.round(w * dpr)
+      cv.height = Math.round(w * (scene.height / scene.width) * dpr)
+      dirtyRef.current = true
+    }
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [scene])
+
+  // อะไรเปลี่ยน (โหลดภาพเสร็จ / ฉากใหม่ / ภาษา) → วาดใหม่ 1 ครั้งแม้หยุดอยู่
+  useEffect(() => { dirtyRef.current = true }, [scene, version])
+
+  // ── วงเล่น ──
+  useEffect(() => {
+    if (!scene || !tl) return
+    let raf = 0
+    let last = performance.now()
+    let lastShown = -1
+    const audioState = (p: boolean) => ({
+      scene, time: timeRef.current, playing: p, rate: 1, busy: null,
+      muted: live.current.volume <= 0, volume: live.current.volume,
+    }) as unknown as AppState
+
+    const loopFn = (now: number) => {
+      raf = requestAnimationFrame(loopFn)
+      // จำกัดช่วงกระโดดต่อเฟรม (กลับมาจากแท็บอื่นไม่ให้วิดีโอข้ามไปไกล) แต่ยังให้เครื่องช้า (~4 fps) เล่นทันเวลาจริง
+      const dt = Math.min(0.25, (now - last) / 1000)
+      last = now
+      const { loop: lp } = live.current
+      const p = live.current.playing && !scrubRef.current
+      if (p) {
+        let t = timeRef.current + dt
+        if (t >= end) {
+          if (lp) t = 0
+          else { t = end; setPlaying(false) }
+        }
+        timeRef.current = t
+        dirtyRef.current = true
+      }
+      audioPlayer.update(audioState(p), tl)
+      if (!dirtyRef.current) return
+      dirtyRef.current = false
+      const cv = canvasRef.current
+      const ctx = cv?.getContext('2d')
+      if (!cv || !ctx) return
+      const k = cv.width / scene.width
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      ctx.clearRect(0, 0, cv.width, cv.height)
+      ctx.setTransform(k, 0, 0, k, 0, 0)
+      renderScene(ctx, scene, timeRef.current, { playing: p, timeline: tl })
+      // ตัวเลขเวลาบนแถบ — อัปเดตทุก ~0.1 วิ ไม่ต้อง render React ทุกเฟรม
+      const shown = Math.floor(timeRef.current * 10)
+      if (shown !== lastShown) { lastShown = shown; setShownTime(timeRef.current) }
+    }
+    raf = requestAnimationFrame(loopFn)
+    return () => {
+      cancelAnimationFrame(raf)
+      audioPlayer.update(audioState(false), tl)   // หยุดเสียงที่ค้าง
+    }
+  }, [scene, tl, end])
+
+  const seek = (t: number) => { timeRef.current = Math.max(0, Math.min(end, t)); dirtyRef.current = true; setShownTime(timeRef.current) }
+
+  // จับ/ปล่อยแถบเวลา — ปล่อยนอกแถบก็นับ (ฟังที่ window) · ปล่อยแล้วเล่นต่อจากจุดนั้นถ้าเดิมเล่นอยู่
+  const startScrub = () => {
+    if (scrubRef.current) return
+    scrubRef.current = true
+    const release = () => {
+      scrubRef.current = false
+      dirtyRef.current = true
+      window.removeEventListener('pointerup', release)
+      window.removeEventListener('pointercancel', release)
+    }
+    window.addEventListener('pointerup', release)
+    window.addEventListener('pointercancel', release)
+  }
+  const toggle = () => {
+    if (!ready) return
+    if (!playing && timeRef.current >= end - 0.05) seek(0)
+    setPlaying(p => !p)
+  }
+
+  return (
+    <div className="w-full select-none">
+      <div ref={wrapRef} className="relative w-full aspect-video bg-black rounded-xl overflow-hidden" onClick={toggle}>
+        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
+
+        {error ? (
+          <div className="absolute inset-0 flex items-center justify-center text-red-300 text-sm gap-2">
+            <span className="material-icons-round">error</span>โหลดวิดีโอไม่ได้ ({error})
+          </div>
+        ) : !ready ? (
+          <div className="absolute inset-0 flex items-center justify-center text-gray-300 text-sm gap-2 bg-black/40">
+            <span className="material-icons-round animate-spin">autorenew</span>Loading...
+          </div>
+        ) : !playing && (
+          <button
+            aria-label="Play"
+            className="absolute inset-0 m-auto w-16 h-16 rounded-full bg-black/55 hover:bg-black/70 border border-white/30 flex items-center justify-center transition-colors"
+          >
+            <span className="material-icons-round text-white text-4xl">{shownTime >= end - 0.05 && end > 0 ? 'replay' : 'play_arrow'}</span>
+          </button>
+        )}
+      </div>
+
+      {/* แถบควบคุม */}
+      <div className="flex items-center gap-2 sm:gap-3 mt-2 px-1">
+        <button onClick={toggle} disabled={!ready} aria-label={playing ? 'Pause' : 'Play'}
+          className="w-9 h-9 shrink-0 rounded-lg bg-white/10 hover:bg-white/15 disabled:opacity-40 flex items-center justify-center text-white">
+          <span className="material-icons-round">{playing ? 'pause' : 'play_arrow'}</span>
+        </button>
+        <button onClick={() => { seek(0); if (ready) setPlaying(true) }} disabled={!ready} aria-label="Restart"
+          className="w-9 h-9 shrink-0 rounded-lg bg-white/10 hover:bg-white/15 disabled:opacity-40 flex items-center justify-center text-white">
+          <span className="material-icons-round text-[20px]">replay</span>
+        </button>
+        <input
+          type="range" min={0} max={end || 1} step={0.01} value={Math.min(shownTime, end || 1)} disabled={!ready}
+          onPointerDown={startScrub}
+          onChange={e => seek(parseFloat(e.target.value))}
+          className="flex-1 min-w-0 accent-cyan-400"
+          aria-label="Seek"
+        />
+        <span className="text-xs text-gray-400 tabular-nums shrink-0">{fmt(shownTime)} / {fmt(end)}</span>
+      </div>
+    </div>
+  )
+}

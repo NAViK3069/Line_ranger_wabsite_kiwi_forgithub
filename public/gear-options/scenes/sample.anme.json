@@ -1,0 +1,521 @@
+{
+ "version": 1,
+ "name": "ฉากตัวอย่าง",
+ "width": 1280,
+ "height": 720,
+ "duration": 21,
+ "fps": 30,
+ "groundY": 560,
+ "background": {
+  "kind": "stage",
+  "color": "#0b1020",
+  "gradient": [
+   "#1b2550",
+   "#06070d"
+  ],
+  "stage": "battle24",
+  "assetId": null,
+  "fit": "height",
+  "scale": 1,
+  "offsetX": 0,
+  "offsetY": 0,
+  "scrollX": 0,
+  "dim": 0,
+  "blur": 0
+ },
+ "assets": [
+  {
+   "id": "rngle6ysbr",
+   "type": "ranger",
+   "source": "lerico",
+   "rangerId": "u1277e-brown",
+   "form": "body",
+   "name": "Darkpaw Brown"
+  },
+  {
+   "id": "r2ptl7nsfe",
+   "type": "ranger",
+   "source": "lerico",
+   "rangerId": "u1487e-moon",
+   "form": "body",
+   "name": "Shogun Moon"
+  },
+  {
+   "id": "suqpnwv71v",
+   "type": "audio",
+   "name": "skattrd_u1134ebrown",
+   "url": "/api/res/_raw/sounds/skattrd_u1134ebrown_20200623114004123.ogg"
+  },
+  {
+   "id": "sgsdm6d71v",
+   "type": "audio",
+   "name": "skhit_u1106etarou",
+   "url": "/api/res/_raw/sounds/skhit_u1106etarou_20191128102310595.ogg"
+  },
+  {
+   "id": "sm6f22w71v",
+   "type": "audio",
+   "name": "hit_body_punch",
+   "url": "/api/res/_raw/sounds/hit_body_punch_20140603152640882.ogg"
+  },
+  {
+   "id": "sp6qvg871v",
+   "type": "audio",
+   "name": "sk2attrd_u1134ebrown",
+   "url": "/api/res/_raw/sounds/sk2attrd_u1134ebrown_20200623114003669.ogg"
+  },
+  {
+   "id": "s4lgcyr71v",
+   "type": "audio",
+   "name": "skhit_buff",
+   "url": "/api/res/_raw/sounds/skhit_buff_20151231103544387.ogg"
+  }
+ ],
+ "actors": [
+  {
+   "id": "azqizgusfe",
+   "name": "Shogun Moon",
+   "assetId": "r2ptl7nsfe",
+   "tag": "enemy",
+   "x": 752,
+   "y": 560,
+   "scale": 1,
+   "flip": true,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "am0yxyosbr",
+   "name": "Darkpaw Brown",
+   "assetId": "rngle6ysbr",
+   "tag": "ally",
+   "x": 198,
+   "y": 560,
+   "scale": 1,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1,
+   "layers": {
+    "range": true,
+    "info": true
+   }
+  }
+ ],
+ "cues": [
+  {
+   "id": "csvcqrksna",
+   "type": "skill",
+   "actorId": "am0yxyosbr",
+   "start": 8.2,
+   "label": "Skill 1",
+   "cast": [
+    "s_attack_ready"
+   ],
+   "release": "s_attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": null,
+   "targetId": "azqizgusfe",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "suqpnwv71v",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "sgsdm6d71v",
+     "at": "impact",
+     "volume": 1,
+     "enabled": true
+    }
+   ]
+  },
+  {
+   "id": "cdgsq92l6h",
+   "type": "anim",
+   "actorId": "am0yxyosbr",
+   "start": 0,
+   "clip": "idle",
+   "speed": 1,
+   "loop": true,
+   "duration": 2
+  },
+  {
+   "id": "c5i8i8tuzm",
+   "type": "move",
+   "actorId": "am0yxyosbr",
+   "start": 2.45,
+   "to": {
+    "x": 648,
+    "y": 560
+   },
+   "duration": 1.8,
+   "ease": "linear",
+   "clip": "walk"
+  },
+  {
+   "id": "cgupbfaui3",
+   "type": "skill",
+   "actorId": "am0yxyosbr",
+   "start": 4.25,
+   "label": "Attack",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": null,
+   "targetId": "azqizgusfe",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "sm6f22w71v",
+     "at": "impact",
+     "volume": 1,
+     "enabled": true
+    }
+   ]
+  },
+  {
+   "id": "cznbriw6u3",
+   "type": "skill",
+   "actorId": "am0yxyosbr",
+   "start": 13.65,
+   "label": "Skill 2",
+   "cast": [
+    "s2_attack_ready"
+   ],
+   "release": "s2_attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": null,
+   "targetId": null,
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "sp6qvg871v",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "s4lgcyr71v",
+     "at": "impact",
+     "volume": 1,
+     "enabled": true
+    }
+   ]
+  },
+  {
+   "id": "c0plqm9dec",
+   "type": "range",
+   "actorId": "am0yxyosbr",
+   "start": 2.45,
+   "duration": 4.6,
+   "atk": true,
+   "skill1": false,
+   "skill2": false
+  },
+  {
+   "id": "ccegqnsifq",
+   "type": "range",
+   "actorId": "am0yxyosbr",
+   "start": 7.8,
+   "duration": 4.45,
+   "atk": false,
+   "skill1": true,
+   "skill2": false
+  },
+  {
+   "id": "csr6roq4gw",
+   "type": "range",
+   "actorId": "am0yxyosbr",
+   "start": 13.15,
+   "duration": 6,
+   "atk": false,
+   "skill1": false,
+   "skill2": true
+  },
+  {
+   "id": "cb4nl1nj8o",
+   "type": "info",
+   "actorId": "am0yxyosbr",
+   "start": 7.8,
+   "duration": 4.45,
+   "slot": "skill1",
+   "card": {
+    "icon": "/api/res/skill_icon/skill_icon_sk1134_brown.png",
+    "name": "หมัดเพลิง",
+    "stat": "ใช้ 30% · CD 7 วิ",
+    "effects": [
+     "ยกเลิกทักษะอมตะของศัตรู",
+     "ยกเลิกการฟื้นฟูพลังชีวิตต่อเนื่อง",
+     "สร้างความเสียหาย 2000% ของพลังโจมตีลงในพื้นที่"
+    ],
+    "target": "ศัตรูแนวหน้า · ระยะสกิล 300pt",
+    "timing": "ร่าย 0.7 วิ · กลับตำแหน่ง 1 วิ"
+   },
+   "offsetX": 0,
+   "offsetY": 0,
+   "scale": 1.3
+  },
+  {
+   "id": "csc027bj8o",
+   "type": "info",
+   "actorId": "am0yxyosbr",
+   "start": 13.15,
+   "duration": 6,
+   "slot": "skill2",
+   "card": {
+    "icon": "/api/res/skill_icon/skill_icon_hsk1134_brown.png",
+    "name": "อัลตราไลท์นิ่ง",
+    "stat": "ใช้ 30% · CD 9 วิ",
+    "effects": [
+     "เพิ่มพลังชีวิต 400% (7 วิ)",
+     "เพิ่มความเร็วการเคลื่อนที่ 150% (7 วิ)",
+     "เพิ่มพลังป้องกันทางกายภาพในพื้นที่ 40000 หน่วย (7 วิ)"
+    ],
+    "target": "ตัวเอง · ระยะสกิล 250pt",
+    "timing": "ร่าย 0.73 วิ · กลับตำแหน่ง 1.53 วิ"
+   },
+   "offsetX": 0,
+   "offsetY": 0,
+   "scale": 1.24
+  },
+  {
+   "id": "chku7ixp5p",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 0,
+   "center": {
+    "x": 202,
+    "y": 483
+   },
+   "zoom": 2.32,
+   "duration": 0,
+   "ease": "easeOut"
+  },
+  {
+   "id": "c0pi2t47xb",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 1.15,
+   "center": {
+    "x": 704,
+    "y": 362
+   },
+   "zoom": 1,
+   "duration": 1.75,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cyr4rfd0dn",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 7.4,
+   "center": {
+    "x": 753,
+    "y": 358
+   },
+   "zoom": 0.99,
+   "duration": 0.75,
+   "ease": "linear"
+  },
+  {
+   "id": "c7tqot42yu",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 12.75,
+   "center": {
+    "x": 640,
+    "y": 360
+   },
+   "zoom": 1,
+   "duration": 0.876,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "c6oicpma5v",
+   "type": "skill",
+   "actorId": "am0yxyosbr",
+   "start": 10.3,
+   "label": "สกิล 1",
+   "cast": [
+    "s_attack_ready"
+   ],
+   "release": "s_attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": null,
+   "targetId": "azqizgusfe",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "suqpnwv71v",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "sgsdm6d71v",
+     "at": "impact",
+     "volume": 1,
+     "enabled": true
+    }
+   ]
+  },
+  {
+   "id": "c2ifrlt0gs",
+   "type": "skill",
+   "actorId": "am0yxyosbr",
+   "start": 16.5,
+   "label": "สกิล 2",
+   "cast": [
+    "s2_attack_ready"
+   ],
+   "release": "s2_attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": null,
+   "targetId": null,
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "sp6qvg871v",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "s4lgcyr71v",
+     "at": "impact",
+     "volume": 1,
+     "enabled": true
+    }
+   ]
+  },
+  {
+   "id": "c53l0e970t",
+   "type": "skill",
+   "actorId": "am0yxyosbr",
+   "start": 5.95,
+   "label": "โจมตีปกติ",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": null,
+   "targetId": "azqizgusfe",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "sm6f22w71v",
+     "at": "impact",
+     "volume": 1,
+     "enabled": true
+    }
+   ]
+  }
+ ],
+ "depthSort": true,
+ "smooth": true
+}

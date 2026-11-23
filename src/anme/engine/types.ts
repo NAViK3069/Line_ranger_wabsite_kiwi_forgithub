@@ -142,8 +142,8 @@ export interface SkillFx {
   interval: number
   /**
    * วิถีกระสุนแบบในเกมเป๊ะ (ถอดจาก libgame.so) — มีค่านี้ = ใช้แทน launch / impact / aim / speed / arc / rotate / anchor
-   *   จุดปล่อย   = จุดยืนผู้ยิง + (start.x × ทิศที่หัน, −start.y)   (projectileStart = พิกเซล SAM, y ขึ้น)
-   *   เป้า       = จุดยืนของเป้า (getPosition = shadowCenter) · hitRate ≤ 10 → ยกขึ้น hitRate × สูงกรอบเป้า
+   *   จุดปล่อย   = getPosition ผู้ยิง (กลางกรอบไฟล์ = เท้า) + (start.x × ทิศที่หัน, −start.y)   (projectileStart = พิกเซล SAM, y ขึ้น)
+   *   เป้า       = getPosition ของเป้า (กลางกรอบไฟล์ = เท้า) · hitRate ≤ 10 → ยกขึ้น hitRate × สูงกรอบเป้า
    *                LINEAR และ hitRate > 10 → ยกขึ้น 0.25 × สูงกรอบเป้า · CURVE และ hitRate > 10 → ไม่ยก
    *   เวลาบิน    = ระยะ(pt) ÷ (moveSpeed × 60) · 1 pt = 2 พิกเซล SAM (contentScaleFactor)
    *   CURVE      = CCBezierBy: P0 = P1 = จุดปล่อย · P2 = กึ่งกลาง + (0.4d ไปข้างหน้า, 0.4d ขึ้น) · P3 = เป้า

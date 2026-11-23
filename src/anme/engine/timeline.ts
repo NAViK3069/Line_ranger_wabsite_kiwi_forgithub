@@ -235,14 +235,16 @@ export const GAME_FPS = 60
 export const GAME_CURVE_K = 0.4
 
 /**
- * จุด getPosition ของยูนิตในเกม (anchor = shadowCenter × กรอบเวทีของไฟล์) เทียบกับจุดยืนที่ตัวเล่นใช้วาด (rt.stand)
- * ปกติห่างกันไม่กี่พิกเซล — บวกเข้าไปเพื่อให้จุดปล่อย/จุดเป้าตรงกับเกมเทียบกับภาพตัวละครจริง
+ * จุด getPosition ของยูนิตในเกม เทียบกับจุดยืนที่ตัวเล่นใช้วาด (rt.stand = กลางเงาใต้เท้า)
+ *   โหนด .sam ในเกม (SuperAnimNode) ตั้ง anchor (0.5, 0.5) = กึ่งกลางกรอบเวทีของไฟล์ — ศิลป์ของเรนเจอร์วาดเงาไว้ตรงกลางกรอบพอดี
+ *   (เช็คแล้ว: u1242e-brown กรอบ 126×202 เงา (63, 101) · u1316h-brown กรอบ 152×156 เงา (77, 78))
+ *   ปกติห่างกัน 0–1 พิกเซล — บวกเข้าไปเพื่อให้จุดปล่อย/จุดเป้าตรงกับเกมเทียบกับภาพตัวละครจริง
+ *   (เคยใช้ shadowCenter × กรอบ = ผิด จุดเป้าต่ำกว่าเท้า ~87 px — setAnchorPoint(shadowCenter) ในเกมเป็นของหน้า UI ไม่ใช่ยูนิตในสนาม)
  */
 export function gameAnchorOffset(rt: RangerRuntime | null): Vec {
-  const sc = rt?.gamedata?.sc
   const c = rt?.sam.canvas
-  if (!rt || !sc || !c || !c.w || !c.h) return { x: 0, y: 0 }
-  return { x: c.x + sc.x * c.w - rt.stand.x, y: c.y + (1 - sc.y) * c.h - rt.stand.y }
+  if (!rt || !c || !c.w || !c.h) return { x: 0, y: 0 }
+  return { x: c.x + c.w / 2 - rt.stand.x, y: c.y + c.h / 2 - rt.stand.y }
 }
 
 /** เป้าของกระสุนแบบเกม: getPosition ของเป้า (+ ยกตาม hitRate) */

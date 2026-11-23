@@ -19,7 +19,7 @@ run({
   normal: gameAttack(ATTACKER, 'normal'),     // หอก: CURVE จาก (180, 385) มุม −75° → 0° ความเร็ว 45
   skill: gameAttack(ATTACKER, 'skill2'),      // เทียนเวทมนตร์ (hsk1316): CURVE จาก (220, 180) มุม −75° → 0° ความเร็ว 45
   // คิวสกิลเริ่ม → โดน: ท่าเตรียม s2_attack_ready จนถึงเฟรมปล่อย + เวลาบิน (วัดจากไทม์ไลน์ของตัวเล่น)
-  skillHitOffset: 2.034,
+  skillHitOffset: 2.035,
   dies: [true, true],     // สกิล 28.4M / 413M ≥ HP 17.2M ทั้งก่อนและหลังใส่เกียร์ (เกียร์นี้ไม่เพิ่ม HP · สกิลไม่โดน DEF)
   respawn: 34.4,          // เรากลับมาก่อนกล้องซูมเข้าไปใส่เกียร์
   respawnFade: 0.5,

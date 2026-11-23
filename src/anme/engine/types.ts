@@ -146,9 +146,10 @@ export interface SkillFx {
    *   เป้า       = getPosition ของเป้า (กลางกรอบไฟล์ = เท้า) · hitRate ≤ 10 → ยกขึ้น hitRate × สูงกรอบเป้า
    *                LINEAR และ hitRate > 10 → ยกขึ้น 0.25 × สูงกรอบเป้า · CURVE และ hitRate > 10 → ไม่ยก
    *   เวลาบิน    = ระยะ(pt) ÷ (moveSpeed × 60) · 1 pt = 2 พิกเซล SAM (contentScaleFactor)
+   *   ทรงวิถี    = ตาม attackType (gameMotionOf): WEAPON / ENERGY / DOUBLE = LINEAR · อื่นๆ (WEAPONC, ENERGYC …) = CURVE
    *   CURVE      = CCBezierBy: P0 = P1 = จุดปล่อย · P2 = กึ่งกลาง + (0.4d ไปข้างหน้า, 0.4d ขึ้น) · P3 = เป้า
-   *   LINEAR     = CCMoveBy เส้นตรง
-   *   หมุน       = setRotation(angle.start) แล้ว CCRotateTo(เวลาบิน, angle.end) — เชิงเส้นตามเวลา (องศา, บวก = ตามเข็ม)
+   *                หมุน setRotation(angle.start) แล้ว CCRotateTo(เวลาบิน, angle.end) — เชิงเส้นตามเวลา (องศา, บวก = ตามเข็ม)
+   *   LINEAR     = CCMoveBy เส้นตรง · ไม่ตั้งมุม
    *   ภาพกระสุน  = SuperAnimNode anchor (0.5, 0.5) ของกรอบเวทีไฟล์ · คลิป normal วนตลอดทาง
    */
   game?: GameProjectile

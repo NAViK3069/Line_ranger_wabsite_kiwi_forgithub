@@ -58,7 +58,8 @@ function gameAttack(rangerId, kind) {
       fx: {
         set: k.animationPart, mode: 'projectile', flight: 'normal', finish: 'finish',
         game: {
-          motion: m.type === 'CURVE' ? 'CURVE' : 'LINEAR',
+          // เกมตัดสินทรงวิถีจาก attackType: WEAPON / ENERGY / DOUBLE = เส้นตรง · อื่นๆ = โค้ง (ดู gameMotionOf)
+          motion: ['WEAPON', 'ENERGY', 'DOUBLE'].includes(k.attackType) ? 'LINEAR' : 'CURVE',
           start: { x: k.start.x, y: k.start.y },
           angle: { start: k.angle?.start ?? 0, end: k.angle?.end ?? 0 },
           moveSpeed: k.moveSpeed,

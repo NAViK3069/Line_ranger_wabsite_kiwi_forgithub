@@ -26,7 +26,6 @@ import {
   animBBoxLoose,
   animBodyBBox,
   animStandPoint,
-  animSelfArcRise,
   animGroundDecalY,
   animMedianBBox,
   animFrame0Center,
@@ -169,12 +168,9 @@ const REAR_LINE_COLOR = '#4ade80'
 // ผูกกับ ATK Range ของเรนเจอร์ตัวนั้นๆ
 // ── ตัวแปลงหน่วย "pt" (หน่วยระยะของเกม) → world unit ของ .sam ──
 // ทุกค่าที่มีหน่วย pt ต้องผ่านตัวนี้: ATK Range, Area Skill, moveSpeed
-// ห้ามใช้ค่า pt ดิบๆ เป็นระยะบนจอเด็ดขาด ไม่งั้นแถบวัดสองอันจะเทียบกันไม่ได้
-// (เคยพลาดมาแล้ว: ATK 350pt ถูกคูณ แต่ Area 760pt ไม่ถูกคูณ → 760 ดูสั้นกว่า 350)
-// เคยตั้ง 1 เพราะค่า start ใน projectile_data ดูเหมือนใช้หน่วยเดียวกับ .sam
-// (u286u-brown start.x=183 ตกที่ปลายกระบอกปืนพอดี ทั้งที่ตัวกว้างแค่ ~186)
-// แต่พอวางจริงแล้วเป้าหมายใกล้เกินไป → pt คนละสเกลกับ start ค่านี้จูนด้วยตา (1 → 2 → 2.2 → 2.1)
-const PT_TO_WORLD = 2.1
+// ค่าจริงจากโค้ดเกม (libgame.so — SuperAnimNode::init ตั้ง contentSize = กรอบไฟล์ ÷ contentScaleFactor):
+//   1 pt = 2 พิกเซลของไฟล์ .sam (เดิมจูนด้วยตา 1 → 2 → 2.2 → 2.1)
+const PT_TO_WORLD = 2
 // ใช้เมื่อเรนเจอร์ไม่มีค่า ATK Range
 const DUMMY_FALLBACK_RANGE = 400
 // โดนโจมตีปกติ → แดงวาบจังหวะเดียว ติดกี่เฟรมแล้วดับ (ไม่สลับติด/ดับซ้ำ)
@@ -281,22 +277,34 @@ function allAttackTriggers(sam: SAMParser): { frame: number; prepFrame: number; 
   }
   return out.sort((a, b) => a.frame - b.frame)
 }
-// moveSpeed จาก API อยู่ในหน่วยเกมเดียวกับ attackRange (ทั้งคู่มาจาก projectile_data)
-// แต่ระยะบนจอถูกขยายด้วย PT_TO_WORLD → ถ้าไม่ขยายความเร็วตามด้วย เวลาบินจะยืดออกเท่าตัวคูณนั้น
-// ผูกสองค่าเข้าด้วยกัน ตัวคูณจึงตัดกันทิ้ง เวลาบินที่ได้ = attackRange / moveSpeed = เวลาจริงตาม API
-// (เคยตั้งเป็น 1 ตรงๆ แล้วกระสุนช้ากว่าในเกม 2.1 เท่า)
-// ตัวคูณชดเชยอัตราติ๊ก: โค้ดนี้ขยับกระสุนทีละเฟรมของ animation ซึ่ง .sam ทุกไฟล์เป็น 30fps
-// (เช็คแล้ว 18/18 ไฟล์) แต่ moveSpeed เป็นระยะต่อ "ติ๊กฟิสิกส์" ของเกมซึ่งน่าจะเดินที่ 60Hz
-// → 1 เฟรมอนิเมชั่น = 2 ติ๊กฟิสิกส์ ค่าตามทฤษฎีจึงเป็น 60/30 = 2
-// (ยังไม่ได้ยืนยันกับเกมจริงว่าฟิสิกส์เดิน 60Hz) ลดลงเล็กน้อยจาก 2 ตามที่ดูด้วยตาแล้วกำลังพอดี
-const PROJECTILE_SPEED_TUNE = 1.95
-const PROJECTILE_SPEED_SCALE = PT_TO_WORLD * PROJECTILE_SPEED_TUNE
-// ความสูงโค้งปาวิถี (WEAPONC) — peak = min(ARC_MAX_HEIGHT, dist*0.5)
-// dist*0.5 คือความสูงของ "ครึ่งวงกลมจริง" (เส้นผ่านศูนย์กลาง = ระยะทางเดินทาง) = ทรงสายรุ้ง
-// ARC_MAX_HEIGHT เป็นแค่เพดานกันโค้งเวอร์ตอนเป้าไกลมากๆ (เช่นศัตรูแนวหลังที่ไกลได้ถึง 8 เท่า)
-// จูนมาแล้ว: 120 = แบนติดพื้น / 500 = พุ่งทะลุขอบบนของฉากตอนเป้าอยู่ไกล → ลงตัวที่ครึ่งทาง
-// (ระยะยิงปกติ ~960 ครึ่งวงกลมเต็มต้องการ 480 ซึ่งเกินความสูงฉากที่วาดไว้ จึงต้องมีเพดาน)
-const ARC_MAX_HEIGHT = 255
+// ── วิถีกระสุนบินแบบในเกม (ถอดจาก libgame.so — ตรงกับ SkillFx.game ของ Video Studio) ──
+//   ตำแหน่งยูนิต/กระสุน = กึ่งกลางกรอบไฟล์ .sam (SuperAnimNode anchor 0.5, 0.5 — ศิลป์เรนเจอร์วาดเงาไว้ตรงนั้น)
+//   จุดปล่อย = ตำแหน่งผู้ยิง + (start.x × ทิศ, start.y ขึ้น)          (start = พิกเซลไฟล์ เพราะเกมคูณ 0.5 แล้วเป็น pt)
+//   เป้า     = ตำแหน่งเป้า (กลางกรอบ = เท้า) · hitPointRate ≤ 10 ยกขึ้น rate × สูงกรอบเป้า
+//              rate > 10: เส้นตรงยก 0.25 × สูงกรอบ · โค้งไม่ยก
+//   เวลาบิน  = ระยะ(pt) ÷ (moveSpeed × 60) — 60.0 เป็นค่าคงที่ในเกม (ไม่มีโค้ดเขียนทับ)
+//   ทรงวิถี  = attackType: WEAPON / ENERGY / DOUBLE = CCMoveBy เส้นตรง (ไม่ตั้งมุม)
+//              อื่นๆ (WEAPONC, ENERGYC …) = CCBezierBy P0 = P1 = จุดปล่อย · P2 = กึ่งกลาง + (0.4d ไปหน้า, 0.4d ขึ้น) · P3 = เป้า
+//              + setRotation(angle.start) แล้ว CCRotateTo(เวลาบิน, angle.end) เชิงเส้นตามเวลา
+//   ภาพ     = วาดให้กึ่งกลางกรอบไฟล์กระสุนอยู่บนจุดของวิถี · คลิป normal วนตลอดทาง แล้วเล่น finish ที่จุดชน
+const GAME_FPS = 60
+const GAME_CURVE_K = 0.4
+type GameMotion = 'CURVE' | 'LINEAR'
+const gameMotionOf = (attackType: string | null): GameMotion =>
+  attackType === 'WEAPON' || attackType === 'ENERGY' || attackType === 'DOUBLE' ? 'LINEAR' : 'CURVE'
+/** กึ่งกลางกรอบเวทีของไฟล์ (= ตำแหน่งของโหนดในเกม) · ไฟล์ไม่มีกรอบ = null */
+function canvasCenter(sam: SAMParser): { x: number; y: number } | null {
+  const c = sam.canvas
+  return c && c.w > 0 && c.h > 0 ? { x: c.x + c.w / 2, y: c.y + c.h / 2 } : null
+}
+/** ตำแหน่งบนวิถีแบบเกม ณ สัดส่วนเวลา p (ผู้ยิงหันขวาเสมอในตัวเล่นนี้ → ข้างหน้า = +x) */
+function gamePathPos(motion: GameMotion, sx: number, sy: number, tx: number, ty: number, p: number): { x: number; y: number } {
+  if (motion !== 'CURVE') return { x: lerp(sx, tx, p), y: lerp(sy, ty, p) }
+  const dx = tx - sx, dy = ty - sy, d = Math.hypot(dx, dy)
+  const c2x = dx / 2 + GAME_CURVE_K * d, c2y = dy / 2 - GAME_CURVE_K * d
+  const u = 1 - p, b2 = 3 * p * p * u, b3 = p * p * p
+  return { x: sx + b2 * c2x + b3 * dx, y: sy + b2 * c2y + b3 * dy }
+}
 // ความสูงที่เรนเจอร์ประเภทบิน (ability ab201_flight) ลอยเหนือพื้น (world unit)
 // พื้นหลังกับเป้าหมายยังอยู่ระดับพื้นเหมือนเดิม — ลอยเฉพาะตัวเรนเจอร์และทุกอย่างที่ติดตัวมัน
 // (หมุด MAIN/FACE, จุดปล่อยกระสุน) เหมือนมีถนนอีกเส้นอยู่บนฟ้า
@@ -323,28 +331,8 @@ const INSTANT_DROP_ART_TOP = -300
 // ค่านี้จูนด้วยตา ปรับที่นี่ที่เดียว (มากขึ้น = หยุดไกลตัวเป้าหมายขึ้น)
 // นับตามแกน world ซึ่ง +X = ทิศออกจากผู้ร่ายเสมอ จึงใช้ได้ทั้งตอนหันซ้ายและหันขวา
 const CHARGE_STOP_SHORT = 40
-// ── ปุ่มปรับความสูงจุดปล่อยกระสุนบิน จุดเดียวของทั้งระบบ (world unit, ลบ = สูงขึ้น) ──
-// เดิมมีตัวปรับทับซ้อนกันสองตัว ถอดออกทั้งคู่แล้ว เหลือค่านี้ค่าเดียวที่จูนได้:
-//   1. LINEAR_START_LIFT = 25 ยกขึ้นเฉพาะแนว LINEAR — จูนด้วยตาตอนที่จุดอ้างอิงยังไม่แน่นอน
-//   2. การเอา faceCenter (สัดส่วน "หน้าคนอยู่สูง 54-69% ของลำตัว") ไปคูณกรอบของ "ลูกกระสุน"
-//      ซึ่งไม่มีหน้า → กลายเป็นค่าที่แปรตามขนาดไฟล์กระสุนแต่ละตัว = ที่มาของอาการ
-//      "บางตัวสูงไป บางตัวต่ำไป" เพราะกระสุนตัวใหญ่ถูกยกมากกว่ากระสุนตัวเล็ก
-// ตอนนี้ยึดกึ่งกลางภาพเฟรมแรกซึ่งเป็นจุดเดียวกันทุกไฟล์ ความเพี้ยนที่เหลือจึงเป็นค่าคงที่
-// ปรับได้ที่นี่ที่เดียว ไม่ต้องไปแก้รายไฟล์
-const SPAWN_Y_BIAS = 0
 // ความกว้างรวมของแถบ Area (หน่วย pt) ที่ต่ำกว่านี้จะไม่แสดงป้ายซ้าย/ขวา — แคบเกินจะซ้อนป้ายกลาง
 const AREA_SIDE_LABEL_MIN_PT = 250
-// ระยะลอยขึ้นในตัว anim ที่ถือว่า "ไฟล์นี้โค้งมาให้แล้ว" → เลิกใส่โค้งสังเคราะห์ (world unit)
-// af2/af ลอยขึ้น 128 ส่วน cony ไม่ลอยเลย เกณฑ์ 40 จึงแยกสองกลุ่มได้ชัดโดยไม่ต้องเฉียดฉิว
-const SELF_ARC_MIN_RISE = 40
-// ตัวหารความสูงยอดโค้ง: peak = dist² / ARC_FLATTEN
-// ใช้กำลังสองไม่ใช่สัดส่วนเชิงเส้น เพราะสัดส่วนคงที่ทำให้เป้าใกล้โค้งสูงเกินสัดส่วนตัวละคร
-// (เชิงเส้น 0.3 เป้าห่าง 400 ได้ยอด 120 = ท่วมหัวทั้งที่ยิงระยะประชิด)
-// แบบกำลังสองจะแบนลงเร็วเมื่อระยะสั้น แต่ระยะไกลยังชน ARC_MAX_HEIGHT เหมือนเดิม (ไม่กระทบที่จูนไว้)
-// เทียบ: ระยะ 400 → 53 (เดิม 120) | 780 → 203 (เดิม 234) | 960 ขึ้นไป → 300 เท่าเดิม
-const ARC_FLATTEN = 3800
-// ถ้าไม่มีค่า/เป็น 0 (เช่น attackType เป็น PUNCH ที่ปกติไม่มีไฟล์กระสุนอยู่แล้ว) ใช้ค่า fallback นี้กันหารด้วยศูนย์
-const PROJECTILE_FALLBACK_SPEED = 30
 interface ActiveBullet {
   suffix: string
   spawnTick: number
@@ -360,9 +348,8 @@ interface ActiveBullet {
   areaCenterX: number      // จุดกึ่งกลางวง Area = MAIN ของเป้าหมายที่เล็ง (world unit)
   hitFired?: boolean       // กันไม่ให้ทริกเกอร์ซ้ำเมื่อ drawFrame ถูกเรียกหลายครั้งในติ๊กเดียว
   arcStartDeg: number; arcEndDeg: number
-  motionType: string       // "LINEAR" | "CURVE"
-  selfArc: boolean         // anim โค้งมาให้ในตัวแล้ว — ไม่ใส่โค้งสังเคราะห์ทับ — ตัวชี้ขาดจริงว่าจะโค้งไหม (ไม่ใช่ดูจาก angle)
-  motionRotation: string   // "FIXED" | "ANGLE_LERP" — จะหมุนสไปรต์ตามมุมไหม
+  motion: GameMotion       // ทรงวิถีแบบเกม (ท่าไม่บิน = LINEAR และจุดเริ่ม = จุดชน)
+  spin: boolean            // หมุนตามมุม angle.start → angle.end (เกม: เฉพาะทรงโค้ง)
   // จุดบนตัวกระสุนที่ใช้เป็นหมุดวางตำแหน่ง (world unit ในพิกัดท้องถิ่นของกระสุน)
   //   • กระสุนบินจริง → จุด face (ให้ face ไปชน face ของเป้าหมาย)
   //   • ท่าไม่บิน (วาปไปตี/ทุบพื้น) → origin (0,0) เพราะ anim ถูกวาดโดยยึด origin เป็นจุดกระทบพื้นอยู่แล้ว
@@ -379,6 +366,7 @@ interface ActiveBullet {
 // รูปร่างข้อมูลดิบของ normal/skill1/skill2 หนึ่งตัวจาก projectile_data (schemaVersion 3)
 interface RawAttackMove {
   animationPart?: string
+  attackType?: string
   start?: { x: number; y: number }
   moveSpeed?: number
   angle?: { start: number; end: number }
@@ -390,14 +378,13 @@ interface AttackMeta {
   angleStart: number
   angleEnd: number
   animationPart: string | null   // ชื่อไฟล์กระสุนจริงจาก API (เช่น "bul","bul2") — ไม่ต้องเดาจาก kind
+  attackType: string | null      // ตัวที่เกมใช้ตัดสินทรงวิถี (ดู gameMotionOf)
   motionType: string             // "LINEAR" | "CURVE"
   motionEnabled: boolean         // false = ไม่มีการพุ่งจริง (เช่น melee) — ใช้แทนการเดาจาก moveSpeed
   motionRotation: string         // "FIXED" | "ANGLE_LERP"
   loopNormal: boolean
-  // hitTiming.*HitPointRate — จุดที่การโจมตี "ลงเป้า" บนตัวศัตรู
-  //   100 = จุดรับดาเมจ (face) ซึ่งเป็นค่าปกติของกระสุนบิน
-  //     0 = ลงที่พื้นตรงจุดยืนของศัตรู เหมือนท่าวาปมาตี (กระสุนบินที่เป็นแบบนี้มี 356 ท่า)
-  // ค่าอื่นที่พบ (0.3/0.5/1/30/50) ยังไม่รู้ความหมาย จึงเช็คเฉพาะ === 0 เท่านั้น
+  // hitTiming.*HitPointRate — เกม: ≤ 10 = ยกจุดเป้าขึ้น rate × สูงกรอบเป้า (0 = เท้า, 0.5 = ครึ่งตัว)
+  //   > 10 (ปกติ 100) = ค่าตั้งต้น: เส้นตรงยก 0.25 × สูง · โค้งไม่ยก
   hitPointRate: number
 }
 interface BulletAsset {
@@ -426,8 +413,6 @@ interface BulletAsset {
   centerX: number
   // Y ของรอยกระแทกพื้นที่ศิลปินวาดไว้ในไฟล์ (null = ไฟล์นี้ไม่มี) — หมุดแนวตั้งของท่าไม่บิน
   decalY: number | null
-  // anim ช่วงบินมีการกระโดดขึ้นลงในตัวเองอยู่แล้ว → ห้ามใส่โค้งสังเคราะห์ทับ ไม่งั้นสูงเป็นสองเท่า
-  selfArc: boolean
 }
 
 // ── หมุดแนวตั้งของท่าไม่บิน: ค่ายกเว้นรายไฟล์ ──
@@ -566,88 +551,38 @@ async function loadBulletSam(samFilesList: string[], suffix: string, faceCenterR
     const centerX = effectBox ? (effectBox.x0 + effectBox.x1) / 2 : 0
     const fileKey = prefix.split('/').pop() ?? ''
     const decalY = animGroundDecalY(sam, sprites, effectAnim)
-    const selfArc = animSelfArcRise(sam, sprites, normalName) >= SELF_ARC_MIN_RISE
     const spawnRef = animFrame0Center(sam, sprites, normalName)
     const burstRef = finishName ? animFrame0Center(sam, sprites, finishName) : null
     const artTop = effectBox ? effectBox.y0 : null
     // ส่ง shadowCenter = null → ได้เงาจริงเท่านั้น ไม่มีการเดาจากสัดส่วนกรอบ
     const bulShadow = animStandPoint(sam, sprites, normalName, null)
-    return { sam, sprites, normalName, finishName, faceAnchor, shadowAnchor, fileKey, centerX, decalY, selfArc, spawnRef, burstRef, artTop, bulShadow }
+    return { sam, sprites, normalName, finishName, faceAnchor, shadowAnchor, fileKey, centerX, decalY, spawnRef, burstRef, artTop, bulShadow }
   } catch {
     return null
   }
 }
 function lerp(a: number, b: number, t: number): number { return a + (b - a) * t }
-// ตำแหน่ง world ของกระสุนที่ความคืบหน้า p (0..1) — ใช้ทั้งวาดกระสุนจริงและเส้นพรีวิวเส้นทางตอนเปิด Hitbox
-// hasArc=false → เส้นตรง, hasArc=true → โค้งครึ่งวงกลม (peak = min(ARC_MAX_HEIGHT, dist*0.5))
-function arcPathPos(startX: number, startY: number, targetX: number, targetY: number, p: number, hasArc: boolean): { x: number; y: number } {
-  const dist = Math.hypot(targetX - startX, targetY - startY)
-  // ทรงโค้งเป็น "พาราโบลา" (4p(1-p)) ไม่ใช่ครึ่งวงกลม (2√(p(1-p)))
-  // ครึ่งวงกลมมีความชันเป็นอนันต์ที่ปลายทั้งสองข้าง กระสุนจึงพุ่งขึ้นตรงๆ ก่อนแล้วค่อยโค้ง
-  // พาราโบลาชันจำกัดตั้งแต่เฟรมแรก เลยโค้งทันทีเหมือนการโยนของจริง (ยอดสูงเท่ากัน อยู่กลางทางเหมือนกัน)
-  const height = hasArc ? Math.min(ARC_MAX_HEIGHT, dist * dist / ARC_FLATTEN) * 4 * p * (1 - p) : 0
-  return { x: lerp(startX, targetX, p), y: lerp(startY, targetY, p) - height }
-}
 // ตำแหน่งจริงของจุดอ้างอิงหนึ่งๆ บนตัวกระสอบทราย (world unit, สัมพัทธ์กับ origin ของ MAIN)
 // ต้องกลับด้านรอบ pivotX เพราะรูปหุ่นถูกมิเรอร์ตอนวาด แล้วค่อยบวกระยะห่างจาก MAIN
 // ใช้ได้ทั้งจุดยืน (anchor/shadowCenter) และจุดรับดาเมจ (faceAnchor/faceCenter)
-// ── จุดปล่อยกระสุน (world unit) จากค่า start ของ projectile_data ──
-// X นับจาก origin ของ .sam ตรงๆ ส่วน Y นับ "ขึ้นจากจุดยืน" ของตัวละคร (เกมยึดจุดที่เท้าแตะพื้น)
-// ต้องใช้ฟังก์ชันนี้ทุกที่ ไม่งั้นกระสุนจะไม่ออกตรงหมุดที่วาดไว้
-//
-// วัด "กึ่งกลางภาพกระสุนตอนโผล่" คิดเป็น % ความสูงลำตัว (0=พื้น 100=หัว, ระดับอกอยู่ราว 40-55%)
-// เทียบ 4 สูตรกับ 4 เรนเจอร์ (u1588e-es / u286u-brown / u1345e-jr / u402e-james):
-//   ยึด origin + หมุด 0,0   เฉลี่ย 131%  ← ลอยเหนือหัว (แบบที่เคยใช้)
-//   ยึด origin + หมุด face  เฉลี่ย 117%
-//   ยึดพื้น    + หมุด 0,0   เฉลี่ย  38%  แต่กระจาย 13-96%
-//   ยึดพื้น    + หมุด face  เฉลี่ย  31%  กระจุก 23-37%  ← ใช้สูตรนี้
-// ที่เคยสรุปว่า "โจมตีปกติยึดหมุด 0,0" เป็นความบังเอิญ: u286u-brown-bul วางภาพต่ำจาก origin 66 หน่วย
-// การยึด 0,0 เลยไปหักล้างความสูงเกินของ start พอดีเฉพาะไฟล์นั้น ไม่ใช่กฎที่ใช้ได้ทั่วไป
-// ── ตารางยกเว้นจุดปล่อยกระสุน (พิกัด world ตรงๆ) ──
-// คีย์ = "<rangerId>:<normal|skill1|skill2>" ใช้เมื่อค่าใน API เองผิดสเกลจนไม่มีสูตรไหนช่วยได้
-// คีย์เขียนแบบ "ตระกูล" (ถอดตัวอักษรบอกร่างออก เช่น u1317e-brown → u1317-brown)
-// เพื่อให้ลงทุกร่างวิวัฒน์พร้อมกัน — ดูเหตุผลที่ familyKey()
-const ATTACK_START_OVERRIDE: Record<string, { x: number; y: number }> = {
-  // เรนเจอร์ตัวนี้ start.y ถูกเขียนโดยยึด origin ไม่ใช่ยึดพื้นเหมือนตัวอื่น จึงต้องยกเว้น
-  // ค่าที่ใส่ = -start.y ตรงๆ (สูตรเดิมก่อนเปลี่ยนมานับจากพื้น) ไม่ใช่ตัวเลขที่เดาขึ้นมา
-  //
-  // ไล่จูนมาทั้งหมด เทียบเป็น % ความสูงตัวละคร (กึ่งกลางภาพ 0=พื้น 100=หัว):
-  //   -55 → 45% | -104 → 77% | -160 → 113% | -230 → 159% | สูตรนับจากพื้น → 209%
-  //   ทั้งหมดผู้ใช้บอกว่ายังต่ำไป ส่วน -385 (= -start.y ยึด origin) → 260% กลับสูงไป
-  //   คำตอบจึงอยู่ระหว่าง 209-260% — ภาพไฟล์นี้สูง 236 ใหญ่กว่าตัวละคร (153) จึงลอยสูงกว่าปกติได้
-  'u1317-brown:normal': { x: 180, y: -345 },   // กลางภาพ 234% กินตั้งแต่ 311% ลงมาถึง 157%
-  // start.y = 0 (= "ไม่ระบุ") ทำให้จุดปล่อยไปอยู่ระดับ origin ของ rig ซึ่งสูงเกินสำหรับกระสุนตัวนี้
-  // ของจริงต้องพุ่งตรงไปข้างหน้าระดับล่าง — วัดแล้วภาพควรกินราว 53% ลงมาถึง 7% ของความสูงตัวละคร
-  'u1550-moon:skill1': { x: 135, y: 36 },
-  // (u1526-ko:normal ถอดออกแล้ว — กฎ runIn คำนวณจากเงาในไฟล์เองแทนการจูนด้วยตา)
-  // start.y = 0 (= "ไม่ระบุ") ให้ระดับ origin ของ rig ซึ่งสูงไปหน่อยสำหรับตัวนี้
-  // จูนด้วยตา: -25 (ค่าตั้งต้น = origin + LINEAR_START_LIFT) สูงไป / 0 ต่ำไป / -12 ยังสูงอยู่นิดหน่อย
-  'u1512-ty:normal': { x: 150, y: -6 },
+// ── จุดปล่อยกระสุน (world unit) จากค่า start ของ projectile_data — ตามโค้ดเกม ──
+// ตำแหน่งผู้ยิง (กลางกรอบไฟล์ = เท้า) + (start.x, start.y ขึ้น) · ไม่มีกรณีพิเศษของ y = 0
+// (ตารางยกเว้น / ค่าที่จูนด้วยตาเดิมถอดออกหมดแล้ว — กฎจริงของเกมตรงกับภาพโดยไม่ต้องยกเว้น)
+function attackStartWorld(start: { x: number; y: number }, pos: { x: number; y: number }): { x: number; y: number } {
+  return { x: pos.x + start.x, y: pos.y - start.y }
 }
-// ── ตารางแก้ค่า start.y ที่ API เขียนไว้ต่ำจนผิดสังเกต (หน่วยเดียวกับ API = นับขึ้นจากพื้น) ──
-// ต่างจาก ATTACK_START_OVERRIDE ที่คืนพิกัดสำเร็จแล้วข้ามการจัดตำแหน่งภาพทั้งหมด
-// ตารางนี้แก้แค่ค่า y แล้วปล่อยให้ไหลผ่านสูตรปกติ → การจัดภาพเฟรมแรกกับแกน X ยังทำงานเหมือนเดิม
-// เทียบกับข้อมูลทั้งชุด (กระสุนที่บินจริง 1899 ท่า): start.y แนว CURVE มัธยฐาน 150 ควอไทล์ 110-207
-// ค่า 20 ของสกิลนี้จึงต่ำกว่าควอไทล์ล่างไปมาก — ใส่ค่ามัธยฐานของแนว CURVE แทน
-// กลุ่ม 0 < start.y <= 40 มีทั้งหมด 60 ท่า (LINEAR 35 / CURVE 10 และอื่นๆ) ยังไม่ได้ตรวจด้วยตาทั้งหมด
-// ถ้าเจอเพิ่มอีก 2-3 ตัวที่เพี้ยนแบบเดียวกัน ให้เลิกตารางนี้แล้วทำเป็นกฎ "y ต่ำกว่าควอไทล์ล่าง → ใช้มัธยฐาน"
-const START_Y_OVERRIDE: Record<string, number> = {
-  // u1306e-az สกิล 1: API เขียน start (350, 20) → ภาพไปโผล่แค่ 20 หน่วยเหนือพื้น เกือบติดพื้น
-  // ผู้ใช้ยืนยันด้วยตาว่าต่ำเกินไป ส่วนจุดจบตรงดีอยู่แล้ว จึงไม่แตะหมุดและปลายทาง
-  // สามตัวที่เหลือเป็นร่างวิวัฒน์ของตัวเดียวกัน ข้อมูลในไฟล์เหมือนกันเป๊ะทั้ง x และ y (ตรวจแล้ว)
-  // คีย์ตระกูล (ถอดตัวอักษรบอกร่างออก) — ลงทุกร่างพร้อมกัน ข้อมูลในไฟล์เหมือนกันเป๊ะทั้ง x และ y
-  'u1306-az:skill1': 150,
-  'u1305-az:skill1': 150,
-}
-function attackStartWorld(start: { x: number; y: number }, standY: number, key?: string): { x: number; y: number } {
-  const o = key ? ATTACK_START_OVERRIDE[key] ?? ATTACK_START_OVERRIDE[familyKey(key)] : undefined
-  if (o) return o
-  // start.y = 0 = "ไม่ได้ระบุความสูง" ไม่ใช่ "อยู่ที่ระดับพื้น"
-  // ถ้าเอาไปนับจากพื้นตรงๆ กระสุนจะออกจากเท้า (u1522e-po start=(224,0) → 0% ของความสูงตัว)
-  // ใช้ origin ของ rig เป็นค่าตั้งต้นแทน ซึ่งอยู่ราว 55-60% ของความสูงตัว = ระดับอก
-  // พบ 161 ท่าของกระสุนบินที่ y=0 แต่ x!=0 — เป็นกลุ่มก้อนจริง ไม่ใช่ค่าหลุด
-  const y = (key ? START_Y_OVERRIDE[key] ?? START_Y_OVERRIDE[familyKey(key)] : undefined) ?? start.y
-  return { x: start.x, y: (y === 0 ? 0 : standY - y) + SPAWN_Y_BIAS }
+/**
+ * กระสุนบิน 1 นัดแบบเกม: จุดปล่อย / จุดชน / ทรงวิถี
+ *   เป้า = ตำแหน่งของหุ่น (กลางกรอบไฟล์ = เท้า) ยกตาม hitPointRate (≤ 10 = rate × สูงกรอบ · > 10 = เส้นตรง 0.25 × สูง / โค้ง 0)
+ */
+function gameShot(
+  meta: AttackMeta, dummy: DummyAsset, dOff: number, dyOff: number, mainPos: { x: number; y: number },
+): { start: { x: number; y: number }; end: { x: number; y: number }; motion: GameMotion } {
+  const motion = gameMotionOf(meta.attackType)
+  const pos = dummyPointWorld(dummy, canvasCenter(dummy.sam) ?? dummy.anchor, dOff, dyOff)
+  const h = dummy.sam.canvas.h
+  const lift = meta.hitPointRate <= 10 ? meta.hitPointRate * h : motion === 'LINEAR' ? 0.25 * h : 0
+  return { start: attackStartWorld(meta.start, mainPos), end: { x: pos.x, y: pos.y - lift }, motion }
 }
 // ขอบบนของภาพพื้นหลังบนจอ — จัดให้เส้นถนน (BG_ROAD_RATIO ของความสูงภาพ) ตรงกับจุดยืนเรนเจอร์
 // ค่า 77.8% วัดมาจากสไลเดอร์จูนเส้นถนน (ถอดออกแล้ว) — ด่านอื่นถ้าถนนไม่ตรงต้องแยกค่าเป็นรายด่าน
@@ -1145,12 +1080,28 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
   const targetGroundY = useCallback(() => sceneGroundY() - (targetFliesRef.current ? FLYER_LIFT : 0), [sceneGroundY])
   // canvas ชั่วคราวสำหรับย้อมสีหุ่น (ใช้เฉพาะตอนกระพริบ)
   const dummyFxCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  // ระยะห่างกระสอบทราย = ATK Range ของเรนเจอร์หลัก (ไม่มีค่า → ใช้ค่าเริ่มต้น)
+  // ระยะห่างกระสอบทราย = ระยะที่เกมหยุดเดินแล้วเริ่มตี (UnitNode::searchTarget):
+  //   ช่องตรวจจับเริ่มที่ตำแหน่งตัวเอง ยื่นไปข้างหน้า ATK Range (pt) — เจอเมื่อแตะขอบ hitbox ของเป้า
+  //   hitbox = กว้างเท่ากรอบไฟล์คร่อมตำแหน่งเป้า → ตำแหน่งเป้าอยู่ห่าง range × 2 + กว้างกรอบเป้า ÷ 2
+  //   (gap ของ dummyDrawOffset นับจากจุดยืนเรนเจอร์ถึงหมุด anchor ของหุ่น จึงชดเชยผลต่างหมุดกับตำแหน่งเกมทั้งสองฝั่ง)
   const dummyGapRef = useRef(DUMMY_FALLBACK_RANGE * PT_TO_WORLD)
-  useEffect(() => {
-    dummyGapRef.current = (attackRange && attackRange > 0 ? attackRange : DUMMY_FALLBACK_RANGE) * PT_TO_WORLD
+  const recomputeGap = useCallback(() => {
+    const r = attackRangeRef.current && attackRangeRef.current > 0 ? attackRangeRef.current : DUMMY_FALLBACK_RANGE
+    let gap = r * PT_TO_WORLD
+    const d = dummyRef.current
+    const dc = d ? canvasCenter(d.sam) : null
+    if (d && dc) {
+      const stand = rangerStandRef.current ?? { x: 0, y: 0 }
+      const me = mainPosRef.current ?? stand
+      gap += (me.x - stand.x) + d.sam.canvas.w / 2 - ((d.anchor?.x ?? dc.x) - dc.x)
+    }
+    dummyGapRef.current = gap
     drawFrameRef.current()
-  }, [attackRange, skillTargets, skillRearMul])
+  }, [])
+  useEffect(() => {
+    attackRangeRef.current = attackRange ?? null
+    recomputeGap()
+  }, [attackRange, skillTargets, skillRearMul, recomputeGap])
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLCanvasElement>(null)
@@ -1179,6 +1130,9 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
   // ค่าจะกลายเป็นจุดของไฟล์กระสุนแทนจุดยืนเรนเจอร์ ทุกอย่างเลยเลื่อนตามไปหมด
   const rangerStandRef = useRef<{ x: number; y: number } | null>(null)
   const mainFaceAnchorRef = useRef<{ x: number; y: number } | null>(null)
+  // ตำแหน่งของเรนเจอร์หลักแบบเกม (กลางกรอบไฟล์ตัวละคร) — จุดตั้งต้นของจุดปล่อย / ช่องตรวจจับ
+  const mainPosRef = useRef<{ x: number; y: number } | null>(null)
+  const mainGamePos = () => mainPosRef.current ?? rangerStandRef.current ?? { x: 0, y: 0 }
   // ── ระบบเสกกระสุน (bul/bul2/bul3) พุ่งใส่กระสอบทราย ──
   const sceneTickRef = useRef(0)                                   // ตัวนับ tick รวมแบบอิสระ (เดิน/ถอยตาม play+step) ไม่ผูกกับความยาว anim ไหน
   const spawnCheckRef = useRef<{ animKey: string; lastFrame: number }>({ animKey: '', lastFrame: -1 })
@@ -1335,10 +1289,14 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     mainAnchorRef.current = viewingBulletFileRef.current
       ? (bbox && sc ? anchorFromRatio(bbox, sc) : null)
       : animStandPoint(s, spr, pickIdleAnimName(s), sc)
-    if (!viewingBulletFileRef.current) rangerStandRef.current = mainAnchorRef.current
+    if (!viewingBulletFileRef.current) {
+      rangerStandRef.current = mainAnchorRef.current
+      mainPosRef.current = canvasCenter(s)
+      recomputeGap()
+    }
     mainFaceAnchorRef.current = bbox && fc ? anchorFromRatio(bbox, fc) : null
     drawFrameRef.current()
-  }, [])
+  }, [recomputeGap])
   // ── สั่งปฏิกิริยาโดนตี ──
   // เป้าหมายที่เล็งโดนเสมอ ส่วนอีกตัวโดนด้วยก็ต่อเมื่อ MAIN ของมันอยู่ในวง Area ของสกิล
   // (สกิลที่ตีแนวหลังแต่วงกว้างพอจะคลุมแนวหน้าด้วย → แนวหน้าต้องกระเด็นตาม
@@ -1405,8 +1363,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     }
     // จุดปล่อย = ค่า start จาก API แปลงผ่าน attackStartWorld — จุดเดียวกับ marker "NormalATK/Skill1/Skill2"
     // สีเหลือง/ม่วง/ส้ม ที่เห็นตอนเปิด Hitbox เป๊ะ (ใช้ฟังก์ชันเดียวกัน กระสุนจึงออกตรงหมุดเสมอ)
-    const startKey = `${rangerIdRef.current}:${kind}`
-    const sp = attackStartWorld(meta.start, rangerStandRef.current?.y ?? 0, startKey)
+    const sp = attackStartWorld(meta.start, mainGamePos())
     // motion.enabled=false = ไม่มีการพุ่งจริง (เช่น วาปไปตี/ตกจากฟ้าทุบพื้น/melee) — ใช้ค่านี้จาก API ตรงๆ แทนการเดาจาก moveSpeed
     // ── ท่าที่ไม่มีการ "พุ่ง" จริง → เอฟเฟกต์เกิดคาตัวเป้าหมาย ──
     //   motion.enabled=false หรือ moveSpeed=0 → ชัดเจนว่าไม่บิน
@@ -1421,6 +1378,29 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     const areaWorld = kind === 'normal' ? 0 : (skillAreasRef.current?.[kind] ?? 0) * PT_TO_WORLD
     const mainPt = dummyPointWorld(dummy, dummy.anchor ?? dummy.faceAnchor, dummyOff, dummyYOff)
     const areaCenterX = mainPt.x
+    const normalFrames = asset.sam.animations[asset.normalName]?.length || 1
+    const finishFrames = asset.finishName ? (asset.sam.animations[asset.finishName]?.length || 0) : 0
+    const bulletFps = asset.sam.animRate || 24
+    const bodyFpsNow = samRef.current?.animRate || 24
+    // ── กระสุนบินจริง → วิถีแบบในเกมทั้งหมด (จุดปล่อย / เป้า / เวลาบิน / ทรง / มุม / หมุดภาพ) ──
+    if (!isInstant && !isBuff) {
+      const shot = gameShot(meta, dummy, dummyOff, dummyYOff, mainGamePos())
+      const dist = Math.hypot(shot.end.x - shot.start.x, shot.end.y - shot.start.y)
+      // เวลาบิน (วินาที) = ระยะ(pt) ÷ (moveSpeed × 60) → นับเป็นติ๊กของตัวเล่น (= เฟรมของไฟล์ตัวละคร)
+      const travelTicks = Math.max(1, Math.round((dist / PT_TO_WORLD) / (meta.moveSpeed * GAME_FPS) * bodyFpsNow))
+      const ref = canvasCenter(asset.sam) ?? { x: 0, y: 0 }
+      activeBulletsRef.current.push({
+        suffix, spawnTick: sceneTickRef.current,
+        startX: shot.start.x, startY: shot.start.y, targetX: shot.end.x, targetY: shot.end.y,
+        travelTicks, kind, isSkill: kind !== 'normal', isAttack: true, hitRear: useRear, areaWorld, areaCenterX,
+        fitNormal: false,
+        arcStartDeg: meta.angleStart, arcEndDeg: meta.angleEnd,
+        motion: shot.motion, spin: shot.motion === 'CURVE',
+        anchorX: ref.x, anchorY: ref.y, finishAnchorX: ref.x, finishAnchorY: ref.y,
+        normalFrames, finishFrames, bulletFps,
+      })
+      return
+    }
     // จุดเป้าหมาย ขึ้นกับว่าเป็นกระสุนบินหรือเอฟเฟกต์ที่เกิดคาตัวเป้าหมาย:
     //   • บินจริง (enabled:true)  → FACE = จุดรับดาเมจ (อก/หัว) เพราะกระสุนลอยมาชนตัว
     //   • ไม่บิน  (enabled:false) → MAIN = จุดยืน เพราะเป็นเอฟเฟกต์ที่เกิดคาตัวเป้าหมายบนพื้น
@@ -1519,31 +1499,20 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     const runIn = !isInstant && !!asset.bulShadow && !!rangerStandRef.current
     const spawnRefPt = runIn ? asset.bulShadow! : asset.spawnRef
     const spawnAt = runIn ? rangerStandRef.current! : sp
-    const spawnShift = !isInstant && !ATTACK_START_OVERRIDE[startKey] && spawnRefPt
+    const spawnShift = !isInstant && spawnRefPt
       ? { x: flightA.x - spawnRefPt.x, y: flightA.y - spawnRefPt.y }
       : { x: 0, y: 0 }
     const startX = spawnAt.x + spawnShift.x, startY = spawnAt.y + spawnShift.y
-    const dist = Math.hypot(endX - startX, endY - startY)
-    // moveSpeed = world-unit ต่อ "1 เฟรม/ติ๊ก" ของเกม (ไม่ใช่ต่อวินาที) — คูณ PROJECTILE_SPEED_SCALE ปรับจูนได้
-    const speed = (meta.moveSpeed > 0 ? meta.moveSpeed : PROJECTILE_FALLBACK_SPEED) * PROJECTILE_SPEED_SCALE
-    const normalFrames = asset.sam.animations[asset.normalName]?.length || 1
-    const finishFrames = asset.finishName ? (asset.sam.animations[asset.finishName]?.length || 0) : 0
-    const bulletFps = asset.sam.animRate || 24
-    const bodyFpsNow = samRef.current?.animRate || 24
-    // isInstant: ไม่มีการ "เดินทาง" ทางฟิสิกส์ (ไม่มี start→target ให้พุ่งข้าม) แต่ anim "normal" ของกระสุนเองอาจมีท่าอยู่แล้ว
-    // เช่น ตกจากฟ้า/โผล่ขึ้นมา (ตามที่ API ไม่มีฟิลด์บอกแยก ต้องให้ anim ต้นฉบับเล่นเต็มๆ ที่ตำแหน่งเป้าหมายก่อนค่อยไป finish)
-    // → เล่น normal เต็มความยาวของมันเองในที่เกิดเหตุ แทนที่จะข้าม travelTicks=0 ไป finish ทันที
-    const travelTicks = isInstant
-      ? Math.max(1, Math.round(normalFrames * (bodyFpsNow / bulletFps)))
-      : Math.max(1, Math.round(dist / speed))
+    // (ถึงตรงนี้เหลือแต่ท่าไม่บิน / ท่าบัฟ — กระสุนบินจริงออกไปทางวิถีแบบเกมข้างบนแล้ว)
+    const travelTicks = Math.max(1, Math.round(normalFrames * (bodyFpsNow / bulletFps)))
     activeBulletsRef.current.push({
       suffix, spawnTick: sceneTickRef.current,
-      startX: isInstant ? endX : startX, startY: isInstant ? endY : startY,
+      startX: endX, startY: endY,
       targetX: endX, targetY: endY,
       travelTicks, kind, isSkill: kind !== 'normal', isAttack: !isBuff, hitRear: useRear, areaWorld, areaCenterX,
       fitNormal: ov?.fitNormal === true,
       arcStartDeg: meta.angleStart, arcEndDeg: meta.angleEnd,
-      motionType: meta.motionType, motionRotation: meta.motionRotation, selfArc: asset.selfArc,
+      motion: 'LINEAR', spin: meta.motionRotation === 'ANGLE_LERP',
       // ท่าไม่บิน (motion.enabled=false): ไฟล์เอฟเฟกต์ถูกวาดในระบบพิกัดเดียวกับ rig ของตัวละคร
       // → "จุดยืน" ของเอฟเฟกต์อยู่ที่เดียวกับจุดยืนของเรนเจอร์เจ้าของ คือเยื้องขวา-ล่างจาก origin
       // (วัดจริง 5 ตัว: +60..+74 แนวนอน, +77..+103 แนวตั้ง — ตรงกับ offset ที่จูนด้วยตา r=0.918)
@@ -1649,6 +1618,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     mainFaceCenterRef.current = null
     mainAnchorRef.current = null
     rangerStandRef.current = null
+    mainPosRef.current = null
     mainFaceAnchorRef.current = null
     activeBulletsRef.current = []
     dummyHitRef.current = []; rearHitRef.current = []; edgeHitRef.current = []
@@ -1685,6 +1655,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
             angleStart: m.angle?.start ?? 0,
             angleEnd: m.angle?.end ?? 0,
             animationPart: m.animationPart ?? null,
+            attackType: m.attackType ?? null,
             motionType: m.motion?.type ?? 'LINEAR',
             motionEnabled: m.motion?.enabled ?? true,
             motionRotation: m.motion?.rotation ?? 'FIXED',
@@ -1942,16 +1913,13 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
         alive.push(b)
         let wx: number, wy: number, frame: SamFrame | undefined, spinAngle = 0
         let anchorX = b.anchorX, anchorY = b.anchorY
-        const hasArc = b.motionType === 'CURVE' && !b.selfArc   // motion.type บอกว่าโค้งไหม แต่ถ้า anim โค้งมาให้แล้วก็ไม่ใส่ซ้ำ
         if (T <= b.travelTicks) {
-          // ── ช่วงเดินทาง (normal) — เส้นตรงไปเป้าหมาย บวกส่วนโค้ง (ถ้าเป็นท่าปาโค้ง) — สูตรเดียวกับเส้นพรีวิว Hitbox ──
-          // ไม่หมุนสไปรต์เพิ่มเอง — อนิเมชัน normal ต้นฉบับของกระสุนมีท่าเอียง/ก้มหัวตอนใกล้ตกอยู่แล้ว
+          // ── ช่วงเดินทาง (normal) — วิถีแบบเกม (CCBezierBy / CCMoveBy เชิงเส้นตามเวลา) สูตรเดียวกับเส้นพรีวิว Hitbox ──
           const p = b.travelTicks > 0 ? Math.min(1, T / b.travelTicks) : 1
-          const pos = arcPathPos(b.startX, b.startY, b.targetX, b.targetY, p, hasArc)
+          const pos = gamePathPos(b.motion, b.startX, b.startY, b.targetX, b.targetY, p)
           wx = pos.x; wy = pos.y
-          // motion.rotation === "ANGLE_LERP": หมุนตามมุมจริงจาก API — เริ่ม angle.start ไล่ไปจบ angle.end ตอนชน (p=1)
-          // (ตอนวาดข้างล่างจะหมุนเวกเตอร์หมุดตามไปด้วย ไม่งั้นหมุดจะเหวี่ยงหลุดจากตำแหน่งที่เล็งไว้)
-          if (b.motionRotation === 'ANGLE_LERP') spinAngle = lerp(b.arcStartDeg, b.arcEndDeg, p) * Math.PI / 180
+          // หมุดภาพหมุนตามมุม (CCRotateTo angle.start → angle.end) — ตอนวาดข้างล่างหมุนเวกเตอร์หมุดตามไปด้วย
+          if (b.spin) spinAngle = lerp(b.arcStartDeg, b.arcEndDeg, p) * Math.PI / 180
           // ระหว่างลอย เล่น normal วนซ้ำไปเรื่อยๆ จนกว่าจะถึงเป้าหมาย
           // (anim ช่วงเดินทางของกระสุนสั้นกว่าเวลาบินมาก ถ้าไม่วนจะค้างเฟรมสุดท้ายนิ่งๆ ระหว่างทาง)
           // fitNormal: ยืดให้จบพอดีตอนถึงเป้าหมายแทน — เฟรมผูกกับความคืบหน้า p ไม่ใช่เวลาจริง
@@ -1966,6 +1934,8 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
           const finishFrame = Math.min(b.finishFrames - 1, Math.floor(finishAge * (b.bulletFps / bodyFpsNow)))
           wx = b.targetX; wy = b.targetY
           anchorX = b.finishAnchorX; anchorY = b.finishAnchorY
+          // โหนดเดียวกับช่วงบิน → ระเบิดค้างมุมสุดท้ายของ CCRotateTo (เกม: เฉพาะกระสุนโค้ง)
+          if (b.spin && b.motion === 'CURVE') spinAngle = b.arcEndDeg * Math.PI / 180
           frame = asset.sam.animations[asset.finishName]?.[finishFrame]
         } else {
           wx = b.targetX; wy = b.targetY
@@ -2157,8 +2127,8 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
         ctx.fillText(label, x + 9, y - 3)
         ctx.restore()
       }
-      // เส้นทางกระสุนจริง (จุดเริ่ม → เป้าหมาย) — ใช้สูตรเดียวกับกระสุนจริงเป๊ะ (arcPathPos) ตรงไหนโค้งก็โค้งตรงนั้น
-      const pathLine = (startX: number, startY: number, targetX: number, targetY: number, hasArc: boolean, color: string) => {
+      // เส้นทางกระสุนจริง (จุดเริ่ม → เป้าหมาย) — สูตรเดียวกับกระสุนจริงเป๊ะ (gamePathPos)
+      const pathLine = (startX: number, startY: number, targetX: number, targetY: number, motion: GameMotion, color: string) => {
         const STEPS = 24
         ctx.save()
         ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -2166,7 +2136,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
         ctx.setLineDash([4, 3])
         ctx.beginPath()
         for (let i = 0; i <= STEPS; i++) {
-          const pos = arcPathPos(startX, startY, targetX, targetY, i / STEPS, hasArc)
+          const pos = gamePathPos(motion, startX, startY, targetX, targetY, i / STEPS)
           const x = originRef.current.x + pos.x * z, y = originRef.current.y + pos.y * z
           if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
         }
@@ -2190,18 +2160,18 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
         }
         // จุดเริ่มโจมตีแต่ละแบบจาก projectile_data (ผ่าน attackStartWorld — ดูระบบพิกัดที่นั่น)
         // (0,0) ตอนนี้เป็นไปได้ทั้ง "ไม่มีข้อมูล" และ "เสกทับเป้าหมายทันที" (moveSpeed=0) → ไม่วาด marker ให้รกภาพ ทั้งสองแบบ
-        const drawStart = (meta: AttackMeta | null, kind: string, color: string, label: string) => {
+        const drawStart = (meta: AttackMeta | null, color: string, label: string) => {
           if (!meta || (!meta.start.x && !meta.start.y)) return
-          const p = attackStartWorld(meta.start, rangerStandRef.current?.y ?? 0, `${rangerIdRef.current}:${kind}`)
+          const p = attackStartWorld(meta.start, mainGamePos())
           cross(p.x, p.y, color, label)
         }
         // กึ่งกลางรูปของไฟล์กระสุน — จุดที่ใช้เป็นหมุดจริงตอนยิง แยกกันระหว่างช่วงบินกับช่วงระเบิด
         const vc = viewCentersRef.current
         if (vc.normal) cross(vc.normal.x, vc.normal.y, '#7dff9b', 'CENTER normal')
         if (vc.finish) cross(vc.finish.x, vc.finish.y, '#ffe066', 'CENTER finish')
-        drawStart(attackMetaRef.current.normal, 'normal', '#ffd24d', 'NormalATK')
-        drawStart(attackMetaRef.current.skill1, 'skill1', '#a78bfa', 'Skill1')
-        drawStart(attackMetaRef.current.skill2, 'skill2', '#fb923c', 'Skill2')
+        drawStart(attackMetaRef.current.normal, '#ffd24d', 'NormalATK')
+        drawStart(attackMetaRef.current.skill1, '#a78bfa', 'Skill1')
+        drawStart(attackMetaRef.current.skill2, '#fb923c', 'Skill2')
       }
       if (bgc && dummy) {
         // DUMMY — จุดยืน (shadow center) เช่นเดียวกับ MAIN แต่คงที่ตำแหน่งเดิมของหุ่น
@@ -2224,17 +2194,28 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
           hline(f.y, '#ff6ec7', 'X')
           dot(f.x, f.y, '#ff6ec7')
         }
-        // เส้นทางกระสุนที่ "บินจริง" เท่านั้น → เล็ง FACE (ตรงกับ spawnBullet)
-        // ท่าที่ไม่บิน (enabled:false เช่น วาปไปตี) ถูกกรองออกใน drawAtkPath อยู่แล้ว — ไม่มีเส้นทางให้วาด
-        const target = dummyPointWorld(dummy, dummy.faceAnchor ?? dummy.anchor, dOff, dyOff)
-        const drawAtkPath = (meta: AttackMeta | null, kind: string, color: string) => {
-          if (!meta || (!meta.start.x && !meta.start.y) || !meta.motionEnabled || meta.moveSpeed <= 0) return
-          const p = attackStartWorld(meta.start, rangerStandRef.current?.y ?? 0, `${rangerIdRef.current}:${kind}`)
-          pathLine(p.x, p.y, target.x, target.y, meta.motionType === 'CURVE', color)
+        // ── hitbox แบบเกม: กว้างเท่ากรอบไฟล์ คร่อมตำแหน่ง (กลางกรอบ) · ช่องตรวจจับ = ตำแหน่งผู้ยิง → ข้างหน้า ATK Range ──
+        const dc = canvasCenter(dummy.sam)
+        if (dc) {
+          const gp = dummyPointWorld(dummy, dc, dOff, dyOff)
+          const half = dummy.sam.canvas.w / 2
+          vline(gp.x - half, '#38bdf8', 'HITBOX')
+          vline(gp.x + half, '#38bdf8', '')
         }
-        drawAtkPath(attackMetaRef.current.normal, 'normal', '#ffd24d')
-        drawAtkPath(attackMetaRef.current.skill1, 'skill1', '#a78bfa')
-        drawAtkPath(attackMetaRef.current.skill2, 'skill2', '#fb923c')
+        const me = mainGamePos()
+        const rangePt = attackRangeRef.current && attackRangeRef.current > 0 ? attackRangeRef.current : DUMMY_FALLBACK_RANGE
+        vline(me.x + rangePt * PT_TO_WORLD, '#fde047', 'ATK RANGE')
+        // เส้นทางกระสุนที่ "บินจริง" เท่านั้น — จุดเดียวกับ spawnBullet (gameShot)
+        // ท่าที่ไม่บิน (enabled:false เช่น วาปไปตี) ถูกกรองออกใน drawAtkPath อยู่แล้ว — ไม่มีเส้นทางให้วาด
+        const drawAtkPath = (meta: AttackMeta | null, color: string) => {
+          if (!meta || (!meta.start.x && !meta.start.y) || !meta.motionEnabled || meta.moveSpeed <= 0) return
+          const shot = gameShot(meta, dummy, dOff, dyOff, me)
+          pathLine(shot.start.x, shot.start.y, shot.end.x, shot.end.y, shot.motion, color)
+          dot(shot.end.x, shot.end.y, color)
+        }
+        drawAtkPath(attackMetaRef.current.normal, '#ffd24d')
+        drawAtkPath(attackMetaRef.current.skill1, '#a78bfa')
+        drawAtkPath(attackMetaRef.current.skill2, '#fb923c')
       }
     }
   }, [])
@@ -2409,14 +2390,14 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       const [cv, dummy, rear, edge] = await Promise.all([composeBattleStage(bgStage), dummyTask, rearTask, edgeTask])
       if (cancelled) return
       bgCanvasRef.current = cv
-      if (dummy) { dummyRef.current = dummy; dummyIdRef.current = wantId }
+      if (dummy) { dummyRef.current = dummy; dummyIdRef.current = wantId; recomputeGap() }
       if (rear) rearDummyRef.current = rear
       if (edge) edgeDummyRef.current = edge
       setBgLoading(false)
       drawFrame()
     })()
     return () => { cancelled = true }
-  }, [bgStage, drawFrame, skillTargets, skillRearMul, skillAreas, isAirAmbush])
+  }, [bgStage, drawFrame, skillTargets, skillRearMul, skillAreas, isAirAmbush, recomputeGap])
 
   // ── 5b. โหลดไฟล์กระสุน (bul/bul2/bul3) ล่วงหน้าเมื่อเปิดพื้นหลัง — เสกทันได้พอดีจังหวะโจมตี ──
   // เสกกระสุนทำงานเฉพาะตอนเปิดพื้นหลัง+มีกระสอบทรายเท่านั้น ไม่โหลดไฟล์พวกนี้ถ้าไม่เปิดพื้นหลัง

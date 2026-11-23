@@ -273,7 +273,17 @@ export function gamePathPos(g: GameProjectile, from: Vec, to: Vec, k: number, fo
 }
 
 /** มุมหมุนกระสุนแบบเกม (เรเดียน, บวก = ตามเข็ม) — setRotation(start) แล้ว CCRotateTo(เวลาบิน, end) */
-export const gameRotation = (g: GameProjectile, k: number) => ((g.angle.start + (g.angle.end - g.angle.start) * k) * Math.PI) / 180
+export const gameRotation = (g: GameProjectile, k: number) =>
+  g.motion === 'CURVE' ? ((g.angle.start + (g.angle.end - g.angle.start) * k) * Math.PI) / 180 : 0   // CCMoveBy ไม่ตั้งมุม
+
+/**
+ * ทรงวิถีจาก attackType (ตัวที่เกมใช้ตัดสินจริง — ไม่ใช่ motion.type ของ lerico)
+ *   enum ในเกม: PUNCH 1 · KICK 2 · ENERGY 3 · ENERGYC 4 · SWING 5 · STAB 6 · WEAPON 7 · WEAPONC 8 · LASER 9
+ *               DOUBLE 10 · DOUBLEC 11 · RETURN 12 · BEAM 13 · ACTION 14
+ *   WEAPON / ENERGY / DOUBLE → CCMoveBy เส้นตรง · RETURN / BEAM มีทางของตัวเอง · ที่เหลือ → CCBezierBy + หมุน
+ */
+export const gameMotionOf = (attackType: string | null | undefined): 'CURVE' | 'LINEAR' =>
+  attackType === 'WEAPON' || attackType === 'ENERGY' || attackType === 'DOUBLE' ? 'LINEAR' : 'CURVE'
 
 // ── การตรวจจับ / ล็อคเป้าแบบเกม (UnitNode::searchTarget — ถอดจาก libgame.so) ──
 //   hitbox ของยูนิต   = CCRect(x − contentWidth/2, 0, contentWidth, 320) → แกน X = กว้างเท่ากรอบไฟล์ .sam คร่อมตำแหน่ง

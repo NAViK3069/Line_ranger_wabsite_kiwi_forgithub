@@ -6,6 +6,7 @@
 import { prisma } from './db'
 import { redis, redisKey, REDIS_TTL } from './redis'
 import { aggregateGearRanking } from './gearAggregate'
+import { cleanUnitName } from './unitName'
 import {
   calcBasicEffectValue, calcSwitchableEffectValue, calcSkillPlusEffectValue,
   type BasicEffectGrowth, type SwitchableEffectGrowth, type SkillPlusEffectGrowth,
@@ -442,7 +443,12 @@ export async function loadTranslations(force = false): Promise<void> {
 
     if (unitRes.ok) {
       const raw = await unitRes.json() as Record<string, unknown>
-      units = (raw['en:UNIT'] ?? raw) as Record<string, string>
+      // ชื่อบางตัวมี "\n" ติดมา → แปลงเป็นช่องว่าง (ดู unitName.ts)
+      units = Object.fromEntries(
+        Object.entries((raw['en:UNIT'] ?? raw) as Record<string, unknown>)
+          .filter((e): e is [string, string] => typeof e[1] === 'string')
+          .map(([k, v]) => [k, cleanUnitName(v)]),
+      )
     }
     if (equipRes.ok) {
       const raw = await equipRes.json() as Record<string, unknown>

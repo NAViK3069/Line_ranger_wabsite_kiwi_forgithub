@@ -11,6 +11,7 @@ import { buildRangerStatsResponse } from '@/lib/buildRangerStats'
 import { ensureGearData, getAllGearItems, getGearEffects } from '@/lib/pvpScraper'
 import { buildRangerBookPayload, buildGearBookPayload, GEAR_BOOK_CACHE_KEY } from '@/lib/bookPayloads'
 import { redis, redisKey, REDIS_TTL } from './redis'
+import { cleanUnitName } from './unitName'
 
 function extractSortOrder(unitCode: string): number {
   const m = unitCode.match(/^u(\d+)/)
@@ -190,7 +191,7 @@ export async function performRangerSync(): Promise<SyncResult> {
       const raw = await res.json() as Record<string, unknown>
       const data = (raw['en:UNIT'] ?? raw) as Record<string, string>
       for (const [key, name] of Object.entries(data)) {
-        if (typeof name === 'string') nameMap.set(key, name.trim())
+        if (typeof name === 'string') nameMap.set(key, cleanUnitName(name))
       }
     }
   } catch (e) {

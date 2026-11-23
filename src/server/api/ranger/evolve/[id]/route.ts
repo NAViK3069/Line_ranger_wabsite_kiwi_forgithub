@@ -18,6 +18,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getRawRanger, getTierInfo } from '@/lib/rangerData'
 import { redis } from '@/lib/redis'
+import { cleanUnitName } from '@/lib/unitName'
 
 export const maxDuration = 60
 
@@ -62,7 +63,7 @@ async function loadNameMap(): Promise<Record<string, string>> {
     const data = (raw['en:UNIT'] ?? raw) as Record<string, string>
     const out: Record<string, string> = {}
     for (const [k, v] of Object.entries(data)) {
-      if (k.endsWith('_nm') && typeof v === 'string') out[k] = v.replace(/\s+/g, ' ').trim()
+      if (k.endsWith('_nm') && typeof v === 'string') out[k] = cleanUnitName(v)
     }
     if (redis && Object.keys(out).length > 0) {
       redis.set(NAMES_KEY, JSON.stringify(out), { ex: NAMES_TTL }).catch(() => {})

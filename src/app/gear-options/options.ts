@@ -24,7 +24,7 @@ export const sceneUrl = (name: string) => `/gear-options/scenes/${encodeURICompo
 
 export const GEAR_OPTIONS: GearOption[] = [
   { id: 'atk',             th: 'พลังโจมตี',                      en: 'ATK', scene: 'atk' },   // + การ์ด/ตัวเลข: tutorials/atk.tsx
-  { id: 'hp',              th: 'พลังชีวิต',                      en: 'HP' },
+  { id: 'hp',              th: 'พลังชีวิต',                      en: 'HP', scene: 'hp' },     // tutorials/hp.tsx
   { id: 'def',             th: 'พลังป้องกัน',                    en: 'DEF' },
   { id: 'atk-speed',       th: 'ความเร็วในการโจมตี',             en: 'Attack Speed' },
   { id: 'move-speed',      th: 'ความเร็วการเคลื่อนที่',          en: 'Move Speed' },

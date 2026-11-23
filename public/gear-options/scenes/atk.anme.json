@@ -33,14 +33,6 @@
    "name": "Brown ตำนานร็อค"
   },
   {
-   "id": "r3pxbnl134",
-   "type": "ranger",
-   "source": "lerico",
-   "rangerId": "u1242e-brown",
-   "form": "body",
-   "name": "Brown อนูบิสเพชฌฆาต"
-  },
-  {
    "id": "s25gar6eew",
    "type": "audio",
    "name": "skattrd_u1353ebrown",
@@ -81,6 +73,14 @@
    "type": "audio",
    "name": "hit_u467eryu",
    "url": "/api/res/_raw/sounds/hit_u467eryu_20170530153107600.ogg"
+  },
+  {
+   "id": "r_u1242e-brown",
+   "type": "ranger",
+   "source": "lerico",
+   "rangerId": "u1242e-brown",
+   "form": "body",
+   "name": "Brown อนูบิสเพชฌฆาต"
   },
   {
    "id": "fx_light_b",
@@ -139,7 +139,7 @@
   {
    "id": "a9ijjdi134",
    "name": "Brown อนูบิสเพชฌฆาต",
-   "assetId": "r3pxbnl134",
+   "assetId": "r_u1242e-brown",
    "tag": "enemy",
    "x": 898,
    "y": 560,
@@ -235,7 +235,7 @@
    "type": "skill",
    "actorId": "ak1zzx9ceu",
    "start": 21.2,
-   "label": "ATK (no gear)",
+   "label": "Normal (no gear)",
    "cast": [
     "attack_ready"
    ],
@@ -432,7 +432,7 @@
    "type": "skill",
    "actorId": "ak1zzx9ceu",
    "start": 39.3,
-   "label": "ATK (Moonbrella)",
+   "label": "Normal (gear)",
    "cast": [
     "attack_ready"
    ],
@@ -524,7 +524,7 @@
    "type": "skill",
    "actorId": "ak1zzx9ceu",
    "start": 42.9,
-   "label": "Skill 1 (Moonbrella)",
+   "label": "Skill 1 (gear)",
    "cast": [
     "s_attack_ready"
    ],
@@ -645,7 +645,7 @@
    "fadeOut": 0.2
   },
   {
-   "id": "enemy_knockback0",
+   "id": "victim_knockback0",
    "type": "anim",
    "actorId": "a9ijjdi134",
    "start": 31.353,
@@ -656,7 +656,16 @@
    "duration": 1.53
   },
   {
-   "id": "enemy_knockback1",
+   "id": "show_victim0",
+   "type": "show",
+   "actorId": "a9ijjdi134",
+   "start": 0,
+   "duration": 32.883,
+   "fadeIn": 0,
+   "fadeOut": 0.15000000000000013
+  },
+  {
+   "id": "victim_knockback1",
    "type": "anim",
    "actorId": "a9ijjdi134",
    "start": 44.453,
@@ -667,16 +676,7 @@
    "duration": 1.53
   },
   {
-   "id": "show_enemy0",
-   "type": "show",
-   "actorId": "a9ijjdi134",
-   "start": 0,
-   "duration": 32.883,
-   "fadeIn": 0,
-   "fadeOut": 0.15000000000000013
-  },
-  {
-   "id": "show_enemy1",
+   "id": "show_victim1",
    "type": "show",
    "actorId": "a9ijjdi134",
    "start": 35.6,

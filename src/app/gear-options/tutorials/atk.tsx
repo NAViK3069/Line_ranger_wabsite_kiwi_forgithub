@@ -347,6 +347,79 @@ function HpBar({ c, t, d, rounds }: { c: OverlayCtx; t: number; d: Data; rounds:
 }
 
 /**
+ * เอฟเฟกต์ฮิลเลือดที่ตัวเป้าหมาย (เล่นตอนรีเลือดแต่ละรอบ ~1.4 วิ)
+ *   หัวใจ unit07-heal ของเกม (in → loop → out) ลอยเหนือหัว · เสาแสงเขียวพุ่งขึ้นจากเท้า · วงแสงขยายที่พื้น
+ *   แสงเขียวอาบตัว · เครื่องหมาย + ลอยขึ้นรอบตัว (ตำแหน่ง/จังหวะสุ่มแบบคงที่ เลื่อนเวลากลับมาดูก็เหมือนเดิม)
+ */
+const HEAL_DUR = 1.4
+const HEART_DUR = 1.3
+const rand = (i: number) => { const v = Math.sin(i * 12.9898 + 78.233) * 43758.5453; return v - Math.floor(v) }
+const SPARKS = Array.from({ length: 14 }, (_, i) => ({
+  x: (rand(i) - 0.5) * 130, delay: rand(i + 50) * 0.55, rise: 110 + rand(i + 100) * 90, size: 20 + rand(i + 150) * 16, y0: rand(i + 200) * 70,
+}))
+function HealFx({ c, t, at }: { c: OverlayCtx; t: number; at: number }) {
+  const u = t - at
+  if (u < 0 || u > HEAL_DUR) return null
+  const p = c.actorAt(ENEMY.actor)
+  if (!p) return null
+  const feet = c.project(p)
+  if (feet.x < -150 || feet.x > 1430) return null
+  const z = (c.project({ x: p.x + 100, y: p.y }).x - feet.x) / 100
+  const glow = clamp01(u / 0.15) * (1 - prog(u, 0.55, 1.05))
+  const ringK = easeOut(prog(u, 0, 0.75))
+  const ringW = (80 + 150 * ringK) * z
+  const colH = 250 * z * easeOut(prog(u, 0, 0.3))
+  const colW = 120 * z * (0.6 + 0.4 * Math.sin(Math.min(1, u / 0.5) * Math.PI / 2))
+  // หัวใจ: in 10 เฟรม → loop → out 10 เฟรม
+  const f = Math.floor(u * FPS)
+  const outAt = HEART_DUR - 10 / FPS
+  const heart = u >= HEART_DUR ? null
+    : f < 10 ? { clip: 'in', frame: f }
+    : u < outAt ? { clip: 'loop', frame: f - 10 }
+    : { clip: 'out', frame: Math.floor((u - outAt) * FPS) }
+  const head = c.project({ x: p.x, y: p.y - 205 - 25 * easeOut(prog(u, 0, HEART_DUR)) })
+  return (
+    <>
+      {/* แสงเขียวอาบตัว */}
+      <div className="absolute rounded-full pointer-events-none" style={{
+        left: feet.x, top: feet.y - 85 * z, width: 230 * z, height: 260 * z, transform: 'translate(-50%,-50%)', opacity: glow,
+        background: 'radial-gradient(ellipse, rgba(134,239,172,0.45), rgba(74,222,128,0.18) 45%, rgba(74,222,128,0) 70%)',
+      }} />
+      {/* เสาแสงพุ่งขึ้นจากเท้า */}
+      <div className="absolute pointer-events-none" style={{
+        left: feet.x - colW / 2, top: feet.y - colH, width: colW, height: colH, opacity: glow * 0.65, borderRadius: `${colW / 2}px ${colW / 2}px 0 0`,
+        background: 'linear-gradient(to top, rgba(187,247,208,0.75), rgba(134,239,172,0.35) 55%, rgba(134,239,172,0))',
+        filter: 'blur(3px)',
+      }} />
+      {/* วงแสงที่พื้น */}
+      <div className="absolute rounded-[50%] pointer-events-none" style={{
+        left: feet.x, top: feet.y, width: ringW, height: ringW * 0.3, transform: 'translate(-50%,-50%)', opacity: 1 - prog(u, 0.35, 0.95),
+        border: `${Math.max(2, 4 * z)}px solid rgba(187,247,208,0.95)`,
+        boxShadow: '0 0 18px rgba(74,222,128,0.9), inset 0 0 14px rgba(74,222,128,0.7)',
+        background: 'radial-gradient(ellipse, rgba(74,222,128,0.35), rgba(74,222,128,0) 70%)',
+      }} />
+      {/* + ลอยขึ้น */}
+      {SPARKS.map((k, i) => {
+        const q = prog(u, k.delay, k.delay + 0.75)
+        if (q <= 0 || q >= 1) return null
+        const sp = c.project({ x: p.x + k.x, y: p.y - 20 - k.y0 - k.rise * easeOut(q) })
+        return (
+          <span key={i} className="absolute font-black leading-none pointer-events-none" style={{
+            left: sp.x, top: sp.y, transform: `translate(-50%,-50%) scale(${0.6 + 0.6 * Math.sin(q * Math.PI)})`,
+            fontSize: k.size * z, color: '#dcfce7', opacity: Math.min(1, q * 6) * (1 - prog(q, 0.6, 1)),
+            textShadow: '0 0 6px #4ade80, 0 0 14px #22c55e',
+          }}>+</span>
+        )
+      })}
+      {heart && (
+        <SamSprite base="unit07-heal/unit07-heal" clip={heart.clip} frame={heart.frame} loop={heart.clip === 'loop'}
+          fitClip="_all" anchorClip="loop" x={head.x} y={head.y} scale={1.5 * z} />
+      )}
+    </>
+  )
+}
+
+/**
  * จุดที่วิญญาณออกจากร่าง = กลางร่างในเฟรมสุดท้ายของท่า knockback (ร่างล้มนอนอยู่ ไม่ใช่ท่ายืน)
  * คำนวณจากไฟล์ .sam จริงของเป้าหมาย แปลงเป็นพิกัดเวทีแบบเดียวกับที่ฉากวาดตัวละคร (จุดยืน · สเกล · กลับด้าน)
  */
@@ -572,6 +645,7 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
         {/* ── รอบ 1 ── */}
         <Banner t={t} start={20.8} end={24.2} title={T('รอบที่ 1 · ยังไม่ใส่เกียร์', 'Round 1 · No gear')}
           sub={`${T('โจมตีปกติ', 'Normal attack')} · ATK ${fmtInt(d.atkBefore)}`} color="bg-gradient-to-r from-slate-700 to-slate-600 border-2 border-white/15" />
+        {rounds.map(r => <HealFx key={r.refill} c={c} t={t} at={r.refill} />)}
         <HpBar c={c} t={t} d={d} rounds={rounds} />
 
         {/* ── ใส่เกียร์: การ์ดช่องเกียร์ + ไอคอนบินลงช่องอาวุธ ── */}

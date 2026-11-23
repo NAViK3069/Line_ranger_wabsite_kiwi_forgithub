@@ -90,5 +90,24 @@ scene.cues.push(
   show('show_enemy0', ENEMY, 0, hit0 + DEATH.fadeTo, 0, DEATH.fadeTo - DEATH.fadeFrom),
   show('show_enemy1', ENEMY, T.respawn, hit1 + DEATH.fadeTo - T.respawn, 0.4, DEATH.fadeTo - DEATH.fadeFrom),
 )
+
+// ── เสียง (ไฟล์เสียงของเกมบน lerico — ชื่อเดียวกับที่ผู้ใช้ส่งมา) ──
+//   เพลงพื้นหลัง bgm_lobby2 (61 วิ ยาวกว่าคลิป) เบากว่าปกติ · เสียงใส่เกียร์ตอนเกียร์ลงช่อง · เสียงตายตอนเป้าหมายล้ม (knockback)
+const sound = (id, name, file) => ({ id, type: 'audio', name, url: `/api/res/_raw/sounds/${file}` })
+scene.assets.push(
+  sound('snd_bgm', 'bgm_lobby2', 'bgm_lobby2_20151123104811121.ogg'),
+  sound('snd_equip', 'gear_equip', 'gear_equip_20151123104728600.ogg'),
+  sound('snd_death', 'death', 'death_20140603152639586.ogg'),
+)
+const sfx = (id, assetId, start, volume = 1, extra = {}) =>
+  ({ id, type: 'sound', actorId: '__audio', start, assetId, volume, offset: 0, duration: 0, fadeIn: 0, fadeOut: 0, ...extra })
+const BGM_VOLUME = 0.3
+scene.cues.push(
+  sfx('bgm', 'snd_bgm', 0, BGM_VOLUME, { duration: T.end, fadeIn: 1, fadeOut: 2 }),
+  sfx('sfx_equip', 'snd_equip', T.equip),
+  sfx('sfx_death0', 'snd_death', hit0 + DEATH.knock),
+  sfx('sfx_death1', 'snd_death', hit1 + DEATH.knock),
+)
+
 fs.writeFileSync(out, JSON.stringify(scene, null, 1) + '\n')
 console.log('wrote', out, scene.cues.length, 'cues', { hit0, hit1 })

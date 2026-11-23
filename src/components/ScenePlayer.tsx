@@ -100,6 +100,22 @@ function sceneReady(scene: Scene): boolean {
   return true
 }
 
+/** ไอคอนเล่น/หยุดที่เด้งขึ้นกลางจอแป๊บเดียวแล้วจางหาย (key ใหม่ = เล่นใหม่) */
+function FlashIcon({ icon }: { icon: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    ref.current?.animate(
+      [{ opacity: 0.95, transform: 'scale(0.85)' }, { opacity: 0.9, transform: 'scale(1)', offset: 0.35 }, { opacity: 0, transform: 'scale(1.25)' }],
+      { duration: 650, easing: 'ease-out', fill: 'forwards' },
+    )
+  }, [])
+  return (
+    <div ref={ref} className="absolute inset-0 m-auto w-16 h-16 rounded-full bg-black/55 border border-white/30 flex items-center justify-center pointer-events-none" style={{ opacity: 0 }}>
+      <span className="material-icons-round text-white text-4xl">{icon}</span>
+    </div>
+  )
+}
+
 export default function ScenePlayer({ src, autoPlay = false, loop = true, overlay }: Props) {
   const { lang, tSkill, tSkillDesc } = useLanguage()
   const { volume } = useSound()
@@ -257,12 +273,34 @@ export default function ScenePlayer({ src, autoPlay = false, loop = true, overla
   const toggle = () => {
     if (!ready) return
     if (!playing && timeRef.current >= end - 0.05) seek(0)
+    setFlash(f => ({ icon: playing ? 'pause' : 'play_arrow', n: f.n + 1 }))
+    setHover(false)
     setPlaying(p => !p)
   }
 
+  // ── ไอคอนกลางจอ ──
+  //   ยังไม่เคยเล่น / เล่นจบ → ปุ่มเล่นค้างไว้ (ต้องมีให้กด)
+  //   กดหยุด/เล่นต่อ → ไอคอนเด้งขึ้นแป๊บเดียวแล้วจางหาย (แบบ YouTube)
+  //   หยุดอยู่ + ขยับเมาส์บนวิดีโอ → ปุ่มเล่นโผล่ · เมาส์นิ่ง 1.2 วิ / ออกนอกวิดีโอ → ค่อยๆ หาย
+  const started = playing || shownTime > 0.05
+  const ended = shownTime >= end - 0.05 && end > 0
+  const [flash, setFlash] = useState<{ icon: string; n: number }>({ icon: '', n: 0 })
+  const [hover, setHover] = useState(false)
+  const hoverTimer = useRef(0)
+  const onPointerMove = () => {
+    if (playing) return
+    setHover(true)
+    window.clearTimeout(hoverTimer.current)
+    hoverTimer.current = window.setTimeout(() => setHover(false), 1200)
+  }
+  const onPointerLeave = () => { window.clearTimeout(hoverTimer.current); setHover(false) }
+  useEffect(() => () => window.clearTimeout(hoverTimer.current), [])
+  const showPlay = ready && !error && !playing && (!started || ended || hover)
+
   return (
     <div className="w-full select-none">
-      <div ref={wrapRef} className="relative w-full aspect-video bg-black rounded-xl overflow-hidden" onClick={toggle}>
+      <div ref={wrapRef} className="relative w-full aspect-video bg-black rounded-xl overflow-hidden" onClick={toggle}
+        onPointerMove={onPointerMove} onPointerLeave={onPointerLeave}>
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
         {overlay && scene && tl && ready && boxW > 0 && (
           <OverlayLayer clock={clock} scene={scene} tl={tl} render={overlay} boxW={boxW} />
@@ -276,13 +314,17 @@ export default function ScenePlayer({ src, autoPlay = false, loop = true, overla
           <div className="absolute inset-0 flex items-center justify-center text-gray-300 text-sm gap-2 bg-black/40">
             <span className="material-icons-round animate-spin">autorenew</span>Loading...
           </div>
-        ) : !playing && (
-          <button
-            aria-label="Play"
-            className="absolute inset-0 m-auto w-16 h-16 rounded-full bg-black/55 hover:bg-black/70 border border-white/30 flex items-center justify-center transition-colors"
-          >
-            <span className="material-icons-round text-white text-4xl">{shownTime >= end - 0.05 && end > 0 ? 'replay' : 'play_arrow'}</span>
-          </button>
+        ) : (
+          <>
+            <button
+              aria-label="Play" tabIndex={showPlay ? 0 : -1}
+              className="absolute inset-0 m-auto w-16 h-16 rounded-full bg-black/55 hover:bg-black/70 border border-white/30 flex items-center justify-center transition-[opacity,background-color] duration-300"
+              style={{ opacity: showPlay ? 1 : 0, pointerEvents: showPlay ? 'auto' : 'none' }}
+            >
+              <span className="material-icons-round text-white text-4xl">{ended ? 'replay' : 'play_arrow'}</span>
+            </button>
+            {flash.n > 0 && <FlashIcon key={flash.n} icon={flash.icon} />}
+          </>
         )}
       </div>
 

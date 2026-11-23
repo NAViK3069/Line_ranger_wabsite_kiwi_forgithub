@@ -182,6 +182,31 @@ function StatRow({ icon, label, value, hlAt, dim, t, note }: { icon?: string; la
   )
 }
 
+/**
+ * หลอดดาเมจ: เริ่มเต็ม 100% → ส่วนที่ถูกลด (สีเทาลายทาง) กินเข้ามาจากขวา เหลือส่วนสีที่ยังเหลืออยู่
+ *   keep = สัดส่วนดาเมจที่เหลือ (0–1) · ป้ายใต้หลอด: ซ้าย = ที่เหลือ · ขวา = ที่ถูกลดไป
+ */
+function DamageBar({ t, at, keep, keepCls, keepText, keepLabel, cutLabel }: {
+  t: number; at: number; keep: number; keepCls: string; keepText: string; keepLabel: string; cutLabel: string
+}) {
+  const k = easeInOut(prog(t, at, at + 0.9))
+  const cut = (1 - keep) * k
+  const pctTxt = (v: number) => `${(v * 100).toFixed(2).replace(/\.?0+$/, '')}%`
+  return (
+    <div>
+      <div className="relative h-6 rounded-full bg-white/10 overflow-hidden ring-1 ring-black/50">
+        <div className={`absolute inset-y-0 left-0 bg-gradient-to-r ${keepCls}`} style={{ width: `${(1 - cut) * 100}%` }} />
+        <div className="absolute inset-y-0 right-0 bg-slate-600"
+          style={{ width: `${cut * 100}%`, backgroundImage: 'repeating-linear-gradient(-45deg, rgba(255,255,255,0.10) 0 8px, transparent 8px 16px)' }} />
+      </div>
+      <div className="flex justify-between mt-1.5 text-[22px] font-bold tabular-nums" style={{ opacity: easeOut(prog(t, at + 0.5, at + 0.9)) }}>
+        <span className={keepText}>■ {keepLabel} {pctTxt(keep)}</span>
+        <span className="text-slate-400">{cutLabel} {pctTxt(1 - keep)} ■</span>
+      </div>
+    </div>
+  )
+}
+
 // ── ช่องเกียร์ (res/gear_main) — กรอบ fx70-gear-slot + ป้ายบอกชนิดช่อง ──
 const SLOT_KINDS = [
   { key: 'weapon', th: 'อาวุธ', en: 'Weapon' },
@@ -617,13 +642,8 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
                 <span className="text-gray-300 font-bold">{T('DEF ของเป้าหมาย', 'Target DEF')}</span><span className="font-black text-rose-300 tabular-nums">{fmtInt(d.enemyDef)}</span>
               </div>
               <div style={step(18.4)}>
-                <div className="flex justify-between">
-                  <span className="text-gray-300 font-bold">{T('ดาเมจที่ทะลุเข้าไป', 'Damage that gets through')}</span>
-                  <span className="font-black text-amber-300 tabular-nums">{(d.factor * 100).toFixed(2)}%</span>
-                </div>
-                <div className="h-4 rounded-full bg-white/10 mt-2 overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-amber-500 to-yellow-300" style={{ width: `${d.factor * 100 * easeOut(prog(t, 18.6, 19.4))}%` }} />
-                </div>
+                <DamageBar t={t} at={18.6} keep={d.factor} keepCls="from-amber-500 to-yellow-300" keepText="text-amber-300"
+                  keepLabel={T('ดาเมจที่เหลือ', 'Damage left')} cutLabel={T('DEF ลดไป', 'Cut by DEF')} />
               </div>
               <div className="flex justify-between items-baseline pt-3 mt-1 border-t-2 border-white/10" style={step(19.3)}>
                 <span className="text-gray-300 font-bold tabular-nums">{fmtInt(d.atkBefore)} × {(d.factor * 100).toFixed(2)}%</span>
@@ -703,7 +723,11 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
               <div className="flex justify-between" style={step(sk + 2.3)}>
                 <span className="text-gray-300 font-bold">{T('ต้านสกิลของเป้าหมาย', 'Target Skill Resistance')}</span><span className="font-black text-rose-300 tabular-nums">{pct(d.enemyRes)}</span>
               </div>
-              <div className="flex justify-between items-baseline pt-3 border-t-2 border-white/10" style={step(sk + 3.0)}>
+              <div style={step(sk + 2.7)}>
+                <DamageBar t={t} at={sk + 2.9} keep={1 - d.enemyRes} keepCls="from-fuchsia-600 to-pink-400" keepText="text-fuchsia-300"
+                  keepLabel={T('ดาเมจที่เหลือ', 'Damage left')} cutLabel={T('ต้านสกิลลดไป', 'Cut by Skill Res.')} />
+              </div>
+              <div className="flex justify-between items-baseline pt-3 border-t-2 border-white/10" style={step(sk + 3.6)}>
                 <span className="text-gray-300 font-bold tabular-nums">{fmtInt(d.atkBefore)} × {pct(d.skillMul)} × {pct(1 - d.enemyRes)}</span>
                 <span className="text-[40px] font-black text-fuchsia-200 tabular-nums">= {fmtInt(d.dmgSkillBefore)}</span>
               </div>

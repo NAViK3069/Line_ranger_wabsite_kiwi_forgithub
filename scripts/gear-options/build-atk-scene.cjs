@@ -13,8 +13,13 @@ if (!atk || !sk1) throw new Error('cues not found')
 
 const clone = o => JSON.parse(JSON.stringify(o))
 const cue = (base, id, start, extra = {}) => ({ ...clone(base), id, start, ...extra })
-const cam = (id, start, x, y, zoom, duration, ease = 'easeInOut') =>
-  ({ id, type: 'camera', actorId: '__camera', start, center: { x, y }, zoom, duration, ease })
+// กล้องต้องไม่เห็นเลยขอบแผนที่ — บีบจุดกลางให้กรอบภาพ (เวที ÷ ซูม) อยู่ในเวทีเสมอ
+const W = src.width ?? 1280, H = src.height ?? 720
+const clampTo = (v, half, size) => Math.min(Math.max(v, half), size - half)
+const cam = (id, start, x, y, zoom, duration, ease = 'easeInOut') => ({
+  id, type: 'camera', actorId: '__camera', start,
+  center: { x: clampTo(x, W / 2 / zoom, W), y: clampTo(y, H / 2 / zoom, H) }, zoom, duration, ease,
+})
 
 // stage points: ally feet (358, 560), enemy feet (898, 560)
 // ── เวลา (ต้องตรงกับ src/app/gear-options/tutorials/atk.tsx → const TL) ──

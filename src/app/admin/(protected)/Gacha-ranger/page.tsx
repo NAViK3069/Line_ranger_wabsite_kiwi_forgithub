@@ -4,7 +4,8 @@
 // Admin Pools Page - จัดการตู้ Gacha
 // ====================================================
 
-import { adminFetch } from '@/lib/adminApi'
+import { adminFetch, readOk, pendingImageFallback } from '@/lib/adminApi'
+import AdminReplaceBar from '@/components/AdminReplaceBar'
 import { apiFetch } from '@/lib/staticApi'
 import { useState, useEffect, useRef } from 'react'
 
@@ -162,12 +163,20 @@ export default function AdminPoolsPage() {
     const newPools = [...pools]
     const [moved] = newPools.splice(from, 1)
     newPools.splice(i, 0, moved)
+    const before = pools
     setPools(newPools)
     adminFetch('/api/admin/gacha/pools/reorder', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids: newPools.map(p => p.id) }),
     })
+      .then(res => readOk(res, 'เรียงลำดับไม่สำเร็จ'))
+      .catch(err => { setPools(before); failMsg(err, 'เรียงลำดับไม่สำเร็จ') })
+  }
+
+  /** บันทึกไม่สำเร็จ → บอกแอดมิน (หน้าจอถูกย้อนกลับเป็นค่าเดิมแล้ว) */
+  function failMsg(err: unknown, what: string) {
+    setListMsg(`✗ ${what}: ${err instanceof Error ? err.message : 'เกิดข้อผิดพลาด'} — หน้าจอย้อนกลับเป็นค่าเดิมแล้ว`)
   }
   function handleDragEnd() {
     dragIndexRef.current = null
@@ -218,11 +227,13 @@ export default function AdminPoolsPage() {
   }
 
   async function deletePool(id: string) {
-    try {
-      await adminFetch(`/api/admin/gacha/pools/${id}`, { method: 'DELETE' })
-      setPools(prev => prev.filter(p => p.id !== id))
-    } catch { /* ignore */ }
     setConfirmDeleteId(null)
+    try {
+      await readOk(await adminFetch(`/api/admin/gacha/pools/${id}`, { method: 'DELETE' }), 'ลบไม่สำเร็จ')
+      setPools(prev => prev.filter(p => p.id !== id))
+    } catch (err) {
+      failMsg(err, 'ลบตู้ไม่สำเร็จ')
+    }
   }
 
   // สลับธงจากการ์ดในหน้าลิสต์ได้เลย ไม่ต้องเข้าฟอร์มแก้ไข
@@ -235,14 +246,14 @@ export default function AdminPoolsPage() {
     const before = { isNew: pool.isNew, isEvent: pool.isEvent, isTest: pool.isTest }
     setPools(prev => prev.map(p => p.id === pool.id ? { ...p, ...next } : p))
     try {
-      const res = await adminFetch(`/api/admin/gacha/pools/${pool.id}`, {
+      await readOk(await adminFetch(`/api/admin/gacha/pools/${pool.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(next),
-      })
-      if (!res.ok) throw new Error('patch failed')
-    } catch {
+      }))
+    } catch (err) {
       setPools(prev => prev.map(p => p.id === pool.id ? { ...p, ...before } : p))
+      failMsg(err, 'เปลี่ยนป้ายไม่สำเร็จ')
     }
   }
 
@@ -252,9 +263,7 @@ export default function AdminPoolsPage() {
     setDuplicatingId(pool.id)
     setListMsg('')
     try {
-      const res = await adminFetch(`/api/admin/gacha/pools/${pool.id}/duplicate`, { method: 'POST' })
-      const d = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(d.error ?? 'สำเนาไม่สำเร็จ')
+      const d = await readOk(await adminFetch(`/api/admin/gacha/pools/${pool.id}/duplicate`, { method: 'POST' }), 'สำเนาไม่สำเร็จ')
       await fetchPools()
       setListMsg(`✓ สร้าง "${d.pool?.name ?? pool.name}" แล้ว (ปิดไว้ก่อน — กด "เปิด" เมื่อพร้อมแสดง)`)
     } catch (err) {
@@ -267,13 +276,14 @@ export default function AdminPoolsPage() {
   async function toggleActive(id: string, current: boolean) {
     setPools(prev => prev.map(p => p.id === id ? { ...p, isActive: !current } : p))
     try {
-      await adminFetch(`/api/admin/gacha/pools/${id}`, {
+      await readOk(await adminFetch(`/api/admin/gacha/pools/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: !current }),
-      })
-    } catch {
+      }))
+    } catch (err) {
       setPools(prev => prev.map(p => p.id === id ? { ...p, isActive: current } : p))
+      failMsg(err, current ? 'ปิดตู้ไม่สำเร็จ' : 'เปิดตู้ไม่สำเร็จ')
     }
   }
 
@@ -570,6 +580,8 @@ export default function AdminPoolsPage() {
                     <img
                       src={pool.imageUrl}
                       alt={pool.name}
+                      loading="lazy" decoding="async"
+                      onError={pendingImageFallback}
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -753,7 +765,7 @@ export default function AdminPoolsPage() {
           >
             {bannerPreview ? (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={bannerPreview} alt="banner" className="max-h-44 mx-auto rounded-lg object-contain" />
+              <img src={bannerPreview} alt="banner" onError={pendingImageFallback} className="max-h-44 mx-auto rounded-lg object-contain" />
             ) : (
               <div>
                 <span className="material-icons-round text-5xl text-gray-600">add_photo_alternate</span>
@@ -777,36 +789,11 @@ export default function AdminPoolsPage() {
             </div>
 
             {/* แทนที่ข้อความ: [ข้อความใหม่] ← [ข้อความเดิม] — เช่นบัฟเรท ใส่ 1.25 ← 0.12 แล้วกดแทนที่ */}
-            <div className="bg-white/5 rounded-xl px-3 py-3 border border-white/10">
-              <p className="text-xs text-gray-400 mb-2 flex items-center gap-1">
-                <span className="material-icons-round text-sm text-amber-400">find_replace</span>
-                แทนที่ข้อความทั้งหมด (ช่องโค้ดข้างล่าง + ตารางอัตราสุ่ม)
-              </p>
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                <input
-                  type="text" value={replaceNew} onChange={e => { setReplaceNew(e.target.value); setReplaceMsg('') }}
-                  onKeyDown={e => { if (e.key === 'Enter') applyReplace() }}
-                  placeholder="ข้อความใหม่ เช่น 1.25"
-                  className="flex-1 min-w-0 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-600 font-mono text-sm focus:outline-none focus:border-amber-500 transition-colors"
-                />
-                <span className="material-icons-round text-gray-500 self-center rotate-90 sm:rotate-0" title="แทนที่ด้วย">arrow_back</span>
-                <input
-                  type="text" value={replaceOld} onChange={e => { setReplaceOld(e.target.value); setReplaceMsg('') }}
-                  onKeyDown={e => { if (e.key === 'Enter') applyReplace() }}
-                  placeholder="ข้อความเดิม เช่น 0.12"
-                  className="flex-1 min-w-0 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-600 font-mono text-sm focus:outline-none focus:border-amber-500 transition-colors"
-                />
-                <button
-                  onClick={applyReplace} disabled={!replaceOld}
-                  className="whitespace-nowrap px-4 py-2 text-sm bg-amber-500/20 border border-amber-500/30 text-amber-300 rounded-lg hover:bg-amber-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1 font-semibold"
-                >
-                  <span className="material-icons-round text-sm">swap_horiz</span>แทนที่
-                </button>
-              </div>
-              {replaceMsg && (
-                <p className={`text-xs mt-2 ${replaceMsg.startsWith('✓') ? 'text-green-400' : 'text-gray-400'}`}>{replaceMsg}</p>
-              )}
-            </div>
+            <AdminReplaceBar
+              newText={replaceNew} oldText={replaceOld} message={replaceMsg} onApply={applyReplace}
+              onNewText={v => { setReplaceNew(v); setReplaceMsg('') }}
+              onOldText={v => { setReplaceOld(v); setReplaceMsg('') }}
+            />
             <textarea
               value={textInput}
               onChange={e => setTextInput(e.target.value)}

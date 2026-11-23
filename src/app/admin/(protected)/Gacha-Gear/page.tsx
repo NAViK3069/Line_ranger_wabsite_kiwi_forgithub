@@ -4,7 +4,8 @@
 // Admin Gear Pools Page - จัดการตู้ Gacha เกียร์
 // ====================================================
 
-import { adminFetch } from '@/lib/adminApi'
+import { adminFetch, readOk, pendingImageFallback } from '@/lib/adminApi'
+import AdminReplaceBar from '@/components/AdminReplaceBar'
 import { apiFetch } from '@/lib/staticApi'
 import { useState, useEffect, useRef } from 'react'
 
@@ -110,6 +111,8 @@ export default function AdminGearPoolsPage() {
   const [pools, setPools] = useState<GearPoolSummary[]>([])
   const [loadingPools, setLoadingPools] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+  const [listMsg, setListMsg] = useState('')
 
   // Drag-and-drop state
   const dragIndexRef = useRef<number | null>(null)
@@ -143,6 +146,11 @@ export default function AdminGearPoolsPage() {
   const [poolMode, setPoolMode] = useState<'normal' | 'christmas'>('normal')
   const [christmasTierRates, setChristmasTierRates] = useState<ChristmasTierRates>({ '5': 0, '6': 0, '7': 0, '8': 0 })
 
+  // แทนที่ข้อความ (เช่นบัฟเรท 0.12 → 1.25) — ใช้กับช่องโค้ดข้อมูลตู้ และตารางข้อมูลอัตราสุ่ม
+  const [replaceNew, setReplaceNew] = useState('')
+  const [replaceOld, setReplaceOld] = useState('')
+  const [replaceMsg, setReplaceMsg] = useState('')
+
   const bannerRef = useRef<HTMLInputElement>(null)
 
   // ─── Drag & Drop ──────────────────────────────────
@@ -161,12 +169,20 @@ export default function AdminGearPoolsPage() {
     const newPools = [...pools]
     const [moved] = newPools.splice(from, 1)
     newPools.splice(i, 0, moved)
+    const before = pools
     setPools(newPools)
     adminFetch('/api/admin/gacha/gear-pools/reorder', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids: newPools.map(p => p.id) }),
     })
+      .then(res => readOk(res, 'เรียงลำดับไม่สำเร็จ'))
+      .catch(err => { setPools(before); failMsg(err, 'เรียงลำดับไม่สำเร็จ') })
+  }
+
+  /** บันทึกไม่สำเร็จ → บอกแอดมิน (หน้าจอถูกย้อนกลับเป็นค่าเดิมแล้ว) */
+  function failMsg(err: unknown, what: string) {
+    setListMsg(`✗ ${what}: ${err instanceof Error ? err.message : 'เกิดข้อผิดพลาด'} — หน้าจอย้อนกลับเป็นค่าเดิมแล้ว`)
   }
   function handleDragEnd() {
     dragIndexRef.current = null
@@ -189,6 +205,7 @@ export default function AdminGearPoolsPage() {
   }
 
   async function startEdit(pool: GearPoolSummary) {
+    setListMsg('')
     setEditPoolId(pool.id)
     setPoolName(pool.name)
     setResults(null)
@@ -226,11 +243,13 @@ export default function AdminGearPoolsPage() {
   }
 
   async function deletePool(id: string) {
-    try {
-      await adminFetch(`/api/admin/gacha/gear-pools/${id}`, { method: 'DELETE' })
-      setPools(prev => prev.filter(p => p.id !== id))
-    } catch { /* ignore */ }
     setConfirmDeleteId(null)
+    try {
+      await readOk(await adminFetch(`/api/admin/gacha/gear-pools/${id}`, { method: 'DELETE' }), 'ลบไม่สำเร็จ')
+      setPools(prev => prev.filter(p => p.id !== id))
+    } catch (err) {
+      failMsg(err, 'ลบตู้ไม่สำเร็จ')
+    }
   }
 
   // สลับธงจากการ์ดในหน้าลิสต์ได้เลย ไม่ต้องเข้าฟอร์มแก้ไข
@@ -243,27 +262,44 @@ export default function AdminGearPoolsPage() {
     const before = { isNew: pool.isNew, isEvent: pool.isEvent, isTest: pool.isTest }
     setPools(prev => prev.map(p => p.id === pool.id ? { ...p, ...next } : p))
     try {
-      const res = await adminFetch(`/api/admin/gacha/gear-pools/${pool.id}`, {
+      await readOk(await adminFetch(`/api/admin/gacha/gear-pools/${pool.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(next),
-      })
-      if (!res.ok) throw new Error('patch failed')
-    } catch {
+      }))
+    } catch (err) {
       setPools(prev => prev.map(p => p.id === pool.id ? { ...p, ...before } : p))
+      failMsg(err, 'เปลี่ยนป้ายไม่สำเร็จ')
+    }
+  }
+
+  // สำเนาตู้ (ข้อมูลเหมือนเดิมทุกอย่าง) — ตู้สำเนาเริ่มแบบปิดไว้ ต้องกด "เปิด" เองถึงจะแสดงบนเว็บ
+  async function duplicatePool(pool: GearPoolSummary) {
+    if (duplicatingId) return
+    setDuplicatingId(pool.id)
+    setListMsg('')
+    try {
+      const d = await readOk(await adminFetch(`/api/admin/gacha/gear-pools/${pool.id}/duplicate`, { method: 'POST' }), 'สำเนาไม่สำเร็จ')
+      await fetchPools()
+      setListMsg(`✓ สร้าง "${d.pool?.name ?? pool.name}" แล้ว (ปิดไว้ก่อน — กด "เปิด" เมื่อพร้อมแสดง)`)
+    } catch (err) {
+      setListMsg(`✗ ${err instanceof Error ? err.message : 'สำเนาไม่สำเร็จ'}`)
+    } finally {
+      setDuplicatingId(null)
     }
   }
 
   async function toggleActive(id: string, current: boolean) {
     setPools(prev => prev.map(p => p.id === id ? { ...p, isActive: !current } : p))
     try {
-      await adminFetch(`/api/admin/gacha/gear-pools/${id}`, {
+      await readOk(await adminFetch(`/api/admin/gacha/gear-pools/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: !current }),
-      })
-    } catch {
+      }))
+    } catch (err) {
       setPools(prev => prev.map(p => p.id === id ? { ...p, isActive: current } : p))
+      failMsg(err, current ? 'ปิดตู้ไม่สำเร็จ' : 'เปิดตู้ไม่สำเร็จ')
     }
   }
 
@@ -281,7 +317,8 @@ export default function AdminGearPoolsPage() {
         imageUrl,
         gears: results,
         guaranteedGears,
-        isActive: true,
+        // ตู้ใหม่ = เปิดเลย · แก้ไขตู้เดิม = ไม่ส่ง isActive (คงเปิด/ปิดเดิม — ตู้ที่ปิดอยู่จะยังปิดหลังบันทึก)
+        ...(editPoolId ? {} : { isActive: true }),
         isNew: badge === 'new',
         isEvent: badge === 'event',
         isTest,
@@ -313,6 +350,35 @@ export default function AdminGearPoolsPage() {
     setTextInput(''); setTextErrors([]); setEditingIdx(null); setEditPoolId(null)
     setGuaranteedGears([]); setEditingGuarIdx(null); setBadge('none'); setCopied(false); setGuarText('')
     setPoolMode('normal'); setChristmasTierRates({ '5': 0, '6': 0, '7': 0, '8': 0 })
+    setReplaceNew(''); setReplaceOld(''); setReplaceMsg(''); setListMsg('')
+  }
+
+  // แทนที่ "ข้อความเดิม" ทุกจุดด้วย "ข้อความใหม่" (ตรงตัว ไม่ใช่ regex)
+  //   ช่องโค้ดข้อมูลตู้ → แทนในข้อความ
+  //   ตารางข้อมูลอัตราสุ่ม (ถ้ามี) → แทนในชื่อ / ดาว / เรท ของทุกแถวด้วย (ไอดีเกียร์ไม่แตะ)
+  //     เรทที่แทนแล้วไม่ใช่ตัวเลข จะคงค่าเดิมไว้
+  function applyReplace() {
+    const from = replaceOld
+    if (!from) { setReplaceMsg('ใส่ข้อความเดิมที่ต้องการแทนที่ก่อน'); return }
+    const count = (s: string) => s.split(from).length - 1
+    const swap = (s: string) => s.split(from).join(replaceNew)
+
+    const textHits = count(textInput)
+    if (textHits) setTextInput(swap(textInput))
+
+    let tableHits = 0
+    if (results?.length) {
+      setResults(results.map(r => {
+        const rate = String(r.rate)
+        tableHits += count(r.name) + count(r.grade) + count(rate)
+        const nextRate = parseFloat(swap(rate))
+        return { ...r, name: swap(r.name), grade: swap(r.grade), rate: isNaN(nextRate) ? r.rate : nextRate }
+      }))
+      setEditingIdx(null)
+    }
+
+    const parts = [textHits && `ช่องโค้ด ${textHits} จุด`, tableHits && `ตาราง ${tableHits} จุด`].filter(Boolean)
+    setReplaceMsg(parts.length ? `✓ แทนที่ "${from}" → "${replaceNew}" แล้ว: ${parts.join(' · ')}` : `ไม่พบ "${from}"`)
   }
 
   function handleBanner(e: React.ChangeEvent<HTMLInputElement>) {
@@ -523,6 +589,15 @@ export default function AdminGearPoolsPage() {
           </div>
         </div>
 
+        {listMsg && (
+          <div className={`mb-4 px-4 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 ${listMsg.startsWith('✓') ? 'bg-green-500/15 text-green-300' : 'bg-red-500/15 text-red-300'}`}>
+            <span className="flex-1">{listMsg}</span>
+            <button onClick={() => setListMsg('')} className="text-current opacity-60 hover:opacity-100" aria-label="close">
+              <span className="material-icons-round text-base">close</span>
+            </button>
+          </div>
+        )}
+
         {loadingPools ? (
           <div className="card-glass p-12 text-center">
             <span className="material-icons-round text-5xl text-gray-600 animate-spin">refresh</span>
@@ -553,6 +628,8 @@ export default function AdminGearPoolsPage() {
                     <img
                       src={pool.imageUrl}
                       alt={pool.name}
+                      loading="lazy" decoding="async"
+                      onError={pendingImageFallback}
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -640,6 +717,18 @@ export default function AdminGearPoolsPage() {
                       className="flex-1 py-2 text-xs bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-lg transition-colors flex items-center justify-center gap-1 font-medium"
                     >
                       <span className="material-icons-round text-sm">edit</span>แก้ไข
+                    </button>
+                    {/* สำเนาตู้ — ตู้ใหม่เริ่มแบบปิดไว้ */}
+                    <button
+                      onClick={() => duplicatePool(pool)}
+                      disabled={!!duplicatingId}
+                      title="สำเนาตู้นี้ (ตู้สำเนาจะปิดไว้ก่อน)"
+                      className="flex-1 py-2 text-xs bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 disabled:opacity-50 disabled:cursor-wait rounded-lg transition-colors flex items-center justify-center gap-1 font-medium"
+                    >
+                      <span className={`material-icons-round text-sm ${duplicatingId === pool.id ? 'animate-spin' : ''}`}>
+                        {duplicatingId === pool.id ? 'refresh' : 'content_copy'}
+                      </span>
+                      สำเนา
                     </button>
                     <button
                       onClick={() => toggleActive(pool.id, pool.isActive)}
@@ -735,7 +824,7 @@ export default function AdminGearPoolsPage() {
           >
             {bannerPreview ? (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={bannerPreview} alt="banner" className="max-h-44 mx-auto rounded-lg object-contain" />
+              <img src={bannerPreview} alt="banner" onError={pendingImageFallback} className="max-h-44 mx-auto rounded-lg object-contain" />
             ) : (
               <div>
                 <span className="material-icons-round text-5xl text-gray-600">add_photo_alternate</span>
@@ -804,6 +893,11 @@ export default function AdminGearPoolsPage() {
                 ประเภทจะถูกตรวจจับอัตโนมัติจาก ID <span className="text-gray-400">(_wpn_, _amr_, _acc_)</span>
               </p>
             </div>
+            <AdminReplaceBar
+              newText={replaceNew} oldText={replaceOld} message={replaceMsg} onApply={applyReplace}
+              onNewText={v => { setReplaceNew(v); setReplaceMsg('') }}
+              onOldText={v => { setReplaceOld(v); setReplaceMsg('') }}
+            />
             <textarea
               value={textInput}
               onChange={e => setTextInput(e.target.value)}

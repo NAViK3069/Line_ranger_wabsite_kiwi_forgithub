@@ -9,6 +9,7 @@
 // ====================================================
 
 import { WORKER_URL, apiFetch, lericoProxy } from './staticApi'
+import { cleanUnitName } from './unitName'
 
 const TOKEN_KEY = 'lr:admin_token'
 
@@ -345,7 +346,7 @@ async function top40Fresh(): Promise<Response> {
   const names = new Map<string, string>()
   if (namesRes.ok) {
     const raw = await namesRes.json() as Record<string, unknown>
-    for (const [k, v] of Object.entries((raw['en:UNIT'] ?? raw) as Record<string, string>)) if (typeof v === 'string') names.set(k, v.trim())
+    for (const [k, v] of Object.entries((raw['en:UNIT'] ?? raw) as Record<string, string>)) if (typeof v === 'string') names.set(k, cleanUnitName(v))
   }
   const info = new Map(rank.playerInfo.map(p => [p.mid, p]))
   const agg = new Map<string, { players: Set<string>; total: number; minRank: number }>()
@@ -369,7 +370,46 @@ async function top40Fresh(): Promise<Response> {
 
 // ── router ───────────────────────────────────────────
 
-export async function adminFetch(input: string, init: RequestInit = {}): Promise<Response> {
+// คำสั่งเขียน (POST/PUT/PATCH/DELETE) วิ่งทีละคำสั่งเสมอ
+// ทุกคำสั่ง = อ่านไฟล์ล่าสุดจาก GitHub → แก้ → commit ถ้ายิงพร้อมกันสองคำสั่ง (เช่นกดปิดตู้ A แล้วตู้ B ทันที)
+// ทั้งคู่จะอ่านไฟล์ชุดเดียวกัน แล้ว GitHub ปฏิเสธ commit ที่สอง (422 not a fast forward) — การเข้าคิวทำให้คำสั่งหลัง
+// อ่านไฟล์ที่มีผลของคำสั่งก่อนแล้วเสมอ ไม่มีอะไรหาย
+// คำสั่งอ่าน (GET) รอให้คิวเขียนที่ค้างอยู่เสร็จก่อนด้วย (ไม่เข้าคิว — อ่านพร้อมกันได้) จะได้ไม่เห็นข้อมูลก่อนบันทึก
+let writeQueue: Promise<unknown> = Promise.resolve()
+
+export function adminFetch(input: string, init: RequestInit = {}): Promise<Response> {
+  const method = (init.method ?? 'GET').toUpperCase()
+  const run = writeQueue.then(() => route(input, init))
+  if (method !== 'GET') writeQueue = run.catch(() => {})
+  return run
+}
+
+/**
+ * รูปที่แอดมินเพิ่งอัป (public/content-images/…) ยังไม่มีบนเว็บจนกว่า Deploy จะเสร็จ (~2–5 นาที)
+ * ใส่เป็น onError ของ <img> ในหน้าแอดมิน → โหลดไม่ได้ก็ไปดึงไฟล์เดียวกันจาก GitHub ตรงๆ แทน (repo เป็น public)
+ * ลองแค่ครั้งเดียว — ถ้า GitHub ก็ไม่มี (รูปถูกลบ/พาธผิด) จะไม่วนโหลดซ้ำ
+ */
+const RAW_BASE = 'https://raw.githubusercontent.com/NAViK3069/Line_ranger_wabsite_kiwi_forgithub/main/public'
+export function pendingImageFallback(e: { currentTarget: HTMLImageElement }) {
+  const img = e.currentTarget
+  const path = new URL(img.src, location.href).pathname
+  if (img.dataset.rawTried || !path.startsWith('/content-images/')) return
+  img.dataset.rawTried = '1'
+  img.src = RAW_BASE + path
+}
+
+/**
+ * อ่านผลของ adminFetch — ไม่สำเร็จ (status ไม่ใช่ 2xx) = throw Error พร้อมข้อความจากระบบ
+ * (adminFetch ไม่ throw เอง มันคืน Response ที่มี { error } — หน้าแอดมินต้องเช็คด้วยตัวนี้ทุกครั้งที่บันทึก)
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function readOk<T = any>(res: Response, fallback = 'บันทึกไม่สำเร็จ'): Promise<T> {
+  const data = await res.json().catch(() => ({})) as T & { error?: string }
+  if (!res.ok) throw new Error(data?.error ?? `${fallback} (${res.status})`)
+  return data
+}
+
+async function route(input: string, init: RequestInit): Promise<Response> {
   const url = new URL(input, 'http://static.local')
   const method = (init.method ?? 'GET').toUpperCase()
   let body: Record<string, unknown> = {}

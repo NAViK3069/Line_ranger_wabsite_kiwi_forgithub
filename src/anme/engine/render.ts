@@ -7,7 +7,7 @@ import type { SamFrame } from '@/anme/lib/animation/samParser'
 import { assets, type RangerRuntime } from './assets'
 import {
   BANNER_TIME, HIT_FLASH, actorPos, activePose, arcHeight, arcPos, buildTimeline, cameraAt, fxFinishPoint, fxImpactPoint,
-  fxLaunchPoint, poseFrames, visibility, type Timeline,
+  facing, fxLaunchPoint, gamePathPos, gameRotation, poseFrames, visibility, type Timeline,
 } from './timeline'
 import { ART_FACES_LEFT, clamp } from './scene'
 import type { Actor, InfoCue, Scene, SkillCard, Vec } from './types'
@@ -234,7 +234,11 @@ function drawSkillFx(ctx: CanvasRenderingContext2D, scene: Scene, tl: Timeline, 
     // จุดยึดภาพ (ดู SkillFx.anchor): center = กึ่งกลางภาพเฟรมแรกของช่วงนั้น · stand = จุดยืนของผู้ร่ายในไฟล์ · อื่นๆ = 0,0
     const casterRt = assets.get(caster.assetId)
     const standRef = casterRt?.kind === 'ranger' ? casterRt.stand : null
+    // เกม: SuperAnimNode anchor (0.5, 0.5) = กึ่งกลางกรอบเวทีของไฟล์กระสุน (ทั้งช่วงบินและระเบิด — โหนดเดียวกัน)
+    const bc = b.sam.canvas
+    const gameRef: Vec = { x: bc.x + bc.w / 2, y: bc.y + bc.h / 2 }
     const refFor = (flight: boolean): Vec => {
+      if (fx.game) return gameRef
       if (fx.anchor === 'center') return (flight ? b.flightRef ?? b.burstRef : b.burstRef ?? b.flightRef) ?? { x: 0, y: 0 }
       if (fx.anchor === 'stand') return standRef ?? { x: 0, y: 0 }
       return { x: 0, y: 0 }
@@ -246,7 +250,15 @@ function drawSkillFx(ctx: CanvasRenderingContext2D, scene: Scene, tl: Timeline, 
       if (t < s.impactAt) {
         clip = fx.flight
         local = (t - s.launchAt) * fps
-        if (fx.mode === 'projectile') {
+        if (fx.game) {
+          // เกม: CCBezierBy / CCMoveBy + CCRotateTo เชิงเส้นตามเวลา · คลิป normal วนตลอดทาง
+          const from = fxLaunchPoint(scene, c, caster, s.launchAt)
+          const to = fxImpactPoint(scene, c, s.launchAt)
+          const k = clamp((t - s.launchAt) / s.flightDur, 0, 1)
+          pos = gamePathPos(fx.game, from, to, k, facing(caster))
+          rot = gameRotation(fx.game, k)
+          loop = true
+        } else if (fx.mode === 'projectile') {
           const from = fxLaunchPoint(scene, c, caster, s.launchAt)
           const to = fxImpactPoint(scene, c, t)
           const h = arcHeight(c, b, from, to)
@@ -267,7 +279,8 @@ function drawSkillFx(ctx: CanvasRenderingContext2D, scene: Scene, tl: Timeline, 
         clip = fx.finish
         local = (t - s.impactAt) * fps
         pos = fxFinishPoint(scene, c, s.impactAt)
-        if (fx.rotate && fx.rotateFinish && fx.mode === 'projectile') {
+        if (fx.game) rot = gameRotation(fx.game, 1)
+        else if (fx.rotate && fx.rotateFinish && fx.mode === 'projectile') {
           const from = fxLaunchPoint(scene, c, caster, s.launchAt)
           const to = fxImpactPoint(scene, c, s.impactAt)
           const h = arcHeight(c, b, from, to)

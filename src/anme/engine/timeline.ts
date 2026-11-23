@@ -9,7 +9,7 @@
 import type { SamFrame } from '@/anme/lib/animation/samParser'
 import { assets, readyLength, type BulletRuntime, type RangerRuntime, type SamSet } from './assets'
 import { ART_FACES_LEFT, EASES, clamp, lerp } from './scene'
-import type { Actor, CameraCue, Cue, Ease, MoveCue, Scene, ShowCue, SkillCue, SkillFx, Vec } from './types'
+import type { Actor, CameraCue, Cue, Ease, GameProjectile, MoveCue, Scene, ShowCue, SkillCue, SkillFx, Vec } from './types'
 import { CAMERA_ID } from './types'
 
 export const HIT_FLASH = 0.18
@@ -17,8 +17,12 @@ export const BANNER_TIME = 1.4
 /** โค้งอัตโนมัติ (ตรงกับ TurnBased): min(ARC_MAX_HEIGHT, ระยะ² / ARC_FLATTEN) */
 export const ARC_MAX_HEIGHT = 255
 export const ARC_FLATTEN = 3800
-/** moveSpeed ของข้อมูลเกม (ระยะต่อติ๊ก) → พิกเซล/วินาที (PT_TO_WORLD 2.1 × tune 0.95 × 30 ติ๊ก/วิ) */
-export const GAME_SPEED_TO_PXS = 2.1 * 0.95 * 30
+/**
+ * moveSpeed ของข้อมูลเกม → พิกเซล/วินาที — ค่าจริงจากโค้ดเกม (libgame.so):
+ *   เวลาบิน = ระยะ(pt) ÷ (moveSpeed × 60.0) · 1 pt = 2 พิกเซลของไฟล์ .sam (contentScaleFactor)
+ *   (เดิมจูนด้วยตา 2.1 × 0.95 × 30 ≈ 59.9 — ช้ากว่าเกมจริงเกือบครึ่ง)
+ */
+export const GAME_SPEED_TO_PXS = 2 * 60
 
 export function rangerOfActor(_scene: Scene, a: Actor | undefined): RangerRuntime | null {
   if (!a) return null
@@ -189,7 +193,13 @@ export function skillTiming(scene: Scene, cue: SkillCue): SkillTiming {
     for (let i = 0; i < n; i++) {
       const la = launchAt + i * fx.interval
       let flightDur: number
-      if (fx.mode === 'projectile' && caster) {
+      if (fx.game && caster && fx.game.moveSpeed > 0) {
+        // เกม: เวลาบิน = ระยะ(pt) ÷ (moveSpeed × 60) · 1 pt = 2 พิกเซล SAM (× scale ของผู้ยิง)
+        const from = fxLaunchPoint(scene, cue, caster, la)
+        const to = fxImpactPoint(scene, cue, la)
+        const pt = Math.hypot(to.x - from.x, to.y - from.y) / (GAME_PX_PER_PT * caster.scale)
+        flightDur = Math.max(1 / 60, pt / (fx.game.moveSpeed * GAME_FPS))
+      } else if (fx.mode === 'projectile' && caster) {
         const from = fxLaunchPoint(scene, cue, caster, la)
         const to = fxImpactPoint(scene, cue, la)
         flightDur = Math.max(1 / 30, Math.hypot(to.x - from.x, to.y - from.y) / Math.max(50, fx.speed))
@@ -208,8 +218,60 @@ export function fxLaunchPoint(scene: Scene, cue: SkillCue, caster: Actor, t: num
   const p = actorPos(scene, caster, t)
   const fx = cue.fx!
   const dir = caster.flip ? -1 : 1
+  if (fx.game) {
+    // เกม: CCNode::getPosition (= shadowCenter ของกรอบไฟล์) + (start.x × ทิศ, start.y ขึ้น) × scale
+    const g = gameAnchorOffset(rangerOfActor(scene, caster))
+    return { x: p.x + (g.x + fx.game.start.x) * caster.scale * dir, y: p.y + (g.y - fx.game.start.y) * caster.scale }
+  }
   return { x: p.x + fx.launch.x * caster.scale * dir, y: p.y + fx.launch.y * caster.scale }
 }
+
+// ── วิถีกระสุนแบบในเกม (ถอดจาก libgame.so — ดู SkillFx.game) ──
+/** contentScaleFactor ของเกม: 1 pt = 2 พิกเซลของไฟล์ .sam */
+export const GAME_PX_PER_PT = 2
+/** moveSpeed เป็น pt ต่อเฟรมที่ 60 เฟรม/วินาที (ค่าคงที่ 60.0 ในเกม) */
+export const GAME_FPS = 60
+/** จุดคุมโค้ง CCBezierBy: กึ่งกลาง + 0.4 × ระยะ (ไปข้างหน้า และขึ้น) */
+export const GAME_CURVE_K = 0.4
+
+/**
+ * จุด getPosition ของยูนิตในเกม (anchor = shadowCenter × กรอบเวทีของไฟล์) เทียบกับจุดยืนที่ตัวเล่นใช้วาด (rt.stand)
+ * ปกติห่างกันไม่กี่พิกเซล — บวกเข้าไปเพื่อให้จุดปล่อย/จุดเป้าตรงกับเกมเทียบกับภาพตัวละครจริง
+ */
+export function gameAnchorOffset(rt: RangerRuntime | null): Vec {
+  const sc = rt?.gamedata?.sc
+  const c = rt?.sam.canvas
+  if (!rt || !sc || !c || !c.w || !c.h) return { x: 0, y: 0 }
+  return { x: c.x + sc.x * c.w - rt.stand.x, y: c.y + (1 - sc.y) * c.h - rt.stand.y }
+}
+
+/** เป้าของกระสุนแบบเกม: getPosition ของเป้า (+ ยกตาม hitRate) */
+function gameTargetPoint(scene: Scene, target: Actor, g: GameProjectile, t: number): Vec {
+  const p = actorPos(scene, target, t)
+  const rt = rangerOfActor(scene, target)
+  const off = gameAnchorOffset(rt)
+  const dir = target.flip ? -1 : 1
+  const h = rt?.sam.canvas.h ?? 0
+  // hitRate ≤ 10 = สัดส่วนความสูงกรอบ · > 10 = ค่าตั้งต้น (LINEAR ยก 0.25 × สูง · CURVE ไม่ยก)
+  const lift = g.hitRate <= 10 ? g.hitRate * h : g.motion === 'LINEAR' ? 0.25 * h : 0
+  return { x: p.x + off.x * target.scale * dir, y: p.y + (off.y - lift) * target.scale }
+}
+
+/** ตำแหน่งกระสุนแบบเกม ณ สัดส่วนเวลา k (0–1) — CCBezierBy (เชิงเส้นตามเวลา) หรือ CCMoveBy */
+export function gamePathPos(g: GameProjectile, from: Vec, to: Vec, k: number, forward: number): Vec {
+  if (g.motion !== 'CURVE') return { x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k }
+  const dx = to.x - from.x, dy = to.y - from.y
+  const d = Math.hypot(dx, dy)
+  // พิกัดสัมพัทธ์จากจุดปล่อย: P0 = P1 = 0 · P2 = กึ่งกลาง + (0.4d ไปข้างหน้า, 0.4d ขึ้น) · P3 = (dx, dy)
+  const c2x = dx / 2 + forward * GAME_CURVE_K * d, c2y = dy / 2 - GAME_CURVE_K * d
+  const u = 1 - k
+  // cocos bezierat(a, b, c, d, t) = u³a + 3tu²b + 3t²u c + t³d (a = b = 0)
+  const b2 = 3 * k * k * u, b3 = k * k * k
+  return { x: from.x + b2 * c2x + b3 * dx, y: from.y + b2 * c2y + b3 * dy }
+}
+
+/** มุมหมุนกระสุนแบบเกม (เรเดียน, บวก = ตามเข็ม) — setRotation(start) แล้ว CCRotateTo(เวลาบิน, end) */
+export const gameRotation = (g: GameProjectile, k: number) => ((g.angle.start + (g.angle.end - g.angle.start) * k) * Math.PI) / 180
 
 export function fxImpactPoint(scene: Scene, cue: SkillCue, t: number): Vec {
   const fx = cue.fx!
@@ -223,6 +285,7 @@ export function fxImpactPoint(scene: Scene, cue: SkillCue, t: number): Vec {
     const p = actorPos(scene, caster, t)
     return { x: p.x + facing(caster) * 450 * caster.scale, y: p.y - 60 * caster.scale }
   }
+  if (fx.game) return gameTargetPoint(scene, target, fx.game, t)
   const h = aimPoint(scene, target, fx.aim, t)
   return { x: h.x + fx.impact.x, y: h.y + fx.impact.y }
 }

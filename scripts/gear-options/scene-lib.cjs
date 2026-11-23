@@ -9,6 +9,8 @@
 //   cfg.attacker / victim   actor ที่ตี / โดนตี (คิวตีทั้ง 4 รอบ)
 //   cfg.dies                [ตายตอนสกิลรอบ 2, ตายตอนสกิลรอบ 4] — ดาเมจสกิล ≥ HP ของฝั่งที่โดน (โจมตีปกติไม่ถึงตาย)
 //   cfg.respawn             เวลาที่ฝั่งโดนตีกลับมา หลังตายรอบ 2 (fade in cfg.respawnFade วิ)
+//   cfg.normal / cfg.skill  คิวโจมตีปกติ / สกิลของผู้ตี (ไม่ใส่ = ใช้คิวที่จูนไว้ในฉากต้นฉบับ) — สร้างจาก gameAttack()
+//   cfg.skillHitOffset      คิวสกิลเริ่ม → กระสุนโดน (วินาที) ของผู้ตีตัวนั้น · ไม่ใส่ = HIT_OFFSET ของฉากต้นฉบับ
 // ====================================================
 const ALLY = 'ak1zzx9ceu', ENEMY = 'a9ijjdi134'
 
@@ -29,10 +31,56 @@ const BGM_VOLUME = 0.5
 
 const clone = o => JSON.parse(JSON.stringify(o))
 
+// ── ท่าโจมตีจากข้อมูลเกม (public/data/ranger/projectile/<id>.json) → คิวสกิลของ Video Studio ──
+//   กระสุนใช้ fx.game = วิถีแบบในเกมเป๊ะ (ถอดจาก libgame.so — ดู SkillFx.game ใน src/anme/engine/types.ts)
+//   kind: 'normal' | 'skill1' | 'skill2' · คืน { cue (ส่วนที่ทับคิวต้นฉบับ), assets (เสียง) }
+const CLIP = { normal: 'attack', skill1: 's_attack', skill2: 's2_attack' }
+const HIT_RATE = { normal: 'normalHitPointRate', skill1: 'skill1HitPointRate', skill2: 'skill2HitPointRate' }
+function gameAttack(rangerId, kind) {
+  const d = require(`../../public/data/ranger/projectile/${rangerId}.json`)
+  const u = d.unit, k = u[kind]
+  if (!k) throw new Error(`${rangerId} has no ${kind}`)
+  const m = k.motion ?? {}
+  if (!m.enabled || !(k.moveSpeed > 0)) throw new Error(`${rangerId} ${kind}: not a flying projectile`)
+  const sound = (url, tag) => {
+    if (!url) return null
+    const file = url.split('/').pop()
+    return { id: `snd_${kind}_${tag}`, type: 'audio', name: file.replace(/_\d+\.ogg$/, ''), url: `/api/res/_raw/sounds/${file}` }
+  }
+  const snd = d.soundUrls?.[kind] ?? {}
+  const prep = sound(snd.preparation, 'prep'), hit = sound(snd.underAttack, 'hit')
+  const clip = CLIP[kind]
+  return {
+    assets: [prep, hit].filter(Boolean),
+    cue: {
+      cast: [`${clip}_ready`],
+      release: clip,
+      fx: {
+        set: k.animationPart, mode: 'projectile', flight: 'normal', finish: 'finish',
+        game: {
+          motion: m.type === 'CURVE' ? 'CURVE' : 'LINEAR',
+          start: { x: k.start.x, y: k.start.y },
+          angle: { start: k.angle?.start ?? 0, end: k.angle?.end ?? 0 },
+          moveSpeed: k.moveSpeed,
+          hitRate: u.hitTiming?.[HIT_RATE[kind]] ?? 100,
+        },
+      },
+      gameSounds: [
+        prep && { assetId: prep.id, at: 'cast', volume: 1, enabled: true },
+        hit && { assetId: hit.id, at: 'impact', volume: 1, enabled: true },
+      ].filter(Boolean),
+    },
+  }
+}
+const mergeCue = (base, over) => (over ? { ...clone(base), ...clone(over), fx: { ...clone(base.fx), ...clone(over.fx ?? {}) } } : base)
+
 function buildScene(src, cfg) {
-  const atk = src.cues.find(c => c.label === 'โจมตีปกติ')
-  const sk1 = src.cues.find(c => c.label === 'สกิล 1')
-  if (!atk || !sk1) throw new Error('cues not found')
+  const baseAtk = src.cues.find(c => c.label === 'โจมตีปกติ')
+  const baseSk1 = src.cues.find(c => c.label === 'สกิล 1')
+  if (!baseAtk || !baseSk1) throw new Error('cues not found')
+  const atk = mergeCue(baseAtk, cfg.normal?.cue)
+  const sk1 = mergeCue(baseSk1, cfg.skill?.cue)
+  const hitOffset = cfg.skillHitOffset ?? HIT_OFFSET
   if (!src.actors.find(a => a.id === ALLY) || !src.actors.find(a => a.id === ENEMY)) throw new Error('actors missing')
   const { attacker, victim } = cfg
 
@@ -68,7 +116,7 @@ function buildScene(src, cfg) {
       cue(atk, 'atk_after', T.atkAfter, 'Normal (gear)'),
       cam('cam_skill1', T.skillAfter - 0.6, ...SKILL_CAM, 0.8),
       cue(sk1, 'skill_after', T.skillAfter, 'Skill 1 (gear)'),
-      cam('cam_wide3', T.skillAfter + HIT_OFFSET + 2.9, ...WIDE, 0.6),
+      cam('cam_wide3', T.skillAfter + hitOffset + 2.9, ...WIDE, 0.6),
       // slow push-in under the summary — also makes the scene run to the end (the player ends after the last cue)
       cam('cam_outro', T.summary, 640, 400, 1.08, T.end - T.summary, 'linear'),
     ],
@@ -112,7 +160,7 @@ function buildScene(src, cfg) {
   )
 
   // ── ตาย: knockback ค้างท่าสุดท้าย → จางหาย (ชั้นซ้อนแสดงวิญญาณ) · ตายรอบ 2 แล้วกลับมาตอน cfg.respawn ──
-  const hits = [T.skillBefore + HIT_OFFSET, T.skillAfter + HIT_OFFSET]
+  const hits = [T.skillBefore + hitOffset, T.skillAfter + hitOffset]
   const fadeOut = DEATH.fadeTo - DEATH.fadeFrom
   let segStart = 0, segFade = 0, open = false
   hits.forEach((hit, i) => {
@@ -127,6 +175,9 @@ function buildScene(src, cfg) {
   // ── เสียง (ไฟล์เสียงของเกมบน lerico) ──
   //   เพลงพื้นหลัง bgm_lobby2 (61 วิ ยาวกว่าคลิป) · เสียงใส่เกียร์ตอนเกียร์ลงช่อง · เสียงตายตอนวิญญาณออกจากร่าง
   const sound = (id, name, file) => ({ id, type: 'audio', name, url: `/api/res/_raw/sounds/${file}` })
+  for (const a of [...(cfg.normal?.assets ?? []), ...(cfg.skill?.assets ?? [])]) {
+    if (!scene.assets.some(x => x.id === a.id)) scene.assets.push(a)
+  }
   scene.assets.push(
     sound('snd_bgm', 'bgm_lobby2', 'bgm_lobby2_20151123104811121.ogg'),
     sound('snd_equip', 'gear_equip', 'gear_equip_20151123104728600.ogg'),
@@ -152,4 +203,4 @@ function run(cfg) {
   console.log('wrote', outPath, scene.cues.length, 'cues')
 }
 
-module.exports = { ALLY, ENEMY, T, DEATH, buildScene, run }
+module.exports = { ALLY, ENEMY, T, DEATH, buildScene, run, gameAttack }

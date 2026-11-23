@@ -248,12 +248,17 @@ const GLOW_FPS = 16
  *   กรอบช่อง = gear_main_slot_bg · ป้ายทองแดงทับขอบบน = gear_main_slot_plate_bg + ไอคอนชนิดช่อง (ไม่มีข้อความ)
  *   ช่องว่าง = ไอคอนมืดแบบสลัก · ช่องที่ใส่ของแล้ว = ไอคอน _on เรืองแสง
  */
-export function GearSlots({ t, equip }: { t: number; equip?: { at: number; icon: string; kind?: GearKind } }) {
+export function GearSlots({ t, equip, filled }: {
+  t: number; equip?: { at: number; icon: string; kind?: GearKind }
+  /** ช่องที่ใส่ของอยู่แล้วตั้งแต่ต้น (ไม่มีแสงวาบ) เช่น เกียร์ของศัตรู */
+  filled?: Partial<Record<GearKind, string>>
+}) {
   return (
     <div className="relative mx-auto" style={{ width: SLOT_W * 3, height: 140 }}>
       {SLOT_KINDS.map((key, i) => {
         const cx = SLOT_W * i + SLOT_W / 2
         const eq = equip && i === GEAR_KIND[equip.kind ?? 'weapon'].slot && t >= equip.at ? equip : null
+        const pre = filled?.[(Object.keys(GEAR_KIND) as GearKind[]).find(k => GEAR_KIND[k].slot === i)!]
         // แสงช่องเล่นครั้งเดียว (ไม่วน) แล้วจางลงเหลือกรอบช่องปกติ
         const gi = eq ? Math.floor((t - eq.at) * GLOW_FPS) : -1
         const glowFrame = eq && gi < SLOT_GLOW.length ? SLOT_GLOW[gi] : null
@@ -270,6 +275,11 @@ export function GearSlots({ t, equip }: { t: number; equip?: { at: number; icon:
                 opacity: burst, background: 'radial-gradient(circle, rgba(255,247,200,0.95), rgba(251,191,36,0.5) 45%, rgba(251,191,36,0) 70%)',
               }} />
             )}
+            {pre && !eq && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={pre} alt="" crossOrigin="anonymous" className="absolute w-[76px] h-[76px] object-contain"
+                style={{ left: cx - 38, top: SLOT_Y + 6 - 38, filter: 'drop-shadow(0 0 8px rgba(253,224,71,0.55))' }} />
+            )}
             {eq && (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img src={eq.icon} alt="" crossOrigin="anonymous" className="absolute w-[76px] h-[76px] object-contain"
@@ -278,7 +288,7 @@ export function GearSlots({ t, equip }: { t: number; equip?: { at: number; icon:
             {/* ป้ายทองแดงทับขอบบนของกรอบ + ไอคอนชนิดช่อง */}
             <AtlasSprite atlas="gear_main/gear_common" name="gear_main_slot_plate_bg.png" x={cx} y={SLOT_Y - 52} scale={1.05} />
             <AtlasSprite atlas="gear_main/gear_common" name={`gear_main_slot_icon_${key}_on.png`} x={cx} y={SLOT_Y - 53} scale={0.42}
-              style={eq ? { filter: 'drop-shadow(0 0 6px rgba(253,224,71,0.9))' } : { filter: 'brightness(0.18) contrast(1.4)', opacity: 0.85 }} />
+              style={eq || pre ? { filter: 'drop-shadow(0 0 6px rgba(253,224,71,0.9))' } : { filter: 'brightness(0.18) contrast(1.4)', opacity: 0.85 }} />
           </div>
         )
       })}

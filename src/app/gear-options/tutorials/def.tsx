@@ -2,7 +2,9 @@
 
 // ====================================================
 // วิดีโอสอน: พลังป้องกัน (DEF) — ใช้เครื่องประดับ "[MIKU] Snowman" (eq_acc_36miku) +5 (DEF กายภาพ +438% · DEF เวท +438%)
-//   ฝั่งเดียวกับวิดีโอ HP: เรา = Executor Anubis Brown (ซ้าย, ใส่เกียร์) · ศัตรู = Rock Legend Brown (ขวา, ไม่ใส่เกียร์) เป็นฝ่ายตีเรา
+//   เรา = Executor Anubis Brown (ซ้าย, ใส่เกียร์ DEF) · ศัตรู = Brown ผู้มีวิชาอาคม (ไกรทอง ร่างไฮเปอร์ u1316h ธาตุแสง, ขวา)
+//   ศัตรูใส่เกียร์ ATK เต็มที่ 3 ชิ้น (ค่า Basic +5) ให้ดาเมจตีปกติเห็นชัด · ตีกายภาพล้วน → ใช้แค่ DEF กายภาพของเรา
+//   กระสุนหอก / เทียนเวทมนตร์ บินตามวิถีในเกมเป๊ะ (fx.game ในฉาก — ถอดจาก libgame.so)
 //   บทเรียน: DEF ลดดาเมจ "โจมตีปกติ" ได้มาก แต่ "สกิล" ไม่โดนลดด้วย DEF → โดนสกิลแล้วตายเท่าเดิม
 //   ฉาก: public/gear-options/scenes/def.anme.json ← scripts/gear-options/build-def-scene.cjs
 //   โครงเรื่อง / เวลา / ชิ้นส่วนหน้าตา: ./kit.tsx
@@ -15,34 +17,49 @@
 
 import ScenePlayer, { type OverlayCtx } from '@/components/ScenePlayer'
 import { useLanguage } from '@/contexts/LanguageContext'
-import type { GearEffect } from '@/lib/pvpScraper'
+import type { GearEffect, GearEffects } from '@/lib/pvpScraper'
 import { clamp01, easeOut, easeOutBack, fmtInt, popStyle, prog, span } from './anim'
 import {
   BANNER_COLOR, Banner, EquipCard, GearCard, GearSlots, HpBar, Heals, ICON, LoadBox, NormalFormulaCard, Opening,
-  RangerCard, SkillFormulaCard, Souls, StatRow, SummaryShell, TL, defParts, firstSkill, gearIconUrl, gearStat, loadGear,
-  loadStats, makeRounds, normalHit, pct, skillMultiplier, totalAtk, useTutorialData, type Round,
+  RangerCard, SkillFormulaCard, Souls, StatRow, SummaryShell, TL, defParts, gearIconUrl, gearStat, loadGear,
+  loadStats, makeRounds, normalHit, pct, skillMultiplier, useTutorialData, type GearKind, type RangerStats, type Round,
 } from './kit'
+import { aggregateGearBonuses } from '@/lib/gearEffectParser'
 
 const SCENE = '/gear-options/scenes/def.anme.json'
 const ALLY = { actor: 'ak1zzx9ceu', ranger: 'u1242e-brown' }    // เรา — ใส่เกียร์ (ตรงกับ build-def-scene.cjs)
-const ENEMY = { actor: 'a9ijjdi134', ranger: 'u1260e-brown' }   // ศัตรู — ไม่ใส่เกียร์ เป็นฝ่ายตี
+const ENEMY = { actor: 'a9ijjdi134', ranger: 'u1316h-brown' }   // ศัตรู — ไกรทอง (ตรงกับ build-def-scene.cjs)
 const GEAR = 'eq_acc_36miku'
 const GEAR_GRADE = 6
+/** เกียร์ ATK ของศัตรู — ค่า Basic ATK สูงสุดของแต่ละช่องในคลังเกียร์ (+5) */
+const ENEMY_GEARS: { code: string; kind: GearKind; en: string }[] = [
+  { code: 'eq_wpn_est_0272', kind: 'weapon', en: 'Twinkle Twinkle Fairy Wand' },   // Overall ATK +488.4%
+  { code: 'eq_2502_amr_06', kind: 'armor', en: "[DM]Senshi's Pot" },               // Physical ATK +420%
+  { code: 'eq_ss_acc_26', kind: 'acc', en: '【SS】Cygnus Head Gear' },               // Physical ATK +444%
+]
+/** สกิลโจมตีของศัตรู = สกิลแรกที่มี "ATK x …%" (ไกรทอง: เทียนเวทมนตร์ hsk1316 — สกิล 1 เป็นบัฟ) */
+const attackSkill = (r: RangerStats) => r.skills.find(k => /ATK x [\d.]+%/.test(k.description ?? '')) ?? r.skills[0]
 
 async function loadData() {
-  const [ally, enemy, { gear, bonus: b }] = await Promise.all([loadStats(ALLY.ranger), loadStats(ENEMY.ranger), loadGear(GEAR)])
+  const [ally, enemy, { gear, bonus: b }, ...eg] = await Promise.all([
+    loadStats(ALLY.ranger), loadStats(ENEMY.ranger), loadGear(GEAR), ...ENEMY_GEARS.map(g => loadGear(g.code)),
+  ])
   const a = ally.baseStats, e = enemy.baseStats
+  // ศัตรูใส่เกียร์ 3 ชิ้น: % ของทุกชิ้นบวกกันก่อนแล้วค่อยคูณฐาน (แบบในเกม)
+  const eb = aggregateGearBonuses(eg.map(x => x.gear) as GearEffects[], eg.map(() => null))
+  const enemyPhy = gearStat(e.phyAtk, eb.phyAtk), enemyMag = gearStat(e.magAtk, eb.magAtk)
   const defBefore = { phyDef: a.phyDef, magDef: a.magDef }
   const defAfter = { phyDef: gearStat(a.phyDef, b.phyDef), magDef: gearStat(a.magDef, b.magDef) }
-  const hitBefore = normalHit(e.phyAtk, e.magAtk, defBefore)
-  const hitAfter = normalHit(e.phyAtk, e.magAtk, defAfter)
+  const hitBefore = normalHit(enemyPhy, enemyMag, defBefore)
+  const hitAfter = normalHit(enemyPhy, enemyMag, defAfter)
   const ourRes = ally.rates.skillResistance ?? 0
-  const skill = firstSkill(enemy)
+  const skill = attackSkill(enemy)
   const skillMul = skillMultiplier(skill)
-  const enemyAtk = totalAtk(enemy)
+  const enemyAtk = enemyPhy + enemyMag
   return {
     ally, enemy, gear, defBefore, defAfter, defPct: b.phyDef?.pct ?? b.magDef?.pct ?? 0,
-    hitBefore, hitAfter, enemyAtk, ourRes, skill, skillMul,
+    enemyBase: e.phyAtk + e.magAtk, enemyAtk, enemyGearPct: ENEMY_GEARS.map((_, i) => eg[i].bonus.phyAtk?.pct ?? 0),
+    hitBefore, hitAfter, ourRes, skill, skillMul,
     dmgSkill: Math.round(enemyAtk * skillMul * (1 - ourRes)),
   }
 }
@@ -56,7 +73,8 @@ export default function DefTutorial({ autoPlay }: { autoPlay: boolean }) {
   const gearIcon = gearIconUrl(GEAR)
   const gearName = tGear(GEAR, '[MIKU] Snowman')
   const allyName = tRanger(ALLY.ranger, 'Executor Anubis Brown')
-  const enemyName = tRanger(ENEMY.ranger, 'Rock Legend Brown')
+  const enemyName = tRanger(ENEMY.ranger, 'Wizard Brown')
+  const enemyGearIcons = Object.fromEntries(ENEMY_GEARS.map(g => [g.kind, gearIconUrl(g.code)])) as Partial<Record<GearKind, string>>
   const skillName = tSkill(d.skill.code, d.skill.name)
   const effName = (e: GearEffect) => (e.nameKey ? tr('equip', e.nameKey, e.name) : e.name)
   const hp = d.ally.baseStats.hp
@@ -97,7 +115,7 @@ export default function DefTutorial({ autoPlay }: { autoPlay: boolean }) {
     ]
     const keepTxt = (h: typeof d.hitBefore) => h.parts.map(p => pct(p.factor, 1)).join(' / ')
     const cmp = [
-      { label: T('DEF กายภาพ / เวท', 'Physical / Magical DEF'), a: defTxt(d.defBefore), b: defTxt(d.defAfter), small: true },
+      { label: T('DEF กายภาพ (ที่ใช้กันไกรทอง)', 'Physical DEF (vs this enemy)'), a: fmtInt(d.defBefore.phyDef), b: fmtInt(d.defAfter.phyDef) },
       { label: T('ดาเมจทะลุ DEF', 'Damage through DEF'), a: keepTxt(d.hitBefore), b: keepTxt(d.hitAfter), small: true },
       { label: T('โดนตีปกติ 1 ครั้ง เสีย HP', 'HP lost per normal hit'), a: pct(dmgN / hp, 2), b: pct(dmgN2 / hp, 2) },
       { label: T('ตีปกติกี่ครั้งถึงตาย', 'Normal hits to die'), a: fmtInt(hitsToDie(dmgN)), b: fmtInt(hitsToDie(dmgN2)) },
@@ -121,18 +139,18 @@ export default function DefTutorial({ autoPlay }: { autoPlay: boolean }) {
           </>}
           slots={<GearSlots t={t} />} />
 
-        {/* ศัตรู — ไม่ใส่เกียร์ · ATK แยก กายภาพ / เวท เพราะโดน DEF คนละตัว */}
+        {/* ศัตรู — ไกรทอง ใส่เกียร์ ATK 3 ชิ้น · ตีกายภาพล้วน */}
         <RangerCard r={d.enemy} name={enemyName} s={span(t, 12.5, 15.9)} x={40} y={24}
-          tag={T('ศัตรู · ไม่ใส่เกียร์', 'Enemy · no gear')} tagColor="bg-rose-500/25 text-rose-200"
+          tag={T('ศัตรู · ใส่เกียร์ ATK เต็มที่', 'Enemy · full ATK gear')} tagColor="bg-rose-500/25 text-rose-200"
           rows={<>
-            <StatRow t={t} icon={ICON.atk} label={T('พลังโจมตี', 'ATK')} hlAt={13.05} parts={[
-              { label: T('กายภาพ', 'PHY'), value: fmtInt(d.enemy.baseStats.phyAtk) },
-              { label: T('เวท', 'MAG'), value: fmtInt(d.enemy.baseStats.magAtk) },
-            ]} />
+            <StatRow t={t} icon={ICON.atk} label={T('พลังโจมตี', 'ATK')} value={fmtInt(d.enemyAtk)} hlAt={13.05}
+              note={T(`ฐาน ${fmtInt(d.enemyBase)} · เกียร์ ${d.enemyGearPct.map(p => '+' + pct(p, 1)).join(' ')}`,
+                `Base ${fmtInt(d.enemyBase)} · gear ${d.enemyGearPct.map(p => '+' + pct(p, 1)).join(' ')}`)} />
             <StatRow t={t} icon={ICON.hp} label={T('พลังชีวิต', 'HP')} value={fmtInt(d.enemy.baseStats.hp)} dim />
-            <StatRow t={t} icon={ICON.def} label={T('พลังป้องกัน', 'DEF')} parts={defParts(d.enemy, T)} dim />
+            <StatRow t={t} label={T('ชนิดโจมตี', 'Attack type')} value={T('กายภาพล้วน', 'Physical only')} dim
+              note={T('เราจึงใช้แค่ DEF กายภาพกันตัวนี้', 'So only our Physical DEF matters here')} />
           </>}
-          slots={<GearSlots t={t} />} />
+          slots={<GearSlots t={t} filled={enemyGearIcons} />} />
 
         <NormalFormulaCard t={t} T={T} heading={T('ศัตรูโจมตีปกติ: DEF ของเราช่วยลดดาเมจ', 'Enemy normal attack: our DEF reduces damage')}
           defOwner={T('ของเรา', '(ours)')} hit={d.hitBefore} />
@@ -149,7 +167,7 @@ export default function DefTutorial({ autoPlay }: { autoPlay: boolean }) {
           ]} />
 
         <SkillFormulaCard t={t} T={T} skill={d.skill} skillName={skillName} mul={d.skillMul}
-          atkLabel={T('ATK ของศัตรู', 'Enemy ATK')} atk={d.enemyAtk}
+          atkLabel={T('ATK ของศัตรู (ใส่เกียร์)', 'Enemy ATK (geared)')} atk={d.enemyAtk}
           resLabel={T('ต้านสกิลของเรา', 'Our Skill Resistance')} res={d.ourRes} dmg={dmgS} />
 
         <Banner t={t} start={29.3} end={34.6} title={T('รอบที่ 2 · ยังไม่ใส่เกียร์', 'Round 2 · No gear')}
@@ -166,7 +184,7 @@ export default function DefTutorial({ autoPlay }: { autoPlay: boolean }) {
         {badge(rounds[3], 47.6, 'bg-gradient-to-r from-rose-700 to-fuchsia-600 border-rose-200/60 shadow-[0_10px_30px_rgba(225,29,72,0.5)]',
           T('สกิลไม่โดน DEF', 'Skills ignore DEF'), `${T('ดาเมจเท่าเดิม', 'Same damage')} ${fmtInt(dmgS)}`)}
 
-        <SummaryShell t={t} T={T} top={-352} title={T('ดาเมจตีปกติที่เราโดน (ศัตรูตัวเดิม ไม่ใส่เกียร์)', 'Normal-hit damage we take (same enemy, no gear)')}>
+        <SummaryShell t={t} T={T} top={-352} title={T('ดาเมจตีปกติที่เราโดน (ไกรทองใส่เกียร์ ATK เต็มที่)', 'Normal-hit damage we take (fully ATK-geared enemy)')}>
           {dmgRows.map(r => (
             <div key={r.label} className="mt-2" style={{ opacity: easeOut(prog(t, r.at - 0.2, r.at + 0.2)) }}>
               <div className="flex justify-between text-[24px]">

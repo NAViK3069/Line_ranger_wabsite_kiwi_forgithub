@@ -1,6 +1,6 @@
 {
  "version": 1,
- "name": "DEF — [MIKU] Snowman",
+ "name": "DEF — [MIKU] Snowman vs Wizard Brown",
  "width": 1280,
  "height": 720,
  "duration": 55,
@@ -24,14 +24,6 @@
   "blur": 0
  },
  "assets": [
-  {
-   "id": "r7pxywqceu",
-   "type": "ranger",
-   "source": "lerico",
-   "rangerId": "u1260e-brown",
-   "form": "body",
-   "name": "Brown ตำนานร็อค"
-  },
   {
    "id": "s25gar6eew",
    "type": "audio",
@@ -83,6 +75,14 @@
    "name": "Brown อนูบิสเพชฌฆาต"
   },
   {
+   "id": "r_u1316h-brown",
+   "type": "ranger",
+   "source": "lerico",
+   "rangerId": "u1316h-brown",
+   "form": "body",
+   "name": "Brown ผู้มีวิชาอาคม"
+  },
+  {
    "id": "fx_light_b",
    "type": "ranger",
    "source": "upload",
@@ -95,6 +95,30 @@
      "png": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.png"
     }
    }
+  },
+  {
+   "id": "snd_normal_prep",
+   "type": "audio",
+   "name": "attrd_u1317ebrown",
+   "url": "/api/res/_raw/sounds/attrd_u1317ebrown_20230427180407280.ogg"
+  },
+  {
+   "id": "snd_normal_hit",
+   "type": "audio",
+   "name": "hit_weap_dir_sol_mt_sp",
+   "url": "/api/res/_raw/sounds/hit_weap_dir_sol_mt_sp_20140603152643232.ogg"
+  },
+  {
+   "id": "snd_skill2_prep",
+   "type": "audio",
+   "name": "sk2attrd_u1317ebrown",
+   "url": "/api/res/_raw/sounds/sk2attrd_u1317ebrown_20230427180412657.ogg"
+  },
+  {
+   "id": "snd_skill2_hit",
+   "type": "audio",
+   "name": "hit_weap_bomb_ex",
+   "url": "/api/res/_raw/sounds/hit_weap_bomb_ex_20140603152642341.ogg"
   },
   {
    "id": "snd_bgm",
@@ -138,8 +162,8 @@
   },
   {
    "id": "a9ijjdi134",
-   "name": "Brown ตำนานร็อค",
-   "assetId": "r7pxywqceu",
+   "name": "Brown ผู้มีวิชาอาคม",
+   "assetId": "r_u1316h-brown",
    "tag": "enemy",
    "x": 898,
    "y": 560,
@@ -286,7 +310,20 @@
     "repeat": 1,
     "interval": 0.12,
     "aim": "center",
-    "anchor": "center"
+    "anchor": "center",
+    "game": {
+     "motion": "CURVE",
+     "start": {
+      "x": 180,
+      "y": 385
+     },
+     "angle": {
+      "start": -75,
+      "end": 0
+     },
+     "moveSpeed": 45,
+     "hitRate": 100
+    }
    },
    "targetId": "ak1zzx9ceu",
    "hitReact": true,
@@ -296,13 +333,13 @@
    "sound": null,
    "gameSounds": [
     {
-     "assetId": "s5fbjb2lds",
+     "assetId": "snd_normal_prep",
      "at": "cast",
      "volume": 1,
      "enabled": true
     },
     {
-     "assetId": "szzsq2clds",
+     "assetId": "snd_normal_hit",
      "at": "impact",
      "volume": 1,
      "enabled": true
@@ -329,9 +366,9 @@
    "start": 29.8,
    "label": "Skill 1 (no gear)",
    "cast": [
-    "s_attack_ready"
+    "s2_attack_ready"
    ],
-   "release": "s_attack",
+   "release": "s2_attack",
    "speed": 1,
    "castSpeedCap": null,
    "approach": {
@@ -344,8 +381,8 @@
     "returnHome": true
    },
    "fx": {
-    "set": "bul2",
-    "mode": "target",
+    "set": "bul3",
+    "mode": "projectile",
     "flight": "normal",
     "finish": "finish",
     "launch": {
@@ -378,7 +415,20 @@
     "repeat": 1,
     "interval": 0.12,
     "aim": "ground",
-    "anchor": "stand"
+    "anchor": "stand",
+    "game": {
+     "motion": "CURVE",
+     "start": {
+      "x": 220,
+      "y": 180
+     },
+     "angle": {
+      "start": -75,
+      "end": 0
+     },
+     "moveSpeed": 45,
+     "hitRate": 100
+    }
    },
    "targetId": "ak1zzx9ceu",
    "hitReact": true,
@@ -388,13 +438,13 @@
    "sound": null,
    "gameSounds": [
     {
-     "assetId": "ssdmeq74ih",
+     "assetId": "snd_skill2_prep",
      "at": "cast",
      "volume": 1,
      "enabled": true
     },
     {
-     "assetId": "shr988jeew",
+     "assetId": "snd_skill2_hit",
      "at": "impact",
      "volume": 1,
      "enabled": true
@@ -483,7 +533,20 @@
     "repeat": 1,
     "interval": 0.12,
     "aim": "center",
-    "anchor": "center"
+    "anchor": "center",
+    "game": {
+     "motion": "CURVE",
+     "start": {
+      "x": 180,
+      "y": 385
+     },
+     "angle": {
+      "start": -75,
+      "end": 0
+     },
+     "moveSpeed": 45,
+     "hitRate": 100
+    }
    },
    "targetId": "ak1zzx9ceu",
    "hitReact": true,
@@ -493,13 +556,13 @@
    "sound": null,
    "gameSounds": [
     {
-     "assetId": "s5fbjb2lds",
+     "assetId": "snd_normal_prep",
      "at": "cast",
      "volume": 1,
      "enabled": true
     },
     {
-     "assetId": "szzsq2clds",
+     "assetId": "snd_normal_hit",
      "at": "impact",
      "volume": 1,
      "enabled": true
@@ -526,9 +589,9 @@
    "start": 42.9,
    "label": "Skill 1 (gear)",
    "cast": [
-    "s_attack_ready"
+    "s2_attack_ready"
    ],
-   "release": "s_attack",
+   "release": "s2_attack",
    "speed": 1,
    "castSpeedCap": null,
    "approach": {
@@ -541,8 +604,8 @@
     "returnHome": true
    },
    "fx": {
-    "set": "bul2",
-    "mode": "target",
+    "set": "bul3",
+    "mode": "projectile",
     "flight": "normal",
     "finish": "finish",
     "launch": {
@@ -575,7 +638,20 @@
     "repeat": 1,
     "interval": 0.12,
     "aim": "ground",
-    "anchor": "stand"
+    "anchor": "stand",
+    "game": {
+     "motion": "CURVE",
+     "start": {
+      "x": 220,
+      "y": 180
+     },
+     "angle": {
+      "start": -75,
+      "end": 0
+     },
+     "moveSpeed": 45,
+     "hitRate": 100
+    }
    },
    "targetId": "ak1zzx9ceu",
    "hitReact": true,
@@ -585,13 +661,13 @@
    "sound": null,
    "gameSounds": [
     {
-     "assetId": "ssdmeq74ih",
+     "assetId": "snd_skill2_prep",
      "at": "cast",
      "volume": 1,
      "enabled": true
     },
     {
-     "assetId": "shr988jeew",
+     "assetId": "snd_skill2_hit",
      "at": "impact",
      "volume": 1,
      "enabled": true
@@ -602,7 +678,7 @@
    "id": "cam_wide3",
    "type": "camera",
    "actorId": "__camera",
-   "start": 47.333,
+   "start": 47.833999999999996,
    "center": {
     "x": 640,
     "y": 360
@@ -648,7 +724,7 @@
    "id": "victim_knockback0",
    "type": "anim",
    "actorId": "ak1zzx9ceu",
-   "start": 31.353,
+   "start": 31.854,
    "clip": "knockback",
    "speed": 1,
    "loop": false,
@@ -660,7 +736,7 @@
    "type": "show",
    "actorId": "ak1zzx9ceu",
    "start": 0,
-   "duration": 32.883,
+   "duration": 33.384,
    "fadeIn": 0,
    "fadeOut": 0.15000000000000013
   },
@@ -668,7 +744,7 @@
    "id": "victim_knockback1",
    "type": "anim",
    "actorId": "ak1zzx9ceu",
-   "start": 44.453,
+   "start": 44.954,
    "clip": "knockback",
    "speed": 1,
    "loop": false,
@@ -680,7 +756,7 @@
    "type": "show",
    "actorId": "ak1zzx9ceu",
    "start": 34.4,
-   "duration": 11.582999999999998,
+   "duration": 12.083999999999996,
    "fadeIn": 0.5,
    "fadeOut": 0.15000000000000013
   },
@@ -712,7 +788,7 @@
    "id": "sfx_death0",
    "type": "sound",
    "actorId": "__audio",
-   "start": 32.733000000000004,
+   "start": 33.234,
    "assetId": "snd_death",
    "volume": 1,
    "offset": 0,
@@ -724,7 +800,7 @@
    "id": "sfx_death1",
    "type": "sound",
    "actorId": "__audio",
-   "start": 45.833,
+   "start": 46.333999999999996,
    "assetId": "snd_death",
    "volume": 1,
    "offset": 0,

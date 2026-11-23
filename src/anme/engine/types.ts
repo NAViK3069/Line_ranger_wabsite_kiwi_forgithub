@@ -140,6 +140,27 @@ export interface SkillFx {
   /** ยิงซ้ำกี่ลูก (ห่างกัน interval วินาที) */
   repeat: number
   interval: number
+  /**
+   * วิถีกระสุนแบบในเกมเป๊ะ (ถอดจาก libgame.so) — มีค่านี้ = ใช้แทน launch / impact / aim / speed / arc / rotate / anchor
+   *   จุดปล่อย   = จุดยืนผู้ยิง + (start.x × ทิศที่หัน, −start.y)   (projectileStart = พิกเซล SAM, y ขึ้น)
+   *   เป้า       = จุดยืนของเป้า (getPosition = shadowCenter) · hitRate ≤ 10 → ยกขึ้น hitRate × สูงกรอบเป้า
+   *                LINEAR และ hitRate > 10 → ยกขึ้น 0.25 × สูงกรอบเป้า · CURVE และ hitRate > 10 → ไม่ยก
+   *   เวลาบิน    = ระยะ(pt) ÷ (moveSpeed × 60) · 1 pt = 2 พิกเซล SAM (contentScaleFactor)
+   *   CURVE      = CCBezierBy: P0 = P1 = จุดปล่อย · P2 = กึ่งกลาง + (0.4d ไปข้างหน้า, 0.4d ขึ้น) · P3 = เป้า
+   *   LINEAR     = CCMoveBy เส้นตรง
+   *   หมุน       = setRotation(angle.start) แล้ว CCRotateTo(เวลาบิน, angle.end) — เชิงเส้นตามเวลา (องศา, บวก = ตามเข็ม)
+   *   ภาพกระสุน  = SuperAnimNode anchor (0.5, 0.5) ของกรอบเวทีไฟล์ · คลิป normal วนตลอดทาง
+   */
+  game?: GameProjectile
+}
+
+export interface GameProjectile {
+  motion: 'CURVE' | 'LINEAR'
+  start: Vec
+  angle: { start: number; end: number }
+  moveSpeed: number
+  /** normalHitPointRate / skillXHitPointRate (เกมใช้ค่านี้ได้ต่อเมื่อ ≤ 10) */
+  hitRate: number
 }
 
 /** เดินเข้าไปหาเป้าก่อนร่าย (ตัวตีประชิด) */

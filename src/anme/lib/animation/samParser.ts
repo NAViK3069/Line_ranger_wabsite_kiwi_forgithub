@@ -22,6 +22,8 @@ export class SAMParser {
   raw: Uint8Array
   pos = 0
   animRate = 24
+  /** กรอบเวทีของไฟล์ (พิกเซล SAM, แกน y ลง) */
+  canvas = { x: 0, y: 0, w: 0, h: 0 }
   images: SamImage[] = []
   animations: Record<string, SamFrame[]> = {}
   animNames: string[] = []
@@ -54,8 +56,10 @@ export class SAMParser {
     if (this._i32() !== 1)    throw new Error('Unsupported SAM version')
 
     this.animRate = this._u8()
-    this._i32(); this._i32() // x, y
-    this._i32(); this._i32() // canvas_w, canvas_h
+    // กรอบเวที (หน่วย twips) — ในเกม SuperAnimNode ตั้ง contentSize = กรอบนี้ และ anchor กลางกรอบ (0.5, 0.5)
+    const cx = this._i32() / _TWIPS, cy = this._i32() / _TWIPS
+    const cw = this._i32() / _TWIPS, ch = this._i32() / _TWIPS
+    this.canvas = { x: cx, y: cy, w: cw, h: ch }
 
     const nImages = this._i16()
     for (let k = 0; k < nImages; k++) {

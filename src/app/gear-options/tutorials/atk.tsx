@@ -56,8 +56,8 @@ const TL = {
   summary: 48.0,
   end: 55,
 }
-/** ตายแล้ว (นับจากจังหวะโดน): knockback → ค้างท่าสุดท้าย → ร่างจางหาย 1.5–1.8 (อยู่ในฉาก) · วิญญาณออกจากร่างตอน SOUL */
-const DEATH = { fadeFrom: 1.5, soul: 1.6, soulDur: 1.9 }
+/** ตายแล้ว (นับจากจังหวะโดน): knockback → ค้างท่าสุดท้าย → ร่างจางหาย 1.3–1.45 (อยู่ในฉาก) · วิญญาณออกจากร่าง + เสียงตายตอน soul */
+const DEATH = { soul: 1.3, soulDur: 1.9 }
 
 interface Skill { slot: string; code: string; name: string; description?: string; iconUrl?: string }
 interface RangerStats {
@@ -348,14 +348,12 @@ function HpBar({ c, t, d, rounds }: { c: OverlayCtx; t: number; d: Data; rounds:
 
 /**
  * เอฟเฟกต์ฮิลเลือดที่ตัวเป้าหมาย (เล่นตอนรีเลือดแต่ละรอบ ~1.4 วิ)
- *   หัวใจ unit07-heal ของเกม (in → loop → out) ลอยเหนือหัว · เสาแสงเขียวพุ่งขึ้นจากเท้า · วงแสงขยายที่พื้น
- *   แสงเขียวอาบตัว · เครื่องหมาย + ลอยขึ้นรอบตัว (ตำแหน่ง/จังหวะสุ่มแบบคงที่ เลื่อนเวลากลับมาดูก็เหมือนเดิม)
+ *   วงแสงรอบเท้า + เสาแสงเขียวที่ขอบล่างโค้งรับรอบตัว (ทรงกระบอก) · แสงเขียวอาบตัว · เครื่องหมาย + ลอยขึ้นรอบตัว (ตำแหน่ง/จังหวะสุ่มแบบคงที่ เลื่อนเวลากลับมาดูก็เหมือนเดิม)
  */
 const HEAL_DUR = 1.4
-const HEART_DUR = 1.3
 const rand = (i: number) => { const v = Math.sin(i * 12.9898 + 78.233) * 43758.5453; return v - Math.floor(v) }
 const SPARKS = Array.from({ length: 14 }, (_, i) => ({
-  x: (rand(i) - 0.5) * 130, delay: rand(i + 50) * 0.55, rise: 110 + rand(i + 100) * 90, size: 20 + rand(i + 150) * 16, y0: rand(i + 200) * 70,
+  x: (rand(i) - 0.5) * 130, delay: rand(i + 50) * 0.55, rise: 70 + rand(i + 100) * 60, size: 20 + rand(i + 150) * 16, y0: rand(i + 200) * 40,
 }))
 function HealFx({ c, t, at }: { c: OverlayCtx; t: number; at: number }) {
   const u = t - at
@@ -366,18 +364,12 @@ function HealFx({ c, t, at }: { c: OverlayCtx; t: number; at: number }) {
   if (feet.x < -150 || feet.x > 1430) return null
   const z = (c.project({ x: p.x + 100, y: p.y }).x - feet.x) / 100
   const glow = clamp01(u / 0.15) * (1 - prog(u, 0.55, 1.05))
-  const ringK = easeOut(prog(u, 0, 0.75))
-  const ringW = (80 + 150 * ringK) * z
-  const colH = 250 * z * easeOut(prog(u, 0, 0.3))
-  const colW = 120 * z * (0.6 + 0.4 * Math.sin(Math.min(1, u / 0.5) * Math.PI / 2))
-  // หัวใจ: in 10 เฟรม → loop → out 10 เฟรม
-  const f = Math.floor(u * FPS)
-  const outAt = HEART_DUR - 10 / FPS
-  const heart = u >= HEART_DUR ? null
-    : f < 10 ? { clip: 'in', frame: f }
-    : u < outAt ? { clip: 'loop', frame: f - 10 }
-    : { clip: 'out', frame: Math.floor((u - outAt) * FPS) }
-  const head = c.project({ x: p.x, y: p.y - 205 - 25 * easeOut(prog(u, 0, HEART_DUR)) })
+  // ฐานแสง = วงรีรอบเท้า · เสาแสงกว้างเท่าวง ขอบล่างโค้งตามครึ่งหน้าของวง (เหมือนทรงกระบอกครอบตัว)
+  const ringW = 200 * z * (0.65 + 0.35 * easeOut(prog(u, 0, 0.5)))
+  const ringH = ringW * 0.3
+  const colH = 260 * z * easeOut(prog(u, 0, 0.3))
+  const line = Math.max(2, 4 * z)
+  const arc = `0 0 ${ringW / 2}px ${ringW / 2}px / 0 0 ${ringH / 2}px ${ringH / 2}px`
   return (
     <>
       {/* แสงเขียวอาบตัว */}
@@ -385,24 +377,27 @@ function HealFx({ c, t, at }: { c: OverlayCtx; t: number; at: number }) {
         left: feet.x, top: feet.y - 85 * z, width: 230 * z, height: 260 * z, transform: 'translate(-50%,-50%)', opacity: glow,
         background: 'radial-gradient(ellipse, rgba(134,239,172,0.45), rgba(74,222,128,0.18) 45%, rgba(74,222,128,0) 70%)',
       }} />
-      {/* เสาแสงพุ่งขึ้นจากเท้า */}
-      <div className="absolute pointer-events-none" style={{
-        left: feet.x - colW / 2, top: feet.y - colH, width: colW, height: colH, opacity: glow * 0.65, borderRadius: `${colW / 2}px ${colW / 2}px 0 0`,
-        background: 'linear-gradient(to top, rgba(187,247,208,0.75), rgba(134,239,172,0.35) 55%, rgba(134,239,172,0))',
-        filter: 'blur(3px)',
-      }} />
-      {/* วงแสงที่พื้น */}
+      {/* วงแสงที่พื้น (ครึ่งหลัง — อยู่หลังเท้า) */}
       <div className="absolute rounded-[50%] pointer-events-none" style={{
-        left: feet.x, top: feet.y, width: ringW, height: ringW * 0.3, transform: 'translate(-50%,-50%)', opacity: 1 - prog(u, 0.35, 0.95),
-        border: `${Math.max(2, 4 * z)}px solid rgba(187,247,208,0.95)`,
-        boxShadow: '0 0 18px rgba(74,222,128,0.9), inset 0 0 14px rgba(74,222,128,0.7)',
-        background: 'radial-gradient(ellipse, rgba(74,222,128,0.35), rgba(74,222,128,0) 70%)',
+        left: feet.x, top: feet.y, width: ringW, height: ringH, transform: 'translate(-50%,-50%)', opacity: glow,
+        border: `${line}px solid rgba(187,247,208,0.8)`, boxShadow: '0 0 16px rgba(74,222,128,0.8)',
+        background: 'radial-gradient(ellipse, rgba(74,222,128,0.4), rgba(74,222,128,0) 70%)',
       }} />
-      {/* + ลอยขึ้น */}
+      {/* เสาแสงพุ่งขึ้น — ขอบล่างโค้งรับรอบตัวเรนเจอร์ + เส้นแสงตามขอบโค้ง */}
+      <div className="absolute pointer-events-none" style={{
+        left: feet.x - ringW / 2, top: feet.y + ringH / 2 - colH, width: ringW, height: colH, opacity: glow * 0.6,
+        borderRadius: arc, background: 'linear-gradient(to top, rgba(187,247,208,0.7), rgba(134,239,172,0.3) 50%, rgba(134,239,172,0))',
+      }} />
+      <div className="absolute pointer-events-none" style={{
+        left: feet.x - ringW / 2, top: feet.y + ringH / 2 - colH, width: ringW, height: colH, opacity: glow,
+        borderRadius: arc, borderBottom: `${line * 1.3}px solid rgba(220,252,231,0.95)`,
+        filter: 'drop-shadow(0 0 6px #4ade80) drop-shadow(0 0 12px #22c55e)',
+      }} />
+      {/* + ลอยขึ้นรอบตัว (ระดับลำตัว) */}
       {SPARKS.map((k, i) => {
         const q = prog(u, k.delay, k.delay + 0.75)
         if (q <= 0 || q >= 1) return null
-        const sp = c.project({ x: p.x + k.x, y: p.y - 20 - k.y0 - k.rise * easeOut(q) })
+        const sp = c.project({ x: p.x + k.x, y: p.y + 5 - k.y0 - k.rise * easeOut(q) })
         return (
           <span key={i} className="absolute font-black leading-none pointer-events-none" style={{
             left: sp.x, top: sp.y, transform: `translate(-50%,-50%) scale(${0.6 + 0.6 * Math.sin(q * Math.PI)})`,
@@ -411,10 +406,6 @@ function HealFx({ c, t, at }: { c: OverlayCtx; t: number; at: number }) {
           }}>+</span>
         )
       })}
-      {heart && (
-        <SamSprite base="unit07-heal/unit07-heal" clip={heart.clip} frame={heart.frame} loop={heart.clip === 'loop'}
-          fitClip="_all" anchorClip="loop" x={head.x} y={head.y} scale={1.5 * z} />
-      )}
     </>
   )
 }
@@ -520,7 +511,7 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
         {/* หัวข้อ */}
         {title.on && (
           <div className="absolute inset-0 flex flex-col items-center justify-center" style={popStyle(title, 40)}>
-            <div className="text-[28px] font-black tracking-[0.3em] text-amber-300/90">{T('ออพชั่นของอุปกรณ์', 'GEAR OPTION')}</div>
+            <div className={`text-[30px] font-black text-amber-300/90 ${lang === 'th' ? 'tracking-normal' : 'tracking-[0.3em]'}`}>{T('ออพชั่นของอุปกรณ์', 'GEAR OPTION')}</div>
             <div className="text-[120px] font-black text-white leading-none mt-3 drop-shadow-[0_8px_30px_rgba(251,191,36,0.5)]">{T('พลังโจมตี', 'ATK')}</div>
             <div className="mt-5 h-[4px] bg-gradient-to-r from-transparent via-amber-300 to-transparent" style={{ width: 620 * easeOut(title.enter) }} />
           </div>

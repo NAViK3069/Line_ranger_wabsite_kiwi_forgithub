@@ -29,7 +29,9 @@ const T = {
   end: 55,
 }
 const HIT_OFFSET = 1.533   // คิวสกิลเริ่ม → กระสุนโดน (วัดจากไทม์ไลน์ของตัวเล่น)
-const DEATH = { knock: 0.02, fadeFrom: 1.5, fadeTo: 1.8 }   // นับจากจังหวะโดน: knockback → ค้างเฟรมสุดท้าย → ค่อยๆ จางหาย
+// นับจากจังหวะโดน: knockback (1.2 วิ) → ค้างเฟรมสุดท้าย → จางหาย 0.15 วิ · soul = วิญญาณออก + เสียงตาย
+// (soul ต้องตรงกับ DEATH.soul ใน src/app/gear-options/tutorials/atk.tsx)
+const DEATH = { knock: 0.02, fadeFrom: 1.3, fadeTo: 1.45, soul: 1.3 }
 
 const WIDE = [640, 360, 1]
 const SKILL_CAM = [660, 420, 1.12]
@@ -92,7 +94,7 @@ scene.cues.push(
 )
 
 // ── เสียง (ไฟล์เสียงของเกมบน lerico — ชื่อเดียวกับที่ผู้ใช้ส่งมา) ──
-//   เพลงพื้นหลัง bgm_lobby2 (61 วิ ยาวกว่าคลิป) เบากว่าปกติ · เสียงใส่เกียร์ตอนเกียร์ลงช่อง · เสียงตายตอนเป้าหมายล้ม (knockback)
+//   เพลงพื้นหลัง bgm_lobby2 (61 วิ ยาวกว่าคลิป) เบากว่าปกติ · เสียงใส่เกียร์ตอนเกียร์ลงช่อง · เสียงตายตอนวิญญาณออกจากร่าง
 const sound = (id, name, file) => ({ id, type: 'audio', name, url: `/api/res/_raw/sounds/${file}` })
 scene.assets.push(
   sound('snd_bgm', 'bgm_lobby2', 'bgm_lobby2_20151123104811121.ogg'),
@@ -105,8 +107,8 @@ const BGM_VOLUME = 0.3
 scene.cues.push(
   sfx('bgm', 'snd_bgm', 0, BGM_VOLUME, { duration: T.end, fadeIn: 1, fadeOut: 2 }),
   sfx('sfx_equip', 'snd_equip', T.equip),
-  sfx('sfx_death0', 'snd_death', hit0 + DEATH.knock),
-  sfx('sfx_death1', 'snd_death', hit1 + DEATH.knock),
+  sfx('sfx_death0', 'snd_death', hit0 + DEATH.soul),
+  sfx('sfx_death1', 'snd_death', hit1 + DEATH.soul),
 )
 
 fs.writeFileSync(out, JSON.stringify(scene, null, 1) + '\n')

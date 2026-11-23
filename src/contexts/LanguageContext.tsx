@@ -404,6 +404,7 @@ const STAT_LABELS_TH: Record<string, string> = {
   // ── หน้าต่างเลือกพื้นหลังในตัวเล่นอนิเมชั่น ──
   'All':                            'ทั้งหมด',
   'Story':                          'ด่านปกติ',
+  'Special Stage':                  'ด่านพิเศษ',
   'Arena & Team':                   'อารีน่า & ทีม',
   'Event Raid':                     'อีเวนต์เรด',
   'Stage':                          'ด่าน',

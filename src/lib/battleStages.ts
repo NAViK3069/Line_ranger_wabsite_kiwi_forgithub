@@ -15,6 +15,16 @@ const STORY = [
   'battle36', 'battle37', 'battle38',
 ]
 
+/**
+ * ด่านพิเศษ (res/spbattleXX) — ไฟล์ชุดเดียวกับด่านปกติ (bg.png + object1..6.png)
+ * บน lerico ไม่มี 08 / 12 / 14 / 18 (เช็คแล้ว 2026-11-23)
+ */
+const SPECIAL = [
+  'spbattle01', 'spbattle01-2', 'spbattle02', 'spbattle03', 'spbattle04', 'spbattle05', 'spbattle06',
+  'spbattle07', 'spbattle09', 'spbattle10', 'spbattle11', 'spbattle13', 'spbattle15', 'spbattle16',
+  'spbattle17', 'spbattle19', 'spbattle20',
+]
+
 /** อารีน่า / ด่านทีม (ปกติ + Legend) / อีเวนต์เรด */
 const EXTRA = [
   'arena_battle01',
@@ -23,16 +33,18 @@ const EXTRA = [
   'eventraid_battle01', 'eventraid_battle02', 'eventraid_battle03', 'eventraid_battle04', 'eventraid_battle05',
 ]
 
-export const BATTLE_STAGES: string[] = [...STORY, ...EXTRA]
+export const BATTLE_STAGES: string[] = [...STORY, ...SPECIAL, ...EXTRA]
 
 /**
  * ชื่อแสดงผลของด่าน
- *   short (ปุ่มเล็กในตัวเล่นอนิเมชั่น): 01-2 · Arena 01 · Team 01 · Team 01 L · Raid 01
- *   ปกติ: [prefix]01-2 · Arena 01 · Team 01 · Team 01 Legend · Event Raid 01
+ *   short (ปุ่มเล็กในตัวเล่นอนิเมชั่น): 01-2 · SP 01 · Arena 01 · Team 01 · Team 01 L · Raid 01
+ *   ปกติ: [prefix]01-2 · Special 01 · Arena 01 · Team 01 · Team 01 Legend · Event Raid 01
  */
 export function stageLabel(stage: string, opts: { short?: boolean; storyPrefix?: string } = {}): string {
   const { short = false, storyPrefix = '' } = opts
-  let m = stage.match(/^arena_battle(\d+)$/)
+  let m = stage.match(/^spbattle(.+)$/)
+  if (m) return `${short ? 'SP' : 'Special'} ${m[1]}`
+  m = stage.match(/^arena_battle(\d+)$/)
   if (m) return `Arena ${m[1]}`
   m = stage.match(/^battleteam(\d+)(_legend)?$/)
   if (m) return `Team ${m[1]}${m[2] ? (short ? ' L' : ' Legend') : ''}`

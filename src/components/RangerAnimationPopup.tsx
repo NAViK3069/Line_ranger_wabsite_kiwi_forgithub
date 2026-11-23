@@ -956,9 +956,12 @@ function StageThumb({ stage }: { stage: string }) {
 // ── หน้าต่างเลือกพื้นหลัง (ด่านในเกม) — มีรูปตัวอย่างของแต่ละด่าน เลือกง่ายเหมือน Video Studio ──
 // Mobile first: จอแคบเต็มพื้นที่ตัวเล่น 2 คอลัมน์ · จอกว้างเป็นกล่องกลางจอ 3–4 คอลัมน์
 // รูปตัวอย่าง = ฉากย่อที่ประกอบจาก bg + object (ดู stageThumb) ทำเฉพาะการ์ดที่เลื่อนมาเห็น
-type StageGroup = 'all' | 'story' | 'team' | 'raid'
+type StageGroup = 'all' | 'story' | 'special' | 'team' | 'raid'
 const stageGroupOf = (s: string): Exclude<StageGroup, 'all'> =>
-  s.startsWith('eventraid_') ? 'raid' : s.startsWith('arena_') || s.startsWith('battleteam') ? 'team' : 'story'
+  s.startsWith('eventraid_') ? 'raid'
+    : s.startsWith('arena_') || s.startsWith('battleteam') ? 'team'
+    : s.startsWith('spbattle') ? 'special'
+    : 'story'
 
 function BgStagePicker({ value, onPick, onClose }: { value: string | null; onPick: (stage: string | null) => void; onClose: () => void }) {
   const { tStat } = useLanguage()
@@ -967,6 +970,7 @@ function BgStagePicker({ value, onPick, onClose }: { value: string | null; onPic
   const chips: { key: StageGroup; label: string; n: number }[] = [
     { key: 'all', label: tStat('All'), n: BATTLE_STAGES.length },
     { key: 'story', label: tStat('Story'), n: BATTLE_STAGES.filter(s => stageGroupOf(s) === 'story').length },
+    { key: 'special', label: tStat('Special Stage'), n: BATTLE_STAGES.filter(s => stageGroupOf(s) === 'special').length },
     { key: 'team', label: tStat('Arena & Team'), n: BATTLE_STAGES.filter(s => stageGroupOf(s) === 'team').length },
     { key: 'raid', label: tStat('Event Raid'), n: BATTLE_STAGES.filter(s => stageGroupOf(s) === 'raid').length },
   ]

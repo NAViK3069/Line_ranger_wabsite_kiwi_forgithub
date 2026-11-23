@@ -10,6 +10,7 @@
 //   ค่าพลังเลเวลเต็ม = /data/ranger/stats/<id>.json → baseStats / rates / skills
 //   ATK หลังใส่เกียร์ = aggregateGearBonuses + applyBonus (โลจิกเดียวกับ RangerStatPanel · Overall ATK เข้าทั้ง phy และ mag)
 //   ค่าเกียร์ +5 = recalcGearEffects (+5 = Basic เต็มแล้ว · ทดสอบแค่ค่า Basic จึงไม่ต้องตีถึง +10)
+//   โจมตีปกติ = normalHit (กายภาพ/เวท คนละ DEF แล้วรวม — แบบในเกม) · สกิล = ATK รวม × ความแรงสกิล × (1 − ต้านสกิล) ไม่โดน DEF
 // ====================================================
 
 import ScenePlayer, { type OverlayCtx } from '@/components/ScenePlayer'
@@ -18,9 +19,9 @@ import { applyBonus } from '@/lib/gearEffectParser'
 import type { GearEffect } from '@/lib/pvpScraper'
 import { easeOut, fmtInt, popStyle, prog, span } from './anim'
 import {
-  BANNER_COLOR, Banner, EquipCard, GearCard, GearSlots, HpBar, Heals, ICON, K, LoadBox, NormalFormulaCard, Opening,
+  BANNER_COLOR, Banner, EquipCard, GearCard, GearSlots, HpBar, Heals, ICON, LoadBox, NormalFormulaCard, Opening,
   RangerCard, SkillFormulaCard, Souls, StatRow, SummaryShell, TL, firstSkill, gearIconUrl, loadGear, loadStats,
-  makeRounds, pct, skillMultiplier, switchableOf, totalAtk, totalDef, useTutorialData,
+  defParts, makeRounds, normalHit, pct, skillMultiplier, switchableOf, totalAtk, useTutorialData,
 } from './kit'
 
 const SCENE = '/gear-options/scenes/atk.anme.json'
@@ -33,18 +34,20 @@ async function loadData() {
   const [ally, enemy, { gear, bonus: b }] = await Promise.all([loadStats(ALLY.ranger), loadStats(ENEMY.ranger), loadGear(GEAR)])
   const s = ally.baseStats
   const atkBefore = totalAtk(ally)
-  const atkAfter = Math.round(applyBonus(s.phyAtk, b.phyAtk)) + Math.round(applyBonus(s.magAtk, b.magAtk))
-  const enemyDef = totalDef(enemy)
-  const factor = K / (K + enemyDef)
+  const phyAfter = Math.round(applyBonus(s.phyAtk, b.phyAtk))
+  const magAfter = Math.round(applyBonus(s.magAtk, b.magAtk))
+  const atkAfter = phyAfter + magAfter
+  const hitBefore = normalHit(s.phyAtk, s.magAtk, enemy.baseStats)
+  const hitAfter = normalHit(phyAfter, magAfter, enemy.baseStats)
   const enemyRes = enemy.rates.skillResistance ?? 0
   const skill = firstSkill(ally)
   const skillMul = skillMultiplier(skill)
   return {
     ally, enemy, gear, switchable: switchableOf(gear, SHOWN_SWITCHABLE),
     atkBefore, atkAfter, atkPct: b.magAtk?.pct ?? b.phyAtk?.pct ?? 0,
-    enemyDef, enemyRes, factor,
-    dmgBefore: Math.round(atkBefore * factor),
-    dmgAfter: Math.round(atkAfter * factor),
+    enemyRes, hitBefore,
+    dmgBefore: hitBefore.total,
+    dmgAfter: hitAfter.total,
     skill, skillMul,
     dmgSkillBefore: Math.round(atkBefore * skillMul * (1 - enemyRes)),
     dmgSkill: Math.round(atkAfter * skillMul * (1 - enemyRes)),
@@ -93,7 +96,7 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
           rows={<>
             <StatRow t={t} icon={ICON.atk} label={T('พลังโจมตี', 'ATK')} value={fmtInt(d.atkBefore)} hlAt={8.75} />
             <StatRow t={t} icon={ICON.hp} label={T('พลังชีวิต', 'HP')} value={fmtInt(d.ally.baseStats.hp)} dim />
-            <StatRow t={t} icon={ICON.def} label={T('พลังป้องกัน', 'DEF')} value={fmtInt(totalDef(d.ally))} dim />
+            <StatRow t={t} icon={ICON.def} label={T('พลังป้องกัน', 'DEF')} parts={defParts(d.ally, T)} dim />
           </>}
           slots={<GearSlots t={t} />} />
 
@@ -102,14 +105,14 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
           tag={T('เป้าหมาย', 'Target')} tagColor="bg-rose-500/25 text-rose-200"
           rows={<>
             <StatRow t={t} icon={ICON.hp} label={T('พลังชีวิต', 'HP')} value={fmtInt(enemyHp)} hlAt={13.05} />
-            <StatRow t={t} icon={ICON.def} label={T('พลังป้องกัน', 'DEF')} value={fmtInt(d.enemyDef)} hlAt={13.55} />
+            <StatRow t={t} icon={ICON.def} label={T('พลังป้องกัน', 'DEF')} parts={defParts(d.enemy, T)} hlAt={13.55} />
             <StatRow t={t} label={T('ต้านสกิล', 'Skill Resistance')} value={pct(d.enemyRes)} dim
               note={T('ใช้ตอนโดนสกิล (ดูรอบที่ 2)', 'Used against skills (see round 2)')} />
           </>}
           slots={<GearSlots t={t} />} />
 
         <NormalFormulaCard t={t} T={T} heading={T('โจมตีปกติ: พลังป้องกันช่วยลดดาเมจ', 'Normal attack: DEF reduces damage')}
-          atk={d.atkBefore} defLabel={T('DEF ของเป้าหมาย', 'Target DEF')} def={d.enemyDef} factor={d.factor} dmg={d.dmgBefore} />
+          defOwner={T('ของเป้าหมาย', '(target)')} hit={d.hitBefore} />
 
         <Banner t={t} start={20.8} end={24.2} title={T('รอบที่ 1 · ยังไม่ใส่เกียร์', 'Round 1 · No gear')}
           sub={`${T('โจมตีปกติ', 'Normal attack')} · ATK ${fmtInt(d.atkBefore)}`} color={BANNER_COLOR.normalNoGear} />

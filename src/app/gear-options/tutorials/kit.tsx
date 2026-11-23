@@ -71,7 +71,26 @@ export async function loadGear(code: string): Promise<{ gear: GearEffects; bonus
 }
 
 export const totalAtk = (r: RangerStats) => r.baseStats.phyAtk + r.baseStats.magAtk
-export const totalDef = (r: RangerStats) => r.baseStats.phyDef + r.baseStats.magDef
+
+/** ดาเมจโจมตีปกติ 1 ส่วน (กายภาพ หรือ เวท) */
+export interface HitPart { kind: 'phy' | 'mag'; atk: number; def: number; factor: number; dmg: number }
+export interface NormalHit { parts: HitPart[]; total: number }
+/**
+ * โจมตีปกติแบบในเกม (ยืนยันจากโค้ดเกม):
+ *   ATK กายภาพ × K/(K + DEF กายภาพ)  +  ATK เวท × K/(K + DEF เวท)
+ *   แต่ละส่วนลดด้วย DEF ของตัวเองแยกกันแล้วค่อยรวม · เกมคิดเป็น float32 แล้วตัดเศษทิ้ง
+ *   ส่วนที่ ATK = 0 ไม่ต้องแสดง
+ */
+export function normalHit(phyAtk: number, magAtk: number, d: { phyDef: number; magDef: number }): NormalHit {
+  const f = Math.fround
+  const part = (kind: HitPart['kind'], atk: number, def: number): HitPart => {
+    const factor = f(1 - f(def / f(K + def)))
+    return { kind, atk, def, factor, dmg: Math.trunc(f(factor * atk)) }
+  }
+  const all = [part('phy', phyAtk, d.phyDef), part('mag', magAtk, d.magDef)]
+  const parts = all.filter(p => p.atk > 0)
+  return { parts, total: all.reduce((a, p) => a + p.dmg, 0) }
+}
 export const firstSkill = (r: RangerStats) => r.skills.find(k => k.slot === 'skill1') ?? r.skills[0]
 /** ความแรงสกิลจากคำอธิบาย "ATK x 3000%" → 30 */
 export function skillMultiplier(s: Skill): number {
@@ -142,7 +161,11 @@ export function Highlight({ t, at, dur = 0.9, radius = 16, children, className =
   )
 }
 
-export function StatRow({ icon, label, value, hlAt, dim, t, note }: { icon?: string; label: string; value: string; hlAt?: number; dim?: boolean; t: number; note?: string }) {
+export function StatRow({ icon, label, value, parts, hlAt, dim, t, note }: {
+  icon?: string; label: string; value?: string; hlAt?: number; dim?: boolean; t: number; note?: string
+  /** แสดงหลายค่าซ้อนกันแทน value เช่น DEF กายภาพ / เวท */
+  parts?: { label: string; value: string }[]
+}) {
   const k = hlAt != null ? easeInOut(prog(t, hlAt, hlAt + 0.5)) : 0
   return (
     <Highlight t={t} at={hlAt ?? null} className="px-4 py-2.5">
@@ -151,7 +174,16 @@ export function StatRow({ icon, label, value, hlAt, dim, t, note }: { icon?: str
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {icon && <img src={icon} alt="" className="w-10 h-10 object-contain" />}
           <span className="text-[26px] text-gray-200 font-bold">{label}</span>
-          <span className="ml-auto text-[38px] font-black tabular-nums leading-none" style={{ color: mix(C.white, C.amber200, k) }}>{value}</span>
+          {parts
+            ? <span className="ml-auto flex flex-col items-end gap-1">
+                {parts.map(p => (
+                  <span key={p.label} className="flex items-baseline gap-2 leading-none">
+                    <span className="text-[19px] text-gray-400 font-bold">{p.label}</span>
+                    <span className="text-[30px] font-black tabular-nums" style={{ color: mix(C.white, C.amber200, k) }}>{p.value}</span>
+                  </span>
+                ))}
+              </span>
+            : <span className="ml-auto text-[38px] font-black tabular-nums leading-none" style={{ color: mix(C.white, C.amber200, k) }}>{value}</span>}
         </div>
         {note && <div className="text-[18px] text-gray-400 mt-0.5 pl-[52px]">{note}</div>}
       </div>
@@ -372,37 +404,70 @@ export function GearCard({ t, T, gear, icon, name, effName, switchable }: {
 
 // ── การ์ดสูตร ─────────────────────────────────────────
 
-/** สูตรโจมตีปกติ 16.4–20.6: ดาเมจ = ATK × K / (K + DEF) */
-export function NormalFormulaCard({ t, T, heading, atk, defLabel, def, factor, dmg }: {
-  t: number; T: (th: string, en: string) => string; heading: string; atk: number; defLabel: string; def: number; factor: number; dmg: number
+/** ป้าย DEF กายภาพ / เวท บนการ์ดเรนเจอร์ */
+export const defParts = (r: RangerStats, T: (th: string, en: string) => string) => [
+  { label: T('กายภาพ', 'PHY'), value: fmtInt(r.baseStats.phyDef) },
+  { label: T('เวท', 'MAG'), value: fmtInt(r.baseStats.magDef) },
+]
+
+const PART_STYLE = {
+  phy: { chip: 'bg-amber-500/20 text-amber-200 border-amber-400/50', bar: 'from-amber-500 to-yellow-300', text: 'text-amber-300' },
+  mag: { chip: 'bg-sky-500/20 text-sky-200 border-sky-400/50', bar: 'from-indigo-500 to-sky-300', text: 'text-sky-300' },
+} as const
+
+/**
+ * สูตรโจมตีปกติ 16.4–20.6 — แยกคิด กายภาพ / เวท คนละ DEF แล้วรวมกัน (แบบในเกม)
+ *   แต่ละส่วน: ATK × K/(K + DEF) · หลอดแต่ละส่วนบอกว่าเหลือดาเมจกี่ % และ DEF ลดไปกี่ %
+ */
+export function NormalFormulaCard({ t, T, heading, defOwner, hit }: {
+  t: number; T: (th: string, en: string) => string; heading: string
+  /** "ของเป้าหมาย" / "ของเรา" — ต่อท้ายคำว่า DEF */
+  defOwner: string
+  hit: NormalHit
 }) {
   const s = span(t, 16.4, 20.6, 0.5, 0.4)
   if (!s.on) return null
+  const kindName = (k: HitPart['kind']) => (k === 'phy' ? T('กายภาพ', 'Physical') : T('เวท', 'Magical'))
   return (
-    <div className={`absolute left-1/2 top-[40px] w-[820px] -ml-[410px] p-7 ${CARD}`} style={popStyle(s, 36)}>
+    <div className={`absolute left-1/2 top-[30px] w-[860px] -ml-[430px] px-7 py-6 ${CARD}`} style={popStyle(s, 36)}>
       <div className="text-[24px] font-black text-sky-300">{heading}</div>
-      <div className="mt-3 flex items-center justify-center gap-4 text-white" style={step(t, 16.7)}>
-        <span className="text-[38px] font-black">{T('ดาเมจ', 'Damage')} = ATK ×</span>
-        <span className="inline-flex flex-col items-center text-[36px] font-black leading-tight">
+      <div className="mt-2 flex items-center justify-center gap-4 text-white" style={step(t, 16.7)}>
+        <span className="text-[34px] font-black">{T('ดาเมจ', 'Damage')} = ATK ×</span>
+        <span className="inline-flex flex-col items-center text-[32px] font-black leading-tight">
           <span className="px-3">K</span>
           <span className="w-full h-[3px] bg-white" />
           <span className="px-3">K + DEF</span>
         </span>
+        <span className="text-[22px] font-bold text-gray-400">K = {fmtInt(K)}</span>
       </div>
-      <div className="mt-4 space-y-2 text-[28px]">
-        <div className="flex justify-between" style={step(t, 17.4)}>
-          <span className="text-gray-300 font-bold">K</span><span className="font-black text-white tabular-nums">{fmtInt(K)}</span>
-        </div>
-        <div className="flex justify-between" style={step(t, 17.9)}>
-          <span className="text-gray-300 font-bold">{defLabel}</span><span className="font-black text-rose-300 tabular-nums">{fmtInt(def)}</span>
-        </div>
-        <div style={step(t, 18.4)}>
-          <DamageBar t={t} at={18.6} keep={factor} keepCls="from-amber-500 to-yellow-300" keepText="text-amber-300"
-            keepLabel={T('ดาเมจที่เหลือ', 'Damage left')} cutLabel={T('DEF ลดไป', 'Cut by DEF')} />
-        </div>
-        <div className="flex justify-between items-baseline pt-3 mt-1 border-t-2 border-white/10" style={step(t, 19.3)}>
-          <span className="text-gray-300 font-bold tabular-nums">{fmtInt(atk)} × {(factor * 100).toFixed(2)}%</span>
-          <span className="text-[40px] font-black text-white tabular-nums">= {fmtInt(dmg)}</span>
+      <div className="mt-2 text-center text-[21px] font-bold text-gray-300" style={step(t, 17.0)}>
+        {T('คิดแยก กายภาพ กับ เวท — แต่ละส่วนโดน DEF ชนิดเดียวกันลด แล้วค่อยรวมกัน', 'Physical and magical are reduced separately by their own DEF, then added')}
+      </div>
+      <div className="mt-3 space-y-3">
+        {hit.parts.map((p, i) => {
+          const st = PART_STYLE[p.kind]
+          const a = 17.3 + i * 0.35
+          return (
+            <div key={p.kind} className="rounded-2xl bg-white/[0.04] px-4 py-2.5" style={step(t, a)}>
+              <div className="flex items-center gap-3 text-[24px]">
+                <span className={`px-3 py-0.5 rounded-lg border-2 font-black ${st.chip}`}>{kindName(p.kind)}</span>
+                <span className="text-gray-300 font-bold">ATK</span><span className="font-black text-white tabular-nums">{fmtInt(p.atk)}</span>
+                <span className="text-gray-500">·</span>
+                <span className="text-gray-300 font-bold">DEF {defOwner}</span><span className="font-black text-rose-300 tabular-nums">{fmtInt(p.def)}</span>
+                <span className="ml-auto text-[30px] font-black text-white tabular-nums" style={step(t, 18.7 + i * 0.2)}>= {fmtInt(p.dmg)}</span>
+              </div>
+              <div className="mt-1.5">
+                <DamageBar t={t} at={17.8 + i * 0.2} keep={p.factor} keepCls={st.bar} keepText={st.text}
+                  keepLabel={T('ดาเมจที่เหลือ', 'Damage left')} cutLabel={T('DEF ลดไป', 'Cut by DEF')} />
+              </div>
+            </div>
+          )
+        })}
+        <div className="flex justify-between items-baseline pt-2 border-t-2 border-white/10" style={step(t, 19.2)}>
+          <span className="text-[26px] text-gray-300 font-bold tabular-nums">
+            {hit.parts.length > 1 ? hit.parts.map(p => fmtInt(p.dmg)).join(' + ') : `${fmtInt(hit.parts[0]?.atk ?? 0)} × ${pct(hit.parts[0]?.factor ?? 0, 2)}`}
+          </span>
+          <span className="text-[40px] font-black text-white tabular-nums">= {fmtInt(hit.total)}</span>
         </div>
       </div>
     </div>

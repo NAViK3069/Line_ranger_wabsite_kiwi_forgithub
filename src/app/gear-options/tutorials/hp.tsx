@@ -9,7 +9,8 @@
 //
 // ตัวเลขทั้งหมดคำนวณสดจากข้อมูลชุดเดียวกับ Ranger Book / Gear Book (ไม่พิมพ์ตายตัว):
 //   HP หลังใส่เกียร์ = aggregateGearBonuses + applyBonus (โลจิกเดียวกับ RangerStatPanel)
-//   ดาเมจที่เราโดน = ATK ศัตรู × K/(K + DEF ของเรา) · สกิล = ATK ศัตรู × ความแรงสกิล × (1 − ต้านสกิลของเรา)
+//   ตีปกติที่เราโดน = normalHit: ATK กายภาพศัตรู × K/(K + DEF กายภาพเรา) + ATK เวทศัตรู × K/(K + DEF เวทเรา) (แบบในเกม)
+//   สกิล = ATK รวมศัตรู × ความแรงสกิล × (1 − ต้านสกิลของเรา) — ไม่โดน DEF
 // ====================================================
 
 import ScenePlayer, { type OverlayCtx } from '@/components/ScenePlayer'
@@ -18,9 +19,9 @@ import { applyBonus } from '@/lib/gearEffectParser'
 import type { GearEffect } from '@/lib/pvpScraper'
 import { clamp01, easeOut, easeOutBack, fmtInt, popStyle, prog, span } from './anim'
 import {
-  BANNER_COLOR, Banner, EquipCard, GearCard, GearSlots, HpBar, Heals, ICON, K, LoadBox, NormalFormulaCard, Opening,
+  BANNER_COLOR, Banner, EquipCard, GearCard, GearSlots, HpBar, Heals, ICON, LoadBox, NormalFormulaCard, Opening,
   RangerCard, SkillFormulaCard, Souls, StatRow, SummaryShell, TL, firstSkill, gearIconUrl, loadGear, loadStats,
-  makeRounds, pct, skillMultiplier, totalAtk, totalDef, useTutorialData,
+  defParts, makeRounds, normalHit, pct, skillMultiplier, totalAtk, useTutorialData,
 } from './kit'
 
 const SCENE = '/gear-options/scenes/hp.anme.json'
@@ -33,16 +34,15 @@ async function loadData() {
   const hpBefore = ally.baseStats.hp
   const hpAfter = Math.round(applyBonus(hpBefore, b.hp))
   const enemyAtk = totalAtk(enemy)
-  const ourDef = totalDef(ally)
-  const factor = K / (K + ourDef)
+  const hit = normalHit(enemy.baseStats.phyAtk, enemy.baseStats.magAtk, ally.baseStats)
   const ourRes = ally.rates.skillResistance ?? 0
   const skill = firstSkill(enemy)
   const skillMul = skillMultiplier(skill)
   return {
     ally, enemy, gear, switchable: gear.switchable?.effect ?? null,
     hpBefore, hpAfter, hpPct: b.hp?.pct ?? 0,
-    enemyAtk, ourDef, ourRes, factor,
-    dmgNormal: Math.round(enemyAtk * factor),
+    enemyAtk, ourRes, hit,
+    dmgNormal: hit.total,
     skill, skillMul,
     dmgSkill: Math.round(enemyAtk * skillMul * (1 - ourRes)),
   }
@@ -101,7 +101,7 @@ export default function HpTutorial({ autoPlay }: { autoPlay: boolean }) {
           tag={T('เรนเจอร์ของเรา', 'Our ranger')} tagColor="bg-cyan-500/25 text-cyan-200"
           rows={<>
             <StatRow t={t} icon={ICON.hp} label={T('พลังชีวิต', 'HP')} value={fmtInt(hpB)} hlAt={8.75} />
-            <StatRow t={t} icon={ICON.def} label={T('พลังป้องกัน', 'DEF')} value={fmtInt(d.ourDef)} hlAt={9.3} />
+            <StatRow t={t} icon={ICON.def} label={T('พลังป้องกัน', 'DEF')} parts={defParts(d.ally, T)} hlAt={9.3} />
             <StatRow t={t} label={T('ต้านสกิล', 'Skill Resistance')} value={pct(d.ourRes)} dim
               note={T('ลดดาเมจสกิลที่เราโดน (ดูรอบที่ 2)', 'Reduces skill damage we take (see round 2)')} />
           </>}
@@ -113,12 +113,12 @@ export default function HpTutorial({ autoPlay }: { autoPlay: boolean }) {
           rows={<>
             <StatRow t={t} icon={ICON.atk} label={T('พลังโจมตี', 'ATK')} value={fmtInt(d.enemyAtk)} hlAt={13.05} />
             <StatRow t={t} icon={ICON.hp} label={T('พลังชีวิต', 'HP')} value={fmtInt(d.enemy.baseStats.hp)} dim />
-            <StatRow t={t} icon={ICON.def} label={T('พลังป้องกัน', 'DEF')} value={fmtInt(totalDef(d.enemy))} dim />
+            <StatRow t={t} icon={ICON.def} label={T('พลังป้องกัน', 'DEF')} parts={defParts(d.enemy, T)} dim />
           </>}
           slots={<GearSlots t={t} />} />
 
         <NormalFormulaCard t={t} T={T} heading={T('ศัตรูโจมตีปกติ: DEF ของเราช่วยลดดาเมจ', 'Enemy normal attack: our DEF reduces damage')}
-          atk={d.enemyAtk} defLabel={T('DEF ของเรา', 'Our DEF')} def={d.ourDef} factor={d.factor} dmg={dmgN} />
+          defOwner={T('ของเรา', '(ours)')} hit={d.hit} />
 
         <Banner t={t} start={20.8} end={24.2} title={T('รอบที่ 1 · ยังไม่ใส่เกียร์', 'Round 1 · No gear')}
           sub={`${T('ศัตรูโจมตีปกติ', 'Enemy normal attack')} · HP ${fmtInt(hpB)}`} color={BANNER_COLOR.normalNoGear} />

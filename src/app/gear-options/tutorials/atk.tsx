@@ -38,7 +38,7 @@ import { assets, type RangerRuntime } from '@/anme/engine/assets'
 
 const SCENE = '/gear-options/scenes/atk.anme.json'
 const ALLY = { actor: 'ak1zzx9ceu', ranger: 'u1260e-brown' }
-const ENEMY = { actor: 'a9ijjdi134', ranger: 'u1353e-brown' }
+const ENEMY = { actor: 'a9ijjdi134', ranger: 'u1242e-brown' }   // เปลี่ยนตัว → แก้ ENEMY_RANGER ใน build-atk-scene.cjs ด้วย
 const GEAR = 'eq_wpn_evt_057'
 const GEAR_LEVEL = 5              // ระดับเกียร์ที่ใช้ทดสอบ (+5 = Basic เต็ม)
 const GEAR_MAX = 10               // ระดับสูงสุดของเกียร์นี้ (หลอดบนการ์ด)
@@ -56,8 +56,8 @@ const TL = {
   summary: 48.0,
   end: 55,
 }
-/** ตายแล้ว (นับจากจังหวะโดน): knockback → ค้างท่าสุดท้าย → ร่างจางหาย 1.3–1.45 (อยู่ในฉาก) · วิญญาณออกจากร่าง + เสียงตายตอน soul */
-const DEATH = { soul: 1.3, soulDur: 1.9 }
+/** ตายแล้ว (นับจากจังหวะโดน): knockback → ค้างท่าสุดท้าย → ร่างจางหาย 1.4–1.55 (อยู่ในฉาก) · วิญญาณออกจากร่าง + เสียงตายตอน soul */
+const DEATH = { soul: 1.4, soulDur: 1.9 }
 
 interface Skill { slot: string; code: string; name: string; description?: string; iconUrl?: string }
 interface RangerStats {
@@ -469,7 +469,7 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
   const gearIcon = lericoProxy(`https://rangers.lerico.net/res/gear_icon/${GEAR}_icon.png`)
   const gearName = tGear(GEAR, 'Moonbrella')
   const allyName = tRanger(ALLY.ranger, 'Rock Legend Brown')
-  const enemyName = tRanger(ENEMY.ranger, 'Underworld Agent Brown')
+  const enemyName = tRanger(ENEMY.ranger, 'Executor Anubis Brown')
   const skillName = tSkill(d.skill.code, d.skill.name)
   const effName = (e: GearEffect) => (e.nameKey ? tr('equip', e.nameKey, e.name) : e.name)
   const mult = 1 + d.atkPct

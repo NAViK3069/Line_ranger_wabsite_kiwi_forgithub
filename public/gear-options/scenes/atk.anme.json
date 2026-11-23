@@ -36,9 +36,9 @@
    "id": "r3pxbnl134",
    "type": "ranger",
    "source": "lerico",
-   "rangerId": "u1353e-brown",
+   "rangerId": "u1242e-brown",
    "form": "body",
-   "name": "Brown ตัวแทนยมโลก"
+   "name": "Brown อนูบิสเพชฌฆาต"
   },
   {
    "id": "s25gar6eew",
@@ -138,7 +138,7 @@
   },
   {
    "id": "a9ijjdi134",
-   "name": "Brown ตัวแทนยมโลก",
+   "name": "Brown อนูบิสเพชฌฆาต",
    "assetId": "r3pxbnl134",
    "tag": "enemy",
    "x": 898,
@@ -653,7 +653,7 @@
    "speed": 1,
    "loop": false,
    "hold": true,
-   "duration": 1.43
+   "duration": 1.53
   },
   {
    "id": "enemy_knockback1",
@@ -664,25 +664,25 @@
    "speed": 1,
    "loop": false,
    "hold": true,
-   "duration": 1.43
+   "duration": 1.53
   },
   {
    "id": "show_enemy0",
    "type": "show",
    "actorId": "a9ijjdi134",
    "start": 0,
-   "duration": 32.783,
+   "duration": 32.883,
    "fadeIn": 0,
-   "fadeOut": 0.1499999999999999
+   "fadeOut": 0.15000000000000013
   },
   {
    "id": "show_enemy1",
    "type": "show",
    "actorId": "a9ijjdi134",
    "start": 35.6,
-   "duration": 10.283000000000001,
+   "duration": 10.382999999999996,
    "fadeIn": 0.4,
-   "fadeOut": 0.1499999999999999
+   "fadeOut": 0.15000000000000013
   },
   {
    "id": "bgm",
@@ -712,7 +712,7 @@
    "id": "sfx_death0",
    "type": "sound",
    "actorId": "__audio",
-   "start": 32.633,
+   "start": 32.733000000000004,
    "assetId": "snd_death",
    "volume": 1,
    "offset": 0,
@@ -724,7 +724,7 @@
    "id": "sfx_death1",
    "type": "sound",
    "actorId": "__audio",
-   "start": 45.733,
+   "start": 45.833,
    "assetId": "snd_death",
    "volume": 1,
    "offset": 0,

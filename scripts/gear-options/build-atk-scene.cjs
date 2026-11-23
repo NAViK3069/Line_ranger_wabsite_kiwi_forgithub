@@ -34,9 +34,9 @@ const T = {
   end: 55,
 }
 const HIT_OFFSET = 1.533   // คิวสกิลเริ่ม → กระสุนโดน (วัดจากไทม์ไลน์ของตัวเล่น)
-// นับจากจังหวะโดน: knockback (1.2 วิ) → ค้างเฟรมสุดท้าย → จางหาย 0.15 วิ · soul = วิญญาณออก + เสียงตาย
+// นับจากจังหวะโดน: knockback (u1242e-brown = 40 เฟรม ≈ 1.33 วิ) → ค้างเฟรมสุดท้าย → จางหาย 0.15 วิ · soul = วิญญาณออก + เสียงตาย
 // (soul ต้องตรงกับ DEATH.soul ใน src/app/gear-options/tutorials/atk.tsx)
-const DEATH = { knock: 0.02, fadeFrom: 1.3, fadeTo: 1.45, soul: 1.3 }
+const DEATH = { knock: 0.02, fadeFrom: 1.4, fadeTo: 1.55, soul: 1.4 }
 
 const WIDE = [640, 360, 1]
 const SKILL_CAM = [660, 420, 1.12]
@@ -64,6 +64,12 @@ const scene = {
   ],
 }
 if (!scene.actors.find(a => a.id === ALLY) || !scene.actors.find(a => a.id === ENEMY)) throw new Error('actors missing')
+
+// ── เปลี่ยนเป้าหมาย: ตัวในฉากต้นฉบับ (u1353e-brown) → ENEMY_RANGER (ต้องตรงกับ ENEMY.ranger ใน atk.tsx) ──
+const ENEMY_RANGER = { id: 'u1242e-brown', name: 'Brown อนูบิสเพชฌฆาต' }
+const enemyActor = scene.actors.find(a => a.id === ENEMY)
+scene.assets = scene.assets.map(a => (a.id === enemyActor.assetId ? { ...a, rangerId: ENEMY_RANGER.id, name: ENEMY_RANGER.name } : a))
+scene.actors = scene.actors.map(a => (a.id === ENEMY ? { ...a, name: ENEMY_RANGER.name } : a))
 
 // ── equip light (res/icon_ab_light_eff2_b = sunburst) behind the ranger — plays once while equipping ──
 // (_f is a rounded-square frame meant for ability icons, so it isn't used on a ranger)

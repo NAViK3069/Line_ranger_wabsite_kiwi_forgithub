@@ -71,8 +71,10 @@ export interface AnimCue extends CueBase {
   clip: string
   speed: number
   loop: boolean
-  /** ใช้เมื่อ loop = true (วินาที) */
+  /** ใช้เมื่อ loop = true (วินาที) · หรือเมื่อ hold = true (ค้างเฟรมสุดท้ายจนครบเวลานี้) */
   duration: number
+  /** ไม่วน: เล่นจบแล้วค้างเฟรมสุดท้ายไว้จนครบ duration (เช่น ล้มแล้วนอนนิ่ง) แทนการกลับไปท่ายืน */
+  hold?: boolean
 }
 
 /** เดินไปยังจุด (ระหว่างเดินเล่นท่า clip ถ้ามี) */

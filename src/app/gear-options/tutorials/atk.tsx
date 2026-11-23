@@ -3,17 +3,20 @@
 // ====================================================
 // วิดีโอสอน: พลังโจมตี (ATK) — ใช้อาวุธ "ร่มกันจันทรา" (eq_wpn_evt_057) +5
 //
-// เรื่องราว (เวลาตรงกับฉาก public/gear-options/scenes/atk.anme.json — id คิว atk_before / atk_after / skill_after):
+// เรื่องราว (เวลาตรงกับฉาก public/gear-options/scenes/atk.anme.json ที่สร้างจาก scripts/gear-options/build-atk-scene.cjs
+//   — id คิว atk_before / skill_before / atk_after / skill_after · เลื่อนเวลาต้องแก้ทั้งสองไฟล์):
 //   0–7.5      ชื่อหัวข้อ → การ์ดเกียร์ ไฮไลท์ "พลังโจมตีรวม +444%"
 //   7.5–12     ค่าพลัง + ช่องเกียร์ของเรนเจอร์เรา (เลเวลเต็ม ยังว่าง)   กล้องซูมตัวเรา
 //   12–16      ค่าพลัง + ช่องเกียร์ของเป้าหมาย (HP / DEF / ต้านสกิล)     กล้องแพนไปเป้าหมาย
 //   16–20.8    สูตรโจมตีปกติ: ATK × K / (K + DEF), K = 18000
 //   20.8–24.2  รอบ 1 ยังไม่ใส่เกียร์ — โจมตีปกติ (เป้าหมายเลือดเต็ม)
-//   24.2–28    ใส่เกียร์ — ไอคอนบินเข้าช่องอาวุธ + แสงหลังเรนเจอร์ (icon_ab_light_eff2 อยู่ในฉาก) · เรนเจอร์ไม่ใช้สกิล
-//   28–31.6    รอบ 2 ใส่เกียร์ — โจมตีปกติ (รีเลือดเป้าหมายก่อน)
-//   31.6–36.8  สูตรสกิล: ATK × ความแรงสกิล × (1 − ต้านสกิล) — สกิลไม่โดนลดด้วย DEF
-//   36.8–41.2  รอบ 3 ใส่เกียร์ — ร่ายสกิล 1 (รีเลือดก่อน) → เป้าหมายตาย: knockback (ในฉาก) → วิญญาณลอยหาย
-//   41.2–48    สรุป
+//   24.4–29.3  สูตรสกิล: ATK × ความแรงสกิล × (1 − ต้านสกิล) — สกิลไม่โดนลดด้วย DEF
+//   29.3–34.8  รอบ 2 ยังไม่ใส่เกียร์ — ร่ายสกิล 1 → เป้าหมายตาย: knockback ค้างท่าสุดท้าย → จางหาย → วิญญาณลอยหาย
+//   34.8–38.7  ใส่เกียร์ — ไอคอนบินเข้าช่องอาวุธ + แสงหลังเรนเจอร์ (icon_ab_light_eff2 อยู่ในฉาก) · เรนเจอร์ไม่ใช้สกิล
+//              (เป้าหมายกลับมาตอนกล้องซูมตัวเราอยู่)
+//   38.7–42.3  รอบ 3 ใส่เกียร์ — โจมตีปกติ (รีเลือดเป้าหมายก่อน)
+//   42.4–47.8  รอบ 4 ใส่เกียร์ — ร่ายสกิล 1 → เป้าหมายตาย
+//   48–55      สรุป
 //
 // ตัวเลขทั้งหมดคำนวณสดจากข้อมูลชุดเดียวกับ Ranger Book / Gear Book (ไม่พิมพ์ตายตัว):
 //   ค่าพลังเลเวลเต็ม = /data/ranger/stats/<id>.json → baseStats / rates / skills
@@ -30,7 +33,8 @@ import { aggregateGearBonuses, applyBonus } from '@/lib/gearEffectParser'
 import { recalcGearEffects } from '@/lib/gearLevelCalc'
 import type { GearEffect, GearEffects } from '@/lib/pvpScraper'
 import { clamp01, countUp, easeInOut, easeOut, easeOutBack, fmtInt, popStyle, prog, pulse, span } from './anim'
-import { AtlasSprite, SamSprite } from './sam'
+import { AtlasSprite, frameBBox, SamSprite } from './sam'
+import { assets, type RangerRuntime } from '@/anme/engine/assets'
 
 const SCENE = '/gear-options/scenes/atk.anme.json'
 const ALLY = { actor: 'ak1zzx9ceu', ranger: 'u1260e-brown' }
@@ -41,8 +45,19 @@ const GEAR_MAX = 10               // ระดับสูงสุดของ�
 const SHOWN_SWITCHABLE = 'GEAR_ATTR_PRD_SPE_MUL_nm'   // ช่อง Switchable บนการ์ด (ตามภาพในเกม) — ไม่มีผลกับ ATK
 const K = 18000                   // ค่าคงที่สูตรลดดาเมจจาก DEF
 const FPS = 30
-/** เวลารีเลือดเป้าหมายก่อนตีแต่ละรอบ */
-const REFILL = [20.9, 28.15, 36.95]
+/** เวลาในวิดีโอ — ต้องตรงกับฉาก (scripts/gear-options/build-atk-scene.cjs → const T) */
+const TL = {
+  /** รีเลือดเป้าหมายก่อนตีแต่ละรอบ (รอบ 1–4) */
+  refill: [20.9, 29.45, 38.85, 42.65],
+  /** จังหวะโดนของแต่ละรอบ ถ้ายังหาจากไทม์ไลน์ไม่ได้ */
+  hitFallback: [22.32, 31.333, 40.42, 44.433],
+  skillCard: [24.4, 29.3] as const,
+  equip: 35.95,
+  summary: 48.0,
+  end: 55,
+}
+/** ตายแล้ว (นับจากจังหวะโดน): knockback → ค้างท่าสุดท้าย → ร่างจางหาย 1.5–2.3 (อยู่ในฉาก) · วิญญาณออกจากร่างตอน SOUL */
+const DEATH = { fadeFrom: 1.5, soul: 1.6, soulDur: 1.9 }
 
 interface Skill { slot: string; code: string; name: string; description?: string; iconUrl?: string }
 interface RangerStats {
@@ -69,6 +84,7 @@ interface Data {
   dmgAfter: number
   skill: Skill
   skillMul: number
+  dmgSkillBefore: number
   dmgSkill: number
 }
 
@@ -99,11 +115,17 @@ async function loadData(): Promise<Data> {
     dmgBefore: Math.round(atkBefore * factor),
     dmgAfter: Math.round(atkAfter * factor),
     skill, skillMul,
+    dmgSkillBefore: Math.round(atkBefore * skillMul * (1 - enemyRes)),
     dmgSkill: Math.round(atkAfter * skillMul * (1 - enemyRes)),
   }
 }
 
 // ── ชิ้นส่วนหน้าตา (หน่วย = พิกเซลเวที 1280×720 — ตัวหนังสือใหญ่ไว้ ดูบนมือถือก็ยังอ่านได้) ──
+
+/** ผสมสีทีละนิดตามเวลา (k 0→1) — ไม่ให้สีตัวหนังสือเปลี่ยนแบบกระพริบทีเดียว */
+type RGB = readonly [number, number, number]
+const mix = (a: RGB, b: RGB, k: number) => `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * clamp01(k))).join(',')})`
+const C = { white: [255, 255, 255], amber100: [254, 243, 199], amber200: [253, 230, 138], blue100: [219, 234, 254] } as const
 
 const CARD = 'rounded-[22px] border-2 border-white/15 bg-[#0b1122] shadow-[0_24px_70px_-10px_rgba(0,0,0,0.9)]'
 const ICON = { atk: '/gacha/images/atk.png', hp: '/gacha/images/hp.png', def: '/gacha/images/def.png' }
@@ -144,7 +166,7 @@ function Highlight({ t, at, dur = 0.9, radius = 16, children, className = '' }: 
 }
 
 function StatRow({ icon, label, value, hlAt, dim, t, note }: { icon?: string; label: string; value: string; hlAt?: number; dim?: boolean; t: number; note?: string }) {
-  const hl = hlAt != null && t >= hlAt
+  const k = hlAt != null ? easeInOut(prog(t, hlAt, hlAt + 0.5)) : 0
   return (
     <Highlight t={t} at={hlAt ?? null} className="px-4 py-2.5">
       <div style={{ opacity: dim ? 0.55 : 1 }}>
@@ -152,7 +174,7 @@ function StatRow({ icon, label, value, hlAt, dim, t, note }: { icon?: string; la
           {/* eslint-disable-next-line @next/next/no-img-element */}
           {icon && <img src={icon} alt="" className="w-10 h-10 object-contain" />}
           <span className="text-[26px] text-gray-200 font-bold">{label}</span>
-          <span className={`ml-auto text-[38px] font-black tabular-nums leading-none ${hl ? 'text-amber-200' : 'text-white'}`}>{value}</span>
+          <span className="ml-auto text-[38px] font-black tabular-nums leading-none" style={{ color: mix(C.white, C.amber200, k) }}>{value}</span>
         </div>
         {note && <div className="text-[18px] text-gray-400 mt-0.5 pl-[52px]">{note}</div>}
       </div>
@@ -167,30 +189,33 @@ const SLOT_KINDS = [
   { key: 'acc', th: 'ของตกแต่ง', en: 'Accessory' },
 ] as const
 const SLOT_W = 150    // ระยะห่างต่อช่องในแถว
-/** กรอบช่องเรืองแสงสีส้มใน atlas ของ fx70-gear-slot (11 เฟรม) — วนเป็นแสงช่องตอนใส่เกียร์ */
+/** กรอบช่องเรืองแสงสีส้มใน atlas ของ fx70-gear-slot (11 เฟรม) — เล่นครั้งเดียวตอนใส่เกียร์ */
 const SLOT_GLOW = ['', '_2', '_3', '_4', '_5', '_6', '_7', '_8', '_9', '_10', '_11'].map(s => `fx70-gear-slot_106x112${s}.png`)
 
 /**
- * แถวช่องเกียร์ 3 ช่อง (หน้าตาแบบในเกม) · equip = ใส่ของลงช่องอาวุธตอนเวลา at → กรอบเรืองแสงส้มวน (เฟรมจาก fx70-gear-slot) + แสงวาบ
+ * แถวช่องเกียร์ 3 ช่อง (หน้าตาแบบในเกม) · equip = ใส่ของลงช่องอาวุธตอนเวลา at → กรอบเรืองแสงส้มวูบเดียว (เฟรมจาก fx70-gear-slot) + แสงวาบ
  *   กรอบช่อง = gear_main_slot_bg · ป้ายทองแดงทับขอบบน = gear_main_slot_plate_bg + ไอคอนชนิดช่อง (ไม่มีข้อความ)
  *   ช่องว่าง = ไอคอนมืดแบบสลัก · ช่องที่ใส่ของแล้ว = ไอคอน _on เรืองแสง
  */
 const SLOT_Y = 76     // กึ่งกลางกรอบช่องในแถว
+const GLOW_FPS = 16
 function GearSlots({ t, equip }: { t: number; equip?: { at: number; icon: string } }) {
   return (
     <div className="relative mx-auto" style={{ width: SLOT_W * 3, height: 140 }}>
       {SLOT_KINDS.map((k, i) => {
         const cx = SLOT_W * i + SLOT_W / 2
         const eq = k.key === 'weapon' && equip && t >= equip.at ? equip : null
-        const glowFrame = eq ? SLOT_GLOW[Math.floor((t - eq.at) * 15) % SLOT_GLOW.length] : null
+        // แสงช่องเล่นครั้งเดียว (ไม่วน) แล้วจางลงเหลือกรอบช่องปกติ
+        const gi = eq ? Math.floor((t - eq.at) * GLOW_FPS) : -1
+        const glowFrame = eq && gi < SLOT_GLOW.length ? SLOT_GLOW[gi] : null
+        const glowAlpha = 1 - prog(gi, SLOT_GLOW.length - 4, SLOT_GLOW.length)
         const burst = eq ? 1 - prog(t, eq.at, eq.at + 0.5) : 0
         const pop = eq ? easeOutBack(prog(t, eq.at + 0.15, eq.at + 0.55)) : 0
         return (
           <div key={k.key}>
-            {/* กรอบช่อง: ว่าง = gear_main_slot_bg ของเกม · ใส่ของแล้ว = กรอบเรืองแสงส้มของ fx70 วนเฟรม + แสงวาบตอนลง */}
-            {glowFrame
-              ? <AtlasSprite atlas="gear_main/fx70-gear-slot" name={glowFrame} x={cx} y={SLOT_Y} scale={1.05} />
-              : <AtlasSprite atlas="gear_main/gear_common" name="gear_main_slot_bg.png" x={cx} y={SLOT_Y} scale={0.9} />}
+            {/* กรอบช่อง = gear_main_slot_bg ของเกม · ตอนของลงช่อง = กรอบเรืองแสงส้มของ fx70 วูบเดียว + แสงวาบ */}
+            <AtlasSprite atlas="gear_main/gear_common" name="gear_main_slot_bg.png" x={cx} y={SLOT_Y} scale={0.9} />
+            {glowFrame && <AtlasSprite atlas="gear_main/fx70-gear-slot" name={glowFrame} x={cx} y={SLOT_Y} scale={1.05} alpha={glowAlpha} />}
             {burst > 0 && (
               <div className="absolute rounded-full" style={{
                 left: cx, top: SLOT_Y, width: 60 + 160 * (1 - burst), height: 60 + 160 * (1 - burst), transform: 'translate(-50%,-50%)',
@@ -251,48 +276,54 @@ function Banner({ t, start, end, title, sub, color }: { t: number; start: number
 
 /**
  * หลอดเลือดเป้าหมาย
- *   รีเลือด (REFILL)  หลอดแดงวิ่งเต็มจากซ้ายไปขวา + แสงเขียววาบ
+ *   รีเลือด (TL.refill) หลอดแดงวิ่งเต็มจากซ้ายไปขวา + แสงเขียววาบ (รอบที่แล้วตาย = หลอดค่อยๆ โผล่กลับมาพร้อมรีเลือด)
  *   โดนตี             หลอดขาวค้างที่ค่าเดิม · หลอดแดงไหลลง · ค้างสักพักหลอดขาวค่อยหดตาม · หลอดสั่น + แสงวาบ
  *   ตัวเลขดาเมจ       ป้ายแดงเด้งขึ้นบนหลอด ค้างไว้จนรีเลือดรอบถัดไป
+ *   ตาย (ดาเมจ ≥ HP)  หลอดจางหายให้วิญญาณลอยผ่าน จนกว่าจะรีเลือดรอบถัดไป
  */
-function HpBar({ c, t, d, hits }: { c: OverlayCtx; t: number; d: Data; hits: { at: number; dmg: number }[] }) {
-  const s = span(t, REFILL[0] - 0.1, 41.0, 0.35, 0.4)
+type Round = { refill: number; at: number; dmg: number }
+function HpBar({ c, t, d, rounds }: { c: OverlayCtx; t: number; d: Data; rounds: Round[] }) {
+  const s = span(t, rounds[0].refill - 0.1, TL.summary, 0.35, 0.4)
   if (!s.on) return null
   const pos = c.actorAt(ENEMY.actor)
   if (!pos) return null
   const sp = c.project({ x: pos.x, y: pos.y - 205 })
-  // เป้าหมายหลุดเฟรม (กล้องซูมตัวเรา) / มีการ์ดสูตรสกิลบังอยู่ / ตายแล้ว (ให้วิญญาณลอยผ่านได้) → ซ่อน
-  const death = hits[2] ? prog(t, hits[2].at + 0.85, hits[2].at + 1.15) : 0
-  const vis = s.alpha * clamp01((1330 - sp.x) / 120) * clamp01((sp.x + 50) / 120) * (1 - span(t, 31.5, 36.9, 0.3, 0.3).alpha) * (1 - death)
-  if (vis <= 0) return null
-
   const max = d.enemy.baseStats.hp
   // รอบปัจจุบัน = รีเลือดล่าสุดที่ผ่านมา · ตีที่อยู่หลังรีเลือดนั้น
-  const round = REFILL.reduce((r, at, i) => (t >= at ? i : r), 0)
-  const hit = hits[round]
-  const prevLeft = round > 0 ? Math.max(0, max - hits[round - 1].dmg) : 0
-  const refill = easeInOut(prog(t, REFILL[round], REFILL[round] + 0.6))
+  const round = rounds.reduce((r, x, i) => (t >= x.refill ? i : r), 0)
+  const cur = rounds[round]
+  const prev = rounds[round - 1]
+  const prevDead = !!prev && prev.dmg >= max
+  const dead = cur.dmg >= max ? prog(t, cur.at + 0.85, cur.at + 1.15) : 0
+  const back = prevDead ? prog(t, cur.refill - 0.05, cur.refill + 0.3) : 1
+  // เป้าหมายหลุดเฟรม (กล้องซูมตัวเรา) / มีการ์ดสูตรสกิลบังอยู่ / ตายแล้ว → ซ่อน
+  const vis = s.alpha * clamp01((1330 - sp.x) / 120) * clamp01((sp.x + 50) / 120)
+    * (1 - span(t, TL.skillCard[0] - 0.1, TL.skillCard[1] + 0.1, 0.3, 0.3).alpha) * (1 - dead) * back
+  if (vis <= 0) return null
+
+  const prevLeft = prev ? Math.max(0, max - prev.dmg) : 0
+  const refill = easeInOut(prog(t, cur.refill, cur.refill + 0.6))
   let red = prevLeft + (max - prevLeft) * refill
   let white = red
   let shake = 0, flash = 0
-  if (hit && t >= hit.at) {
-    const after = Math.max(0, max - hit.dmg)
-    red = max - (max - after) * easeOut(prog(t, hit.at, hit.at + 0.45))
-    white = max - (max - after) * easeInOut(prog(t, hit.at + 0.75, hit.at + 1.15))
-    const k = 1 - prog(t, hit.at, hit.at + 0.3)
-    shake = Math.sin((t - hit.at) * 70) * 7 * k
+  if (t >= cur.at) {
+    const after = Math.max(0, max - cur.dmg)
+    red = max - (max - after) * easeOut(prog(t, cur.at, cur.at + 0.45))
+    white = max - (max - after) * easeInOut(prog(t, cur.at + 0.75, cur.at + 1.15))
+    const k = 1 - prog(t, cur.at, cur.at + 0.3)
+    shake = Math.sin((t - cur.at) * 70) * 7 * k
     flash = k
   }
-  const refillGlow = round >= 0 && t >= REFILL[round] ? 1 - prog(t, REFILL[round] + 0.35, REFILL[round] + 0.9) : 0
-  const dmgOn = hit && t >= hit.at
-  const pop = dmgOn ? easeOutBack(prog(t, hit.at, hit.at + 0.3)) : 0
+  const refillGlow = t >= cur.refill ? 1 - prog(t, cur.refill + 0.35, cur.refill + 0.9) : 0
+  const dmgOn = t >= cur.at
+  const pop = dmgOn ? easeOutBack(prog(t, cur.at, cur.at + 0.3)) : 0
   const W = 360
   return (
     <div className="absolute" style={{ left: Math.min(Math.max(sp.x, 220), 1060), top: sp.y, transform: `translate(calc(-50% + ${shake}px),-100%)`, opacity: vis }}>
       {dmgOn && (
         <div className="absolute right-0 -top-[46px] px-3 py-1 rounded-xl bg-red-600 border-2 border-red-300/70 text-[26px] font-black text-white tabular-nums whitespace-nowrap shadow-[0_6px_18px_rgba(220,38,38,0.55)]"
           style={{ transform: `translateY(${(1 - pop) * 14}px) scale(${0.7 + 0.3 * pop})`, transformOrigin: 'right bottom', opacity: clamp01(pop * 1.5) }}>
-          -{fmtInt(hit.dmg)}
+          -{fmtInt(cur.dmg)}
         </div>
       )}
       <div className="rounded-2xl bg-[#0b1122] p-2.5 border-2 border-white/15 shadow-[0_10px_30px_rgba(0,0,0,0.7)]" style={{ width: W }}>
@@ -313,6 +344,25 @@ function HpBar({ c, t, d, hits }: { c: OverlayCtx; t: number; d: Data; hits: { a
       </div>
     </div>
   )
+}
+
+/**
+ * จุดที่วิญญาณออกจากร่าง = กลางร่างในเฟรมสุดท้ายของท่า knockback (ร่างล้มนอนอยู่ ไม่ใช่ท่ายืน)
+ * คำนวณจากไฟล์ .sam จริงของเป้าหมาย แปลงเป็นพิกัดเวทีแบบเดียวกับที่ฉากวาดตัวละคร (จุดยืน · สเกล · กลับด้าน)
+ */
+const fallenCache = new WeakMap<RangerRuntime, { x: number; y: number } | null>()
+function fallenCenter(c: OverlayCtx): { x: number; y: number; scale: number } | null {
+  const a = c.scene.actors.find(x => x.id === ENEMY.actor)
+  const rt = a && assets.get(a.assetId)
+  const p = c.actorAt(ENEMY.actor)
+  if (!a || !p || rt?.kind !== 'ranger') return null
+  if (!fallenCache.has(rt)) {
+    const n = rt.sam.animations['knockback']?.length ?? 0
+    const box = n ? frameBBox(rt.sam, rt.sprites, 'knockback', n - 1) : null
+    fallenCache.set(rt, box ? { x: (box.x0 + box.x1) / 2 - rt.stand.x, y: (box.y0 + box.y1) / 2 - rt.stand.y } : null)
+  }
+  const off = fallenCache.get(rt) ?? { x: 0, y: -60 }
+  return { x: p.x + (a.flip ? -off.x : off.x) * a.scale, y: p.y + off.y * a.scale, scale: a.scale }
 }
 
 // ── วิดีโอ ────────────────────────────────────────────
@@ -338,10 +388,12 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
 
   const overlay = (c: OverlayCtx) => {
     const t = c.t
-    const hitBefore = c.hitsOf('atk_before')[0] ?? 22.32
-    const hitAfter = c.hitsOf('atk_after')[0] ?? 29.72
-    const hitSkill = c.hitsOf('skill_after')[0] ?? 38.73
-    const hits = [{ at: hitBefore, dmg: d.dmgBefore }, { at: hitAfter, dmg: d.dmgAfter }, { at: hitSkill, dmg: d.dmgSkill }]
+    // 4 รอบ: โจมตีปกติ / สกิล × ไม่ใส่เกียร์ / ใส่เกียร์
+    const rounds: Round[] = (['atk_before', 'skill_before', 'atk_after', 'skill_after'] as const).map((id, i) => ({
+      refill: TL.refill[i],
+      at: c.hitsOf(id)[0] ?? TL.hitFallback[i],
+      dmg: [d.dmgBefore, d.dmgSkillBefore, d.dmgAfter, d.dmgSkill][i],
+    }))
     const step = (a: number) => ({ opacity: easeOut(prog(t, a, a + 0.4)), transform: `translateX(${(1 - easeOut(prog(t, a, a + 0.4))) * -24}px)` })
 
     // ── 1. ฉากเปิด ──
@@ -349,6 +401,7 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
     const title = span(t, 0.2, 2.4, 0.5, 0.4)
     const gear = span(t, 2.1, 7.4, 0.55, 0.4)
     const hl = t >= 3.8
+    const hlK = easeInOut(prog(t, 3.8, 4.4))   // แถวอื่นค่อยๆ มืด · แถว ATK ค่อยๆ ขยาย (ไม่เด้งทีเดียว)
 
     // ── 2–3. การ์ดเรนเจอร์ ──
     const allyCard = span(t, 8.2, 11.9)
@@ -359,27 +412,29 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
 
     // ── 6. ใส่เกียร์: ไอคอนบินเข้าช่องอาวุธบนการ์ด (แสงหลังเรนเจอร์อยู่ในฉากแล้ว) ──
     const EQ_CARD = { x: 690, y: 70 }
-    const EQ_AT = 25.25
-    const equipCard = span(t, 24.35, 27.95, 0.4, 0.35)
+    const EQ_AT = TL.equip
+    const equipCard = span(t, EQ_AT - 0.9, EQ_AT + 2.7, 0.4, 0.35)
     const slotTarget = { x: EQ_CARD.x + 24 + (560 - 48 - SLOT_W * 3) / 2 + SLOT_W / 2, y: EQ_CARD.y + 236 + SLOT_Y }
-    const fly = prog(t, 24.6, EQ_AT)
-    const atkNow = countUp(t, 25.8, 27.1, d.atkBefore, d.atkAfter)
+    const fly = prog(t, EQ_AT - 0.65, EQ_AT)
+    const atkNow = countUp(t, EQ_AT + 0.55, EQ_AT + 1.85, d.atkBefore, d.atkAfter)
 
-    // ── 8. สูตรสกิล ──
-    const skillCard = span(t, 31.8, 36.7, 0.5, 0.4)
+    // ── 5. สูตรสกิล (ก่อนร่ายสกิลรอบแรก) ──
+    const skillCard = span(t, TL.skillCard[0], TL.skillCard[1], 0.5, 0.4)
+    const sk = TL.skillCard[0]
 
-    // ── 9. เป้าหมายตาย: knockback ในฉาก → วิญญาณ eff_die_enemy ลอยขึ้นแล้วจางหาย ──
-    const SOUL_AT = hitSkill + 1.15
-    const soulP = prog(t, SOUL_AT, SOUL_AT + 1.6)
-    const enemyPos = c.actorAt(ENEMY.actor)
+    // ── เป้าหมายตาย: knockback ค้างท่าสุดท้าย → ร่างจางหาย (ในฉาก) → วิญญาณ eff_die_enemy ลอยออกจากร่างแล้วจางหาย ──
+    const fallen = fallenCenter(c)
+    const zoom = (c.project({ x: 100, y: 0 }).x - c.project({ x: 0, y: 0 }).x) / 100
 
-    // ── 10. สรุป ──
-    const sum = span(t, 41.4, 48, 0.55, 0.6)
+    // ── สรุป ──
+    const S = TL.summary
+    const sum = span(t, S, TL.end, 0.55, 0.6)
     const bar = (a: number) => easeOut(prog(t, a, a + 0.9))
     const sumRows = [
-      { label: T('โจมตีปกติ · ไม่ใส่เกียร์', 'Normal attack · no gear'), v: d.dmgBefore, cls: 'from-slate-500 to-slate-300', at: 42.0 },
-      { label: T(`โจมตีปกติ · ${gearName}`, `Normal attack · ${gearName}`), v: d.dmgAfter, cls: 'from-amber-500 to-orange-300', at: 42.6 },
-      { label: T(`สกิล ${skillName} · ${gearName}`, `Skill ${skillName} · ${gearName}`), v: d.dmgSkill, cls: 'from-fuchsia-600 to-purple-400', at: 43.2 },
+      { label: T('โจมตีปกติ · ไม่ใส่เกียร์', 'Normal attack · no gear'), v: d.dmgBefore, cls: 'from-slate-500 to-slate-300', at: S + 0.6 },
+      { label: T(`โจมตีปกติ · ${gearName}`, `Normal attack · ${gearName}`), v: d.dmgAfter, cls: 'from-amber-500 to-orange-300', at: S + 1.1 },
+      { label: T(`สกิล ${skillName} · ไม่ใส่เกียร์`, `Skill ${skillName} · no gear`), v: d.dmgSkillBefore, cls: 'from-fuchsia-900 to-fuchsia-500', at: S + 1.6 },
+      { label: T(`สกิล ${skillName} · ${gearName}`, `Skill ${skillName} · ${gearName}`), v: d.dmgSkill, cls: 'from-fuchsia-600 to-purple-400', at: S + 2.1 },
     ]
     // แท่งกราฟใช้สเกล log — ดาเมจสกิลใหญ่กว่าโจมตีปกติหลายร้อยเท่า ถ้าใช้สเกลตรงแท่งเล็กจะมองไม่เห็นเลย
     const logW = (v: number) => (Math.log10(v) - 4) / (Math.log10(d.dmgSkill) - 4)
@@ -428,9 +483,10 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
                 const isAtk = i === 0
                 return (
                   <Highlight key={e.nameKey ?? e.name} t={t} at={isAtk ? 3.8 : null} radius={12}>
-                    <div className="relative flex items-center justify-between px-3 py-1.5" style={!isAtk && hl ? { opacity: 0.5 } : undefined}>
-                      <span className={`text-[28px] font-bold ${isAtk && hl ? 'text-amber-100' : 'text-blue-100'}`}>{effName(e)}</span>
-                      <span className={`font-black tabular-nums ${isAtk && hl ? 'text-amber-200 text-[36px]' : 'text-white text-[28px]'}`}>{e.value}</span>
+                    <div className="relative flex items-center justify-between px-3 py-1.5" style={isAtk ? undefined : { opacity: 1 - 0.5 * hlK }}>
+                      <span className="text-[28px] font-bold" style={{ color: isAtk ? mix(C.blue100, C.amber100, hlK) : mix(C.blue100, C.blue100, 1) }}>{effName(e)}</span>
+                      <span className="font-black tabular-nums"
+                        style={isAtk ? { color: mix(C.white, C.amber200, hlK), fontSize: 28 + 8 * hlK } : { color: 'white', fontSize: 28 }}>{e.value}</span>
                       {/* ป้ายชี้ — ผูกกับแถวนี้เลย จึงตรงแถวเสมอ */}
                       {isAtk && hl && (
                         <div className="absolute left-full top-1/2 ml-6 flex items-center gap-2 whitespace-nowrap"
@@ -445,7 +501,7 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
               })}
             </div>
             {d.switchable && (
-              <div className="mt-3 rounded-2xl border-2 border-orange-400/30 bg-[#2a1a10] p-3.5" style={{ opacity: hl ? 0.5 : 1 }}>
+              <div className="mt-3 rounded-2xl border-2 border-orange-400/30 bg-[#2a1a10] p-3.5" style={{ opacity: 1 - 0.5 * hlK }}>
                 <div className="text-[20px] font-black text-orange-200 tracking-wider mb-1 px-2">SWITCHABLE EFFECT</div>
                 <div className="flex items-center justify-between px-3">
                   <span className="text-[26px] font-bold text-orange-100">{effName(d.switchable)}</span>
@@ -473,7 +529,7 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
             <StatRow t={t} icon={ICON.hp} label={T('พลังชีวิต', 'HP')} value={fmtInt(d.enemy.baseStats.hp)} hlAt={13.05} />
             <StatRow t={t} icon={ICON.def} label={T('พลังป้องกัน', 'DEF')} value={fmtInt(d.enemyDef)} hlAt={13.55} />
             <StatRow t={t} label={T('ต้านสกิล', 'Skill Resistance')} value={pct(d.enemyRes)} dim
-              note={T('ใช้ตอนโดนสกิล (ดูท้ายคลิป)', 'Used against skills (see later)')} />
+              note={T('ใช้ตอนโดนสกิล (ดูรอบที่ 2)', 'Used against skills (see round 2)')} />
           </>}
           slots={<GearSlots t={t} />} />
 
@@ -516,7 +572,7 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
         {/* ── รอบ 1 ── */}
         <Banner t={t} start={20.8} end={24.2} title={T('รอบที่ 1 · ยังไม่ใส่เกียร์', 'Round 1 · No gear')}
           sub={`${T('โจมตีปกติ', 'Normal attack')} · ATK ${fmtInt(d.atkBefore)}`} color="bg-gradient-to-r from-slate-700 to-slate-600 border-2 border-white/15" />
-        <HpBar c={c} t={t} d={d} hits={hits} />
+        <HpBar c={c} t={t} d={d} rounds={rounds} />
 
         {/* ── ใส่เกียร์: การ์ดช่องเกียร์ + ไอคอนบินลงช่องอาวุธ ── */}
         {equipCard.on && (
@@ -534,11 +590,11 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={ICON.atk} alt="" className="w-11 h-11" />
               <span className="text-[26px] text-gray-200 font-bold">{T('พลังโจมตี', 'ATK')}</span>
-              <span className="ml-auto text-[50px] font-black text-amber-200 tabular-nums leading-none" style={{ textShadow: `0 0 ${14 + 14 * pulse(t, 3) * (t > 25.8 && t < 27.1 ? 1 : 0)}px rgba(251,191,36,0.75)` }}>
+              <span className="ml-auto text-[50px] font-black text-amber-200 tabular-nums leading-none" style={{ textShadow: `0 0 ${14 + 14 * pulse(t, 3) * (t > EQ_AT + 0.55 && t < EQ_AT + 1.85 ? 1 : 0)}px rgba(251,191,36,0.75)` }}>
                 {fmtInt(atkNow)}
               </span>
             </div>
-            <div className="mt-1 text-right text-[22px] text-gray-400 tabular-nums" style={{ opacity: easeOut(prog(t, 27.0, 27.4)) }}>
+            <div className="mt-1 text-right text-[22px] text-gray-400 tabular-nums" style={{ opacity: easeOut(prog(t, EQ_AT + 1.75, EQ_AT + 2.15)) }}>
               {fmtInt(d.atkBefore)} × {mult.toFixed(2)}
             </div>
             <div className="mt-3 pt-3 border-t-2 border-white/10">
@@ -546,7 +602,7 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
             </div>
           </div>
         )}
-        {t >= 24.6 && fly < 1 && equipCard.on && (() => {
+        {t >= EQ_AT - 0.65 && fly < 1 && equipCard.on && (() => {
           const k = easeInOut(fly)
           const x = 640 + (slotTarget.x - 640) * k
           const y = 30 + (slotTarget.y - 30) * k - Math.sin(k * Math.PI) * 90
@@ -557,11 +613,7 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
           )
         })()}
 
-        {/* ── รอบ 2 ── */}
-        <Banner t={t} start={28.0} end={31.6} title={T(`รอบที่ 2 · ใส่${gearName}`, `Round 2 · ${gearName}`)}
-          sub={`${T('โจมตีปกติ', 'Normal attack')} · ATK ${fmtInt(d.atkAfter)}`} color="bg-gradient-to-r from-amber-600 to-orange-600 border-2 border-amber-200/40" />
-
-        {/* ── สูตรสกิล: ไม่โดน DEF แต่โดนต้านสกิลแทน ── */}
+        {/* ── สูตรสกิล (ก่อนร่ายสกิลรอบที่ 2): ไม่โดน DEF แต่โดนต้านสกิลแทน ── */}
         {skillCard.on && (
           <div className={`absolute left-1/2 top-[34px] w-[860px] -ml-[430px] p-7 ${CARD}`} style={popStyle(skillCard, 36)}>
             <div className="flex items-center gap-4">
@@ -573,48 +625,62 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
               </div>
               <span className="ml-auto px-4 py-1.5 rounded-xl bg-fuchsia-950 border-2 border-fuchsia-400/60 text-[30px] font-black text-fuchsia-100">ATK × {pct(d.skillMul)}</span>
             </div>
-            <div className="mt-4 rounded-2xl bg-[#2a0f1a] border-2 border-rose-400/40 px-4 py-2.5 text-[24px] font-bold text-rose-100" style={step(32.4)}>
-              {T('สกิลไม่โดนลดด้วยพลังป้องกัน (DEF) — ใช้ "ต้านสกิล" ของเป้าหมายลดแทน', 'Skills ignore DEF — the target\'s Skill Resistance reduces them instead')}
+            <div className="mt-4 rounded-2xl bg-[#2a0f1a] border-2 border-rose-400/40 px-4 py-2.5 text-[24px] font-bold text-rose-100" style={step(sk + 0.6)}>
+              {T('สกิลไม่โดนลดด้วยพลังป้องกัน (DEF) — ใช้ "ต้านสกิล" ของเป้าหมายลดแทน', "Skills ignore DEF — the target's Skill Resistance reduces them instead")}
             </div>
-            <div className="mt-4 flex items-center justify-center text-white text-[36px] font-black" style={step(33.0)}>
+            <div className="mt-4 flex items-center justify-center text-white text-[36px] font-black" style={step(sk + 1.2)}>
               {T('ดาเมจ', 'Damage')} = ATK × {pct(d.skillMul)} × (1 − {T('ต้านสกิล', 'Skill Res.')})
             </div>
             <div className="mt-4 space-y-2 text-[28px]">
-              <div className="flex justify-between" style={step(33.6)}>
-                <span className="text-gray-300 font-bold">{T('ATK (ใส่เกียร์แล้ว)', 'ATK (with gear)')}</span><span className="font-black text-amber-200 tabular-nums">{fmtInt(d.atkAfter)}</span>
+              <div className="flex justify-between" style={step(sk + 1.8)}>
+                <span className="text-gray-300 font-bold">{T('ATK (ยังไม่ใส่เกียร์)', 'ATK (no gear)')}</span><span className="font-black text-white tabular-nums">{fmtInt(d.atkBefore)}</span>
               </div>
-              <div className="flex justify-between" style={step(34.1)}>
+              <div className="flex justify-between" style={step(sk + 2.3)}>
                 <span className="text-gray-300 font-bold">{T('ต้านสกิลของเป้าหมาย', 'Target Skill Resistance')}</span><span className="font-black text-rose-300 tabular-nums">{pct(d.enemyRes)}</span>
               </div>
-              <div className="flex justify-between items-baseline pt-3 border-t-2 border-white/10" style={step(34.8)}>
-                <span className="text-gray-300 font-bold tabular-nums">{fmtInt(d.atkAfter)} × {pct(d.skillMul)} × {pct(1 - d.enemyRes)}</span>
-                <span className="text-[40px] font-black text-fuchsia-200 tabular-nums">= {fmtInt(d.dmgSkill)}</span>
+              <div className="flex justify-between items-baseline pt-3 border-t-2 border-white/10" style={step(sk + 3.0)}>
+                <span className="text-gray-300 font-bold tabular-nums">{fmtInt(d.atkBefore)} × {pct(d.skillMul)} × {pct(1 - d.enemyRes)}</span>
+                <span className="text-[40px] font-black text-fuchsia-200 tabular-nums">= {fmtInt(d.dmgSkillBefore)}</span>
               </div>
             </div>
           </div>
         )}
 
-        {/* ── รอบ 3: สกิล ── */}
-        <Banner t={t} start={36.8} end={41.2} title={T(`สกิล ${skillName}`, `Skill · ${skillName}`)}
-          sub={`${T(`ใส่${gearName}`, gearName)} · ATK × ${pct(d.skillMul)}`} color="bg-gradient-to-r from-fuchsia-700 to-purple-700 border-2 border-fuchsia-200/40" />
+        {/* ── รอบ 2: สกิล ยังไม่ใส่เกียร์ ── */}
+        <Banner t={t} start={29.3} end={34.6} title={T('รอบที่ 2 · ยังไม่ใส่เกียร์', 'Round 2 · No gear')}
+          sub={`${T('สกิล', 'Skill')} ${skillName} · ATK ${fmtInt(d.atkBefore)}`} color="bg-gradient-to-r from-slate-700 to-fuchsia-900 border-2 border-white/15" />
 
-        {/* วิญญาณเป้าหมาย ลอยขึ้นแล้วจางหาย */}
-        {t >= SOUL_AT && soulP < 1 && enemyPos && (() => {
-          const sp = c.project({ x: enemyPos.x, y: enemyPos.y - 80 - 170 * easeOut(soulP) })
+        {/* ── รอบ 3: โจมตีปกติ ใส่เกียร์ ── */}
+        <Banner t={t} start={38.7} end={42.3} title={T(`รอบที่ 3 · ใส่${gearName}`, `Round 3 · ${gearName}`)}
+          sub={`${T('โจมตีปกติ', 'Normal attack')} · ATK ${fmtInt(d.atkAfter)}`} color="bg-gradient-to-r from-amber-600 to-orange-600 border-2 border-amber-200/40" />
+
+        {/* ── รอบ 4: สกิล ใส่เกียร์ ── */}
+        <Banner t={t} start={42.4} end={47.6} title={T(`รอบที่ 4 · ใส่${gearName}`, `Round 4 · ${gearName}`)}
+          sub={`${T('สกิล', 'Skill')} ${skillName} · ATK ${fmtInt(d.atkAfter)}`} color="bg-gradient-to-r from-fuchsia-700 to-purple-700 border-2 border-fuchsia-200/40" />
+
+        {/* วิญญาณเป้าหมาย: ออกจากกลางร่างที่ล้มอยู่ ลอยขึ้นแล้วจางหาย (ทุกรอบที่ตาย) */}
+        {fallen && rounds.filter(r => r.dmg >= d.enemy.baseStats.hp).map(r => {
+          const at = r.at + DEATH.soul
+          const p = prog(t, at, at + DEATH.soulDur)
+          if (t < at || p >= 1) return null
+          const rise = easeOut(p) * 190 / zoom                         // ลอยขึ้น (พิกัดเวที)
+          const sway = Math.sin(p * Math.PI * 3) * 12 * (0.3 + p) / zoom   // ส่ายเบาๆ แรงขึ้นเมื่อสูงขึ้น
+          const sp = c.project({ x: fallen.x + sway, y: fallen.y - rise })
+          const alpha = Math.min(easeOut(prog(t, at, at + 0.25)), 1 - easeInOut(prog(t, at + DEATH.soulDur * 0.5, at + DEATH.soulDur)))
           return (
-            <SamSprite base="hd/unit/effect/eff_die/eff_die_enemy" clip="die" frame={Math.floor((t - SOUL_AT) * FPS)} loop
-              x={sp.x + Math.sin(soulP * Math.PI * 3) * 14} y={sp.y} scale={1.8} alpha={1 - easeInOut(prog(t, SOUL_AT + 0.7, SOUL_AT + 1.6))} />
+            <SamSprite key={r.at} base="hd/unit/effect/eff_die/eff_die_enemy" clip="die" frame={Math.floor((t - at) * FPS)} loop anchorFrame={0}
+              x={sp.x} y={sp.y} scale={fallen.scale * zoom} alpha={alpha} />
           )
-        })()}
+        })}
 
         {/* ── สรุป ── */}
         {sum.on && (
           <div className="absolute inset-0 bg-black/70" style={{ opacity: sum.alpha }}>
-            <div className={`absolute left-1/2 top-1/2 w-[900px] -ml-[450px] -mt-[300px] p-8 ${CARD}`} style={popStyle(sum, 40)}>
+            <div className={`absolute left-1/2 top-1/2 w-[900px] -ml-[450px] -mt-[335px] p-8 ${CARD}`} style={popStyle(sum, 40)}>
               <div className="text-[24px] font-black text-amber-300">{T('สรุป', 'Summary')}</div>
               <div className="text-[40px] font-black text-white leading-tight">{T('ดาเมจต่อครั้ง (เป้าหมายเดียวกัน)', 'Damage per hit (same target)')}</div>
               {sumRows.map(r => (
-                <div key={r.label} className="mt-5" style={{ opacity: easeOut(prog(t, r.at - 0.2, r.at + 0.2)) }}>
+                <div key={r.label} className="mt-4" style={{ opacity: easeOut(prog(t, r.at - 0.2, r.at + 0.2)) }}>
                   <div className="flex justify-between text-[26px]">
                     <span className="text-gray-200 font-bold">{r.label}</span>
                     <span className="font-black text-white tabular-nums">{fmtInt(r.v * bar(r.at))}</span>
@@ -624,14 +690,14 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
                   </div>
                 </div>
               ))}
-              <div className="mt-6 grid grid-cols-2 gap-4" style={popStyle(span(t, 44.2, 48, 0.5, 0.6))}>
+              <div className="mt-6 grid grid-cols-2 gap-4" style={popStyle(span(t, S + 2.9, TL.end, 0.5, 0.6))}>
                 <div className="rounded-2xl bg-[#2a1f08] border-2 border-amber-400/50 p-3 text-center">
                   <div className="text-[22px] text-gray-300 font-bold">{T('โจมตีปกติ แรงขึ้น', 'Normal attack')}</div>
                   <div className="text-[52px] font-black text-amber-300 leading-none mt-1">×{(d.dmgAfter / d.dmgBefore).toFixed(2)}</div>
                 </div>
                 <div className="rounded-2xl bg-[#250a2a] border-2 border-fuchsia-400/50 p-3 text-center">
                   <div className="text-[22px] text-gray-300 font-bold">{T('สกิล แรงขึ้น', 'Skill')}</div>
-                  <div className="text-[52px] font-black text-fuchsia-300 leading-none mt-1">×{mult.toFixed(2)}</div>
+                  <div className="text-[52px] font-black text-fuchsia-300 leading-none mt-1">×{(d.dmgSkill / d.dmgSkillBefore).toFixed(2)}</div>
                 </div>
               </div>
               <div className="mt-4 text-center text-[18px] text-gray-500">

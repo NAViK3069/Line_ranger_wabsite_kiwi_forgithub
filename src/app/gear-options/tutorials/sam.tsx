@@ -54,23 +54,33 @@ function useLoaded<T>(load: () => Promise<T>, key: string): T | null {
   return v
 }
 
+/** กรอบภาพของเฟรมเดียวในท่า (พิกัดของไฟล์) */
+export function frameBBox(sam: Pick<SAMParser, 'animations' | 'images'>, sprites: SpriteMap, clip: string, index: number) {
+  const frames = sam.animations[clip]
+  const f = frames?.[Math.max(0, Math.min(frames.length - 1, index))]
+  return f ? animBBox({ animations: { f: [f] }, images: sam.images } as unknown as SAMParser, sprites, 'f') : null
+}
+
 const RES = 2   // ความละเอียด canvas (ชั้นซ้อนถูกย่อ/ขยายด้วย CSS — วาด 2 เท่าไว้ให้คมบนจอใหญ่)
 
 /**
  * เล่นท่า clip ของไฟล์ .sam ที่เฟรม frame (เรียกจาก t: Math.floor((t - start) * 30))
  *   canvas ครอบกรอบของท่า fitClip (ค่าเริ่ม '_all' = รวมทุกท่า) → สลับท่า/แสงฟุ้งแล้วไม่โดนตัด
  *   ตำแหน่ง: จุดกึ่งกลางของท่า anchorClip (ค่าเริ่ม = clip) วางที่ x, y
+ *            anchorFrame = ใช้กรอบของเฟรมนั้นเฟรมเดียว (ภาพที่ส่ายไปมาในท่า เช่น วิญญาณ — เฟรมแรกตรงจุดที่ต้องการ)
  *   ขนาด: size = ความกว้างที่ต้องการของ anchorClip (พิกเซลชั้นซ้อน) · ไม่ใส่ = ใช้ scale ตรงๆ
  */
-export function SamSprite({ base, clip, frame, loop = false, x, y, scale: scaleIn = 1, size, alpha = 1, fitClip = '_all', anchorClip }: {
+export function SamSprite({ base, clip, frame, loop = false, x, y, scale: scaleIn = 1, size, alpha = 1, fitClip = '_all', anchorClip, anchorFrame }: {
   base: string; clip: string; frame: number; loop?: boolean; x: number; y: number; scale?: number; size?: number; alpha?: number
-  fitClip?: string; anchorClip?: string
+  fitClip?: string; anchorClip?: string; anchorFrame?: number
 }) {
   const data = useLoaded(() => loadSam(base), base)
   const ref = useRef<HTMLCanvasElement>(null)
   const pick = (name: string) => (data && data.sam.animations[name] ? name : clip)
   const box = data ? animBBox(data.sam, data.sprites, pick(fitClip)) : null
-  const anchor = data ? animBBox(data.sam, data.sprites, pick(anchorClip ?? clip)) : null
+  const anchor = data
+    ? anchorFrame != null ? frameBBox(data.sam, data.sprites, pick(anchorClip ?? clip), anchorFrame) : animBBox(data.sam, data.sprites, pick(anchorClip ?? clip))
+    : null
   const scale = size && anchor ? size / Math.max(1, anchor.x1 - anchor.x0) : scaleIn
   const w = box ? Math.ceil((box.x1 - box.x0) * scale) : 0
   const h = box ? Math.ceil((box.y1 - box.y0) * scale) : 0
@@ -87,8 +97,8 @@ export function SamSprite({ base, clip, frame, loop = false, x, y, scale: scaleI
     const ctx = cv.getContext('2d')!
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.clearRect(0, 0, cv.width, cv.height)
-    ctx.setTransform(RES, 0, 0, RES, 0, 0)
-    renderSAMFrame(ctx, frames[i], data.sam.images, data.sprites, -box.x0 * scale, -box.y0 * scale, scale)
+    // renderSAMFrame ตั้ง transform เองทุกชิ้น (ทับ ctx.setTransform) → คูณ RES เข้าไปในตำแหน่ง/สเกลตรงๆ
+    renderSAMFrame(ctx, frames[i], data.sam.images, data.sprites, -box.x0 * scale * RES, -box.y0 * scale * RES, scale * RES)
   })
 
   if (!box || alpha <= 0) return null

@@ -17,35 +17,53 @@ const cam = (id, start, x, y, zoom, duration, ease = 'easeInOut') =>
   ({ id, type: 'camera', actorId: '__camera', start, center: { x, y }, zoom, duration, ease })
 
 // stage points: ally feet (358, 560), enemy feet (898, 560)
+// ── เวลา (ต้องตรงกับ src/app/gear-options/tutorials/atk.tsx → const TL) ──
+const T = {
+  atkBefore: 21.2,      // รอบ 1: โจมตีปกติ ไม่ใส่เกียร์
+  skillBefore: 29.8,    // รอบ 2: สกิล ไม่ใส่เกียร์ → เป้าหมายตาย
+  respawn: 35.6,        // เป้าหมายกลับมา (กล้องซูมตัวเราอยู่ — มองไม่เห็นตอนโผล่)
+  equip: 35.95,         // เกียร์ลงช่อง → แสงหลังเรนเจอร์
+  atkAfter: 39.3,       // รอบ 3: โจมตีปกติ ใส่เกียร์
+  skillAfter: 42.9,     // รอบ 4: สกิล ใส่เกียร์ → เป้าหมายตาย
+  summary: 48.0,
+  end: 55,
+}
+const HIT_OFFSET = 1.533   // คิวสกิลเริ่ม → กระสุนโดน (วัดจากไทม์ไลน์ของตัวเล่น)
+const DEATH = { knock: 0.02, fadeFrom: 1.5, fadeTo: 2.3 }   // นับจากจังหวะโดน: knockback → ค้างเฟรมสุดท้าย → ค่อยๆ จางหาย
+
 const WIDE = [640, 360, 1]
+const SKILL_CAM = [660, 420, 1.12]
 const scene = {
   ...src,
   name: 'ATK — Moonbrella',
-  duration: 48,
+  duration: T.end,
   cues: [
     cam('cam_wide0', 0, ...WIDE, 0),
     cam('cam_ally', 7.5, 470, 470, 1.65, 0.9),       // ally left of centre → card on the right
     cam('cam_enemy', 11.9, 790, 470, 1.65, 0.9),     // enemy right of centre → card on the left
     cam('cam_wide1', 15.9, ...WIDE, 0.8),
-    cue(atk, 'atk_before', 21.2, { label: 'ATK (no gear)' }),
-    cam('cam_equip', 24.2, 470, 470, 1.65, 0.7),     // equip close-up — gear glow only, the ranger stays idle
-    cam('cam_wide2', 27.8, ...WIDE, 0.7),
-    cue(atk, 'atk_after', 28.6, { label: 'ATK (Moonbrella)' }),
-    // skill formula card 31.6–36.8 (wide), then the skill
-    cam('cam_skill', 36.6, 660, 420, 1.12, 0.8),
-    cue(sk1, 'skill_after', 37.2, { label: 'Skill 1 (Moonbrella)' }),
-    cam('cam_wide3', 40.6, ...WIDE, 0.6),
-    // slow push-in under the summary — also makes the scene run to 48s (the player ends after the last cue)
-    cam('cam_outro', 41.4, 640, 400, 1.08, 6.6, 'linear'),
+    cue(atk, 'atk_before', T.atkBefore, { label: 'ATK (no gear)' }),
+    // skill formula card 24.4–29.3 (wide), then the skill without gear
+    cam('cam_skill0', T.skillBefore - 0.6, ...SKILL_CAM, 0.8),
+    cue(sk1, 'skill_before', T.skillBefore, { label: 'Skill 1 (no gear)' }),
+    cam('cam_equip', T.equip - 1.05, 470, 470, 1.65, 0.7),   // equip close-up — gear glow only, the ranger stays idle
+    cam('cam_wide2', T.atkAfter - 0.8, ...WIDE, 0.7),
+    cue(atk, 'atk_after', T.atkAfter, { label: 'ATK (Moonbrella)' }),
+    cam('cam_skill1', T.skillAfter - 0.6, ...SKILL_CAM, 0.8),
+    cue(sk1, 'skill_after', T.skillAfter, { label: 'Skill 1 (Moonbrella)' }),
+    cam('cam_wide3', T.skillAfter + HIT_OFFSET + 2.9, ...WIDE, 0.6),
+    // slow push-in under the summary — also makes the scene run to the end (the player ends after the last cue)
+    cam('cam_outro', T.summary, 640, 400, 1.08, T.end - T.summary, 'linear'),
   ],
 }
 if (!scene.actors.find(a => a.id === ALLY) || !scene.actors.find(a => a.id === ENEMY)) throw new Error('actors missing')
 
-// ── equip light (res/icon_ab_light_eff2_b = sunburst) behind the ranger — only visible while equipping ──
+// ── equip light (res/icon_ab_light_eff2_b = sunburst) behind the ranger — plays once while equipping ──
 // (_f is a rounded-square frame meant for ability icons, so it isn't used on a ranger)
-const HIT_SKILL = 38.733            // measured from the player timeline (skill_after impact)
-const EQUIP = 25.25, EQUIP_DUR = 2.7
-const LIGHT_Y = 785                 // จุดยืนของแสง — ให้กลางแสงตกกลางตัวเรนเจอร์
+const LIGHT_SCALE = 2.2
+const LIGHT_SPEED = 0.8
+const LIGHT_DUR = 23 / 30 / LIGHT_SPEED      // คลิป start = 23 เฟรม — เล่นครั้งเดียว
+const LIGHT_Y = 560 + (785 - 560) * LIGHT_SCALE / 3.2   // จุดยืนของแสง — ให้กลางแสงตกกลางตัวเรนเจอร์ (วัดไว้ที่สเกล 3.2 → y 785)
 const lightAsset = (id, layer) => ({
   id, type: 'ranger', source: 'upload', name: `icon_ab_light_eff2_${layer}`, body: 'body',
   sets: { body: { sam: `/api/res/icon_ab_light_eff2/icon_ab_light_eff2_${layer}.sam`, plist: `/api/res/icon_ab_light_eff2/icon_ab_light_eff2_${layer}.plist`, png: `/api/res/icon_ab_light_eff2/icon_ab_light_eff2_${layer}.png` } },
@@ -53,16 +71,24 @@ const lightAsset = (id, layer) => ({
 scene.assets.push(lightAsset('fx_light_b', 'b'))
 const allyActor = scene.actors.find(a => a.id === ALLY)
 const lightActor = (id, assetId, y) => ({
-  ...clone(allyActor), id, name: assetId, assetId, tag: 'prop', y, flip: false, idleClip: 'start', loop: true, muted: true, scale: 3.2,
+  ...clone(allyActor), id, name: assetId, assetId, tag: 'prop', y, flip: false, idleClip: 'start', loop: false, muted: true, scale: LIGHT_SCALE,
 })
 scene.depthSort = false            // ลำดับวาด = ลำดับใน actors: แสง → เรนเจอร์ (ทุกตัวยืนเส้นพื้นเดียวกัน)
 scene.actors.unshift(lightActor('a_light_b', 'fx_light_b', LIGHT_Y))
 const show = (id, actorId, start, duration, fadeIn, fadeOut) => ({ id, type: 'show', actorId, start, duration, fadeIn, fadeOut })
+const anim = (id, actorId, start, clip, duration, speed = 1) => ({ id, type: 'anim', actorId, start, clip, speed, loop: false, hold: true, duration })
 scene.cues.push(
-  show('show_light_b', 'a_light_b', EQUIP, EQUIP_DUR, 0.12, 0.5),
-  // target dies on the skill hit: knockback (36 frames = 1.2s) then fades out → the overlay shows its soul flying away
-  { id: 'enemy_knockback', type: 'anim', actorId: ENEMY, start: HIT_SKILL + 0.02, clip: 'knockback', speed: 1, loop: false, duration: 1.2 },
-  show('show_enemy', ENEMY, 0, HIT_SKILL + 1.2 + 0.25, 0, 0.3),
+  anim('light_once', 'a_light_b', T.equip, 'start', LIGHT_DUR, LIGHT_SPEED),
+  show('show_light_b', 'a_light_b', T.equip, LIGHT_DUR, 0.05, 0.2),
+)
+// target dies on each skill hit: knockback (36 frames) → hold the last frame → fade out (the overlay shows its soul flying away)
+// it comes back (fade in) during the equip close-up, while it's off camera
+const hit0 = T.skillBefore + HIT_OFFSET, hit1 = T.skillAfter + HIT_OFFSET
+scene.cues.push(
+  anim('enemy_knockback0', ENEMY, hit0 + DEATH.knock, 'knockback', DEATH.fadeTo - DEATH.knock),
+  anim('enemy_knockback1', ENEMY, hit1 + DEATH.knock, 'knockback', DEATH.fadeTo - DEATH.knock),
+  show('show_enemy0', ENEMY, 0, hit0 + DEATH.fadeTo, 0, DEATH.fadeTo - DEATH.fadeFrom),
+  show('show_enemy1', ENEMY, T.respawn, hit1 + DEATH.fadeTo - T.respawn, 0.4, DEATH.fadeTo - DEATH.fadeFrom),
 )
 fs.writeFileSync(out, JSON.stringify(scene, null, 1) + '\n')
-console.log('wrote', out, scene.cues.length, 'cues')
+console.log('wrote', out, scene.cues.length, 'cues', { hit0, hit1 })

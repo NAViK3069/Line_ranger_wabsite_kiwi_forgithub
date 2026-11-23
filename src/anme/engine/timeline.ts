@@ -271,7 +271,8 @@ export function cueBodyDuration(scene: Scene, c: Cue, skill?: SkillTiming): numb
       if (c.loop) return c.duration
       const rt = rangerOfActor(scene, scene.actors.find(a => a.id === c.actorId))
       const f = clipFrames(rt, c.clip)
-      return rt && f ? f / (rt.fps * Math.max(0.05, c.speed)) : 1
+      const len = rt && f ? f / (rt.fps * Math.max(0.05, c.speed)) : 1
+      return c.hold ? Math.max(len, c.duration) : len
     }
     case 'skill': return (skill ?? skillTiming(scene, c)).end - c.start
     case 'sound': {
@@ -336,7 +337,8 @@ export function activePose(scene: Scene, tl: Timeline, a: Actor, rt: RangerRunti
     if (c.actorId !== a.id) continue
     if (c.type === 'anim' && rt.sam.animations[c.clip]) {
       const sp = Math.max(0.05, c.speed)
-      const len = c.loop ? c.duration : clipFrames(rt, c.clip) / (fps * sp)
+      const clipLen = clipFrames(rt, c.clip) / (fps * sp)
+      const len = c.loop ? c.duration : c.hold ? Math.max(clipLen, c.duration) : clipLen
       consider(c.start, c.start + len, 2, () => ({ clips: [c.clip], frame: (t - c.start) * fps * sp, loop: c.loop }))
     } else if (c.type === 'move' && c.clip && rt.sam.animations[c.clip]) {
       consider(c.start, c.start + c.duration, 1, () => ({ clips: [c.clip!], frame: (t - c.start) * fps, loop: true }))

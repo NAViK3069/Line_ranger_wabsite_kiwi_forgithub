@@ -3,7 +3,7 @@
  "name": "ATK — Moonbrella",
  "width": 1280,
  "height": 720,
- "duration": 38,
+ "duration": 48,
  "fps": 30,
  "groundY": 560,
  "background": {
@@ -179,49 +179,10 @@
    "ease": "easeInOut"
   },
   {
-   "id": "cam_ally2",
-   "type": "camera",
-   "actorId": "__camera",
-   "start": 24,
-   "center": {
-    "x": 420,
-    "y": 470
-   },
-   "zoom": 1.55,
-   "duration": 0.7,
-   "ease": "easeInOut"
-  },
-  {
-   "id": "cam_wide2",
-   "type": "camera",
-   "actorId": "__camera",
-   "start": 28.3,
-   "center": {
-    "x": 640,
-    "y": 360
-   },
-   "zoom": 1,
-   "duration": 0.7,
-   "ease": "easeInOut"
-  },
-  {
-   "id": "cam_outro",
-   "type": "camera",
-   "actorId": "__camera",
-   "start": 32,
-   "center": {
-    "x": 640,
-    "y": 400
-   },
-   "zoom": 1.08,
-   "duration": 6,
-   "ease": "linear"
-  },
-  {
    "id": "atk_before",
    "type": "skill",
    "actorId": "ak1zzx9ceu",
-   "start": 21,
+   "start": 21.2,
    "label": "ATK (no gear)",
    "cast": [
     "attack_ready"
@@ -297,53 +258,36 @@
    ]
   },
   {
-   "id": "powerup",
-   "type": "skill",
-   "actorId": "ak1zzx9ceu",
-   "start": 25,
-   "label": "Equip",
-   "cast": [
-    "s2_attack_ready"
-   ],
-   "release": "s2_attack",
-   "speed": 1,
-   "castSpeedCap": null,
-   "approach": {
-    "enabled": false,
-    "stopOffset": {
-     "x": -140,
-     "y": 0
-    },
-    "speed": 600,
-    "returnHome": true
+   "id": "cam_equip",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 24.2,
+   "center": {
+    "x": 470,
+    "y": 470
    },
-   "fx": null,
-   "targetId": null,
-   "hitReact": true,
-   "hitClip": "target",
-   "flash": true,
-   "banner": "",
-   "sound": null,
-   "gameSounds": [
-    {
-     "assetId": "sthwrz2its",
-     "at": "cast",
-     "volume": 1,
-     "enabled": true
-    },
-    {
-     "assetId": "sjd9qgkits",
-     "at": "impact",
-     "volume": 1,
-     "enabled": true
-    }
-   ]
+   "zoom": 1.65,
+   "duration": 0.7,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_wide2",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 27.8,
+   "center": {
+    "x": 640,
+    "y": 360
+   },
+   "zoom": 1,
+   "duration": 0.7,
+   "ease": "easeInOut"
   },
   {
    "id": "atk_after",
    "type": "skill",
    "actorId": "ak1zzx9ceu",
-   "start": 29.4,
+   "start": 28.6,
    "label": "ATK (Moonbrella)",
    "cast": [
     "attack_ready"
@@ -417,6 +361,124 @@
      "enabled": true
     }
    ]
+  },
+  {
+   "id": "cam_skill",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 36.6,
+   "center": {
+    "x": 660,
+    "y": 420
+   },
+   "zoom": 1.12,
+   "duration": 0.8,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "skill_after",
+   "type": "skill",
+   "actorId": "ak1zzx9ceu",
+   "start": 37.2,
+   "label": "Skill 1 (Moonbrella)",
+   "cast": [
+    "s_attack_ready"
+   ],
+   "release": "s_attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul2",
+    "mode": "target",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 60,
+     "y": -68
+    },
+    "impact": {
+     "x": -24,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1800,
+    "arc": 0,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "ground",
+    "anchor": "stand"
+   },
+   "targetId": "a9ijjdi134",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "ssdmeq74ih",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "shr988jeew",
+     "at": "impact",
+     "volume": 1,
+     "enabled": true
+    }
+   ]
+  },
+  {
+   "id": "cam_wide3",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 40.6,
+   "center": {
+    "x": 640,
+    "y": 360
+   },
+   "zoom": 1,
+   "duration": 0.6,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_outro",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 41.4,
+   "center": {
+    "x": 640,
+    "y": 400
+   },
+   "zoom": 1.08,
+   "duration": 6.6,
+   "ease": "linear"
   }
  ],
  "depthSort": true,

@@ -81,9 +81,43 @@
    "type": "audio",
    "name": "hit_u467eryu",
    "url": "/api/res/_raw/sounds/hit_u467eryu_20170530153107600.ogg"
+  },
+  {
+   "id": "fx_light_b",
+   "type": "ranger",
+   "source": "upload",
+   "name": "icon_ab_light_eff2_b",
+   "body": "body",
+   "sets": {
+    "body": {
+     "sam": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.sam",
+     "plist": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.plist",
+     "png": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.png"
+    }
+   }
   }
  ],
  "actors": [
+  {
+   "id": "a_light_b",
+   "name": "fx_light_b",
+   "assetId": "fx_light_b",
+   "tag": "prop",
+   "x": 358,
+   "y": 785,
+   "scale": 3.2,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "start",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  },
   {
    "id": "a9ijjdi134",
    "name": "Brown ตัวแทนยมโลก",
@@ -479,8 +513,36 @@
    "zoom": 1.08,
    "duration": 6.6,
    "ease": "linear"
+  },
+  {
+   "id": "show_light_b",
+   "type": "show",
+   "actorId": "a_light_b",
+   "start": 25.25,
+   "duration": 2.7,
+   "fadeIn": 0.12,
+   "fadeOut": 0.5
+  },
+  {
+   "id": "enemy_knockback",
+   "type": "anim",
+   "actorId": "a9ijjdi134",
+   "start": 38.753,
+   "clip": "knockback",
+   "speed": 1,
+   "loop": false,
+   "duration": 1.2
+  },
+  {
+   "id": "show_enemy",
+   "type": "show",
+   "actorId": "a9ijjdi134",
+   "start": 0,
+   "duration": 40.183,
+   "fadeIn": 0,
+   "fadeOut": 0.3
   }
  ],
- "depthSort": true,
+ "depthSort": false,
  "smooth": true
 }

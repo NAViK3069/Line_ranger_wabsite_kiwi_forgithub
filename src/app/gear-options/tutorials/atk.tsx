@@ -5,14 +5,14 @@
 //
 // เรื่องราว (เวลาตรงกับฉาก public/gear-options/scenes/atk.anme.json — id คิว atk_before / atk_after / skill_after):
 //   0–7.5      ชื่อหัวข้อ → การ์ดเกียร์ ไฮไลท์ "พลังโจมตีรวม +444%"
-//   7.5–12     ค่าพลังเรนเจอร์ของเรา (เลเวลเต็ม)                กล้องซูมตัวเรา
-//   12–16      ค่าพลังเป้าหมาย (HP / DEF / ต้านสกิล)              กล้องแพนไปเป้าหมาย
+//   7.5–12     ค่าพลัง + ช่องเกียร์ของเรนเจอร์เรา (เลเวลเต็ม ยังว่าง)   กล้องซูมตัวเรา
+//   12–16      ค่าพลัง + ช่องเกียร์ของเป้าหมาย (HP / DEF / ต้านสกิล)     กล้องแพนไปเป้าหมาย
 //   16–20.8    สูตรโจมตีปกติ: ATK × K / (K + DEF), K = 18000
-//   20.8–24.2  รอบ 1 ยังไม่ใส่เกียร์ — โจมตีปกติ
-//   24.2–28    ใส่เกียร์ — ไอคอนบินเข้า + แสงจากเกียร์ (เรนเจอร์ไม่ใช้สกิล จะได้ไม่สับสนว่าแรงขึ้นจากอะไร)
-//   28–31.6    รอบ 2 ใส่เกียร์ — โจมตีปกติ
+//   20.8–24.2  รอบ 1 ยังไม่ใส่เกียร์ — โจมตีปกติ (เป้าหมายเลือดเต็ม)
+//   24.2–28    ใส่เกียร์ — ไอคอนบินเข้าช่องอาวุธ + แสงหลังเรนเจอร์ (icon_ab_light_eff2 อยู่ในฉาก) · เรนเจอร์ไม่ใช้สกิล
+//   28–31.6    รอบ 2 ใส่เกียร์ — โจมตีปกติ (รีเลือดเป้าหมายก่อน)
 //   31.6–36.8  สูตรสกิล: ATK × ความแรงสกิล × (1 − ต้านสกิล) — สกิลไม่โดนลดด้วย DEF
-//   36.8–41.2  รอบ 3 ใส่เกียร์ — ร่ายสกิล 1
+//   36.8–41.2  รอบ 3 ใส่เกียร์ — ร่ายสกิล 1 (รีเลือดก่อน) → เป้าหมายตาย: knockback (ในฉาก) → วิญญาณลอยหาย
 //   41.2–48    สรุป
 //
 // ตัวเลขทั้งหมดคำนวณสดจากข้อมูลชุดเดียวกับ Ranger Book / Gear Book (ไม่พิมพ์ตายตัว):
@@ -30,6 +30,7 @@ import { aggregateGearBonuses, applyBonus } from '@/lib/gearEffectParser'
 import { recalcGearEffects } from '@/lib/gearLevelCalc'
 import type { GearEffect, GearEffects } from '@/lib/pvpScraper'
 import { clamp01, countUp, easeInOut, easeOut, easeOutBack, fmtInt, popStyle, prog, pulse, span } from './anim'
+import { AtlasSprite, SamSprite } from './sam'
 
 const SCENE = '/gear-options/scenes/atk.anme.json'
 const ALLY = { actor: 'ak1zzx9ceu', ranger: 'u1260e-brown' }
@@ -39,6 +40,9 @@ const GEAR_LEVEL = 5              // ระดับเกียร์ที่�
 const GEAR_MAX = 10               // ระดับสูงสุดของเกียร์นี้ (หลอดบนการ์ด)
 const SHOWN_SWITCHABLE = 'GEAR_ATTR_PRD_SPE_MUL_nm'   // ช่อง Switchable บนการ์ด (ตามภาพในเกม) — ไม่มีผลกับ ATK
 const K = 18000                   // ค่าคงที่สูตรลดดาเมจจาก DEF
+const FPS = 30
+/** เวลารีเลือดเป้าหมายก่อนตีแต่ละรอบ */
+const REFILL = [20.9, 28.15, 36.95]
 
 interface Skill { slot: string; code: string; name: string; description?: string; iconUrl?: string }
 interface RangerStats {
@@ -59,12 +63,12 @@ interface Data {
   atkAfter: number
   atkPct: number
   enemyDef: number
-  enemyRes: number        // ต้านสกิลของเป้าหมาย (0.3 = 30%)
-  factor: number          // K / (K + DEF)
+  enemyRes: number
+  factor: number
   dmgBefore: number
   dmgAfter: number
   skill: Skill
-  skillMul: number        // 30 = ATK × 3000%
+  skillMul: number
   dmgSkill: number
 }
 
@@ -101,36 +105,117 @@ async function loadData(): Promise<Data> {
 
 // ── ชิ้นส่วนหน้าตา (หน่วย = พิกเซลเวที 1280×720 — ตัวหนังสือใหญ่ไว้ ดูบนมือถือก็ยังอ่านได้) ──
 
-const CARD = 'rounded-[22px] border-2 border-white/15 bg-[#0b1122]/92 shadow-[0_24px_70px_-10px_rgba(0,0,0,0.85)]'
+const CARD = 'rounded-[22px] border-2 border-white/15 bg-[#0b1122] shadow-[0_24px_70px_-10px_rgba(0,0,0,0.9)]'
 const ICON = { atk: '/gacha/images/atk.png', hp: '/gacha/images/hp.png', def: '/gacha/images/def.png' }
 
-/** กรอบไฮไลท์สีทองเต้นเป็นจังหวะ */
-const glow = (t: number, on: boolean, hz = 1.4): React.CSSProperties => {
-  if (!on) return {}
-  const g = 0.5 + 0.5 * pulse(t, hz)
-  return {
-    background: `rgba(251,191,36,${0.14 + 0.12 * g})`,
-    boxShadow: `0 0 0 3px rgba(251,191,36,${0.6 + 0.4 * g}), 0 0 ${24 + 18 * g}px rgba(251,191,36,${0.45 * g})`,
-  }
-}
+/**
+ * ไฮไลท์แบบ "โหลด": เส้นแสงวิ่งรอบกรอบ 0 → 100% (มีหัวแสงสว่างนำ) แล้วค่อยเป็นกรอบทองเต้นจังหวะปกติ
+ * ใช้ครอบแถวที่ต้องการเน้น · at = วินาทีที่เริ่มวิ่ง
+ */
+/** ขนาดเส้นกรอบ SVG — ตั้งผ่าน CSS (calc ในแอตทริบิวต์ width/height ของ SVG ใช้ไม่ได้ทุกเบราว์เซอร์) */
+const RECT: React.CSSProperties = { width: 'calc(100% - 3px)', height: 'calc(100% - 3px)' }
 
-function StatRow({ icon, label, value, hl, dim, t, note }: { icon?: string; label: string; value: string; hl?: boolean; dim?: boolean; t: number; note?: string }) {
+function Highlight({ t, at, dur = 0.9, radius = 16, children, className = '' }: {
+  t: number; at: number | null; dur?: number; radius?: number; children: React.ReactNode; className?: string
+}) {
+  const on = at != null && t >= at
+  const p = on ? easeInOut(prog(t, at!, at! + dur)) : 0
+  const settle = on ? easeOut(prog(t, at! + dur * 0.85, at! + dur + 0.35)) : 0
+  const g = 0.5 + 0.5 * pulse(t, 1.4)
   return (
-    <div className="rounded-2xl px-4 py-2.5" style={{ ...glow(t, !!hl), opacity: dim ? 0.55 : 1 }}>
-      <div className="flex items-center gap-3">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {icon && <img src={icon} alt="" className="w-10 h-10 object-contain" />}
-        <span className="text-[26px] text-gray-200 font-bold">{label}</span>
-        <span className={`ml-auto text-[38px] font-black tabular-nums leading-none ${hl ? 'text-amber-200' : 'text-white'}`}>{value}</span>
-      </div>
-      {note && <div className="text-[18px] text-gray-400 mt-0.5 pl-[52px]">{note}</div>}
+    <div className={`relative rounded-2xl ${className}`}
+      style={settle > 0 ? {
+        background: `rgba(251,191,36,${(0.12 + 0.1 * g) * settle})`,
+        boxShadow: `0 0 0 3px rgba(251,191,36,${(0.55 + 0.4 * g) * settle}), 0 0 ${26 + 16 * g}px rgba(251,191,36,${0.45 * g * settle})`,
+      } : undefined}>
+      {children}
+      {on && p < 1 && (
+        <svg className="absolute inset-0 w-full h-full overflow-visible pointer-events-none">
+          <rect x="1.5" y="1.5" rx={radius} pathLength={100}
+            fill="none" stroke="rgba(253,224,71,0.95)" strokeWidth="3.5" strokeDasharray={`${p * 100} 100`} strokeLinecap="round" style={RECT} />
+          {/* หัวแสงวิ่งนำ */}
+          <rect x="1.5" y="1.5" rx={radius} pathLength={100}
+            fill="none" stroke="#fff" strokeWidth="6" strokeDasharray="3 97" strokeDashoffset={-(p * 100 - 3)} strokeLinecap="round"
+            style={{ ...RECT, filter: 'drop-shadow(0 0 8px #fde047) drop-shadow(0 0 16px #f59e0b)' }} />
+        </svg>
+      )}
     </div>
   )
 }
 
-function RangerCard({ r, name, rows, s, x, y, tag, tagColor }: {
+function StatRow({ icon, label, value, hlAt, dim, t, note }: { icon?: string; label: string; value: string; hlAt?: number; dim?: boolean; t: number; note?: string }) {
+  const hl = hlAt != null && t >= hlAt
+  return (
+    <Highlight t={t} at={hlAt ?? null} className="px-4 py-2.5">
+      <div style={{ opacity: dim ? 0.55 : 1 }}>
+        <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {icon && <img src={icon} alt="" className="w-10 h-10 object-contain" />}
+          <span className="text-[26px] text-gray-200 font-bold">{label}</span>
+          <span className={`ml-auto text-[38px] font-black tabular-nums leading-none ${hl ? 'text-amber-200' : 'text-white'}`}>{value}</span>
+        </div>
+        {note && <div className="text-[18px] text-gray-400 mt-0.5 pl-[52px]">{note}</div>}
+      </div>
+    </Highlight>
+  )
+}
+
+// ── ช่องเกียร์ (res/gear_main) — กรอบ fx70-gear-slot + ป้ายบอกชนิดช่อง ──
+const SLOT_KINDS = [
+  { key: 'weapon', th: 'อาวุธ', en: 'Weapon' },
+  { key: 'armor', th: 'เกราะ', en: 'Armor' },
+  { key: 'acc', th: 'ของตกแต่ง', en: 'Accessory' },
+] as const
+const SLOT_W = 150    // ระยะห่างต่อช่องในแถว
+/** กรอบช่องเรืองแสงสีส้มใน atlas ของ fx70-gear-slot (11 เฟรม) — วนเป็นแสงช่องตอนใส่เกียร์ */
+const SLOT_GLOW = ['', '_2', '_3', '_4', '_5', '_6', '_7', '_8', '_9', '_10', '_11'].map(s => `fx70-gear-slot_106x112${s}.png`)
+
+/**
+ * แถวช่องเกียร์ 3 ช่อง (หน้าตาแบบในเกม) · equip = ใส่ของลงช่องอาวุธตอนเวลา at → กรอบเรืองแสงส้มวน (เฟรมจาก fx70-gear-slot) + แสงวาบ
+ *   กรอบช่อง = gear_main_slot_bg · ป้ายทองแดงทับขอบบน = gear_main_slot_plate_bg + ไอคอนชนิดช่อง (ไม่มีข้อความ)
+ *   ช่องว่าง = ไอคอนมืดแบบสลัก · ช่องที่ใส่ของแล้ว = ไอคอน _on เรืองแสง
+ */
+const SLOT_Y = 76     // กึ่งกลางกรอบช่องในแถว
+function GearSlots({ t, equip }: { t: number; equip?: { at: number; icon: string } }) {
+  return (
+    <div className="relative mx-auto" style={{ width: SLOT_W * 3, height: 140 }}>
+      {SLOT_KINDS.map((k, i) => {
+        const cx = SLOT_W * i + SLOT_W / 2
+        const eq = k.key === 'weapon' && equip && t >= equip.at ? equip : null
+        const glowFrame = eq ? SLOT_GLOW[Math.floor((t - eq.at) * 15) % SLOT_GLOW.length] : null
+        const burst = eq ? 1 - prog(t, eq.at, eq.at + 0.5) : 0
+        const pop = eq ? easeOutBack(prog(t, eq.at + 0.15, eq.at + 0.55)) : 0
+        return (
+          <div key={k.key}>
+            {/* กรอบช่อง: ว่าง = gear_main_slot_bg ของเกม · ใส่ของแล้ว = กรอบเรืองแสงส้มของ fx70 วนเฟรม + แสงวาบตอนลง */}
+            {glowFrame
+              ? <AtlasSprite atlas="gear_main/fx70-gear-slot" name={glowFrame} x={cx} y={SLOT_Y} scale={1.05} />
+              : <AtlasSprite atlas="gear_main/gear_common" name="gear_main_slot_bg.png" x={cx} y={SLOT_Y} scale={0.9} />}
+            {burst > 0 && (
+              <div className="absolute rounded-full" style={{
+                left: cx, top: SLOT_Y, width: 60 + 160 * (1 - burst), height: 60 + 160 * (1 - burst), transform: 'translate(-50%,-50%)',
+                opacity: burst, background: 'radial-gradient(circle, rgba(255,247,200,0.95), rgba(251,191,36,0.5) 45%, rgba(251,191,36,0) 70%)',
+              }} />
+            )}
+            {eq && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={eq.icon} alt="" crossOrigin="anonymous" className="absolute w-[76px] h-[76px] object-contain"
+                style={{ left: cx - 38, top: SLOT_Y + 6 - 38, transform: `scale(${pop})`, filter: 'drop-shadow(0 0 10px rgba(253,224,71,0.8))' }} />
+            )}
+            {/* ป้ายทองแดงทับขอบบนของกรอบ + ไอคอนชนิดช่อง */}
+            <AtlasSprite atlas="gear_main/gear_common" name="gear_main_slot_plate_bg.png" x={cx} y={SLOT_Y - 52} scale={1.05} />
+            <AtlasSprite atlas="gear_main/gear_common" name={`gear_main_slot_icon_${k.key}_on.png`} x={cx} y={SLOT_Y - 53} scale={0.42}
+              style={eq ? { filter: 'drop-shadow(0 0 6px rgba(253,224,71,0.9))' } : { filter: 'brightness(0.18) contrast(1.4)', opacity: 0.85 }} />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function RangerCard({ r, name, rows, s, x, y, tag, tagColor, slots }: {
   r: RangerStats; name: string; rows: React.ReactNode; s: ReturnType<typeof span>
-  x: number; y: number; tag: string; tagColor: string
+  x: number; y: number; tag: string; tagColor: string; slots: React.ReactNode
 }) {
   if (!s.on) return null
   return (
@@ -145,6 +230,7 @@ function RangerCard({ r, name, rows, s, x, y, tag, tagColor }: {
         </div>
       </div>
       <div className="space-y-2">{rows}</div>
+      <div className="mt-3 pt-3 border-t-2 border-white/10">{slots}</div>
     </div>
   )
 }
@@ -163,59 +249,66 @@ function Banner({ t, start, end, title, sub, color }: { t: number; start: number
   )
 }
 
-/** ตัวเลขดาเมจเด้งเหนือหัวเป้าหมาย ตรงเฟรมที่โดนจริง */
-function DamagePop({ c, t, at, value, tone }: { c: OverlayCtx; t: number; at: number; value: number; tone: 'white' | 'orange' | 'purple' }) {
-  const p = prog(t, at, at + 1.9)
-  if (t < at || p >= 1) return null
-  const pos = c.actorAt(ENEMY.actor)
-  if (!pos) return null
-  const sp = c.project({ x: pos.x, y: pos.y - 165 })
-  const inS = easeOutBack(clamp01(p / 0.16))
-  const fade = 1 - clamp01((p - 0.72) / 0.28)
-  const style = {
-    white: { cls: 'text-[70px] text-white', stroke: '3px #0f172a', shadow: '0 6px 16px rgba(0,0,0,0.85)' },
-    orange: { cls: 'text-[86px] text-orange-300', stroke: '3px #7c2d12', shadow: '0 0 28px rgba(251,146,60,0.95)' },
-    purple: { cls: 'text-[96px] text-fuchsia-200', stroke: '3px #4a044e', shadow: '0 0 34px rgba(217,70,239,0.95)' },
-  }[tone]
-  return (
-    <div className="absolute" style={{ left: Math.min(Math.max(sp.x, 330), 950), top: sp.y - 50 * easeOut(p), transform: `translate(-50%,-50%) scale(${0.4 + 0.6 * inS})`, opacity: fade }}>
-      <div className={`font-black tabular-nums whitespace-nowrap ${style.cls}`} style={{ WebkitTextStroke: style.stroke, textShadow: style.shadow }}>
-        -{fmtInt(value)}
-      </div>
-    </div>
-  )
-}
-
-function HpBar({ c, t, d, hits, start, end }: { c: OverlayCtx; t: number; d: Data; hits: { at: number; dmg: number }[]; start: number; end: number }) {
-  const s = span(t, start, end, 0.4, 0.4)
+/**
+ * หลอดเลือดเป้าหมาย
+ *   รีเลือด (REFILL)  หลอดแดงวิ่งเต็มจากซ้ายไปขวา + แสงเขียววาบ
+ *   โดนตี             หลอดขาวค้างที่ค่าเดิม · หลอดแดงไหลลง · ค้างสักพักหลอดขาวค่อยหดตาม · หลอดสั่น + แสงวาบ
+ *   ตัวเลขดาเมจ       ป้ายแดงเด้งขึ้นบนหลอด ค้างไว้จนรีเลือดรอบถัดไป
+ */
+function HpBar({ c, t, d, hits }: { c: OverlayCtx; t: number; d: Data; hits: { at: number; dmg: number }[] }) {
+  const s = span(t, REFILL[0] - 0.1, 41.0, 0.35, 0.4)
   if (!s.on) return null
   const pos = c.actorAt(ENEMY.actor)
   if (!pos) return null
   const sp = c.project({ x: pos.x, y: pos.y - 205 })
+  // เป้าหมายหลุดเฟรม (กล้องซูมตัวเรา) / มีการ์ดสูตรสกิลบังอยู่ / ตายแล้ว (ให้วิญญาณลอยผ่านได้) → ซ่อน
+  const death = hits[2] ? prog(t, hits[2].at + 0.85, hits[2].at + 1.15) : 0
+  const vis = s.alpha * clamp01((1330 - sp.x) / 120) * clamp01((sp.x + 50) / 120) * (1 - span(t, 31.5, 36.9, 0.3, 0.3).alpha) * (1 - death)
+  if (vis <= 0) return null
+
   const max = d.enemy.baseStats.hp
-  // HP ลดทันทีตอนโดน (สีแดง) · แถบขาวไล่ตามช้าๆ ให้เห็นว่าหายไปเท่าไหร่
-  let hp = max, ghost = max
-  for (const h of hits) {
-    if (t >= h.at) { ghost = hp - h.dmg * (1 - easeInOut(prog(t, h.at + 0.25, h.at + 0.9))); hp -= h.dmg }
+  // รอบปัจจุบัน = รีเลือดล่าสุดที่ผ่านมา · ตีที่อยู่หลังรีเลือดนั้น
+  const round = REFILL.reduce((r, at, i) => (t >= at ? i : r), 0)
+  const hit = hits[round]
+  const prevLeft = round > 0 ? Math.max(0, max - hits[round - 1].dmg) : 0
+  const refill = easeInOut(prog(t, REFILL[round], REFILL[round] + 0.6))
+  let red = prevLeft + (max - prevLeft) * refill
+  let white = red
+  let shake = 0, flash = 0
+  if (hit && t >= hit.at) {
+    const after = Math.max(0, max - hit.dmg)
+    red = max - (max - after) * easeOut(prog(t, hit.at, hit.at + 0.45))
+    white = max - (max - after) * easeInOut(prog(t, hit.at + 0.75, hit.at + 1.15))
+    const k = 1 - prog(t, hit.at, hit.at + 0.3)
+    shake = Math.sin((t - hit.at) * 70) * 7 * k
+    flash = k
   }
-  hp = Math.max(0, hp)
-  ghost = Math.max(hp, ghost)
-  // เป้าหมายหลุดเฟรม (กล้องซูมตัวเราตอนใส่เกียร์) → ซ่อนหลอดไปด้วย ไม่ให้ไปทับการ์ดอื่น
-  const inFrame = clamp01((1330 - sp.x) / 120) * clamp01((sp.x + 50) / 120)
-    * (1 - span(t, 31.5, 36.9, 0.3, 0.3).alpha)   // หลบให้การ์ดสูตรสกิล
-  if (inFrame <= 0) return null
+  const refillGlow = round >= 0 && t >= REFILL[round] ? 1 - prog(t, REFILL[round] + 0.35, REFILL[round] + 0.9) : 0
+  const dmgOn = hit && t >= hit.at
+  const pop = dmgOn ? easeOutBack(prog(t, hit.at, hit.at + 0.3)) : 0
+  const W = 360
   return (
-    <div className="absolute" style={{ left: Math.min(Math.max(sp.x, 200), 1080), top: sp.y, transform: 'translate(-50%,-100%)', opacity: s.alpha * inFrame }}>
-      <div className="w-[330px] rounded-xl bg-black/75 p-2 border-2 border-white/15">
-        <div className="relative h-5 rounded-md bg-slate-800 overflow-hidden">
-          <div className="absolute inset-y-0 left-0 bg-white/85" style={{ width: `${(ghost / max) * 100}%` }} />
-          <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-600 to-rose-400" style={{ width: `${(hp / max) * 100}%` }} />
+    <div className="absolute" style={{ left: Math.min(Math.max(sp.x, 220), 1060), top: sp.y, transform: `translate(calc(-50% + ${shake}px),-100%)`, opacity: vis }}>
+      {dmgOn && (
+        <div className="absolute right-0 -top-[46px] px-3 py-1 rounded-xl bg-red-600 border-2 border-red-300/70 text-[26px] font-black text-white tabular-nums whitespace-nowrap shadow-[0_6px_18px_rgba(220,38,38,0.55)]"
+          style={{ transform: `translateY(${(1 - pop) * 14}px) scale(${0.7 + 0.3 * pop})`, transformOrigin: 'right bottom', opacity: clamp01(pop * 1.5) }}>
+          -{fmtInt(hit.dmg)}
         </div>
-        <div className="flex items-center gap-1.5 mt-1">
+      )}
+      <div className="rounded-2xl bg-[#0b1122] p-2.5 border-2 border-white/15 shadow-[0_10px_30px_rgba(0,0,0,0.7)]" style={{ width: W }}>
+        <div className="relative h-6 rounded-lg bg-slate-800 overflow-hidden ring-1 ring-black/60">
+          <div className="absolute inset-y-0 left-0 bg-white" style={{ width: `${(white / max) * 100}%` }} />
+          <div className="absolute inset-y-0 left-0 bg-gradient-to-b from-rose-400 via-red-500 to-red-700" style={{ width: `${(red / max) * 100}%` }}>
+            <div className="absolute inset-x-0 top-0 h-1/3 bg-white/25" />
+          </div>
+          {refillGlow > 0 && <div className="absolute inset-0 bg-emerald-300 mix-blend-screen" style={{ opacity: 0.45 * refillGlow }} />}
+          {flash > 0 && <div className="absolute inset-0 bg-white" style={{ opacity: 0.55 * flash }} />}
+        </div>
+        <div className="flex items-center gap-2 mt-1.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={ICON.hp} alt="" className="w-6 h-6" />
-          <span className="text-[22px] font-black text-white tabular-nums">{fmtInt(hp)}</span>
-          <span className="text-[16px] text-gray-400 tabular-nums">/ {fmtInt(max)}</span>
+          <img src={ICON.hp} alt="" className="w-7 h-7" />
+          <span className="text-[24px] font-black text-white tabular-nums">{fmtInt(red)}</span>
+          <span className="text-[18px] text-gray-400 tabular-nums">/ {fmtInt(max)}</span>
         </div>
       </div>
     </div>
@@ -245,9 +338,9 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
 
   const overlay = (c: OverlayCtx) => {
     const t = c.t
-    const hitBefore = c.hitsOf('atk_before')[0] ?? 21.8
-    const hitAfter = c.hitsOf('atk_after')[0] ?? 29.2
-    const hitSkill = c.hitsOf('skill_after')[0] ?? 38.0
+    const hitBefore = c.hitsOf('atk_before')[0] ?? 22.32
+    const hitAfter = c.hitsOf('atk_after')[0] ?? 29.72
+    const hitSkill = c.hitsOf('skill_after')[0] ?? 38.73
     const hits = [{ at: hitBefore, dmg: d.dmgBefore }, { at: hitAfter, dmg: d.dmgAfter }, { at: hitSkill, dmg: d.dmgSkill }]
     const step = (a: number) => ({ opacity: easeOut(prog(t, a, a + 0.4)), transform: `translateX(${(1 - easeOut(prog(t, a, a + 0.4))) * -24}px)` })
 
@@ -264,20 +357,21 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
     // ── 4. สูตรโจมตีปกติ ──
     const formula = span(t, 16.4, 20.6, 0.5, 0.4)
 
-    // ── 6. ใส่เกียร์ (เอฟเฟกต์ของเกียร์ล้วนๆ — เรนเจอร์ยืนเฉยๆ) ──
-    const allyPos = c.actorAt(ALLY.actor)
-    const allyScreen = allyPos ? c.project({ x: allyPos.x, y: allyPos.y - 95 }) : { x: 455, y: 380 }
-    const fly = prog(t, 24.5, 25.25)
-    const flash = span(t, 25.2, 26.1, 0.08, 0.7)
-    const aura = span(t, 25.2, 27.9, 0.3, 0.6)
-    const atkUp = span(t, 25.4, 27.9, 0.4, 0.35)
+    // ── 6. ใส่เกียร์: ไอคอนบินเข้าช่องอาวุธบนการ์ด (แสงหลังเรนเจอร์อยู่ในฉากแล้ว) ──
+    const EQ_CARD = { x: 690, y: 70 }
+    const EQ_AT = 25.25
+    const equipCard = span(t, 24.35, 27.95, 0.4, 0.35)
+    const slotTarget = { x: EQ_CARD.x + 24 + (560 - 48 - SLOT_W * 3) / 2 + SLOT_W / 2, y: EQ_CARD.y + 236 + SLOT_Y }
+    const fly = prog(t, 24.6, EQ_AT)
     const atkNow = countUp(t, 25.8, 27.1, d.atkBefore, d.atkAfter)
 
     // ── 8. สูตรสกิล ──
     const skillCard = span(t, 31.8, 36.7, 0.5, 0.4)
 
-    // ── 9. K.O. ──
-    const ko = span(t, hitSkill + 0.15, 41.2, 0.25, 0.4)
+    // ── 9. เป้าหมายตาย: knockback ในฉาก → วิญญาณ eff_die_enemy ลอยขึ้นแล้วจางหาย ──
+    const SOUL_AT = hitSkill + 1.15
+    const soulP = prog(t, SOUL_AT, SOUL_AT + 1.6)
+    const enemyPos = c.actorAt(ENEMY.actor)
 
     // ── 10. สรุป ──
     const sum = span(t, 41.4, 48, 0.55, 0.6)
@@ -328,30 +422,30 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
             <div className="h-3 rounded-full bg-white/10 mt-2 overflow-hidden">
               <div className="h-full bg-gradient-to-r from-amber-400 to-yellow-300" style={{ width: `${(GEAR_LEVEL / GEAR_MAX) * 100 * easeOut(prog(t, 2.6, 3.4))}%` }} />
             </div>
-            <div className="mt-4 rounded-2xl border-2 border-blue-400/30 bg-blue-500/10 p-3.5">
+            <div className="mt-4 rounded-2xl border-2 border-blue-400/30 bg-[#0f1d3a] p-3.5">
               <div className="text-[20px] font-black text-blue-200 tracking-wider mb-1.5 px-2">BASIC EFFECT</div>
               {d.gear.basic.map((e, i) => {
                 const isAtk = i === 0
-                const zoom = isAtk && hl ? 1 + 0.04 * easeOutBack(prog(t, 3.8, 4.25)) : 1
                 return (
-                  <div key={e.nameKey ?? e.name} className="relative flex items-center justify-between rounded-xl px-3 py-1.5"
-                    style={isAtk && hl ? { transform: `scale(${zoom})`, ...glow(t, true, 1.6) } : { opacity: hl ? 0.5 : 1 }}>
-                    <span className={`text-[28px] font-bold ${isAtk && hl ? 'text-amber-100' : 'text-blue-100'}`}>{effName(e)}</span>
-                    <span className={`font-black tabular-nums ${isAtk && hl ? 'text-amber-200 text-[36px]' : 'text-white text-[28px]'}`}>{e.value}</span>
-                    {/* ป้ายชี้ — ผูกกับแถวนี้เลย จึงตรงแถวเสมอ */}
-                    {isAtk && hl && (
-                      <div className="absolute left-full top-1/2 ml-6 flex items-center gap-2 whitespace-nowrap"
-                        style={{ opacity: easeOut(prog(t, 4.1, 4.6)), transform: `translateY(-50%) translateX(${(1 - easeOut(prog(t, 4.1, 4.6))) * 40 + Math.sin(t * 5) * 6}px)` }}>
-                        <span className="material-icons-round text-amber-300 text-[56px]">west</span>
-                        <span className="px-4 py-2 rounded-xl bg-amber-400 text-[26px] font-black text-[#1a1200]">{T('ทดสอบค่านี้', 'Testing this')}</span>
-                      </div>
-                    )}
-                  </div>
+                  <Highlight key={e.nameKey ?? e.name} t={t} at={isAtk ? 3.8 : null} radius={12}>
+                    <div className="relative flex items-center justify-between px-3 py-1.5" style={!isAtk && hl ? { opacity: 0.5 } : undefined}>
+                      <span className={`text-[28px] font-bold ${isAtk && hl ? 'text-amber-100' : 'text-blue-100'}`}>{effName(e)}</span>
+                      <span className={`font-black tabular-nums ${isAtk && hl ? 'text-amber-200 text-[36px]' : 'text-white text-[28px]'}`}>{e.value}</span>
+                      {/* ป้ายชี้ — ผูกกับแถวนี้เลย จึงตรงแถวเสมอ */}
+                      {isAtk && hl && (
+                        <div className="absolute left-full top-1/2 ml-6 flex items-center gap-2 whitespace-nowrap"
+                          style={{ opacity: easeOut(prog(t, 4.6, 5.1)), transform: `translateY(-50%) translateX(${(1 - easeOut(prog(t, 4.6, 5.1))) * 40 + Math.sin(t * 5) * 6}px)` }}>
+                          <span className="material-icons-round text-amber-300 text-[56px]">west</span>
+                          <span className="px-4 py-2 rounded-xl bg-amber-400 text-[26px] font-black text-[#1a1200]">{T('ทดสอบค่านี้', 'Testing this')}</span>
+                        </div>
+                      )}
+                    </div>
+                  </Highlight>
                 )
               })}
             </div>
             {d.switchable && (
-              <div className="mt-3 rounded-2xl border-2 border-orange-400/30 bg-orange-500/10 p-3.5" style={{ opacity: hl ? 0.5 : 1 }}>
+              <div className="mt-3 rounded-2xl border-2 border-orange-400/30 bg-[#2a1a10] p-3.5" style={{ opacity: hl ? 0.5 : 1 }}>
                 <div className="text-[20px] font-black text-orange-200 tracking-wider mb-1 px-2">SWITCHABLE EFFECT</div>
                 <div className="flex items-center justify-between px-3">
                   <span className="text-[26px] font-bold text-orange-100">{effName(d.switchable)}</span>
@@ -362,25 +456,26 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
           </div>
         )}
 
-        {/* ค่าพลังเรนเจอร์ของเรา */}
-        <RangerCard r={d.ally} name={allyName} s={allyCard} x={680} y={60}
+        {/* ค่าพลัง + ช่องเกียร์ของเรนเจอร์เรา */}
+        <RangerCard r={d.ally} name={allyName} s={allyCard} x={680} y={24}
           tag={T('เรนเจอร์ของเรา', 'Our ranger')} tagColor="bg-cyan-500/25 text-cyan-200"
           rows={<>
-            <StatRow t={t} icon={ICON.atk} label={T('พลังโจมตี', 'ATK')} value={fmtInt(d.atkBefore)} hl />
+            <StatRow t={t} icon={ICON.atk} label={T('พลังโจมตี', 'ATK')} value={fmtInt(d.atkBefore)} hlAt={8.75} />
             <StatRow t={t} icon={ICON.hp} label={T('พลังชีวิต', 'HP')} value={fmtInt(d.ally.baseStats.hp)} dim />
             <StatRow t={t} icon={ICON.def} label={T('พลังป้องกัน', 'DEF')} value={fmtInt(d.ally.baseStats.phyDef + d.ally.baseStats.magDef)} dim />
-            <div className="text-[20px] text-gray-400 pt-1 px-2">{T('ยังไม่ใส่เกียร์ · เลเวลเต็มทั้งสองฝั่ง', 'No gear yet · both at max level')}</div>
-          </>} />
+          </>}
+          slots={<GearSlots t={t} />} />
 
-        {/* ค่าพลังเป้าหมาย — ใช้ทั้ง HP และ DEF (ต้านสกิลใช้ตอนโดนสกิล) */}
-        <RangerCard r={d.enemy} name={enemyName} s={enemyCard} x={40} y={60}
+        {/* ค่าพลัง + ช่องเกียร์ของเป้าหมาย — ใช้ทั้ง HP และ DEF (ต้านสกิลใช้ตอนโดนสกิล) */}
+        <RangerCard r={d.enemy} name={enemyName} s={enemyCard} x={40} y={24}
           tag={T('เป้าหมาย', 'Target')} tagColor="bg-rose-500/25 text-rose-200"
           rows={<>
-            <StatRow t={t} icon={ICON.hp} label={T('พลังชีวิต', 'HP')} value={fmtInt(d.enemy.baseStats.hp)} hl />
-            <StatRow t={t} icon={ICON.def} label={T('พลังป้องกัน', 'DEF')} value={fmtInt(d.enemyDef)} hl />
+            <StatRow t={t} icon={ICON.hp} label={T('พลังชีวิต', 'HP')} value={fmtInt(d.enemy.baseStats.hp)} hlAt={13.05} />
+            <StatRow t={t} icon={ICON.def} label={T('พลังป้องกัน', 'DEF')} value={fmtInt(d.enemyDef)} hlAt={13.55} />
             <StatRow t={t} label={T('ต้านสกิล', 'Skill Resistance')} value={pct(d.enemyRes)} dim
               note={T('ใช้ตอนโดนสกิล (ดูท้ายคลิป)', 'Used against skills (see later)')} />
-          </>} />
+          </>}
+          slots={<GearSlots t={t} />} />
 
         {/* สูตรโจมตีปกติ */}
         {formula.on && (
@@ -420,62 +515,51 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
 
         {/* ── รอบ 1 ── */}
         <Banner t={t} start={20.8} end={24.2} title={T('รอบที่ 1 · ยังไม่ใส่เกียร์', 'Round 1 · No gear')}
-          sub={`${T('โจมตีปกติ', 'Normal attack')} · ATK ${fmtInt(d.atkBefore)}`} color="bg-gradient-to-r from-slate-700/95 to-slate-600/95 border-2 border-white/15" />
-        <HpBar c={c} t={t} d={d} hits={hits} start={20.8} end={41.3} />
-        <DamagePop c={c} t={t} at={hitBefore} value={d.dmgBefore} tone="white" />
+          sub={`${T('โจมตีปกติ', 'Normal attack')} · ATK ${fmtInt(d.atkBefore)}`} color="bg-gradient-to-r from-slate-700 to-slate-600 border-2 border-white/15" />
+        <HpBar c={c} t={t} d={d} hits={hits} />
 
-        {/* ── ใส่เกียร์: ไอคอนบินเข้า + วงแสง + ออร่าทองจากเกียร์ ── */}
-        {aura.on && (
-          <div className="absolute rounded-full"
-            style={{
-              left: allyScreen.x, top: allyScreen.y + 30, width: 330, height: 330, transform: `translate(-50%,-50%) scale(${0.85 + 0.08 * pulse(t, 2)})`,
-              opacity: aura.alpha * 0.9,
-              background: 'radial-gradient(circle, rgba(253,224,71,0.55) 0%, rgba(251,191,36,0.25) 40%, rgba(251,191,36,0) 70%)',
-            }} />
-        )}
-        {t >= 24.5 && fly < 1 && (() => {
-          const k = easeInOut(fly)
-          const x = 640 + (allyScreen.x - 640) * k
-          const y = 70 + (allyScreen.y - 70) * k - Math.sin(k * Math.PI) * 80
-          return (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={gearIcon} alt="" crossOrigin="anonymous" className="absolute w-[130px] h-[130px] object-contain"
-              style={{ left: x, top: y, transform: `translate(-50%,-50%) rotate(${k * 540}deg) scale(${1.5 - 0.8 * k})`, filter: 'drop-shadow(0 0 22px rgba(125,211,252,0.95))' }} />
-          )
-        })()}
-        {flash.on && (
-          <div className="absolute rounded-full border-[8px] border-sky-200"
-            style={{ left: allyScreen.x, top: allyScreen.y, width: 50 + 420 * easeOut(flash.enter), height: 50 + 420 * easeOut(flash.enter), transform: 'translate(-50%,-50%)', opacity: (1 - flash.enter * 0.85) * (1 - flash.exit), boxShadow: '0 0 70px rgba(125,211,252,0.9)' }} />
-        )}
-        {atkUp.on && (
-          <div className={`absolute w-[560px] p-6 ${CARD}`} style={{ left: 690, top: 90, ...popStyle(atkUp) }}>
+        {/* ── ใส่เกียร์: การ์ดช่องเกียร์ + ไอคอนบินลงช่องอาวุธ ── */}
+        {equipCard.on && (
+          <div className={`absolute w-[560px] p-6 ${CARD}`} style={{ left: EQ_CARD.x, top: EQ_CARD.y, ...popStyle(equipCard) }}>
             <div className="flex items-center gap-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={gearIcon} alt="" crossOrigin="anonymous" className="w-16 h-16 object-contain" />
               <div>
-                <div className="text-[20px] text-gray-400 font-bold">{T('ใส่เกียร์แล้ว', 'Equipped')}</div>
+                <div className="text-[20px] text-gray-400 font-bold">{t >= EQ_AT ? T('ใส่เกียร์แล้ว', 'Equipped') : T('กำลังใส่เกียร์', 'Equipping')}</div>
                 <div className="text-[30px] font-black text-white leading-tight">{gearName} +{GEAR_LEVEL}</div>
               </div>
               <span className="ml-auto px-3.5 py-1.5 rounded-xl bg-amber-400 text-[26px] font-black text-[#1a1200]">+{(d.atkPct * 100).toFixed(0)}%</span>
             </div>
-            <div className="mt-5 flex items-center gap-3">
+            <div className="mt-4 flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={ICON.atk} alt="" className="w-11 h-11" />
               <span className="text-[26px] text-gray-200 font-bold">{T('พลังโจมตี', 'ATK')}</span>
-              <span className="ml-auto text-[50px] font-black text-amber-200 tabular-nums leading-none" style={{ textShadow: `0 0 ${14 + 14 * pulse(t, 3) * (t < 27.1 ? 1 : 0)}px rgba(251,191,36,0.75)` }}>
+              <span className="ml-auto text-[50px] font-black text-amber-200 tabular-nums leading-none" style={{ textShadow: `0 0 ${14 + 14 * pulse(t, 3) * (t > 25.8 && t < 27.1 ? 1 : 0)}px rgba(251,191,36,0.75)` }}>
                 {fmtInt(atkNow)}
               </span>
             </div>
-            <div className="mt-2 text-right text-[22px] text-gray-400 tabular-nums" style={{ opacity: easeOut(prog(t, 27.0, 27.4)) }}>
+            <div className="mt-1 text-right text-[22px] text-gray-400 tabular-nums" style={{ opacity: easeOut(prog(t, 27.0, 27.4)) }}>
               {fmtInt(d.atkBefore)} × {mult.toFixed(2)}
+            </div>
+            <div className="mt-3 pt-3 border-t-2 border-white/10">
+              <GearSlots t={t} equip={{ at: EQ_AT, icon: gearIcon }} />
             </div>
           </div>
         )}
+        {t >= 24.6 && fly < 1 && equipCard.on && (() => {
+          const k = easeInOut(fly)
+          const x = 640 + (slotTarget.x - 640) * k
+          const y = 30 + (slotTarget.y - 30) * k - Math.sin(k * Math.PI) * 90
+          return (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={gearIcon} alt="" crossOrigin="anonymous" className="absolute w-[120px] h-[120px] object-contain"
+              style={{ left: x, top: y, transform: `translate(-50%,-50%) rotate(${k * 540}deg) scale(${1.4 - 0.7 * k})`, filter: 'drop-shadow(0 0 22px rgba(253,224,71,0.95))' }} />
+          )
+        })()}
 
         {/* ── รอบ 2 ── */}
         <Banner t={t} start={28.0} end={31.6} title={T(`รอบที่ 2 · ใส่${gearName}`, `Round 2 · ${gearName}`)}
-          sub={`${T('โจมตีปกติ', 'Normal attack')} · ATK ${fmtInt(d.atkAfter)}`} color="bg-gradient-to-r from-amber-600/95 to-orange-600/95 border-2 border-amber-200/40" />
-        <DamagePop c={c} t={t} at={hitAfter} value={d.dmgAfter} tone="orange" />
+          sub={`${T('โจมตีปกติ', 'Normal attack')} · ATK ${fmtInt(d.atkAfter)}`} color="bg-gradient-to-r from-amber-600 to-orange-600 border-2 border-amber-200/40" />
 
         {/* ── สูตรสกิล: ไม่โดน DEF แต่โดนต้านสกิลแทน ── */}
         {skillCard.on && (
@@ -487,9 +571,9 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
                 <div className="text-[22px] font-black text-fuchsia-300">{T('สกิลโจมตี', 'Attack skill')}</div>
                 <div className="text-[40px] font-black text-white leading-tight">{skillName}</div>
               </div>
-              <span className="ml-auto px-4 py-1.5 rounded-xl bg-fuchsia-500/25 border-2 border-fuchsia-400/50 text-[30px] font-black text-fuchsia-100">ATK × {pct(d.skillMul)}</span>
+              <span className="ml-auto px-4 py-1.5 rounded-xl bg-fuchsia-950 border-2 border-fuchsia-400/60 text-[30px] font-black text-fuchsia-100">ATK × {pct(d.skillMul)}</span>
             </div>
-            <div className="mt-4 rounded-2xl bg-rose-500/10 border-2 border-rose-400/30 px-4 py-2.5 text-[24px] font-bold text-rose-100" style={step(32.4)}>
+            <div className="mt-4 rounded-2xl bg-[#2a0f1a] border-2 border-rose-400/40 px-4 py-2.5 text-[24px] font-bold text-rose-100" style={step(32.4)}>
               {T('สกิลไม่โดนลดด้วยพลังป้องกัน (DEF) — ใช้ "ต้านสกิล" ของเป้าหมายลดแทน', 'Skills ignore DEF — the target\'s Skill Resistance reduces them instead')}
             </div>
             <div className="mt-4 flex items-center justify-center text-white text-[36px] font-black" style={step(33.0)}>
@@ -512,22 +596,20 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
 
         {/* ── รอบ 3: สกิล ── */}
         <Banner t={t} start={36.8} end={41.2} title={T(`สกิล ${skillName}`, `Skill · ${skillName}`)}
-          sub={`${T(`ใส่${gearName}`, gearName)} · ATK × ${pct(d.skillMul)}`} color="bg-gradient-to-r from-fuchsia-700/95 to-purple-700/95 border-2 border-fuchsia-200/40" />
-        <DamagePop c={c} t={t} at={hitSkill} value={d.dmgSkill} tone="purple" />
-        {ko.on && d.dmgBefore + d.dmgAfter + d.dmgSkill >= d.enemy.baseStats.hp && (() => {
-          const pos = c.actorAt(ENEMY.actor)
-          const sp = pos ? c.project({ x: pos.x, y: pos.y - 60 }) : { x: 820, y: 480 }
+          sub={`${T(`ใส่${gearName}`, gearName)} · ATK × ${pct(d.skillMul)}`} color="bg-gradient-to-r from-fuchsia-700 to-purple-700 border-2 border-fuchsia-200/40" />
+
+        {/* วิญญาณเป้าหมาย ลอยขึ้นแล้วจางหาย */}
+        {t >= SOUL_AT && soulP < 1 && enemyPos && (() => {
+          const sp = c.project({ x: enemyPos.x, y: enemyPos.y - 80 - 170 * easeOut(soulP) })
           return (
-            <div className="absolute text-[110px] font-black text-red-500 leading-none"
-              style={{ left: Math.min(sp.x, 1100), top: sp.y, transform: `translate(-50%,-50%) rotate(-8deg) scale(${0.5 + 0.5 * easeOutBack(ko.enter)})`, opacity: ko.alpha, WebkitTextStroke: '4px #fff', textShadow: '0 0 30px rgba(239,68,68,0.9)' }}>
-              K.O.
-            </div>
+            <SamSprite base="hd/unit/effect/eff_die/eff_die_enemy" clip="die" frame={Math.floor((t - SOUL_AT) * FPS)} loop
+              x={sp.x + Math.sin(soulP * Math.PI * 3) * 14} y={sp.y} scale={1.8} alpha={1 - easeInOut(prog(t, SOUL_AT + 0.7, SOUL_AT + 1.6))} />
           )
         })()}
 
         {/* ── สรุป ── */}
         {sum.on && (
-          <div className="absolute inset-0 bg-black/65" style={{ opacity: sum.alpha }}>
+          <div className="absolute inset-0 bg-black/70" style={{ opacity: sum.alpha }}>
             <div className={`absolute left-1/2 top-1/2 w-[900px] -ml-[450px] -mt-[300px] p-8 ${CARD}`} style={popStyle(sum, 40)}>
               <div className="text-[24px] font-black text-amber-300">{T('สรุป', 'Summary')}</div>
               <div className="text-[40px] font-black text-white leading-tight">{T('ดาเมจต่อครั้ง (เป้าหมายเดียวกัน)', 'Damage per hit (same target)')}</div>
@@ -543,11 +625,11 @@ export default function AtkTutorial({ autoPlay }: { autoPlay: boolean }) {
                 </div>
               ))}
               <div className="mt-6 grid grid-cols-2 gap-4" style={popStyle(span(t, 44.2, 48, 0.5, 0.6))}>
-                <div className="rounded-2xl bg-amber-500/15 border-2 border-amber-400/40 p-3 text-center">
+                <div className="rounded-2xl bg-[#2a1f08] border-2 border-amber-400/50 p-3 text-center">
                   <div className="text-[22px] text-gray-300 font-bold">{T('โจมตีปกติ แรงขึ้น', 'Normal attack')}</div>
                   <div className="text-[52px] font-black text-amber-300 leading-none mt-1">×{(d.dmgAfter / d.dmgBefore).toFixed(2)}</div>
                 </div>
-                <div className="rounded-2xl bg-fuchsia-500/15 border-2 border-fuchsia-400/40 p-3 text-center">
+                <div className="rounded-2xl bg-[#250a2a] border-2 border-fuchsia-400/50 p-3 text-center">
                   <div className="text-[22px] text-gray-300 font-bold">{T('สกิล แรงขึ้น', 'Skill')}</div>
                   <div className="text-[52px] font-black text-fuchsia-300 leading-none mt-1">×{mult.toFixed(2)}</div>
                 </div>

@@ -11,7 +11,7 @@
 //   • หยุดแล้วไม่วาดซ้ำทุกเฟรม — วาดใหม่เฉพาะตอนเล่น / ลากแถบเวลา / ภาพเพิ่งโหลดเสร็จ / ขนาดจอเปลี่ยน
 // ====================================================
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useSound } from '@/contexts/SoundContext'
 import { assets } from '@/anme/engine/assets'
@@ -20,9 +20,9 @@ import { applyLang } from '@/anme/engine/i18n'
 import { renderScene } from '@/anme/engine/render'
 import { normalizeScene } from '@/anme/engine/scene'
 import { buildSkillCard } from '@/anme/engine/skillCard'
-import { buildTimeline, sceneEnd } from '@/anme/engine/timeline'
+import { actorPos, buildTimeline, cameraAt, sceneEnd, type Timeline } from '@/anme/engine/timeline'
 import type { AppState } from '@/anme/engine/store'
-import type { InfoCue, Scene } from '@/anme/engine/types'
+import type { InfoCue, Scene, Vec } from '@/anme/engine/types'
 
 interface Props {
   /** URL ของไฟล์ฉาก เช่น /gear-options/scenes/sample.anme.json */
@@ -31,6 +31,54 @@ interface Props {
   autoPlay?: boolean
   /** ถึงท้ายฉากแล้วเริ่มใหม่ */
   loop?: boolean
+  /**
+   * ชั้นภาพซ้อนบนวิดีโอ (การ์ดข้อมูล ตัวเลขดาเมจ ฯลฯ) — เรียกใหม่ทุกเฟรมด้วยเวลาปัจจุบัน
+   * ต้องคำนวณทุกอย่างจาก ctx.t (ไม่ใช้ CSS transition) → ลากแถบเวลา/เล่นซ้ำแล้วได้ภาพเดิมเป๊ะ
+   * พิกัดในชั้นนี้ = พิกเซลของเวที (เช่น 1280×720) — ย่อขยายตามขนาดจอให้เอง
+   */
+  overlay?: (ctx: OverlayCtx) => ReactNode
+}
+
+export interface OverlayCtx {
+  t: number
+  scene: Scene
+  tl: Timeline
+  /** จุดในฉาก (พิกัดโลก) → ตำแหน่งบนจอในชั้นซ้อน หลังคิดกล้องแล้ว */
+  project: (p: Vec) => Vec
+  /** ตำแหน่งเท้าของตัวแสดง ณ เวลานี้ (พิกัดโลก) */
+  actorAt: (actorId: string) => Vec | null
+  /** เวลาที่การโจมตีของคิวนี้โดนเป้าหมาย (วินาที) */
+  hitsOf: (cueId: string) => number[]
+}
+
+/** เวลาปัจจุบันแบบ subscribe ได้ — ให้ชั้นซ้อน render ทุกเฟรมโดยไม่ทำให้ทั้ง ScenePlayer render ตาม */
+function createClock() {
+  let t = 0
+  const subs = new Set<() => void>()
+  return {
+    get: () => t,
+    set(v: number) { if (v !== t) { t = v; subs.forEach(f => f()) } },
+    subscribe(f: () => void) { subs.add(f); return () => { subs.delete(f) } },
+  }
+}
+type Clock = ReturnType<typeof createClock>
+
+function OverlayLayer({ clock, scene, tl, render, boxW }: { clock: Clock; scene: Scene; tl: Timeline; render: (c: OverlayCtx) => ReactNode; boxW: number }) {
+  const t = useSyncExternalStore(clock.subscribe, clock.get, clock.get)
+  const cam = cameraAt(scene, t)
+  const W = scene.width, H = scene.height
+  const ctx: OverlayCtx = {
+    t, scene, tl,
+    project: p => ({ x: (p.x - cam.cx) * cam.zoom + W / 2, y: (p.y - cam.cy) * cam.zoom + H / 2 }),
+    actorAt: id => { const a = scene.actors.find(x => x.id === id); return a ? actorPos(scene, a, t) : null },
+    hitsOf: id => tl.hits.filter(h => h.cue.id === id).map(h => h.at),
+  }
+  return (
+    <div className="absolute left-0 top-0 pointer-events-none overflow-hidden"
+      style={{ width: W, height: H, transform: `scale(${boxW / W})`, transformOrigin: '0 0' }}>
+      {render(ctx)}
+    </div>
+  )
 }
 
 function useAssetsVersion() {
@@ -52,7 +100,7 @@ function sceneReady(scene: Scene): boolean {
   return true
 }
 
-export default function ScenePlayer({ src, autoPlay = false, loop = true }: Props) {
+export default function ScenePlayer({ src, autoPlay = false, loop = true, overlay }: Props) {
   const { lang, tSkill, tSkillDesc } = useLanguage()
   const { volume } = useSound()
   const version = useAssetsVersion()
@@ -62,6 +110,8 @@ export default function ScenePlayer({ src, autoPlay = false, loop = true }: Prop
   const [error, setError] = useState('')
   const [playing, setPlaying] = useState(false)
   const [shownTime, setShownTime] = useState(0)
+  const [boxW, setBoxW] = useState(0)
+  const clock = useMemo(createClock, [])
 
   const wrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -127,6 +177,7 @@ export default function ScenePlayer({ src, autoPlay = false, loop = true }: Prop
       const w = el.clientWidth
       cv.width = Math.round(w * dpr)
       cv.height = Math.round(w * (scene.height / scene.width) * dpr)
+      setBoxW(w)
       dirtyRef.current = true
     }
     fit()
@@ -176,6 +227,7 @@ export default function ScenePlayer({ src, autoPlay = false, loop = true }: Prop
       ctx.clearRect(0, 0, cv.width, cv.height)
       ctx.setTransform(k, 0, 0, k, 0, 0)
       renderScene(ctx, scene, timeRef.current, { playing: p, timeline: tl })
+      clock.set(timeRef.current)   // ชั้นซ้อน (การ์ด/ตัวเลข) ขยับตามเฟรมเดียวกับภาพ
       // ตัวเลขเวลาบนแถบ — อัปเดตทุก ~0.1 วิ ไม่ต้อง render React ทุกเฟรม
       const shown = Math.floor(timeRef.current * 10)
       if (shown !== lastShown) { lastShown = shown; setShownTime(timeRef.current) }
@@ -185,9 +237,9 @@ export default function ScenePlayer({ src, autoPlay = false, loop = true }: Prop
       cancelAnimationFrame(raf)
       audioPlayer.update(audioState(false), tl)   // หยุดเสียงที่ค้าง
     }
-  }, [scene, tl, end])
+  }, [scene, tl, end, clock])
 
-  const seek = (t: number) => { timeRef.current = Math.max(0, Math.min(end, t)); dirtyRef.current = true; setShownTime(timeRef.current) }
+  const seek =(t: number) => { timeRef.current = Math.max(0, Math.min(end, t)); dirtyRef.current = true; setShownTime(timeRef.current) }
 
   // จับ/ปล่อยแถบเวลา — ปล่อยนอกแถบก็นับ (ฟังที่ window) · ปล่อยแล้วเล่นต่อจากจุดนั้นถ้าเดิมเล่นอยู่
   const startScrub = () => {
@@ -212,6 +264,9 @@ export default function ScenePlayer({ src, autoPlay = false, loop = true }: Prop
     <div className="w-full select-none">
       <div ref={wrapRef} className="relative w-full aspect-video bg-black rounded-xl overflow-hidden" onClick={toggle}>
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
+        {overlay && scene && tl && ready && boxW > 0 && (
+          <OverlayLayer clock={clock} scene={scene} tl={tl} render={overlay} boxW={boxW} />
+        )}
 
         {error ? (
           <div className="absolute inset-0 flex items-center justify-center text-red-300 text-sm gap-2">

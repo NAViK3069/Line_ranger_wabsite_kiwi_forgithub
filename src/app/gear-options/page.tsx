@@ -17,7 +17,8 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import { GEAR_OPTIONS, SAMPLE_SCENE, sceneUrl } from './options'
 
 // engine ของสตูดิโอใช้ canvas / Web Audio ตั้งแต่ตอนโหลดโมดูล → โหลดฝั่ง browser เท่านั้น
-const ScenePlayer = dynamic(() => import('@/components/ScenePlayer'), {
+// (วิดีโอสอนแต่ละออพชั่นเลือกใน GearOptionPlayer)
+const GearOptionPlayer = dynamic(() => import('./GearOptionPlayer'), {
   ssr: false,
   loading: () => <div className="w-full aspect-video bg-black rounded-xl" />,
 })
@@ -73,7 +74,7 @@ export default function GearOptionsPage() {
       <main className="max-w-5xl mx-auto px-4 pt-4 sm:pt-6">
         {/* จอวิดีโอ */}
         <section className="card-glass rounded-2xl p-2 sm:p-3">
-          <ScenePlayer key={opt.id} src={sceneUrl(opt.scene ?? SAMPLE_SCENE)} autoPlay={interacted} />
+          <GearOptionPlayer key={opt.id} optionId={opt.id} src={sceneUrl(opt.scene ?? SAMPLE_SCENE)} autoPlay={interacted} />
         </section>
 
         {/* ชื่อออพชั่นที่กำลังดู */}

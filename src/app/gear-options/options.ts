@@ -23,7 +23,7 @@ export const SAMPLE_SCENE = 'sample'
 export const sceneUrl = (name: string) => `/gear-options/scenes/${encodeURIComponent(name)}.anme.json`
 
 export const GEAR_OPTIONS: GearOption[] = [
-  { id: 'atk',             th: 'พลังโจมตี',                      en: 'ATK' },
+  { id: 'atk',             th: 'พลังโจมตี',                      en: 'ATK', scene: 'atk' },   // + การ์ด/ตัวเลข: tutorials/atk.tsx
   { id: 'hp',              th: 'พลังชีวิต',                      en: 'HP' },
   { id: 'def',             th: 'พลังป้องกัน',                    en: 'DEF' },
   { id: 'atk-speed',       th: 'ความเร็วในการโจมตี',             en: 'Attack Speed' },

@@ -38,7 +38,11 @@ const clone = o => JSON.parse(JSON.stringify(o))
 //        นอกนั้นไม่มีกระสุน (fx: null = โดนตอนเฟรมปล่อย) · moveSpeed 0 = วาร์ปไปปลายทางแล้วโดนทันที
 const CLIP = { normal: 'attack', skill1: 's_attack', skill2: 's2_attack' }
 const HIT_RATE = { normal: 'normalHitPointRate', skill1: 'skill1HitPointRate', skill2: 'skill2HitPointRate' }
-function gameAttack(rangerId, kind) {
+// เกมเลือกไฟล์กระสุนตามชนิดท่า (ไม่ใช่ animationPart ของ lerico) แล้วถอยไปไฟล์ก่อนหน้าถ้าไม่มีไฟล์นั้น
+//   ตีปกติ bul · สกิล 1 bul2 → bul · สกิล 2 bul3 → bul2 → bul
+const BULLET_FILE_CHAIN = { normal: ['bul'], skill1: ['bul2', 'bul'], skill2: ['bul3', 'bul2', 'bul'] }
+//   files = ชื่อไฟล์กระสุนที่มีจริงของเรนเจอร์ (เช่น ['bul', 'bul3']) · ไม่ใส่ = ใช้ไฟล์แรกของลำดับ
+function gameAttack(rangerId, kind, files) {
   const d = require(`../../public/data/ranger/projectile/${rangerId}.json`)
   const u = d.unit, k = u[kind]
   if (!k) throw new Error(`${rangerId} has no ${kind}`)
@@ -57,7 +61,8 @@ function gameAttack(rangerId, kind) {
       cast: [`${clip}_ready`],
       release: clip,
       fx: !bullet ? null : {
-        set: k.animationPart, mode: 'projectile', flight: 'normal', finish: 'finish',
+        set: BULLET_FILE_CHAIN[kind].find(s => !files || files.includes(s)) ?? BULLET_FILE_CHAIN[kind][0],
+        mode: 'projectile', flight: 'normal', finish: 'finish',
         game: {
           // เกมตัดสินทรงวิถีจาก attackType: WEAPON / ENERGY / DOUBLE = เส้นตรง · อื่นๆ = โค้ง (ดู gameMotionOf)
           motion: ['WEAPON', 'ENERGY', 'DOUBLE'].includes(k.attackType) ? 'LINEAR' : 'CURVE',

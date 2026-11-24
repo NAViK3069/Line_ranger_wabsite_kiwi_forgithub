@@ -7,6 +7,7 @@
 const { ALLY, ENEMY, run, gameAttack } = require('./scene-lib.cjs')
 
 const ATTACKER = 'u1317e-brown'
+const ATTACKER_FILES = ['bul', 'bul3']   // ไฟล์กระสุนที่มีจริงใน res/u1317e-brown/ (ไม่มี bul2)
 
 run({
   name: 'DEF — [MIKU] Snowman vs Crocodile Hunter Brown',
@@ -16,8 +17,8 @@ run({
   },
   attacker: ENEMY,
   victim: ALLY,
-  normal: gameAttack(ATTACKER, 'normal'),     // หอก: CURVE จาก (180, 385) มุม −75° → 0° ความเร็ว 45
-  skill: gameAttack(ATTACKER, 'skill2'),      // เทียนเวทมนตร์ (hsk1316 — สกิลไฮเปอร์ของตระกูลไกรทอง): CURVE จาก (220, 180) มุม −75° → 0° ความเร็ว 45
+  normal: gameAttack(ATTACKER, 'normal', ATTACKER_FILES),     // หอก: CURVE จาก (180, 385) มุม −75° → 0° ความเร็ว 45
+  skill: gameAttack(ATTACKER, 'skill2', ATTACKER_FILES),      // เทียนเวทมนตร์ (hsk1316 — สกิลไฮเปอร์ของตระกูลไกรทอง): CURVE จาก (220, 180) มุม −75° → 0° ความเร็ว 45
   // คิวสกิลเริ่ม → โดน: ท่าเตรียม s2_attack_ready จนถึงเฟรมปล่อย + เวลาบิน (วัดจากไทม์ไลน์ของตัวเล่น)
   skillHitOffset: 2.068,
   dies: [true, true],     // สกิล 660M ≥ HP 17.2M ทั้งก่อนและหลังใส่เกียร์ (เกียร์นี้ไม่เพิ่ม HP · สกิลไม่โดน DEF)

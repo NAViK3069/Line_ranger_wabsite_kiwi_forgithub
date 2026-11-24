@@ -293,6 +293,247 @@ export function gameProjectileUnit(unitCode: string): Row | null {
   }
 }
 
+// ── ข้อความทางการ (ช่วยจัดรูป) ─────────────────────────────────────────
+export type GameLocalized = { en?: string; th?: string }
+type Tri = { zh: string; th: string; en: string }
+/** "\n" แบบตัวอักษร → ขึ้นบรรทัดจริง · ยุบบรรทัดว่างซ้ำ */
+const normText = (s: string | undefined) => (s ?? '').replace(/\\n/g, '\n').replace(/\r/g, '').replace(/\n{2,}/g, '\n').trim()
+/** ชื่อสั้นในบรรทัดเดียว (ชื่อในไฟล์ภาษาบางตัวมี \n ฝังไว้จัดหน้าในเกม) — ไทย/จีนต่อกันเลย อังกฤษเว้นวรรค */
+const oneLine = (s: string | undefined, sep = ' ') => (s ?? '').replace(/\s*(?:\\n|[\r\n]+)\s*/g, sep).replace(/\s+/g, ' ').trim()
+function textTri(msgType: string, key: string): Tri {
+  return { zh: gameText('zh', msgType)[key] ?? '', th: gameText('th', msgType)[key] ?? '', en: gameText('en', msgType)[key] ?? '' }
+}
+const loc = (th: string, en: string): GameLocalized | undefined =>
+  th || en ? { ...(en ? { en } : {}), ...(th ? { th } : {}) } : undefined
+/**
+ * คำอธิบายรูปแบบเกม: บรรทัดนำ (เงื่อนไข) ตามด้วยรายการ "* ผล" ทีละบรรทัด
+ * บรรทัดที่ไม่มี * ต่อจากรายการ = ข้อความต่อของรายการก่อนหน้า (เกมตัดบรรทัดเพื่อจัดหน้า)
+ * sep = ตัวเชื่อมบรรทัดที่ถูกตัด (ไทย/จีนไม่เว้นวรรค · อังกฤษเว้นวรรค)
+ */
+function splitDesc(text: string, sep: string): { lead: string; bullets: string[] } {
+  const lead: string[] = []
+  const bullets: string[] = []
+  // ไม่ยุบบรรทัดว่างก่อน — บรรทัดว่างแยก "หมายเหตุท้าย" ออกจากรายการผล
+  const lines = (text ?? '').replace(/\\n/g, '\n').replace(/\r/g, '').split('\n')
+  let blank = false
+  for (const raw of lines) {
+    const line = raw.trim()
+    if (!line) { blank = true; continue }
+    // หมายเหตุท้าย (หลังบรรทัดว่าง ขึ้นต้น "-" หรือ "※" เช่น "- Eligible Skill effects: …") ไม่ใช่ผลของทาเลนต์ — จบรายการ
+    if (/^※/.test(line) || (blank && bullets.length && /^-/.test(line))) break
+    blank = false
+    // หัวข้อของเกม: "*" (ส่วนใหญ่) · บางข้อความภาษาอังกฤษใช้ "- " (เช่น ab_tlt_1641 ขณะที่ไทย/จีนใช้ "*")
+    if (/^(?:[*＊•]|-(?=\s|[A-Za-z]))/.test(line)) bullets.push(line.replace(/^(?:[*＊•]|-)\s*/, ''))
+    else if (bullets.length) bullets[bullets.length - 1] += sep + line
+    else lead.push(line)
+  }
+  return { lead: lead.join(sep).replace(/\s+/g, ' ').trim(), bullets: bullets.map(b => b.replace(/\s+/g, ' ').trim()) }
+}
+/** สัดส่วน → เปอร์เซ็นต์ (รูปแบบเดิมของเว็บ: จำนวนเต็มเท่าของ 100% ไม่มีทศนิยม · นอกนั้นทศนิยม 1 ตำแหน่ง) */
+const pct = (v: number) => (Number.isInteger(v) ? `${v * 100}%` : `${(v * 100).toFixed(1)}%`)
+const pctRange = (a: number, b: number) => (a === b ? pct(b) : `${pct(a)} ~ ${pct(b)}`)
+const sec = (v: number) => `${v}秒`
+
+// ── ทาเลนต์ (แทน 才能 ของ warmycat) ──────────────────────────────────────
+// unit.talentGroup → tlnt_grp (ขั้น 1 = ทาเลนต์หลัก · ขั้น 2–4 = ทาเลนต์เสริม) → tlnt
+//   ทาเลนต์หลัก = ability majorTalentAbilityCode (ab_tlt_N): โอกาสเกิด activeProbability
+//                ความสามารถย่อย (_a, _b …) = ผลแต่ละข้อ ตามลำดับรายการ "*" ในคำอธิบาย
+//                ข้อความ = ABILITY:<ab_tlt_N>_desc ของเกม (บรรทัดนำ = เงื่อนไข · รายการ * = ผล)
+//   ทาเลนต์เสริม = enhanceType + enhanceVal → ชื่อสเตตัสทางการ EQUIP:GEAR_ATTR_<type>_nm + ค่า
+export interface GameTalent {
+  hasTalent: boolean
+  primary?: {
+    description: string
+    descriptionTh?: string
+    descriptionEn?: string
+    triggerRate: string
+    condition: string
+    conditionTemplate: string
+    conditionL?: GameLocalized
+    buffs: { triggerRate: string; effect: string; template: string; effectL?: GameLocalized }[]
+  }
+  enhanced?: string[]
+  enhancedL?: (GameLocalized | null)[]
+  /** ค่าดิบของทาเลนต์เสริม (ชนิด + ค่า) — ใช้คำนวณค่าพลัง ไม่ต้องอ่านจากข้อความ */
+  enhancedStats?: { type: string; value: number }[]
+}
+
+let abilityIndex: Map<string, Row> | null = null
+const gameAbility = (c: string): Row | null => {
+  if (!abilityIndex) abilityIndex = new Map(gameTable('ability').map(a => [a.code as string, a]))
+  return abilityIndex.get(c) ?? null
+}
+
+export function gameTalent(unitCode: string): GameTalent {
+  const u = gameUnit(unitCode)
+  const groupId = u ? code(u.talentGroup) : ''
+  if (!groupId) return { hasTalent: false }
+  const g = gameTable('tlnt_grp').find(r => r.id === groupId)
+  const tl = new Map(gameTable('tlnt').map(t => [t.keyCode as string, t]))
+  const major = g ? tl.get(code(g.talentCodeStep1)) : undefined
+  const ab = major ? gameAbility(code(major.majorTalentAbilityCode)) : null
+  if (!g || !major || !ab) return { hasTalent: false }
+  const desc = textTri('ABILITY', `${ab.code}_desc`)
+  // ไม่มีข้อความทางการสักภาษา = ยูนิตฝั่งศัตรู/ทดสอบ ไม่ใช่ทาเลนต์ที่ผู้เล่นเห็น
+  if (!desc.zh && !desc.th && !desc.en) return { hasTalent: false }
+  const zh = splitDesc(desc.zh, ''), th = splitDesc(desc.th, ''), en = splitDesc(desc.en, ' ')
+  const subs = splitCodes(ab.subAbilities).sort().map(c => gameAbility(c)).filter((x): x is Row => !!x)
+  const n = Math.max(zh.bullets.length, th.bullets.length, en.bullets.length)
+  const rootProb = num(ab.activeProbability, 1)
+  // คำอธิบายแบบประโยคเดียว (ไม่มีรายการ *) = ผลเดียว ข้อความคือทั้งประโยค
+  const items = n
+    ? Array.from({ length: n }, (_, i) => ({ zh: zh.bullets[i] ?? '', th: th.bullets[i] ?? '', en: en.bullets[i] ?? '' }))
+    : [{ zh: zh.lead, th: th.lead, en: en.lead }]
+  const buffs = items.map((t, i) => ({
+    triggerRate: pct(num(subs[i]?.activeProbability, rootProb)),
+    effect: t.zh, template: t.zh,
+    ...(loc(t.th, t.en) ? { effectL: loc(t.th, t.en) } : {}),
+  }))
+  const equipZh = gameText('zh', 'EQUIP'), equipTh = gameText('th', 'EQUIP'), equipEn = gameText('en', 'EQUIP')
+  const enh = [2, 3, 4].map(s => tl.get(code(g[`talentCodeStep${s}`]))).filter((t): t is Row => !!t && !!t.enhanceType)
+  const enhanced: string[] = [], enhancedL: (GameLocalized | null)[] = [], enhancedStats: { type: string; value: number }[] = []
+  for (const t of enh) {
+    const type = String(t.enhanceType), v = num(t.enhanceVal)
+    const mul = /_MUL$/.test(type)
+    const key = `GEAR_ATTR_${type}_nm`
+    const valZh = mul ? `${(v * 100).toFixed(1)}%` : String(v)
+    const val = mul ? `${+(v * 100).toFixed(2)}%` : String(v)
+    enhanced.push(`${oneLine(equipZh[key], '') || type}+${valZh}`)
+    const nTh = oneLine(equipTh[key], ''), nEn = oneLine(equipEn[key])
+    enhancedL.push(loc(nTh ? `${nTh} +${val}` : '', nEn ? `${nEn} +${val}` : '') ?? null)
+    enhancedStats.push({ type, value: v })
+  }
+  return {
+    hasTalent: true,
+    primary: {
+      description: normText(desc.zh),
+      ...(desc.th ? { descriptionTh: normText(desc.th) } : {}),
+      ...(desc.en ? { descriptionEn: normText(desc.en) } : {}),
+      triggerRate: pct(rootProb),
+      // บรรทัดนำของคำอธิบาย = เงื่อนไขที่ผลเกิด (มีเฉพาะคำอธิบายแบบมีรายการ * — แบบประโยคเดียวไม่แยกเงื่อนไข)
+      condition: n ? zh.lead : '',
+      conditionTemplate: n ? zh.lead : '',
+      ...(n && loc(th.lead, en.lead) ? { conditionL: loc(th.lead, en.lead) } : {}),
+      buffs,
+    },
+    enhanced, enhancedL, enhancedStats,
+  }
+}
+
+// ── ความสามารถตื่นพลัง (แทน 覺醒能力 ของ warmycat) ─────────────────────────────
+// unit.awakeYn = 1 + unit.awakeAbilityGroup → awake_ability_group: สูงสุด 5 ความสามารถ (โค้ด aab… + อัตราได้รับ)
+export interface GameAwakenAbility { code: string; categoryCode: string; rate: number; icon: string }
+export function gameAwakenAbilities(unitCode: string): GameAwakenAbility[] {
+  const u = gameUnit(unitCode)
+  if (!u || Number(u.awakeYn) !== 1) return []
+  const g = gameTable('awake_ability_group').find(r => r.id === u.awakeAbilityGroup)
+  if (!g) return []
+  const out: GameAwakenAbility[] = []
+  for (let i = 1; i <= 5; i++) {
+    const c = code(g[`awakeAbilityCode${i}`])
+    if (!c || !c.startsWith('aab')) continue
+    const a = gameAbility(c)
+    out.push({
+      code: c, categoryCode: code(g[`awakeAbilityCategoryCode${i}`]), rate: num(g[`awakeAbilityRate${i}`]),
+      icon: typeof a?.iconResourcePath === 'string' && a.iconResourcePath ? a.iconResourcePath : `${c.slice(1)}_icon.png`,
+    })
+  }
+  return out
+}
+
+// ── Spec+ ของเกียร์ 9★ (แทน 裝備資料庫 ของ warmycat) ────────────────────────────
+// game_item_equip.specialOptionCode → eqip_spcl_opt:
+//   ชื่อ titleLangCode · คำอธิบาย normalDescLangCode / specialDescLangCode (EQUIP — มี %s / {$Np} / {$Nf} ให้แทนค่า)
+//   ค่าพื้นฐาน normalAttrNo (unit_eqip_attr: ชนิด + min~max) + normalAttrEnchantIncrease ต่อระดับ
+//   ผลพิเศษ equipTalentCode → eqip_tlnt_attr: แถวราก (target = root) = โอกาสเกิด · แถวลูก = ผลที่เกิด
+//     activeProbability (โอกาสของผล) · buffFactor (สัมประสิทธิ์) · subBuffFactor (เวลา วินาที · ≤ 0 = ไม่มีเวลา) · *EnchantIncrease ต่อระดับ
+// รูปแบบตัวเลขเหมือนเดิม (หน้าเว็บอ่านค่าสูงสุดของช่วง + ค่าต่อระดับ): "50.0% ~ 60.0%" · "100%" · "1.5秒 ~ 2秒" · "-"
+export interface GameGearSpec {
+  hasSpec: boolean
+  name?: string
+  nameTh?: string
+  nameEn?: string
+  descTemplatesTh?: string[]
+  descTemplatesEn?: string[]
+  basic?: { stat: string; value: string; perLevel?: string; statL?: GameLocalized }[]
+  special?: {
+    description: string
+    triggerRate: string
+    condition: string
+    triggerEffect: {
+      triggerRate: string; triggerRatePerLevel?: string
+      effect: string
+      coef: string; coefPerLevel?: string
+      time: string; timePerLevel?: string
+    } | null
+  } | null
+}
+
+export function gameGearSpec(itemCode: string): GameGearSpec {
+  const eq = gameTable('game_item_equip').find(e => e.itemCode === itemCode)
+  const so = eq ? gameTable('eqip_spcl_opt').find(s => s.specialOptionCode === eq.specialOptionCode) : undefined
+  if (!eq || !so || isTestItem(itemCode)) return { hasSpec: false }
+  const name = textTri('EQUIP', String(so.titleLangCode))
+  const d1 = textTri('EQUIP', String(so.normalDescLangCode)), d2 = textTri('EQUIP', String(so.specialDescLangCode))
+  // basic
+  const attr = gameTable('unit_eqip_attr').find(a => a.attrNo === so.normalAttrNo)
+  const basic: NonNullable<GameGearSpec['basic']> = []
+  if (attr) {
+    const type = String(attr.reinforceType)
+    const mul = /_MUL$/.test(type)
+    const mn = num(attr.minValue), mx = num(attr.maxValue), inc = num(so.normalAttrEnchantIncrease)
+    const key = `GEAR_ATTR_${type}_nm`
+    const st = textTri('EQUIP', key)
+    basic.push({
+      stat: oneLine(st.zh, '') || type,
+      value: mul ? pctRange(mn, mx) : mn === mx ? mx.toFixed(1) : `${mn.toFixed(1)} ~ ${mx.toFixed(1)}`,
+      perLevel: mul ? pct(inc) : inc.toFixed(1),
+      ...(loc(oneLine(st.th, ''), oneLine(st.en)) ? { statL: loc(oneLine(st.th, ''), oneLine(st.en)) } : {}),
+    })
+  }
+  // special
+  const rows = gameTable('eqip_tlnt_attr').filter(t => t.equipTalentCode === so.equipTalentCode)
+  const root = rows.find(r => r.targetAbilityCode === r.rootAbilityCode)
+  const eff = rows.filter(r => r.targetAbilityCode !== r.rootAbilityCode).sort((a, b) => String(a.targetAbilityCode).localeCompare(String(b.targetAbilityCode)))[0]
+  let special: GameGearSpec['special'] = null
+  if (root) {
+    let triggerEffect: NonNullable<GameGearSpec['special']>['triggerEffect'] = null
+    if (eff) {
+      const bMin = num(eff.buffFactorMin), bMax = num(eff.buffFactorMax), bInc = num(eff.buffFactorEnchantIncrease)
+      const tMin = num(eff.subBuffFactorMin), tMax = num(eff.subBuffFactorMax), tInc = num(eff.subBuffFactorEnchantIncrease)
+      // สัมประสิทธิ์เป็น "วินาที" เอง (เช่น ลดเวลาสถานะ) = คำอธิบายใช้ {$Nf} และผลไม่มีเวลาของตัวเอง
+      const coefSec = tMax <= 0 && /\{\$\d+f\}/.test(d2.en || d2.th || d2.zh)
+      triggerEffect = {
+        triggerRate: pctRange(num(eff.activeProbabilityMin), num(eff.activeProbabilityMax)),
+        triggerRatePerLevel: pct(num(eff.activeProbabilityEnchantIncrease)),
+        effect: '',
+        coef: coefSec ? (bMin === bMax ? sec(bMax) : `${sec(bMin)} ~ ${sec(bMax)}`) : pctRange(bMin, bMax),
+        coefPerLevel: coefSec ? sec(bInc) : pct(bInc),
+        time: tMax <= 0 ? '-' : tMin === tMax ? sec(tMax) : `${sec(tMin)} ~ ${sec(tMax)}`,
+        timePerLevel: sec(tInc),
+      }
+    }
+    special = {
+      description: normText(d2.zh),
+      triggerRate: pctRange(num(root.activeProbabilityMin), num(root.activeProbabilityMax)),
+      // เงื่อนไข/ชื่อผลไม่มีข้อความแยกในเกม — อยู่ในคำอธิบายทางการ (descTemplates) ทั้งประโยค
+      condition: '',
+      triggerEffect,
+    }
+  }
+  const th = [d1.th, d2.th].filter(Boolean), en = [d1.en, d2.en].filter(Boolean)
+  return {
+    hasSpec: basic.length > 0 || !!special,
+    name: oneLine(name.zh, '') || undefined,
+    ...(name.th ? { nameTh: oneLine(name.th, '') } : {}),
+    ...(name.en ? { nameEn: oneLine(name.en) } : {}),
+    ...(th.length ? { descTemplatesTh: th } : {}),
+    ...(en.length ? { descTemplatesEn: en } : {}),
+    basic,
+    special,
+  }
+}
+
 // ── สายวิวัฒนาการ (แทน evolveChain ของ /api/getRanger ของ lerico) ──────────────
 /** ลิงก์ร่างถัดไปในตาราง unit — ลำดับนี้คือลำดับที่ลูกของร่างหนึ่งถูกเรียงในสาย */
 const EVOLVE_LINKS = ['unitCodeAfterEvolution', 'unitCodeAfterTranscendence', 'unitCodeAfterHyper'] as const

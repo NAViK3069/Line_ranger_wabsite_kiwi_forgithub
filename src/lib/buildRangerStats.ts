@@ -31,7 +31,7 @@ export interface SkillSlot {
   probability?: number   // 0..1
   cooldown?: number      // seconds
   area?: number
-  triggerBasis?: TriggerBasis   // 觸發基準 (self / front enemy / rear enemy ×N) — จาก warmycat
+  triggerBasis?: TriggerBasis   // เป้าของสกิล (self / front enemy / rear enemy ×N) — skill.targetType ของเกม
 }
 
 export interface AbilitySlot {

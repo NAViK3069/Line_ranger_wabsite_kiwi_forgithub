@@ -130,7 +130,6 @@ async function emitGameData() {
   console.log('[emit] global files')
   await emit(await route('ranger-book'), '/api/ranger-book')
   await emit(await route('gear-book'), '/api/gear-book')
-  await emit(await route('talent-dict'), '/api/talent-dict')
   await emit(await route('ranger-abilities'), '/api/ranger-abilities')
   await emit(await route('lerico/ranger-names'), '/api/lerico/ranger-names')
   await emit(await route('lerico/equip-names'), '/api/lerico/equip-names')

@@ -1,37 +1,18 @@
 'use client'
 // ====================================================
-// GearSpecSection — แสดง Spec+ ของเกียร์ 9★ จาก warmycat
+// GearSpecSection — แสดง Spec+ ของเกียร์ 9★ จากข้อมูลเกมของเรา (/api/gear/spec-plus)
 // • Show เฉพาะเกียร์ 9★ ที่มี Spec+ (ไม่มี → return null)
 // • ธีมสีม่วง (แยกจาก Basic/Switchable/SKILL+)
-// • แปลภาษาผ่าน talentTranslate (ระบบเดียวกับพรสวรรค์เรนเจอร์)
-// • Spec+ สเกลตามระดับเกียร์ได้ (每次升級增加 จาก warmycat) → slider 0-5max
+// • ชื่อ / คำอธิบาย / ชื่อสเตตัส = ข้อความทางการของเกม — ไม่มีการแปลเอง
+//   เงื่อนไขและผลพิเศษอยู่ในคำอธิบายทางการทั้งประโยค (เกมไม่มีข้อความแยก) · ตารางแสดงเฉพาะตัวเลขจากเกม
+// • Spec+ สเกลตามระดับได้ (ค่าต่อระดับจากเกม) → slider 0-5max
 // ====================================================
 
 import { apiFetch } from '@/lib/staticApi'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
-import {
-  translateStatLine, translateCondition, translateDescription, translateBuffEffect,
-  type ExtraDict,
-} from '@/lib/talentTranslate'
 
-// ── Singleton: fetch /api/talent-dict ครั้งเดียวต่อ session (zh→en จาก lerico) ──
-let dictPromise: Promise<ExtraDict> | null = null
-function getDict(): Promise<ExtraDict> {
-  if (!dictPromise) {
-    dictPromise = apiFetch('/api/talent-dict')
-      .then(r => {
-        const ct = r.headers.get('content-type') ?? ''
-        if (!ct.includes('application/json')) throw new Error('non-json')
-        return r.json() as Promise<ExtraDict>
-      })
-      .then(d => d && typeof d === 'object' ? d : { stats: {}, phrases: {} })
-      .catch(() => ({ stats: {}, phrases: {} }))
-  }
-  return dictPromise
-}
-
-/** ข้อความทางการสองภาษาจาก warmycat v2 — ภาษาที่ต้นทางยังไม่มีจะไม่มีฟิลด์นั้น */
+/** ข้อความทางการสองภาษา — ภาษาที่เกมไม่มีจะไม่มีฟิลด์นั้น */
 interface Localized { en?: string; th?: string }
 
 interface SpecTriggerEffect {
@@ -76,7 +57,7 @@ interface Props {
 }
 
 // ── คำนวณค่า ณ ระดับ (level 0-5) จาก "min ~ max" + per-level increment ──
-//   base: ค่าดิบจาก warmycat เช่น "8.0% ~ 12.0%", "100%", "3秒", "-"
+//   base: ค่าจาก API เช่น "8.0% ~ 12.0%", "100%", "3秒", "-"
 //   perLevel: เช่น "1.6%", "0秒" — เพิ่มทีละเท่านี้ต่อ 1 ระดับ
 //   ⚠️ ใช้ค่า "สูงสุด" ของช่วงเป็นฐานเสมอ (ไม่ใช่ต่ำสุด) — ตามธรรมเนียมเว็บเรา
 function parseLeadingNum(s?: string): number {
@@ -142,9 +123,8 @@ function specLevelIcon(level: number): string {
 }
 
 export default function GearSpecSection({ itemCode, grade, interactive = true, lockedLevel = 5, specLevel: specLevelProp, onSpecLevelChange }: Props) {
-  const { lang, tStat } = useLanguage()
+  const { lang } = useLanguage()
   const [data, setData] = useState<GearSpecData | null>(null)
-  const [dict, setDict] = useState<ExtraDict>({ stats: {}, phrases: {} })
   const [loading, setLoading] = useState(true)
   const [internalSpecLevel, setInternalSpecLevel] = useState(0)
   const specLevel = specLevelProp ?? internalSpecLevel
@@ -163,8 +143,8 @@ export default function GearSpecSection({ itemCode, grade, interactive = true, l
     const timeoutId = setTimeout(() => ctrl.abort(), 10000)
     setLoading(true)
 
-    // ?v=2 = รุ่นที่มีข้อความทางการ — กัน browser ใช้ JSON รุ่นเก่าที่แคชไว้ 7 วัน
-    const specPromise = apiFetch(`/api/gear/spec-plus/${encodeURIComponent(itemCode)}?v=2`, { signal: ctrl.signal })
+    // ?v=3 = รุ่นข้อมูลเกมของเรา — กัน browser ใช้ JSON รุ่นเก่า (warmycat) ที่แคชไว้ 7 วัน
+    const specPromise = apiFetch(`/api/gear/spec-plus/${encodeURIComponent(itemCode)}?v=3`, { signal: ctrl.signal })
       .then(r => {
         const ct = r.headers.get('content-type') ?? ''
         if (!ct.includes('application/json')) throw new Error('non-json')
@@ -173,38 +153,21 @@ export default function GearSpecSection({ itemCode, grade, interactive = true, l
       .then(d => d && typeof d === 'object' ? d : { hasSpec: false } as GearSpecData)
       .catch(() => ({ hasSpec: false } as GearSpecData))
 
-    Promise.all([specPromise, getDict()])
-      .then(([d, dc]) => { if (!cancelled) { setData(d); setDict(dc) } })
+    specPromise
+      .then(d => { if (!cancelled) setData(d) })
       .finally(() => { clearTimeout(timeoutId); if (!cancelled) setLoading(false) })
 
     return () => { cancelled = true; clearTimeout(timeoutId); ctrl.abort() }
   }, [itemCode, is9star])
 
   const targetLang: 'en' | 'th' = lang === 'th' ? 'th' : 'en'
-  const localize = (zh: string, kind: 'stat' | 'desc' | 'cond' | 'buff', official?: Localized): string => {
-    // ข้อความทางการของ warmycat v2 มาก่อน — ไม่มีค่อยแปลจากจีน
-    const o = official?.[targetLang]
-    if (o) return o.replace(/\\n|[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim()
-    if (!zh) return ''
-    let out: string
-    if (kind === 'stat') out = translateStatLine(zh, targetLang, dict)
-    else if (kind === 'cond') out = translateCondition(zh, targetLang, dict)
-    else if (kind === 'buff') out = translateBuffEffect(zh, targetLang, dict)
-    else out = translateDescription(zh, targetLang, dict)
-    return out.replace(/\\n|[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim()  // เก็บ \n ค้างจาก dict
+  // ข้อความทางการของภาษาที่เลือก — เกมไม่มีภาษานั้นค่อยใช้อีกภาษา แล้วค่อยจีน
+  const localize = (zh: string, official?: Localized): string => {
+    const o = official?.[targetLang] || official?.[targetLang === 'th' ? 'en' : 'th'] || zh || ''
+    return o.replace(/\\n|[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim()
   }
-  // ชื่อ stat: แปล CN → English ก่อน แล้วส่งผ่าน tStat (ระบบแปลเดียวกับ gear effects)
-  //   → ชื่อ stat ตรงกับ Basic/Switchable ของเกียร์ (เช่น "อัตราความแม่นยำของทักษะ")
-  //   ถ้า app ไม่มีคำแปล → fallback เป็นคำแปลของ talentTranslate
-  const localizeStat = (zh: string, official?: Localized): string => {
-    const o = official?.[targetLang]
-    if (o) return o
-    const en = translateStatLine(zh, 'en', dict).replace(/\s*\([%+]\)\s*/g, ' ').replace(/\s+/g, ' ').trim()
-    if (!en) return localize(zh, 'stat')
-    if (targetLang === 'en') return en
-    const th = tStat(en)
-    return th !== en ? th : localize(zh, 'stat')
-  }
+  // ชื่อ stat ทางการของเกม (EQUIP:GEAR_ATTR_<ชนิด>_nm) — ชุดเดียวกับชื่อในคำอธิบาย Spec+
+  const localizeStat = (zh: string, official?: Localized): string => localize(zh, official)
   // 秒 → หน่วยวินาทีของภาษานั้น: "3秒" → "3 วินาที" / "3s"; "-" คงเดิม
   // ใช้กับทั้งช่องเวลาและช่องสัมประสิทธิ์ (บางเกียร์สัมประสิทธิ์เป็นวินาที เช่นลดเวลาสถานะ "เสน่ห์")
   const localizeTime = (zh: string): string => {
@@ -219,7 +182,7 @@ export default function GearSpecSection({ itemCode, grade, interactive = true, l
   const { name, nameTh, nameEn, descTemplatesTh, descTemplatesEn, basic, special } = data
   // ชื่อ Spec: ใช้ของจริงจาก lerico th/en:EQUIP ก่อน (แม่นกว่า) — fallback เป็นการแปลแบบเดา ถ้าไม่มี
   const nameFromLerico = lang === 'th' ? nameTh : nameEn
-  const nameLoc = nameFromLerico || (name ? localize(name, 'stat') : '')
+  const nameLoc = nameFromLerico || (name ? localize(name) : '')
   const showName = !!nameLoc && !/[一-鿿]/.test(nameLoc)
 
   // มีข้อมูล per-level ไหม (basic หรือ trigger effect) → โชว์ slider; ถ้าไม่มี → ข้อความเดิม (ไม่ scale)
@@ -355,24 +318,26 @@ export default function GearSpecSection({ itemCode, grade, interactive = true, l
         <div className="space-y-2">
           <div className="text-xs font-semibold text-purple-300">{L.special}</div>
 
-          {/* อัตราเกิด + เงื่อนไข */}
-          <div className="rounded-lg bg-black/20 border border-purple-400/20 overflow-hidden">
-            <div className="grid grid-cols-[90px_1fr] text-sm">
-              <div className="bg-purple-500/20 text-purple-200 px-3 py-1.5 font-semibold border-b border-white/10 text-xs">{L.rate}</div>
-              <div className="bg-purple-500/20 text-purple-200 px-3 py-1.5 font-semibold border-b border-white/10 text-xs">{L.cond}</div>
-              <div className={`px-3 py-1.5 text-white ${special.condition2 ? 'row-span-2 flex items-center' : ''}`}>{special.triggerRate}</div>
-              <div className={`px-3 py-1.5 text-gray-200 leading-snug ${special.condition2 ? 'border-b border-white/5' : ''}`}>{localize(special.condition, 'cond', special.conditionL)}</div>
-              {special.condition2 && (
-                <div className="px-3 py-1.5 text-gray-200 leading-snug">{localize(special.condition2, 'cond', special.condition2L)}</div>
-              )}
-            </div>
-          </div>
+          {/* อัตราเกิด (+ เงื่อนไข ถ้ามีข้อความแยก — ข้อมูลเกมไม่มี เงื่อนไขอยู่ในคำอธิบายทางการด้านบนแล้ว) */}
+          {(() => {
+            const cond = localize(special.condition, special.conditionL)
+            return (
+              <div className="rounded-lg bg-black/20 border border-purple-400/20 overflow-hidden">
+                <div className={`grid ${cond ? 'grid-cols-[90px_1fr]' : 'grid-cols-1'} text-sm`}>
+                  <div className="bg-purple-500/20 text-purple-200 px-3 py-1.5 font-semibold border-b border-white/10 text-xs">{L.rate}</div>
+                  {cond && <div className="bg-purple-500/20 text-purple-200 px-3 py-1.5 font-semibold border-b border-white/10 text-xs">{L.cond}</div>}
+                  <div className="px-3 py-1.5 text-white">{special.triggerRate}</div>
+                  {cond && <div className="px-3 py-1.5 text-gray-200 leading-snug">{cond}</div>}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* เอฟเฟกต์ที่เกิด — stacked card (อ่านง่ายกว่าตาราง 4 คอลัมน์บนภาษาไทย) */}
           {special.triggerEffect && (
             <div className="rounded-lg bg-black/20 border border-purple-400/20 p-2.5">
               <div className="flex items-start justify-between gap-2 mb-2">
-                <span className="text-sm text-gray-100 leading-snug">{localize(special.triggerEffect.effect, 'buff', special.triggerEffect.effectL)}</span>
+                <span className="text-sm text-gray-100 leading-snug">{localize(special.triggerEffect.effect, special.triggerEffect.effectL) || L.trigEffect}</span>
                 <span className="text-xs font-bold text-purple-200 bg-purple-500/25 rounded px-1.5 py-0.5 shrink-0">{valueAtLevel(special.triggerEffect.triggerRate, special.triggerEffect.triggerRatePerLevel, lvl)}</span>
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">

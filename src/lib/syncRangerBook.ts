@@ -257,9 +257,8 @@ export async function performRangerSync(): Promise<SyncResult> {
       // คนละคีย์กับสองอันบน — อันนี้เป็นคำแปลที่ตัว scraper ใช้ตอนฝังชื่อลงตารางอันดับ
       // ไม่ล้างด้วย ชื่อเรนเจอร์ใหม่จะยังเป็นรหัสดิบในหน้าเมต้า ทั้งที่ ranger book ถูกแล้ว
       redis.del(redisKey.translations()),
-      redis.del(redisKey.talentPrimed()),
     ])
-    console.log('[Sync] Warmed rangerBookAll + invalidated translation cache (th/en/scraper) + talent primed flag')
+    console.log('[Sync] Warmed rangerBookAll + invalidated translation cache (th/en/scraper)')
   } else if (redis) {
     console.log('[Sync] ไม่มีเรนเจอร์เปลี่ยน — ข้ามการล้าง cache')
   }
@@ -269,8 +268,6 @@ export async function performRangerSync(): Promise<SyncResult> {
   // → cold start ถัดไป user request ใด ๆ จะ hit Redis แทน ไม่ต้องโหลด bundle 7 API จาก lerico.net
   Promise.allSettled([
     // syncGearBook เสร็จ → ค่อยลบ gearBookAll cache (ตอนนี้ gear DB ใหม่แล้ว)
-    // + ลบ gearSpec primed flag → เกียร์ใหม่ที่เพิ่ง sync เข้ามาได้ Spec+ จาก warmycat สดทันที
-    //   (ไม่งั้นถ้า primed ค้างจากก่อนเกียร์นี้มีอยู่ใน warmycat จะติด hasSpec:false ไปอีกนานสุด 7 วัน)
     syncGearBook().then(async () => {
       if (redis) {
         const r = redis   // capture ก่อนเข้า async callback เพื่อแก้ TypeScript null-check
@@ -281,9 +278,8 @@ export async function performRangerSync(): Promise<SyncResult> {
           buildGearBookPayload()
             .then(p => r.set(GEAR_BOOK_CACHE_KEY, JSON.stringify(p), { ex: REDIS_TTL.gearBookAll }))
             .catch(e => { console.error('[Sync] warm gearBook failed:', e); return r.del(GEAR_BOOK_CACHE_KEY) }),
-          redis.del(redisKey.gearSpecPrimed()),
         ])
-        console.log('[Sync] Warmed gearBook cache + cleared gearSpec primed flag (หลัง gear DB อัพเดตเสร็จ)')
+        console.log('[Sync] Warmed gearBook cache (หลัง gear DB อัพเดตเสร็จ)')
       }
     }),
     precacheRangerStats(rawRangers),

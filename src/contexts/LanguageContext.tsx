@@ -83,7 +83,7 @@ const STAT_LABELS_TH: Record<string, string> = {
   'Cast Time':                      'ระยะเวลาร่ายสกิล',
   'Recovery':                       'ระยะเวลากลับตำแหน่ง',
   'Total':                          'รวม',
-  // ── Trigger Basis (觸發基準 จาก warmycat) — เป้าหมายที่สกิลเล็ง ──
+  // ── Trigger Basis (เป้าของสกิล — skill.targetType ของเกม) ──
   'Self':                           'ตัวเอง',
   'Front Enemy':                    'ศัตรูแนวหน้า',
   'Rear Enemy':                     'ศัตรูแนวหลัง',

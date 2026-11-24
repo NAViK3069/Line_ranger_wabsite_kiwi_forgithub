@@ -42,10 +42,6 @@ export const REDIS_TTL = {
   rangerAbilities: 60 * 60 * 24 * 7,  // 7 วัน (ability ต่อเรนเจอร์ เปลี่ยนแค่ตอนเกมอัปเดต)
   gearBookAll:    60 * 60 * 24 * 30,  // 30 วัน (sync เขียนทับให้ทุกครั้ง ไม่ต้องรอ TTL หมด)
   rangerCastTime: 60 * 60 * 24 * 30,  // 30 วัน (game data แทบไม่เปลี่ยน)
-  talentDict:     60 * 60 * 24 * 7,   // 7 วัน (zh→en derived จาก lerico)
-  talent:         60 * 60 * 24 * 7,   // 7 วัน (per-ranger talent data จาก warmycat)
-  gearSpec:       60 * 60 * 24 * 7,   // 7 วัน (per-gear Spec+ จาก warmycat — เกียร์ 9★)
-  triggerBasis:   60 * 60 * 24 * 7,   // 7 วัน (觸發基準 ของแต่ละสกิล จาก warmycat)
   // 7 วัน — เท่ากับ TTL อื่นๆ ในระบบ (เดิม 6 ชม. ซึ่งปลอดภัยกว่าที่จำเป็นมาก)
   // ตรวจนี้ยิงจากทุกหน้าที่มี ProProvider mount (ทุก page load ของทุกคนที่มีโค้ด pro)
   // ถี่กว่า cache อื่นในระบบทั้งหมด → ยิ่งต้องยืด TTL ให้ยาวสุดเพื่อลด Neon wake-up
@@ -89,21 +85,7 @@ export const redisKey = {
   leagueStamp:    (league: number)                   => `lr:league:stamp:${league}`,
   // ชื่อเรนเจอร์ที่ติดอันดับในลีค { [id]: name } — เล็กกว่าคีย์ league เต็ม (~535KB) มาก
   leagueNames:    (league: number)                   => `lr:league:names:${league}`,
-  // v2: เพิ่ม templates (แม่แบบทางการของ warmycat) → bump version
-  talentDict:     ()                                  => `lr:talent:dict:v2`,
-  // v6: ยุบ \n\n ซ้ำใน description → เป็น \n เดียว (กันบรรทัดว่างเกิน) → bump version
-  //     v5 ยัง normalize per-base ranger เหมือนเดิม (ทุก tier ใช้ key เดียว)
-  // v7: เพิ่มข้อความไทย/อังกฤษทางการจาก warmycat v2 (conditionL / effectL / enhancedL) → bump version
-  talent:         (baseRangerId: string)              => `lr:talent:${baseRangerId}:v7`,
-  talentPrimed:   ()                                  => `lr:talent:primed:v7`,
-  // v3: เพิ่ม nameTh/nameEn/descTemplatesTh/descTemplatesEn (จาก lerico th/en:EQUIP, key SPC_{prefix}_{id}) → bump version
-  //     v2 ยัง perLevel increment fields เหมือนเดิม (Spec+ สเกลตามระดับเกียร์ได้)
-  // v6: เพิ่มข้อความไทย/อังกฤษทางการจาก warmycat v2 (statL / conditionL / condition2L / effectL) → bump version
-  gearSpec:       (itemCode: string)                  => `lr:gearspec:${itemCode}:v6`,
-  gearSpecPrimed: ()                                  => `lr:gearspec:primed:v6`,
   proCode:        (code: string)                      => `lr:pro:${code}`,
-  triggerBasis:       (unitCode: string)               => `lr:trigbasis:${unitCode}:v1`,
-  triggerBasisPrimed: ()                               => `lr:trigbasis:primed:v1`,
   // ทั้งลีค 1 key (ไม่แยกต่อ ranger) — usage*.json ของ warmycat เป็นไฟล์เดียวรวมทุก ranger ในลีคนั้นอยู่แล้ว
   usageRanking:       (league: number)                  => `lr:usage:${league}:v1`,
 }

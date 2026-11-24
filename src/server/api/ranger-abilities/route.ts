@@ -3,8 +3,7 @@
 // รายชื่อ Ability ทั้งหมด + แผนที่ว่าเรนเจอร์ตัวไหนมี ability อะไรบ้าง
 // ใช้กับตัวกรอง Ability ใน Ranger Book
 //
-// • ข้อมูลมาจาก bundle เดิม (getRangersBasics + /api/v2/abilities) ที่โหลดไว้อยู่แล้ว
-//   ไม่ได้ยิง lerico เพิ่มเลยถ้ามีหน้าอื่นโหลด bundle ไปก่อนแล้ว
+// • ข้อมูลมาจากข้อมูลเกมของเรา (ranger bundle + ความสามารถตื่นพลังจาก awake_ability_group — src/lib/gameData.ts)
 // • byRanger เก็บเป็น "เลข index" ของ ability ไม่ใช่ตัว code
 //   เพราะ 3,000 เรนเจอร์ × โค้ดยาว ๆ ทำให้ payload บวมโดยไม่จำเป็น
 // • Redis 7 วัน + browser/CDN 7 วัน — ข้อมูลเปลี่ยนแค่ตอนเกมอัปเดต
@@ -19,6 +18,7 @@ import {
   translateAbility,
   abilityIconUrlFromRaw,
 } from '@/lib/rangerData'
+import { gameAwakenAbilities, gameTable } from '@/lib/gameData'
 
 export const maxDuration = 60
 
@@ -51,12 +51,6 @@ export interface RangerAbilitiesPayload {
 const EMPTY: RangerAbilitiesPayload = { abilities: [], byRanger: {} }
 
 const GROUP_PREFIX = 'ab701_team'
-
-// Awakening ability อยู่คนละที่ — lerico ไม่มี ต้องเอาจาก warmycat
-// ไฟล์นี้ 8MB แต่ยิงแค่ตอน Redis หมดอายุ (7 วัน) และ route awakening ก็ดึงไฟล์เดียวกันนี้อยู่แล้ว
-const WARMYCAT_RANGERS = 'https://rangerbook.warmycat.com/res/Rangers_data.json'
-
-interface AwakenEntry { abilityCode?: string; icon?: string }
 
 /** โค้ดว่างมาได้หลายหน้าตา ('', '0', 'none') — กันไว้ให้หมด */
 function usableCode(v: unknown): string | null {
@@ -118,7 +112,7 @@ class Index {
   }
 }
 
-/** ability ปกติ 3 ช่องของเรนเจอร์แต่ละตัว (จาก bundle ของ lerico) */
+/** ability ปกติ 3 ช่องของเรนเจอร์แต่ละตัว (จาก ranger bundle ของข้อมูลเกม) */
 function addNormal(ix: Index): void {
   for (const raw of getAllRawRangers()) {
     const unitCode = raw.unitCode
@@ -141,31 +135,18 @@ function addNormal(ix: Index): void {
   }
 }
 
-/** Awakening ability (9★+) — โครงสร้าง: [{ ranger_id, 覺醒能力: [{ abilityCode, icon }] }] */
-async function addAwakening(ix: Index): Promise<number> {
-  const res = await fetch(WARMYCAT_RANGERS, {
-    headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' },
-    next: { revalidate: REDIS_TTL.rangerAbilities },
-  })
-  if (!res.ok) throw new Error(`warmycat ${res.status}`)
-  const rangers = await res.json() as Array<Record<string, unknown>>
-
+/** Awakening ability (9★+) — จาก awake_ability_group ของเกม (เดิมดึง Rangers_data.json ของ warmycat — ได้ชุดเดียวกัน) */
+function addAwakening(ix: Index): number {
   let added = 0
-  for (const r of rangers) {
-    const unitCode = typeof r['ranger_id'] === 'string' ? r['ranger_id'] : ''
-    const list = r['覺醒能力']
-    // เรนเจอร์ที่ไม่มี awakening ฟิลด์นี้เป็น string ไม่ใช่ array — เช็คให้ครบก่อนวน
-    if (!unitCode || !Array.isArray(list)) continue
-
-    for (const a of list as AwakenEntry[]) {
-      const code = a && typeof a === 'object' ? usableCode(a.abilityCode) : null
-      if (!code || !code.startsWith('aab')) continue
-      const n = resolveName(code)
+  for (const u of gameTable('unit')) {
+    const unitCode = typeof u.unitCode === 'string' ? u.unitCode : ''
+    if (!unitCode) continue
+    for (const a of gameAwakenAbilities(unitCode)) {
+      const n = resolveName(a.code)
       if (!n) continue
       const idx = ix.slot(`a:${n.name}`, () => ({
-        code, name: n.name, nameCode: n.nameCode,
-        // warmycat บอกชื่อไฟล์ไอคอนมาตรง ๆ ส่วน lerico ไม่รู้จักโค้ด aab*
-        icon: `https://rangers.lerico.net/res/ability_icon/${a.icon || `${code.slice(1)}_icon.png`}`,
+        code: a.code, name: n.name, nameCode: n.nameCode,
+        icon: `https://rangers.lerico.net/res/ability_icon/${a.icon}`,
         count: 0,
         awaken: true as const,
       }))
@@ -191,21 +172,12 @@ export async function GET() {
     await ensureRangerBundle()
     const ix = new Index()
     addNormal(ix)
-    // warmycat ล่มไม่ควรทำให้ตัวกรองทั้งอันใช้ไม่ได้ — ขาดแค่ awakening ก็ยังกรองอย่างอื่นได้
-    // แต่ห้าม cache ผลที่ขาดไปไว้ 7 วัน ไม่งั้นจะหายยาว
-    let awakenOk = true
-    try {
-      await addAwakening(ix)
-    } catch (err) {
-      awakenOk = false
-      console.error('[ranger-abilities] awakening skipped:', err)
-    }
+    addAwakening(ix)
     const payload: RangerAbilitiesPayload = { abilities: ix.options, byRanger: ix.byRanger }
-    // bundle โหลดไม่สำเร็จ (lerico ล่ม) → อย่าเพิ่ง cache ของว่างไว้ 7 วัน
+    // ข้อมูลเกมโหลดไม่สำเร็จ → อย่าเพิ่ง cache ของว่างไว้ 7 วัน
     if (payload.abilities.length === 0) {
       return NextResponse.json(EMPTY, { status: 503 })
     }
-    if (!awakenOk) return NextResponse.json(payload, { headers: { 'Cache-Control': 'no-store' } })
     if (redis) {
       redis.set(redisKey.rangerAbilities(), JSON.stringify(payload), {
         ex: REDIS_TTL.rangerAbilities,

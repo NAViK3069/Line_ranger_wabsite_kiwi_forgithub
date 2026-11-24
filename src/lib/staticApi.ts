@@ -59,7 +59,6 @@ export function dataFile(pathname: string, q: URLSearchParams): string | null {
     case 'top40': return 'top40.json'
     case 'ranger-book': return 'ranger-book.json'
     case 'gear-book': return 'gear-book.json'
-    case 'talent-dict': return 'talent-dict.json'
     case 'ranger-abilities': return 'ranger-abilities.json'
     case 'custom-assets': return 'custom-assets.json'
     case 'site-profile': return 'site-profile.json'

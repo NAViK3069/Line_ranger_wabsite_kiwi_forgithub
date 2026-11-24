@@ -49,15 +49,18 @@ export interface RangerLevelStats {
   atMaxUnlimit: boolean
 }
 
+// ขั้นต่ำเวลาเกิดใหม่ — ยังไม่พบค่านี้ในตาราง game_factor ของเกม (ใช้ค่าเดิมไปก่อน)
 const RESPAWN_MIN_SECONDS = 1.3
+// อัตราลดเวลาเกิดใหม่ตามจำนวนครั้งปลดลิมิต = ตาราง unit_level_expansion ของเกม (productionSpeedDecreaseRate)
+//   evolution (8★/9★ ธรรมดา) 4 ขั้น · transcend / hyper 20 ขั้น — ตรวจแล้วตรงทุกค่า (ไฟล์เกม 2026-11)
 const GENERAL_RESPAWN_DECREASE_RATES = [0, 0.20, 0.30, 0.40, 0.50]
 const EVOLVED_RESPAWN_DECREASE_RATES = [
   0, 0.01, 0.02, 0.03, 0.05, 0.07, 0.09, 0.12, 0.15, 0.18, 0.20,
   0.22, 0.24, 0.26, 0.28, 0.30, 0.33, 0.36, 0.40, 0.45, 0.50,
 ]
 
-// Reverse-engineered จาก lerico handbook app.js (calcRangerStat) + rangerbook.warmycat.com
-// assets/js/ranger.js (respawnTimeAtLevel) — ดู comment เต็มใน src/lib/rangerData.ts
+// สูตรค่าพลังตามเลเวล (initial + delta × เลเวล + deltaMax × เลเวลเกิน) ใช้ค่าจากตาราง unit / unit_reinforce_rate ของเกม
+// อัตราลดเวลาเกิดใหม่จากตาราง unit_level_expansion — ดู comment เต็มใน src/lib/rangerData.ts
 export function calcRangerLevelStats(
   growth: RangerGrowthInput,
   limits: RangerLevelLimits,

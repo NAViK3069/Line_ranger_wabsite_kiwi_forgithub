@@ -28,8 +28,6 @@ import { usePro } from '@/contexts/ProContext'
 import { useSound } from '@/contexts/SoundContext'
 import type { AwakenAbility } from '@/server/api/ranger/awakening/[id]/route'
 import type { TriggerBasis } from '@/lib/rangerTriggerBasis'
-import { getTalentDict } from '@/components/TalentSection'
-import { translateStatLine } from '@/lib/talentTranslate'
 import { calcRangerLevelStats, type RangerGrowthInput } from '@/lib/rangerLevelCalc'
 
 // ── Types from /api/meta/ranger-stats ────────────────
@@ -792,24 +790,20 @@ export default function RangerStatPanel({
     [computedEffectsBySlot, effectiveSwitchable]
   )
 
-  // ── Talent bonus (Ranger Book เท่านั้น) — โหลด Enhanced Talent เป็นภาษาอังกฤษ (ให้ classify() จับ pattern ได้)
+  // ── Talent bonus (Ranger Book เท่านั้น) — Enhanced Talent ภาษาอังกฤษทางการของเกม (ชื่อสเตตัส GEAR_ATTR + ค่า
+  //    เช่น "Physical ATK +300%") ให้ classify() จับ pattern ได้ตรงๆ
   //    แล้วรวมเข้ากับ bonuses ของเกียร์ด้วยโลจิกเดียวกันเป๊ะๆ ผ่าน aggregateTalentBonuses/mergeStatBonusMaps ──
   const [talentEnhancedEn, setTalentEnhancedEn] = useState<string[]>([])
   useEffect(() => {
     // Meta ก็ต้องโหลดด้วย — ใช้คำนวณค่าพลังจาก topTalentCode (Talent Release Status อันดับ 1) อัตโนมัติ
     if (mode !== 'book' && mode !== 'meta') { setTalentEnhancedEn([]); return }
     let cancelled = false
-    Promise.all([
-      apiFetch(`/api/ranger/talents/${encodeURIComponent(rangerId)}`).then(r => r.json()).catch(() => ({ hasTalent: false })),
-      getTalentDict(),
-    ]).then(([data, dict]) => {
-      if (cancelled) return
-      const enhanced: string[] = Array.isArray(data.enhanced) ? data.enhanced : []
-      // คำนวณค่าพลังจากข้อความอังกฤษ — classify() รู้จักชื่อ stat ชุดของตัวแปลเดิม
-      // จึงไม่ส่งแม่แบบทางการของ warmycat เข้าไป (ชื่อ stat ภาษาอังกฤษของแม่แบบต่างไปเล็กน้อย เช่น Magical ATK)
-      const parseDict = { ...dict, templates: undefined }
-      setTalentEnhancedEn(enhanced.map((line: string) => translateStatLine(line, 'en', parseDict)))
-    }).catch(() => { if (!cancelled) setTalentEnhancedEn([]) })
+    apiFetch(`/api/ranger/talents/${encodeURIComponent(rangerId)}?v=3`).then(r => r.json()).catch(() => ({ hasTalent: false }))
+      .then((data: { enhancedL?: ({ en?: string } | null)[] }) => {
+        if (cancelled) return
+        const lines = Array.isArray(data.enhancedL) ? data.enhancedL : []
+        setTalentEnhancedEn(lines.map(l => l?.en ?? ''))
+      }).catch(() => { if (!cancelled) setTalentEnhancedEn([]) })
     return () => { cancelled = true }
   }, [mode, rangerId])
 
@@ -2079,7 +2073,7 @@ function IconWithTooltip({
             )
           })()}
 
-          {/* Trigger Basis (觸發基準 จาก warmycat) — เป้าหมายที่สกิลเล็ง: ตัวเอง/หน้า/หลัง(+ตัวคูณ)
+          {/* Trigger Basis (skill.targetType ของเกม) — เป้าหมายที่สกิลเล็ง: ตัวเอง/หน้า/หลัง(+ตัวคูณ)
               text size ใหญ่ขึ้นเฉพาะภาษาไทย (อ่านง่ายขึ้น) — ไม่กระทบ font-line ที่อื่นในเว็บ */}
           {skillItem?.triggerBasis && (
             <div className={`mt-1.5 pt-1.5 border-t border-white/10 text-cyan-200 font-line ${lang === 'th' ? 'text-[13.5px]' : 'text-[12px]'}`}>

@@ -2,7 +2,7 @@ name: Daily Data
 
 # ดึงข้อมูลเกมใหม่ทุกวัน (แทน cron ของ Vercel + Neon + Redis เดิม)
 #   0. โหลดข้อมูลเกมที่ถอดแล้วจาก branch `gamedata` (เครื่องผู้ดูแลถอดไฟล์ล่าสุดของเกมแล้วส่งขึ้นมา)
-#   1. sync Ranger Book + Gear Book จากข้อมูลเกม (ส่วนทาเลนต์/ตื่นพลัง/Spec+ ยังใช้ warmycat — กำลังย้าย)
+#   1. sync Ranger Book + Gear Book จากข้อมูลเกม (ทาเลนต์ / ตื่นพลัง / Spec+ ก็มาจากข้อมูลเกมทั้งหมด)
 #   2. scrape อันดับ PvP ทุกลีค
 #   3. เขียนข้อมูลทั้งหมดเป็นไฟล์ JSON (public/data)
 #   4. เก็บผลไว้ใน branch `data` (commit เดียว เขียนทับทุกวัน — repo ไม่บวม)

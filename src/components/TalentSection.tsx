@@ -1,35 +1,16 @@
 'use client'
 // ====================================================
-// TalentSection — แสดง 主要才能 + 強化才能 จาก warmycat API
+// TalentSection — แสดงทาเลนต์หลัก + ทาเลนต์เสริม จากข้อมูลเกมของเรา (/api/ranger/talents)
 // • Show เฉพาะ ranger ที่มี talent (เช็คก่อน fetch ถ้า 404/empty → return null)
-// • ข้อความไทย/อังกฤษ: ใช้ข้อความทางการของ warmycat v2 ก่อน (…L จาก API)
-//   บรรทัดไหนไม่มี ค่อยแปลจากจีนผ่าน talentTranslate แบบเดิม
+// • ข้อความไทย/อังกฤษเป็นข้อความทางการของเกมทั้งหมด (…L จาก API) — ไม่มีการแปลเอง
+//   คำอธิบายทาเลนต์หลัก = ข้อความเต็มของเกม · เงื่อนไข = บรรทัดนำ · ผล = รายการ * แต่ละข้อ
 // ====================================================
 
 import { apiFetch } from '@/lib/staticApi'
 import { useEffect, useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { translateStatLine, translateCondition, translateDescription, translateBuffEffect, type ExtraDict } from '@/lib/talentTranslate'
 
-// ── Singleton: fetch /api/talent-dict ครั้งเดียวต่อ session ──
-// dict นี้คือ zh→en derived จาก lerico (PROPERTIES + ABILITY) ใช้เสริม manual dict
-// ถ้า fail → ใช้ empty dict (TalentSection ยังทำงานได้ด้วย manual dict)
-let dictPromise: Promise<ExtraDict> | null = null
-export function getTalentDict(): Promise<ExtraDict> {
-  if (!dictPromise) {
-    dictPromise = apiFetch('/api/talent-dict')
-      .then(r => {
-        const ct = r.headers.get('content-type') ?? ''
-        if (!ct.includes('application/json')) throw new Error('non-json')
-        return r.json() as Promise<ExtraDict>
-      })
-      .then(d => d && typeof d === 'object' ? d : { stats: {}, phrases: {} })
-      .catch(() => ({ stats: {}, phrases: {} }))
-  }
-  return dictPromise
-}
-
-/** ข้อความทางการสองภาษาจาก warmycat v2 — ภาษาที่ต้นทางยังไม่มีจะไม่มีฟิลด์นั้น */
+/** ข้อความทางการสองภาษา — ภาษาที่เกมไม่มีจะไม่มีฟิลด์นั้น */
 interface Localized { en?: string; th?: string }
 
 interface BuffEffect {
@@ -57,6 +38,8 @@ export interface TalentData {
   primary?: PrimaryTalent
   enhanced?: string[]
   enhancedL?: (Localized | null)[]
+  /** ค่าดิบของทาเลนต์เสริม (ชนิด + ค่า) */
+  enhancedStats?: { type: string; value: number }[]
 }
 
 interface TalentSectionProps {
@@ -70,7 +53,6 @@ interface TalentSectionProps {
 export default function TalentSection({ rangerId, showLevelSlider, talentLevel = 0, onTalentLevelChange }: TalentSectionProps) {
   const { lang, tStat } = useLanguage()
   const [data, setData] = useState<TalentData | null>(null)
-  const [extraDict, setExtraDict] = useState<ExtraDict>({ stats: {}, phrases: {} })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -79,9 +61,8 @@ export default function TalentSection({ rangerId, showLevelSlider, talentLevel =
     const timeoutId = setTimeout(() => ctrl.abort(), 10000)  // 10s timeout
     setLoading(true)
 
-    // fetch talent data + dict คู่ขนาน (dict singleton — fetch จริงแค่ครั้งแรก)
-    // ?v=2 = รุ่นที่มีข้อความทางการ — กัน browser ใช้ JSON รุ่นเก่าที่แคชไว้ 7 วัน
-    const talentPromise = apiFetch(`/api/ranger/talents/${encodeURIComponent(rangerId)}?v=2`, { signal: ctrl.signal })
+    // ?v=3 = รุ่นข้อมูลเกมของเรา — กัน browser ใช้ JSON รุ่นเก่า (warmycat) ที่แคชไว้ 7 วัน
+    const talentPromise = apiFetch(`/api/ranger/talents/${encodeURIComponent(rangerId)}?v=3`, { signal: ctrl.signal })
       .then(r => {
         const ct = r.headers.get('content-type') ?? ''
         if (!ct.includes('application/json')) throw new Error('non-json response')
@@ -90,11 +71,10 @@ export default function TalentSection({ rangerId, showLevelSlider, talentLevel =
       .then(d => d && typeof d === 'object' ? d : { hasTalent: false } as TalentData)
       .catch(() => ({ hasTalent: false } as TalentData))
 
-    Promise.all([talentPromise, getTalentDict()])
-      .then(([d, dict]) => {
+    talentPromise
+      .then(d => {
         if (cancelled) return
         setData(d)
-        setExtraDict(dict)
       })
       .finally(() => {
         clearTimeout(timeoutId)
@@ -104,18 +84,10 @@ export default function TalentSection({ rangerId, showLevelSlider, talentLevel =
     return () => { cancelled = true; clearTimeout(timeoutId); ctrl.abort() }
   }, [rangerId])
 
-  // ── Helper: translate Chinese text directly to lang ('en' | 'th') ──
-  // EN: ใช้ manual dict + lerico-derived dict (manual ชนะ)
-  // TH: ใช้ manual dict เท่านั้น (lerico ไม่มี TH)
+  // ── ข้อความทางการของภาษาที่เลือก — เกมไม่มีภาษานั้นค่อยใช้อีกภาษา แล้วค่อยจีน ──
   const targetLang: 'en' | 'th' = lang === 'th' ? 'th' : 'en'
-  const localize = (zh: string, kind: 'stat' | 'desc' | 'cond' | 'buff', official?: Localized | null): string => {
-    const o = official?.[targetLang]
-    if (o) return o
-    if (kind === 'stat') return translateStatLine(zh, targetLang, extraDict)
-    if (kind === 'cond') return translateCondition(zh, targetLang, extraDict)
-    if (kind === 'buff') return translateBuffEffect(zh, targetLang, extraDict)
-    return translateDescription(zh, targetLang, extraDict)
-  }
+  const localize = (zh: string, official?: Localized | null): string =>
+    official?.[targetLang] || official?.[targetLang === 'th' ? 'en' : 'th'] || zh
 
   // Hide if loading or no talent
   if (loading) return null
@@ -167,7 +139,7 @@ export default function TalentSection({ rangerId, showLevelSlider, talentLevel =
             )}
           </div>
 
-          {/* Description — เอาจาก lerico th/en:ABILITY (key ab_tlt_{skillId}_desc) ตรงๆ เท่านั้น ไม่แปลจาก zh */}
+          {/* Description — ข้อความทางการของเกม (ABILITY:ab_tlt_N_desc) */}
           {(() => {
             const desc = lang === 'th' ? primary.descriptionTh : primary.descriptionEn
             if (!desc) return null
@@ -178,26 +150,20 @@ export default function TalentSection({ rangerId, showLevelSlider, talentLevel =
             )
           })()}
 
-          {/* Probability + Condition */}
-          <div className="rounded-xl bg-white/5 border border-white/10 overflow-hidden mb-2">
-            <div className="grid grid-cols-[100px_1fr] text-xs">
-              <div className="bg-yellow-500/15 text-yellow-300 px-3 py-2 font-semibold border-b border-white/10">{tStat('Probability')}</div>
-              <div className="bg-yellow-500/15 text-yellow-300 px-3 py-2 font-semibold border-b border-white/10">{tStat('Condition')}</div>
-              {/* Probability ครอบทั้ง row (rowSpan 2 ถ้ามี condition2) */}
-              <div className={`px-3 py-2 text-white ${primary.condition2 ? 'row-span-2 flex items-center' : ''}`}>
-                {primary.triggerRate}
-              </div>
-              <div className={`px-3 py-2 text-gray-200 ${primary.condition2 ? 'border-b border-white/5' : ''}`}>
-                {localize(primary.condition, 'cond', primary.conditionL)}
-              </div>
-              {/* เงื่อนไข 2 (เฉพาะตัวที่มี เช่น u1603e-sh "類型為智慧型") */}
-              {primary.condition2 && (
-                <div className="px-3 py-2 text-gray-200">
-                  {localize(primary.condition2, 'cond', primary.condition2L)}
+          {/* Probability + Condition — คำอธิบายแบบประโยคเดียวไม่มีเงื่อนไขแยก (อยู่ในประโยคแล้ว) */}
+          {(() => {
+            const cond = localize(primary.condition, primary.conditionL)
+            return (
+              <div className="rounded-xl bg-white/5 border border-white/10 overflow-hidden mb-2">
+                <div className={`grid ${cond ? 'grid-cols-[100px_1fr]' : 'grid-cols-1'} text-xs`}>
+                  <div className="bg-yellow-500/15 text-yellow-300 px-3 py-2 font-semibold border-b border-white/10">{tStat('Probability')}</div>
+                  {cond && <div className="bg-yellow-500/15 text-yellow-300 px-3 py-2 font-semibold border-b border-white/10">{tStat('Condition')}</div>}
+                  <div className="px-3 py-2 text-white">{primary.triggerRate}</div>
+                  {cond && <div className="px-3 py-2 text-gray-200">{cond}</div>}
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
+            )
+          })()}
 
           {/* Buff Effects */}
           {primary.buffs.length > 0 && (
@@ -228,7 +194,7 @@ export default function TalentSection({ rangerId, showLevelSlider, talentLevel =
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={iconSrc} alt="" className="w-6 h-6 object-contain shrink-0"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
-                  <span className="text-sm text-white truncate flex-1 min-w-0">{localize(line, 'stat', data.enhancedL?.[i])}</span>
+                  <span className="text-sm text-white truncate flex-1 min-w-0">{localize(line, data.enhancedL?.[i])}</span>
                   {unlocked && (
                     <span className="material-icons-round text-base text-yellow-400 shrink-0">check_circle</span>
                   )}
@@ -246,7 +212,7 @@ export default function TalentSection({ rangerId, showLevelSlider, talentLevel =
 
 interface BuffRowProps {
   buff: BuffEffect
-  localize: (zh: string, kind: 'stat' | 'desc' | 'cond' | 'buff', official?: Localized | null) => string
+  localize: (zh: string, official?: Localized | null) => string
   isLast: boolean
 }
 
@@ -254,7 +220,7 @@ function BuffRow({ buff, localize, isLast }: BuffRowProps) {
   return (
     <>
       <div className={`px-3 py-2 text-white ${!isLast ? 'border-b border-white/5' : ''}`}>{buff.triggerRate}</div>
-      <div className={`px-3 py-2 text-gray-200 ${!isLast ? 'border-b border-white/5' : ''}`}>{localize(buff.effect, 'buff', buff.effectL)}</div>
+      <div className={`px-3 py-2 text-gray-200 ${!isLast ? 'border-b border-white/5' : ''}`}>{localize(buff.effect, buff.effectL)}</div>
     </>
   )
 }

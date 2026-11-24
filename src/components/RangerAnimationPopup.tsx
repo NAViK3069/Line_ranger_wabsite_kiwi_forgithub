@@ -205,10 +205,12 @@ const DUMMY_HIT_ANIM = 'target'
 
 // ── เสียงของท่าโจมตี (จาก projectile_data → sounds) ──
 // เซิร์ฟเวอร์จับคู่ชื่อเสียงกับไฟล์จริงบน lerico ให้แล้ว (ดู api/ranger/projectile)
-//   preparation = ตอนเริ่มร่าย (ต้นช่วง Cast Time) — เล่นเสมอ ซิงก์กับเฟรม (syncUnitSound)
+// จังหวะเล่นถอดจาก libgame.so (ดู syncUnitSound):
+//   preparation = ตอนเริ่มท่า — ตีปกติ: ทันทีหลัง PlaySection("attack_ready") · สกิล: ตอนร่าย
+//   attack      = ตอนท่าเตรียมจบ (ปลาย attack_ready / s_attack_ready / s2_attack_ready) จังหวะเดียวกับปล่อยกระสุน
+//                 สกิลแบบ ACTION (s_action_attack_*) ไม่มีเสียงนี้
 //   underAttack = ตอนท่าโจมตีลงเป้า (ชื่อไฟล์ขึ้นต้น hit_/skhit_) — เล่นเฉพาะตอนเปิดพื้นหลัง (ปุ่ม wallpaper)
 //                 เพราะต้องมีกระสอบทรายให้โดน · ทริกเกอร์จังหวะเดียวกับที่กระสอบทรายกระพริบ/กระเด็น (playHitSound)
-//   attack      = ตอนปล่อยท่า (เสียงฟึ่บ) — ข้อมูลมากับ API แต่ไม่ได้เล่น
 type AttackKind = 'normal' | 'skill1' | 'skill2'
 type SoundField = 'preparation' | 'attack' | 'underAttack'
 type UnitSoundUrls = Record<AttackKind, Record<SoundField, string | null>>
@@ -216,10 +218,9 @@ type UnitSoundUrls = Record<AttackKind, Record<SoundField, string | null>>
 const PROJECTILE_DATA_VERSION = 2
 // ระดับเสียงท่าเทียบกับเสียงหลักของเว็บ — เสียงเกมดังกว่าเสียงคลิก UI มาก ลดลงหน่อยไม่ให้กลบ
 const SKILL_SOUND_VOLUME = 0.8
-// เวลาค่อยๆ เบาลงตอนตัดเสียง — สั้นพอให้รู้สึกว่าหยุดทันที แต่ไม่ได้ยินเสียงคลิกจากการตัดฉับ
+// เวลาค่อยๆ เบาลงตอนตัดเสียง (ลากหลอด/เปลี่ยนท่า) — สั้นพอให้รู้สึกว่าหยุดทันที แต่ไม่ได้ยินเสียงคลิกจากการตัดฉับ
 const SOUND_FADE_MS = 90
-// เสียงกับภาพคลาดกันได้เท่านี้ก่อนจะสั่งกระโดดตำแหน่งเสียงให้ตรง (วินาที)
-// เล่นปกติคลาดกันไม่กี่มิลลิวินาที เกินค่านี้แปลว่าภาพถูกลาก/ย้อน/วนกลับ
+// ลากหลอดไปกลางเสียงของไฟล์ที่ยังโหลดไม่เสร็จ (ยังไม่รู้ความยาว) → เปิดเฉพาะเมื่อห่างจากต้นเสียงไม่เกินเท่านี้ (วินาที)
 const SOUND_SYNC_TOLERANCE = 0.15
 
 // อุ่นแคชเบราว์เซอร์ (preload) ให้ครั้งแรกที่เล่นไม่หน่วง — เก็บอ้างอิงไว้กัน GC ทิ้งก่อนโหลดเสร็จ
@@ -234,7 +235,7 @@ function soundAudioFor(url: string): HTMLAudioElement {
 function warmSounds(urls: UnitSoundUrls | null): void {
   if (!urls || typeof window === 'undefined') return
   for (const set of Object.values(urls)) {
-    for (const url of [set.preparation, set.underAttack]) {
+    for (const url of [set.preparation, set.attack, set.underAttack]) {
       if (!url || warmedSounds.has(url)) continue
       try {
         const a = new Audio()
@@ -295,10 +296,12 @@ const ALL_SEG_ATTACK: Record<string, { kind: 'normal' | 'skill1' | 'skill2'; suf
   s2_action_attack_3: { kind: 'skill2', suffix: 'bul3', ready: 's2_action_attack_1', combo: 'All_s2_action_attack' },
 }
 // frame = จุดปล่อยท่า (ต้น Recovery) / prepFrame = จุดเริ่มร่าย (ต้น Cast Time) — ใช้จับจังหวะเสียง preparation
-function allAttackTriggers(sam: SAMParser): { frame: number; prepFrame: number; kind: 'normal' | 'skill1' | 'skill2'; suffix: string }[] {
+// action = สกิลแบบ ACTION (s_action_attack_*) — ในเกมไม่มีเสียงปล่อยท่า (attack)
+type AllAttackTrigger = { frame: number; prepFrame: number; kind: 'normal' | 'skill1' | 'skill2'; suffix: string; action: boolean }
+function allAttackTriggers(sam: SAMParser): AllAttackTrigger[] {
   const segStart = new Map<string, number>()
   for (const [name, start] of sam.allSegments) segStart.set(name, start)
-  const out: { frame: number; prepFrame: number; kind: 'normal' | 'skill1' | 'skill2'; suffix: string }[] = []
+  const out: AllAttackTrigger[] = []
   for (const [segName, info] of Object.entries(ALL_SEG_ATTACK)) {
     const atkStart = segStart.get(segName)
     if (atkStart === undefined) continue
@@ -308,7 +311,7 @@ function allAttackTriggers(sam: SAMParser): { frame: number; prepFrame: number; 
       ? atkStart
       : Math.min(atkStart, readyStart + (sam.comboReadyLength[info.combo] ?? atkStart - readyStart))
     // ไม่มีช่วงเตรียม → ร่ายกับปล่อยเป็นจังหวะเดียวกัน
-    out.push({ frame, prepFrame: readyStart ?? atkStart, kind: info.kind, suffix: info.suffix })
+    out.push({ frame, prepFrame: readyStart ?? atkStart, kind: info.kind, suffix: info.suffix, action: segName.includes('_action_') })
   }
   return out.sort((a, b) => a.frame - b.frame)
 }
@@ -1048,30 +1051,28 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
   // ── ระบบเสกกระสุน (bul/bul2/bul3) พุ่งใส่กระสอบทราย ──
   const sceneTickRef = useRef(0)                                   // ตัวนับ tick รวมแบบอิสระ (เดิน/ถอยตาม play+step) ไม่ผูกกับความยาว anim ไหน
   const spawnCheckRef = useRef<{ animKey: string; lastFrame: number }>({ animKey: '', lastFrame: -1 })
-  // ── เสียงท่าโจมตี — ผูกกับไทม์ไลน์ของเฟรมแบบวิดีโอ ──
-  // ทุกครั้งที่วาดเฟรม คำนวณว่า "ที่เฟรมนี้ควรได้ยินเสียงไหน ที่วินาทีเท่าไหร่ของไฟล์" แล้วซิงก์ตัวเล่นให้ตรง
-  // จึงทำงานเหมือนวิดีโอ: หยุดแล้วเล่นต่อจากจุดเดิม, ย้อน/ลากไปเฟรมไหนก็ได้ยินเสียงช่วงนั้น,
-  // จุดตัด Start/End ตัดเสียงไปด้วย (ตอนวนกลับไป Start frame เสียงกระโดดกลับตามภาพ)
-  // เดิมเป็นแบบ "สั่งเล่นเมื่อเฟรมข้ามจุดร่าย" ซึ่งรู้แค่ว่าควรเริ่มเมื่อไหร่ ไม่รู้ว่าตอนนี้ควรอยู่ตรงไหน
-  // กติกา: เสียงเดียวในเวลาเดียว (ตัวละครหนึ่งตัวร่ายได้ทีละท่า) — คิวที่ใหม่กว่าแทนคิวเก่า
+  // ── เสียงท่าโจมตี — เล่นแบบเกม (ถอดจาก libgame.so) ──
+  // เกมสั่งเล่นเสียงแบบ "สั่งแล้วปล่อย" (playEffect): สั่งครั้งเดียวแล้วดังจนจบไฟล์ ไม่มีอะไรไปตัด
+  // เสียงหลายตัวจึงซ้อนกันได้ — เสียงร่ายยังดังอยู่ตอนเสียงปล่อยท่าเริ่ม, ท่าวนรอบใหม่ทั้งที่หางเสียงรอบก่อนยังไม่จบ
+  // (เสียงส่วนใหญ่ยาวกว่าท่า เช่น u1523u-ak ร่ายตีปกติ 1.75 วิ แต่ท่ายาว 1.43 วิ — ตัดตามท่าแล้วหางหาย)
+  // ตัวเล่นยังทำตัวเหมือนวิดีโอ: กดหยุด = เสียงหยุดตรงนั้น กดเล่นต่อ = ดังต่อจากจุดเดิม
+  // ลากหลอด/ย้อน/เปลี่ยนท่า = ล้างเสียงเก่า แล้วเปิดทุกเสียงที่ "ควรยังดังอยู่" ณ เฟรมนั้น จากวินาทีที่ตรงกับภาพ
   const soundUrlsRef = useRef<UnitSoundUrls | null>(null)
   const playingRef = useRef(true)
   useEffect(() => { playingRef.current = playing }, [playing])
   const volumeRef = useRef(volume)
   useEffect(() => { volumeRef.current = volume }, [volume])
-  const activeSoundRef = useRef<{ key: string; audio: HTMLAudioElement } | null>(null)
-  // เฟรมที่ซิงก์ครั้งล่าสุด — ใช้แยก "ภาพเดินต่อตามปกติ" ออกจาก "ภาพกระโดด" (ดู syncUnitSound)
-  const lastSyncFrameRef = useRef(-1)
+  // เสียงที่กำลังดังทั้งหมด (เสียงท่า + เสียงโดน) — สำเนาตัวเล่นแยกต่อการสั่ง 1 ครั้ง จึงซ้อนกันเองได้
+  const liveSoundsRef = useRef(new Set<HTMLAudioElement>())
+  // กดหยุดแล้วมีเสียงพักไว้ — ตอนเล่นต่อ ถ้าภาพเดินต่อจากเดิมให้ดังต่อ ถ้าภาพกระโดดให้ทิ้ง
+  const soundsPausedRef = useRef(false)
+  // ไฟล์/ท่า/เฟรมที่ซิงก์ครั้งล่าสุด — ใช้แยก "ภาพเดินต่อ" / "วนรอบ" / "ภาพกระโดด" (ดู syncUnitSound)
+  const lastSyncRef = useRef<{ sam: SAMParser | null; anim: string; frame: number }>({ sam: null, anim: '', frame: -1 })
   // เลขรุ่นของการสั่งต่อตัวเล่น — ตัวจับเวลาที่ค่อยๆ เบาเสียงแล้วหยุด เช็คเลขนี้ก่อนลงมือ
-  // ไม่งั้นกดหยุดแล้วกดเล่นต่อภายใน 90ms ตัวจับเวลาเก่าจะไปหยุดเสียงที่เพิ่งเริ่มเล่นใหม่
   const soundGenRef = useRef(new WeakMap<HTMLAudioElement, number>())
-  const bumpGen = useCallback((a: HTMLAudioElement) => {
-    const g = (soundGenRef.current.get(a) ?? 0) + 1
-    soundGenRef.current.set(a, g)
-    return g
-  }, [])
   const fadeAndPause = useCallback((a: HTMLAudioElement, fadeMs: number) => {
-    const gen = bumpGen(a)
+    const gen = (soundGenRef.current.get(a) ?? 0) + 1
+    soundGenRef.current.set(a, gen)
     if (fadeMs <= 0 || a.paused) { a.pause(); return }
     // ใช้ตัวจับเวลา ไม่ใช่ requestAnimationFrame — rAF หยุดเดินเมื่อแท็บถูกซ่อน เสียงจะไม่เคยถูกหยุด
     const start = a.volume, t0 = performance.now()
@@ -1083,100 +1084,105 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       clearInterval(timer)
       if (soundGenRef.current.get(a) === gen) a.pause()
     }, fadeMs)
-  }, [bumpGen])
-  const stopUnitSound = useCallback((fadeMs = SOUND_FADE_MS) => {
-    const act = activeSoundRef.current
-    if (!act) return
-    activeSoundRef.current = null
-    fadeAndPause(act.audio, fadeMs)
+  }, [])
+  const stopAllSounds = useCallback((fadeMs = SOUND_FADE_MS) => {
+    const set = liveSoundsRef.current
+    for (const a of set) fadeAndPause(a, fadeMs)
+    set.clear()
+    soundsPausedRef.current = false
   }, [fadeAndPause])
-  // คิวเสียงของท่าหนึ่ง: [เฟรมที่เริ่มร่าย, ไฟล์เสียงร่าย] เรียงตามเฟรม
+  const pauseAllSounds = useCallback(() => {
+    for (const a of liveSoundsRef.current) a.pause()
+    soundsPausedRef.current = liveSoundsRef.current.size > 0
+  }, [])
+  const resumeAllSounds = useCallback(() => {
+    soundsPausedRef.current = false
+    const set = liveSoundsRef.current
+    for (const a of set) {
+      if (a.ended) { set.delete(a); continue }
+      a.play().catch(() => set.delete(a))
+    }
+  }, [])
+  // เล่นเสียง 1 ครั้งจนจบไฟล์ (offset = เริ่มกลางไฟล์ ใช้ตอนลากหลอดไปกลางเสียง)
+  // ใช้สำเนาของตัวที่อุ่นไว้ (cloneNode) — ไฟล์มาจากแคชเดียวกัน แต่เล่นซ้อนกันเองได้
+  const playOneShot = useCallback((url: string, offset = 0) => {
+    if (volumeRef.current <= 0) return
+    const a = soundAudioFor(url).cloneNode(true) as HTMLAudioElement
+    a.volume = Math.max(0, Math.min(1, volumeRef.current * SKILL_SOUND_VOLUME))
+    if (offset > 0) { try { a.currentTime = offset } catch { /* ยังโหลดไม่เสร็จ — เล่นจากต้นไฟล์แทน */ } }
+    const set = liveSoundsRef.current
+    set.add(a)
+    a.onended = () => set.delete(a)
+    a.play().catch(() => set.delete(a))
+  }, [])
+  // คิวเสียงของท่าหนึ่ง เรียงตามเฟรม: เสียงร่าย (ต้นท่า) + เสียงปล่อยท่า (ท่าเตรียมจบ = เฟรมเดียวกับที่ปล่อยกระสุน)
   const animSoundCues = useCallback((sm: SAMParser, animName: string): { frame: number; url: string }[] => {
     const urls = soundUrlsRef.current
     if (!urls) return []
     const out: { frame: number; url: string }[] = []
+    const push = (frame: number, url: string | null | undefined) => { if (url) out.push({ frame, url }) }
     const atk = ATTACK_ANIM_MAP[animName]
     if (atk) {
-      const url = urls[atk.kind]?.preparation
-      if (url) out.push({ frame: 0, url })
+      const set = urls[atk.kind]
+      push(0, set?.preparation)
+      if (!animName.includes('_action_')) {
+        const len = sm.animations[animName]?.length ?? 0
+        push(Math.min(sm.comboReadyLength[animName] ?? 0, Math.max(0, len - 1)), set?.attack)
+      }
     } else if (animName === '_all') {
       if (allTriggerCacheRef.current.sam !== sm) {
         allTriggerCacheRef.current = { sam: sm, list: allAttackTriggers(sm) }
       }
       for (const t of allTriggerCacheRef.current.list) {
-        const url = urls[t.kind]?.preparation
-        if (url) out.push({ frame: t.prepFrame, url })
+        push(t.prepFrame, urls[t.kind]?.preparation)
+        if (!t.action) push(t.frame, urls[t.kind]?.attack)
       }
     }
     return out.sort((x, y) => x.frame - y.frame)
   }, [])
-  const startAt = useCallback((a: HTMLAudioElement, offset: number) => {
-    bumpGen(a)   // ยกเลิกการค่อยๆ หยุดที่ค้างอยู่ (ถ้ามี)
-    a.volume = Math.max(0, Math.min(1, volumeRef.current * SKILL_SOUND_VOLUME))
-    try { a.currentTime = offset } catch { /* ยังโหลดไม่เสร็จ — เล่นจากต้นไฟล์แทน */ }
-    a.play().catch(() => { /* autoplay policy */ })
-  }, [bumpGen])
   const syncUnitSound = useCallback((sm: SAMParser, animName: string, frame: number) => {
     // หยุดอยู่ = เงียบ (เหมือนกด pause วิดีโอ) — ตอนกดเล่นต่อ เฟรมแรกที่วาดจะซิงก์กลับมาเอง
     if (!playingRef.current) return
-    // จำเฟรมไว้ทุกครั้ง (รวมจังหวะที่ไม่มีเสียง) ให้การเช็ค "ภาพกระโดดไหม" อิงเฟรมก่อนหน้าจริงๆ
-    const last = lastSyncFrameRef.current
-    lastSyncFrameRef.current = frame
-    if (volumeRef.current <= 0) { stopUnitSound(0); return }
+    const last = lastSyncRef.current
+    lastSyncRef.current = { sam: sm, anim: animName, frame }
+    if (volumeRef.current <= 0) { stopAllSounds(0); return }
     const fpsNow = sm.animRate || 24
-    // คิวล่าสุดที่เริ่มไปแล้ว ณ เฟรมนี้ (เสียงเดียวในเวลาเดียว คิวใหม่กว่าชนะ)
-    let cue: { frame: number; url: string } | null = null
-    for (const c of animSoundCues(sm, animName)) { if (c.frame <= frame) cue = c; else break }
-    const act = activeSoundRef.current
-    if (!cue) { if (act) stopUnitSound(); return }
-    const audio = soundAudioFor(cue.url)
-    const offset = (frame - cue.frame) / fpsNow
-    // เลยความยาวไฟล์ไปแล้ว = เสียงของคิวนี้จบไปแล้ว ไม่ต้องเล่นซ้ำ
-    // (ยังไม่รู้ความยาว = ไฟล์ยังโหลดไม่เสร็จ → ถือว่ายังไม่จบ)
-    const dur = Number.isFinite(audio.duration) ? audio.duration : Infinity
-    if (offset >= dur) { if (act) stopUnitSound(); return }
-    const key = `${animName}|${cue.frame}|${cue.url}`
-    if (act && act.key === key) {
-      if (audio.paused) {
-        // เล่นจบเองไปแล้วและภาพก็เดินต่อจากจุดนั้น → ไม่ต้องเล่นหางซ้ำ
-        if (audio.ended && offset >= dur - SOUND_SYNC_TOLERANCE) return
-        startAt(audio, offset)
-      } else if (frame !== last && frame !== last + 1) {
-        // ภาพกระโดด (ลากหลอด/ย้อนเฟรม/วนกลับ Start frame) → เสียงกระโดดตาม
-        // เดินหน้าทีละเฟรมตามปกติไม่แก้ตำแหน่งเสียง แม้จะคลาดกันบ้าง — ถ้าไล่แก้ทุกครั้งที่คลาด
-        // เครื่องที่วาดได้ช้ากว่า 30fps เสียงจะโดนดึงกลับถี่ๆ จนฟังเป็นเสียงสะดุด
-        audio.currentTime = offset
+    const cues = animSoundCues(sm, animName)
+    const same = last.sam === sm && last.anim === animName && last.frame >= 0
+    // ตัวเล่นเลื่อนทีละ 1 เฟรม และพอเลยจุด End จะเด้งกลับ Start พอดี (ดู Play loop)
+    const len = sm.animations[animName]?.length ?? 0
+    const lo = Math.max(0, Math.min(trimStartRef.current, len - 1))
+    const hi = Math.max(lo, Math.min(trimEndRef.current, len - 1))
+    const stepping = same && (frame === last.frame || frame === last.frame + 1)
+    const wrapped = same && frame === lo && last.frame >= hi && last.frame > frame
+    if (stepping || wrapped) {
+      if (soundsPausedRef.current) resumeAllSounds()
+      // เฟรมที่เพิ่งเดินผ่าน: เดินต่อ = (เฟรมก่อน, เฟรมนี้] · วนรอบ = ต้นรอบใหม่ [Start, เฟรมนี้]
+      // เสียงที่ดังอยู่ไม่ถูกแตะ — ดังต่อจนจบไฟล์เหมือนในเกม
+      const from = wrapped ? lo - 1 : last.frame
+      for (const c of cues) {
+        if (c.frame > from && c.frame <= frame) playOneShot(c.url, (frame - c.frame) / fpsNow)
       }
       return
     }
-    // คิวเปลี่ยน → ค่อยๆ หยุดเสียงเก่า แล้วเริ่มเสียงใหม่ที่ตำแหน่งตรงกับภาพ
-    // (ไฟล์เดียวกันคนละคิว ใช้ตัวเล่นตัวเดิม แค่กระโดดตำแหน่ง ไม่ต้องค่อยๆ หยุด)
-    if (act && act.audio !== audio) fadeAndPause(act.audio, SOUND_FADE_MS)
-    activeSoundRef.current = { key, audio }
-    startAt(audio, offset)
-  }, [animSoundCues, stopUnitSound, fadeAndPause, startAt])
-  // กดหยุด → เงียบ / ปิด popup → หยุดทันที
-  // ── เสียงตอนโดน (underAttack) — เสียงสั้นแบบยิงครั้งเดียว ซ้อนกันได้ (หลายนัดโดนพร้อมกัน)
-  // ไม่ผ่าน syncUnitSound เพราะไม่ได้ผูกกับเฟรมของตัวละคร แต่ผูกกับจังหวะที่กระสุน/ท่าไปถึงกระสอบทราย
-  // ใช้สำเนาของตัวที่อุ่นไว้ (cloneNode) — ไฟล์มาจากแคชเดียวกัน แต่เล่นซ้อนกันเองได้
-  const hitAudiosRef = useRef(new Set<HTMLAudioElement>())
+    // ภาพกระโดด (ลากหลอด/ย้อนเฟรม/เปลี่ยนท่า/เปลี่ยนไฟล์) → ล้างเสียงเก่า แล้วเปิดทุกเสียงที่ยังไม่จบ ณ เฟรมนี้
+    stopAllSounds()
+    for (const c of cues) {
+      if (c.frame > frame) break
+      const offset = (frame - c.frame) / fpsNow
+      const dur = soundAudioFor(c.url).duration
+      if (Number.isFinite(dur) ? offset < dur : offset <= SOUND_SYNC_TOLERANCE) playOneShot(c.url, offset)
+    }
+  }, [animSoundCues, stopAllSounds, resumeAllSounds, playOneShot])
+  // ── เสียงตอนโดน (underAttack) — ไม่ผูกกับเฟรมของตัวละคร แต่ผูกกับจังหวะที่กระสุน/ท่าไปถึงกระสอบทราย
   const playHitSound = useCallback((kind: AttackKind) => {
-    if (!playingRef.current || volumeRef.current <= 0) return
+    if (!playingRef.current) return
     const url = soundUrlsRef.current?.[kind]?.underAttack
-    if (!url) return
-    const a = soundAudioFor(url).cloneNode(true) as HTMLAudioElement
-    a.volume = Math.max(0, Math.min(1, volumeRef.current * SKILL_SOUND_VOLUME))
-    const set = hitAudiosRef.current
-    set.add(a)
-    a.onended = () => set.delete(a)
-    a.play().catch(() => set.delete(a))
-  }, [])
-  const stopHitSounds = useCallback(() => {
-    for (const a of hitAudiosRef.current) a.pause()
-    hitAudiosRef.current.clear()
-  }, [])
-  useEffect(() => { if (!playing) { stopUnitSound(); stopHitSounds() } }, [playing, stopUnitSound, stopHitSounds])
-  useEffect(() => () => { stopUnitSound(0); stopHitSounds() }, [stopUnitSound, stopHitSounds])
+    if (url) playOneShot(url)
+  }, [playOneShot])
+  // กดหยุด → พักทุกเสียงไว้ / ปิด popup → หยุดทันที
+  useEffect(() => { if (!playing) pauseAllSounds() }, [playing, pauseAllSounds])
+  useEffect(() => () => stopAllSounds(0), [stopAllSounds])
   // จุดยิงของ _all คำนวณครั้งเดียวต่อไฟล์ — เดิมสร้าง Map+array+sort ใหม่ทุกเฟรม
   const allTriggerCacheRef = useRef<{ sam: SAMParser | null; list: ReturnType<typeof allAttackTriggers> }>({ sam: null, list: [] })
   const activeBulletsRef = useRef<ActiveBullet[]>([])
@@ -2423,15 +2429,15 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
 
   // ── เสียงสำหรับไฟล์ MP4 ──
   // ใช้กติกาเดียวกับตอนเล่น (syncUnitSound) เสียงในไฟล์จึงตรงกับที่ได้ยินในตัวเล่นทุกอย่าง:
-  //   • เสียงเดียวในเวลาเดียว — คิวใหม่ตัดคิวเก่า
-  //   • Start frame อยู่กลางเสียงที่ร่ายไปก่อนแล้ว → เริ่มไฟล์ด้วยหางของเสียงนั้น (ตำแหน่งตรงกับภาพ)
-  //   • End frame ตัดเสียงทิ้งตรงนั้น — ท่าถัดไปในลำดับไม่มีเสียงของท่าก่อนหน้าล้นเข้ามา
-  // ผลลัพธ์: [เฟรมที่เริ่มในไฟล์, ตำแหน่งในไฟล์เสียง (วินาที), เฟรมที่ต้องหยุด]
-  const getSequenceSoundEvents = (): { frame: number; url: string; offset: number; end: number }[] => {
+  //   • เล่นแบบเกม — ทุกเสียงดังจนจบไฟล์ ซ้อนกันได้ ไม่ถูกตัดที่คิวถัดไป / End frame / ท่าถัดไปในลำดับ
+  //     (ดังได้ไม่เกินความยาวคลิป)
+  //   • Start frame อยู่กลางเสียงที่เริ่มไปก่อนแล้ว → ใส่หางของเสียงนั้น (ตำแหน่งตรงกับภาพ · จบแล้วข้ามไป)
+  // ผลลัพธ์: [เฟรมที่เริ่มในไฟล์, ตำแหน่งในไฟล์เสียง (วินาที)]
+  const getSequenceSoundEvents = (): { frame: number; url: string; offset: number }[] => {
     if (!sam) return []
     const fpsNow = sam.animRate || 24
     const seq = vAnimSeq.length ? vAnimSeq : [{ animIdx, start: soloStart, end: soloEnd }]
-    const out: { frame: number; url: string; offset: number; end: number }[] = []
+    const out: { frame: number; url: string; offset: number }[] = []
     let base = 0
     for (const item of seq) {
       const name = sam.animNames[item.animIdx]
@@ -2439,19 +2445,11 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       if (!frames.length) continue
       const st = Math.max(0, Math.min(item.start, frames.length - 1))
       const en = Math.max(st, Math.min(item.end, frames.length - 1))
-      const itemEnd = base + (en - st + 1)
-      const local: { frame: number; url: string; offset: number }[] = []
-      const cues = animSoundCues(sam, name)
-      // คิวล่าสุดที่เริ่มก่อน Start frame — ถ้าเสียงยังไม่จบ ไฟล์จะเริ่มด้วยหางของมัน
-      let carried: { frame: number; url: string } | null = null
-      for (const c of cues) { if (c.frame < st) carried = c; else break }
-      if (carried) local.push({ frame: base, url: carried.url, offset: (st - carried.frame) / fpsNow })
-      for (const c of cues) {
-        if (c.frame >= st && c.frame <= en) local.push({ frame: base + (c.frame - st), url: c.url, offset: 0 })
+      for (const c of animSoundCues(sam, name)) {
+        if (c.frame < st) out.push({ frame: base, url: c.url, offset: (st - c.frame) / fpsNow })
+        else if (c.frame <= en) out.push({ frame: base + (c.frame - st), url: c.url, offset: 0 })
       }
-      // แต่ละคิวดังไปจนถึงคิวถัดไป หรือจนสุดช่วงของท่านี้
-      local.forEach((ev, i) => out.push({ ...ev, end: i + 1 < local.length ? local[i + 1].frame : itemEnd }))
-      base = itemEnd
+      base += en - st + 1
     }
     return out
   }
@@ -2486,10 +2484,9 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       // ลดลงเล็กน้อยให้ระดับเดียวกับตอนเล่นในตัวเล่น
       gain.gain.value = SKILL_SOUND_VOLUME
       src.connect(gain).connect(octx.destination)
-      // เริ่มที่ตำแหน่งตรงกับภาพ (หางของเสียงที่ร่ายก่อน Start frame) และหยุดตามคิวถัดไป/End frame
+      // เริ่มที่ตำแหน่งตรงกับภาพ (หางของเสียงที่เริ่มก่อน Start frame) แล้วดังจนจบไฟล์/จบคลิป
       if (ev.offset >= buf.duration) continue
       src.start(ev.frame / fps, ev.offset)
-      src.stop(ev.end / fps)
       placed++
     }
     if (!placed) return null

@@ -236,8 +236,16 @@ function pickIdleAnimName(sam: SAMParser): string {
     '_all'
 }
 // ── ระบบเสก bul/bul2/bul3 พุ่งใส่กระสอบทราย (โชว์เฉพาะตอนเปิดพื้นหลัง) ──
-// จับคู่ combo anim (หลัง applyAttackCombos) → ประเภทโจมตี — ส่วนไฟล์กระสุนจริงใช้ meta.animationPart จาก API
-// (bulletSuffix ตรงนี้เป็นแค่ fallback ถ้า API ไม่ส่ง animationPart มาให้)
+// จับคู่ combo anim (หลัง applyAttackCombos) → ประเภทโจมตี + ไฟล์กระสุนตัวแรกที่เกมหา (bulletSuffix)
+/**
+ * ลำดับไฟล์กระสุนที่เกมไล่หา (libgame: ".res/<code>/<code>-bul2.sam" … ไม่มีไฟล์ → ถอยไป "-bul.sam")
+ * ตัวอย่าง u386u-brown: มีแค่ bul — สกิล 1 (WEAPON) และสกิล 2 (WEAPONC) จึงยิงไฟล์ bul ทั้งคู่
+ */
+const BULLET_FILE_CHAIN: Record<string, string[]> = {
+  bul: ['bul'],
+  bul2: ['bul2', 'bul'],
+  bul3: ['bul3', 'bul2', 'bul'],
+}
 const ATTACK_ANIM_MAP: Record<string, { kind: 'normal' | 'skill1' | 'skill2'; bulletSuffix: string }> = {
   All_attack:           { kind: 'normal', bulletSuffix: 'bul' },
   All_s_attack:         { kind: 'skill1', bulletSuffix: 'bul2' },
@@ -1166,7 +1174,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
   }, [sceneGroundY, targetGroundY])
   // เสกกระสุน 1 นัด พุ่งจากจุดโจมตี (NormalATK/Skill1/Skill2) ไปยัง Face Center ของกระสอบทราย (จุดรับดาเมจจริง ไม่ใช่จุดยืน)
   // ทำงานเฉพาะตอนเปิดพื้นหลัง+มีกระสอบทราย และไฟล์กระสุนที่เกี่ยวข้องโหลดสำเร็จแล้วเท่านั้น
-  const spawnBullet = useCallback((kind: 'normal' | 'skill1' | 'skill2', fallbackSuffix: string) => {
+  const spawnBullet = useCallback((kind: 'normal' | 'skill1' | 'skill2', primarySuffix: string) => {
     // สกิลที่เล็ง Rear Enemy ยิงไปที่เป้าหมายแนวหลัง ไม่ใช่ตัวหน้า — ปฏิกิริยาก็ไปลงตัวนั้นด้วย
     const useRear = kind !== 'normal'
       && skillTargetsRef.current?.[kind] === 'rear'
@@ -1195,12 +1203,17 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     // นอกนั้น (PUNCH/KICK/SWING/STAB/LASER/ACTION/NONE) ไม่มีไฟล์กระสุนเลย — ท่าอยู่ในไฟล์ตัวละครล้วน
     // โดนทันทีตอนช่วง *_ready จบ (จังหวะเดียวกับที่ฟังก์ชันนี้ถูกเรียก)
     if (!isGameBulletType(meta.attackType)) { hitNow(); return }
-    // ไฟล์กระสุนจริงมาจาก API (animationPart) ตรงๆ — ใช้ fallback (จาก ATTACK_ANIM_MAP) แค่ตอน API ไม่ส่งมาให้
-    const suffix = meta.animationPart ?? fallbackSuffix
-    // undefined = ยังโหลดไม่เสร็จ / null = โหลดแล้วแต่ไม่มีไฟล์นี้จริงๆ → โดนทันที
-    const asset = bulletCacheRef.current.get(suffix)
-    if (asset === undefined) return
-    if (asset === null) { hitNow(); return }
+    // ── ไฟล์กระสุน: เกมเลือกตามชนิดท่า ไม่ได้อ่าน animationPart ของ lerico ──
+    // ตีปกติ = bul · สกิล 1 = bul2 → ไม่มีไฟล์ใช้ bul · สกิล 2 = bul3 → bul2 → bul (ไล่หาไฟล์ที่มีจริงตามลำดับ)
+    // undefined = ยังโหลดไม่เสร็จ (รอ) / null = ไม่มีไฟล์นั้น → ลองตัวถัดไป · ไม่มีสักไฟล์ = โดนทันที
+    let suffix = primarySuffix
+    let asset: BulletAsset | null = null
+    for (const s of BULLET_FILE_CHAIN[primarySuffix] ?? [primarySuffix]) {
+      const a = bulletCacheRef.current.get(s)
+      if (a === undefined) return
+      if (a) { suffix = s; asset = a; break }
+    }
+    if (!asset) { hitNow(); return }
     // ── วิถีแบบในเกม (จุดปล่อย / เป้า / เวลาบิน / ทรง / มุม / หมุดภาพ) ──
     const shot = gameShot(meta, dummy, dummyOff, dummyYOff, mainGamePos())
     const dist = Math.hypot(shot.end.x - shot.start.x, shot.end.y - shot.start.y)

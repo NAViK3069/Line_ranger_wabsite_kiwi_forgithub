@@ -230,6 +230,20 @@ export function gameUnit(unitCode: string): Row | null {
   return unitIndex.get(unitCode) ?? null
 }
 
+/**
+ * ตำแหน่งหน้าของเรนเจอร์ทุกตัว (unit.faceCenterX / faceCenterY) → { รหัส: [x, y] }
+ * สัดส่วนของรูปตัวละคร (รูป -thum ของ lerico ตรงกันด้วย): x จากซ้าย · y จากล่าง (แกนแบบ cocos)
+ * ตัวที่เกมไม่ได้ใส่ไว้ (0, 0 — ส่วนใหญ่เป็น NPC/มอนสเตอร์) ไม่ใส่ในผลลัพธ์
+ */
+export function gameRangerFaces(): Record<string, [number, number]> {
+  const out: Record<string, [number, number]> = {}
+  for (const u of gameTable('unit')) {
+    const x = num(u.faceCenterX), y = num(u.faceCenterY)
+    if (x > 0 && y > 0) out[str(u.unitCode)] = [x, y]
+  }
+  return out
+}
+
 /** ข้อมูลท่าโจมตีของเรนเจอร์ 1 ตัว (รูปแบบเดิมของ /data/ranger/projectile/<id>.json → unit) · ไม่มี = null */
 export function gameProjectileUnit(unitCode: string): Row | null {
   const u = gameUnit(unitCode)

@@ -68,6 +68,8 @@ async function emit(handler: Handler, apiUrl: string, params?: Record<string, st
 
 function isEmptyLike(v: any, fb: any): boolean {
   if (!v || typeof v !== 'object') return true
+  // ค่าว่าง = {} (ไม่มีคีย์ให้เทียบ) → ว่างก็ต่อเมื่อผลลัพธ์ไม่มีคีย์เลย
+  if (Object.keys(fb).length === 0) return Object.keys(v).length === 0
   for (const [k, def] of Object.entries(fb)) {
     const x = v[k]
     if (Array.isArray(def) ? (Array.isArray(x) && x.length > 0) : (x !== undefined && x !== def)) return false
@@ -131,6 +133,7 @@ async function emitGameData() {
   await emit(await route('ranger-book'), '/api/ranger-book')
   await emit(await route('gear-book'), '/api/gear-book')
   await emit(await route('ranger-abilities'), '/api/ranger-abilities')
+  await emit(await route('ranger-faces'), '/api/ranger-faces')
   await emit(await route('lerico/ranger-names'), '/api/lerico/ranger-names')
   await emit(await route('lerico/equip-names'), '/api/lerico/equip-names')
   const tr = await route('translations/[lang]')

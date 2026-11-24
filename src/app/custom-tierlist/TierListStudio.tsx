@@ -125,6 +125,23 @@ const FG_SWATCHES = ['#1a1a1a', '#ffffff', '#ffd700', '#ff4d4d', '#22d3ee', '#a8
 
 const uid = () => Math.random().toString(36).slice(2, 9)
 const thumb = (id: string) => `https://rangers.lerico.net/res/${id}/${id}-thum.png`
+/** รูปตัวเดียวกันแต่ใหญ่กว่า ~1.39 เท่า (คมกว่าตอนซูมหน้า) — บางตัว (NPC เก่าๆ) ไม่มี ต้องถอยไปใช้ -thum */
+const thumbHi = (id: string) => `https://rangers.lerico.net/res/${id}/${id}-thum-140.png`
+
+// ── ซูมการ์ดเข้าหาหน้าเรนเจอร์ ──
+// ตำแหน่งหน้า = unit.faceCenterX / faceCenterY ของเกม (/api/ranger-faces): สัดส่วนของรูป · x จากซ้าย · y จากล่าง
+// รูป -thum ทุกตัวใช้สเกลพิกเซลเดียวกัน → ใช้กรอบขนาดคงที่ (พิกเซลของรูป) หน้าทุกตัวจึงขนาดใกล้กัน
+// (ใช้ความกว้างรูปแทนไม่ได้ — ตัวที่มีปีก/อาวุธรูปจะกว้าง หน้าจะเล็กลง)
+type Face = [number, number]
+/** การ์ดเห็นสี่เหลี่ยมจัตุรัสกว้างกี่พิกเซลของรูป -thum-140 (รูป -thum เล็กกว่า THUM_HI_RATIO เท่า) */
+const FACE_WINDOW = 150, THUM_HI_RATIO = 1.39
+/** วางหน้าไว้ตรงไหนของการ์ด (สัดส่วน) — ต่ำกว่ากลางนิดหน่อย ให้เห็นผม/หมวกด้านบน */
+const FACE_AT_X = 0.5, FACE_AT_Y = 0.55
+/** กรอบของรูปเทียบกับการ์ด (สัดส่วนของความกว้างการ์ด) — ใช้ทั้งหน้าเว็บ (CardFace) และตอนวาด PNG (drawCard) */
+function faceBox(face: Face, w: number, h: number, hi: boolean) {
+  const k = 1 / (hi ? FACE_WINDOW : FACE_WINDOW / THUM_HI_RATIO)
+  return { w: w * k, h: h * k, x: FACE_AT_X - face[0] * w * k, y: FACE_AT_Y - (1 - face[1]) * h * k }
+}
 
 // ── การ์ดเรนเจอร์: พื้นหลังธาตุ + กรอบตามร่าง/ดาว + วงกลมธาตุมุมซ้ายล่าง + ดาวบนขอบบน ──
 
@@ -170,14 +187,44 @@ function starSrc(info?: RangerInfo): string | null {
   return `/gacha/images/${encodeURIComponent(`${g}${mark}star`)}.png`
 }
 
-function CardFace({ id, info, alt }: { id: string; info?: RangerInfo; alt: string }) {
+/**
+ * รูปเรนเจอร์ในการ์ด: มีตำแหน่งหน้า → ซูมเข้าหาหน้า (รูป -thum-140 ถ้ามี) · ไม่มี → เต็มตัวแบบเดิม
+ * ต้องรู้ขนาดจริงของรูปก่อนถึงจะวางได้ → ซ่อนไว้จนโหลดเสร็จ (ไม่กระตุก)
+ */
+function RangerImg({ id, face, alt }: { id: string; face?: Face; alt: string }) {
+  const [hiFailed, setHiFailed] = useState(false)
+  const [size, setSize] = useState<{ w: number; h: number; hi: boolean } | null>(null)
+  const hi = !!face && !hiFailed
+  const src = hi ? thumbHi(id) : thumb(id)
+  const measure = (img: HTMLImageElement | null) => {
+    if (img?.complete && img.naturalWidth && (!size || size.hi !== hi)) setSize({ w: img.naturalWidth, h: img.naturalHeight, hi })
+  }
+  if (!face) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img decoding="async" src={src} alt={alt} draggable={false} loading="lazy" />
+  }
+  const box = size && size.hi === hi ? faceBox(face, size.w, size.h, hi) : null
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      ref={measure} decoding="async" src={src} alt={alt} draggable={false} loading="lazy" className="tl-face"
+      onLoad={e => measure(e.currentTarget)}
+      onError={() => { if (hi) setHiFailed(true) }}
+      style={box
+        ? { width: `${box.w * 100}%`, height: `${box.h * 100}%`, left: `${box.x * 100}%`, top: `${box.y * 100}%` }
+        : { opacity: 0 }}
+    />
+  )
+}
+
+function CardFace({ id, info, alt, face }: { id: string; info?: RangerInfo; alt: string; face?: Face }) {
   const el = hasElement(info?.element) ? info!.element! : null
   const stars = starSrc(info)
   return (
     <>
       <span className={'tl-card' + (el ? ' has-el' : '')} style={{ backgroundImage: el ? `url(${bgSrc(el)})` : darkCss(frameOf(info)) }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img decoding="async" src={thumb(id)} alt={alt} draggable={false} loading="lazy" />
+        {/* key = รหัส: ภาพที่กำลังลากใช้คอมโพเนนต์เดิมกับตัวอื่นได้ → เริ่มวัดขนาดใหม่ทุกครั้งที่เปลี่ยนตัว */}
+        <RangerImg key={id} id={id} face={face} alt={alt} />
       </span>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {el && <img loading="lazy" decoding="async" className="tl-el" src={elSrc(el)} alt="" draggable={false} />}
@@ -358,6 +405,8 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
   const T = useCallback((th: string, en: string) => (lang === 'th' ? th : en), [lang])
   const [board, setBoard] = useState<Board | null>(null)
   const [book, setBook] = useState<Record<string, RangerInfo>>({})
+  /** ตำแหน่งหน้าของเรนเจอร์ (ข้อมูลเกม) — ยังไม่มี/โหลดไม่ได้ = การ์ดแสดงเต็มตัว */
+  const [faces, setFaces] = useState<Record<string, Face>>({})
   const [selected, setSelected] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
@@ -499,6 +548,9 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
   useEffect(() => {
     apiFetch('/api/ranger-book').then(r => r.json()).then((d: { rangers?: ({ id: string } & RangerInfo)[] }) => {
       setBook(Object.fromEntries((d.rangers ?? []).map(r => [r.id, { name: r.name, element: r.element, grade: r.grade, evolution: r.evolution, type: r.type }])))
+    }).catch(() => {})
+    apiFetch('/api/ranger-faces').then(r => r.json()).then((d: Record<string, Face>) => {
+      if (d && typeof d === 'object' && !Array.isArray(d)) setFaces(d)
     }).catch(() => {})
   }, [])
   const nameOf = (id: string) => tRanger(id, book[id]?.name ?? id)
@@ -645,7 +697,7 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
     if (!board) return
     setExporting(true)
     try {
-      const blob = await renderBoard(board, book)
+      const blob = await renderBoard(board, book, faces)
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
       a.download = `${(board.title || 'tier-list').replace(/[^\p{L}\p{N}_\- ]+/gu, '').trim() || 'tier-list'}.png`
@@ -738,7 +790,7 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
       onClick={e => onItemClick(e, id)}
       onContextMenu={e => onItemContextMenu(e, id)}
     >
-      <CardFace id={id} info={book[id]} alt={nameOf(id)} />
+      <CardFace id={id} info={book[id]} alt={nameOf(id)} face={faces[id]} />
     </button>
   )
   const marker = (zone: string, i: number) => drag?.zone === zone && drag.index === i ? <span key={`m-${zone}-${i}`} className="tl-marker" /> : null
@@ -907,7 +959,7 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
       {/* ภาพที่กำลังลาก */}
       {drag && (
         <div className="tl-item tl-ghost" style={{ left: drag.x, top: drag.y, background: frameCss(frameOf(book[drag.id])) }}>
-          <CardFace id={drag.id} info={book[drag.id]} alt="" />
+          <CardFace id={drag.id} info={book[drag.id]} alt="" face={faces[drag.id]} />
         </div>
       )}
 
@@ -1092,7 +1144,7 @@ const BG_DIM = 0.2
 
 /** กรอบ + พื้นหลังธาตุ + รูป + วงกลมธาตุ + ดาว ลงแคนวาส (หน้าตาเดียวกับการ์ดบนหน้าเว็บ) */
 function drawCard(ctx: CanvasRenderingContext2D, x: number, y: number, S: number, info: RangerInfo | undefined,
-  img: HTMLImageElement | null, bg: HTMLImageElement | null, badge: HTMLImageElement | null, starImg: HTMLImageElement | null,
+  pic: { img: HTMLImageElement; hi: boolean } | null, face: Face | undefined, bg: HTMLImageElement | null, badge: HTMLImageElement | null, starImg: HTMLImageElement | null,
   typeImg: HTMLImageElement | null) {
   const kind = frameOf(info), F = Math.round(S * 0.07), R = S * 0.14
   // กรอบ
@@ -1121,12 +1173,19 @@ function drawCard(ctx: CanvasRenderingContext2D, x: number, y: number, S: number
     sg.addColorStop(0.4, 'rgba(255,255,255,0)'); sg.addColorStop(0.5, 'rgba(255,255,255,0.09)'); sg.addColorStop(0.64, 'rgba(255,255,255,0)')
     ctx.fillStyle = sg; ctx.fillRect(ix, iy, IS, IS)
   }
-  if (img) {
-    const k = Math.min(IS / img.width, IS / img.height)
-    const w = img.width * k, h = img.height * k
+  if (pic) {
+    const { img } = pic
     // เงาอ่อนๆ ใต้ตัวเรนเจอร์ (ตรงกับ drop-shadow ของ .tl-card img)
     ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = S * 0.035 * 2; ctx.shadowOffsetY = S * 0.02
-    ctx.drawImage(img, ix + (IS - w) / 2, iy + (IS - h) / 2, w, h)
+    if (face) {
+      // ซูมเข้าหาหน้า — สูตรเดียวกับ RangerImg (ตัดขอบด้วย clip ของด้านในการ์ดด้านบนแล้ว)
+      const bx = faceBox(face, img.width, img.height, pic.hi)
+      ctx.drawImage(img, ix + bx.x * IS, iy + bx.y * IS, bx.w * IS, bx.h * IS)
+    } else {
+      const k = Math.min(IS / img.width, IS / img.height)
+      const w = img.width * k, h = img.height * k
+      ctx.drawImage(img, ix + (IS - w) / 2, iy + (IS - h) / 2, w, h)
+    }
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
   }
   ctx.restore()
@@ -1144,7 +1203,7 @@ function drawCard(ctx: CanvasRenderingContext2D, x: number, y: number, S: number
   }
 }
 
-async function renderBoard(b: Board, book: Record<string, RangerInfo>): Promise<Blob> {
+async function renderBoard(b: Board, book: Record<string, RangerInfo>, faces: Record<string, Face>): Promise<Blob> {
   const W = 1200, PAD = 24, LABEL = 130, CELL = 96, GAP = 8, TITLE_H = b.title.trim() ? 70 : 0
   const perRow = Math.floor((W - PAD * 2 - LABEL - GAP * 2) / (CELL + GAP))
   const heights = b.tiers.map(t => Math.max(1, Math.ceil(t.items.length / perRow)) * (CELL + GAP) + GAP)
@@ -1163,7 +1222,12 @@ async function renderBoard(b: Board, book: Record<string, RangerInfo>): Promise<
   }
 
   const ids = [...new Set(b.tiers.flatMap(t => t.items))]
-  const imgs = new Map(await Promise.all(ids.map(async id => [id, await loadImage(proxyFile(thumb(id)))] as const)))
+  // ตัวที่มีตำแหน่งหน้า: รูปใหญ่ -thum-140 ก่อน (ซูมแล้วคม) ไม่มีค่อยใช้ -thum · hi บอกว่าได้รูปไหน (ขนาดกรอบซูมต่างกัน)
+  const imgs = new Map(await Promise.all(ids.map(async id => {
+    const hiImg = faces[id] ? await loadImage(proxyFile(thumbHi(id))) : null
+    const img = hiImg ?? await loadImage(proxyFile(thumb(id)))
+    return [id, img ? { img, hi: !!hiImg } : null] as const
+  })))
   const els = [...new Set(ids.map(id => book[id]?.element).filter(hasElement))]
   const bgs = new Map(await Promise.all(els.map(async e => [e, await loadImage(bgSrc(e))] as const)))
   const badges = new Map(await Promise.all(els.map(async e => [e, await loadImage(elSrc(e))] as const)))
@@ -1202,7 +1266,7 @@ async function renderBoard(b: Board, book: Record<string, RangerInfo>): Promise<
       const cx = PAD + LABEL + GAP + (k % perRow) * (CELL + GAP)
       const cy = y + GAP + Math.floor(k / perRow) * (CELL + GAP)
       const info = book[id], e = info?.element ?? ''
-      drawCard(ctx, cx, cy, CELL, info, imgs.get(id) ?? null, bgs.get(e) ?? null, badges.get(e) ?? null, starImgs.get(starSrc(info) ?? '') ?? null, typeImgs.get((info?.type ?? '').toUpperCase()) ?? null)
+      drawCard(ctx, cx, cy, CELL, info, imgs.get(id) ?? null, faces[id], bgs.get(e) ?? null, badges.get(e) ?? null, starImgs.get(starSrc(info) ?? '') ?? null, typeImgs.get((info?.type ?? '').toUpperCase()) ?? null)
     })
     y += h + 4
   })

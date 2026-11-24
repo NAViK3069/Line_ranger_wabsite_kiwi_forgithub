@@ -60,6 +60,7 @@ export function dataFile(pathname: string, q: URLSearchParams): string | null {
     case 'ranger-book': return 'ranger-book.json'
     case 'gear-book': return 'gear-book.json'
     case 'ranger-abilities': return 'ranger-abilities.json'
+    case 'ranger-faces': return 'ranger-faces.json'
     case 'custom-assets': return 'custom-assets.json'
     case 'site-profile': return 'site-profile.json'
     case 'tierlist': return 'tierlist.json'
@@ -109,6 +110,8 @@ export function emptyFallback(pathname: string, q: URLSearchParams): unknown {
     if (p[1] === 'awakening') return { rangerId: decodeURIComponent(p[2] ?? ''), abilities: [] }
   }
   if (p[0] === 'gear' && p[1] === 'spec-plus') return { hasSpec: false }
+  // ยังไม่มีไฟล์ (Daily Data ยังไม่รัน) → ไม่มีตำแหน่งหน้า = การ์ดแสดงเต็มตัวแบบเดิม
+  if (p[0] === 'ranger-faces') return {}
   // เรนเจอร์ที่ไม่มีใครใช้ในลีคนั้น (เช่นกดเปลี่ยนร่างใน Evolution ไปร่างที่ไม่ติดอันดับ)
   // ไม่มีไฟล์ — คืนผลแบบเดียวกับ getRangerDetail() เดิม: ผู้ใช้ 0 คน ไม่มีเกียร์
   if (p[0] === 'meta' && p[1] === 'ranger-detail') {

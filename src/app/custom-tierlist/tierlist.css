@@ -115,6 +115,8 @@
   position: relative; width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block;
   filter: drop-shadow(0 calc(var(--tl-cell) * 0.02) calc(var(--tl-cell) * 0.035) rgba(0, 0, 0, 0.55));
 }
+/* ซูมเข้าหาหน้า: ขนาด/ตำแหน่งตั้งจาก JS (faceBox) · ซ่อนไว้จนรู้ขนาดรูป */
+.tl-card img.tl-face { position: absolute; max-width: none; object-fit: fill; transition: opacity 0.15s; }
 .tl-el {
   position: absolute; left: 0; bottom: 0; width: 31%; height: 31%; pointer-events: none;
   filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.6));

@@ -38,9 +38,9 @@ const clone = o => JSON.parse(JSON.stringify(o))
 //        นอกนั้นไม่มีกระสุน (fx: null = โดนตอนเฟรมปล่อย) · moveSpeed 0 = วาร์ปไปปลายทางแล้วโดนทันที
 const CLIP = { normal: 'attack', skill1: 's_attack', skill2: 's2_attack' }
 const HIT_RATE = { normal: 'normalHitPointRate', skill1: 'skill1HitPointRate', skill2: 'skill2HitPointRate' }
-// เกมเลือกไฟล์กระสุนตามชนิดท่า (ไม่ใช่ animationPart ของ lerico) แล้วถอยไปไฟล์ก่อนหน้าถ้าไม่มีไฟล์นั้น
-//   ตีปกติ bul · สกิล 1 bul2 → bul · สกิล 2 bul3 → bul2 → bul
-const BULLET_FILE_CHAIN = { normal: ['bul'], skill1: ['bul2', 'bul'], skill2: ['bul3', 'bul2', 'bul'] }
+// เกมเลือกไฟล์กระสุนตามชนิดท่า (ไม่ใช่ animationPart ของ lerico)
+//   ตีปกติ bul · สกิล 1 bul2 → ไม่มีถอยไป bul · สกิล 2 bul3 เท่านั้น (ไม่มี bul3 = เกมโหลดไฟล์ที่ไม่มีอยู่ → ไม่เห็นกระสุน)
+const BULLET_FILE_CHAIN = { normal: ['bul'], skill1: ['bul2', 'bul'], skill2: ['bul3'] }
 //   files = ชื่อไฟล์กระสุนที่มีจริงของเรนเจอร์ (เช่น ['bul', 'bul3']) · ไม่ใส่ = ใช้ไฟล์แรกของลำดับ
 function gameAttack(rangerId, kind, files) {
   const d = require(`../../public/data/ranger/projectile/${rangerId}.json`)

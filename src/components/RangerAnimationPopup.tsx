@@ -238,13 +238,17 @@ function pickIdleAnimName(sam: SAMParser): string {
 // ── ระบบเสก bul/bul2/bul3 พุ่งใส่กระสอบทราย (โชว์เฉพาะตอนเปิดพื้นหลัง) ──
 // จับคู่ combo anim (หลัง applyAttackCombos) → ประเภทโจมตี + ไฟล์กระสุนตัวแรกที่เกมหา (bulletSuffix)
 /**
- * ลำดับไฟล์กระสุนที่เกมไล่หา (libgame: ".res/<code>/<code>-bul2.sam" … ไม่มีไฟล์ → ถอยไป "-bul.sam")
- * ตัวอย่าง u386u-brown: มีแค่ bul — สกิล 1 (WEAPON) และสกิล 2 (WEAPONC) จึงยิงไฟล์ bul ทั้งคู่
+ * ลำดับไฟล์กระสุนที่เกมไล่หา (libgame ฟังก์ชันยิงสกิล 0xcd91f8)
+ *   ตัวช่วยเช็ค (0x19467a0) ไม่ได้เช็คไฟล์ — เช็คว่า "สตริง path ว่างไหม" · ตัว resolve (0x1940ef0) คืน "" ถ้าไม่มีไฟล์
+ *   สกิล 1: resolve ".res/<code>/<code>-bul2.sam" → ว่าง → ถอยไป resolve "-bul.sam" (ถอยได้จริง)
+ *   สกิล 2: resolve "-bul3.sam" → ว่าง → ต่อสตริง "<dir>/<code>-bul2.sam" ดิบๆ (dir ปกติว่าง = "/<code>-bul2.sam")
+ *           สตริงนี้ไม่ว่าง จึงไม่ถอยต่อ → โหลดไฟล์ที่ไม่มีอยู่ → ไม่เห็นกระสุน (แต่โหนดยังบินและโดนตามเวลา)
+ * ตัวอย่าง u386u-brown (มีแค่ bul): สกิล 1 ยิง bul · สกิล 2 ไม่เห็นกระสุน (ตรงกับในเกม)
  */
 const BULLET_FILE_CHAIN: Record<string, string[]> = {
   bul: ['bul'],
   bul2: ['bul2', 'bul'],
-  bul3: ['bul3', 'bul2', 'bul'],
+  bul3: ['bul3'],
 }
 const ATTACK_ANIM_MAP: Record<string, { kind: 'normal' | 'skill1' | 'skill2'; bulletSuffix: string }> = {
   All_attack:           { kind: 'normal', bulletSuffix: 'bul' },
@@ -336,6 +340,7 @@ const AREA_BAR_MIN_SCREEN_Y = 26
 const AREA_SIDE_LABEL_MIN_PT = 250
 interface ActiveBullet {
   suffix: string
+  hidden: boolean          // true = เกมโหลดไฟล์ที่ไม่มีอยู่ (เช่น สกิล 2 ไม่มี bul3) → ไม่วาด แต่ยังนับเวลาบิน+โดน
   spawnTick: number
   startX: number; startY: number
   targetX: number; targetY: number
@@ -1210,8 +1215,9 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     // โดนทันทีตอนช่วง *_ready จบ (จังหวะเดียวกับที่ฟังก์ชันนี้ถูกเรียก)
     if (!isGameBulletType(meta.attackType)) { hitNow(); return }
     // ── ไฟล์กระสุน: เกมเลือกตามชนิดท่า ไม่ได้อ่าน animationPart ของ lerico ──
-    // ตีปกติ = bul · สกิล 1 = bul2 → ไม่มีไฟล์ใช้ bul · สกิล 2 = bul3 → bul2 → bul (ไล่หาไฟล์ที่มีจริงตามลำดับ)
-    // undefined = ยังโหลดไม่เสร็จ (รอ) / null = ไม่มีไฟล์นั้น → ลองตัวถัดไป · ไม่มีสักไฟล์ = โดนทันที
+    // ตีปกติ = bul · สกิล 1 = bul2 → ไม่มีไฟล์ใช้ bul · สกิล 2 = bul3 เท่านั้น (ดู BULLET_FILE_CHAIN)
+    // undefined = ยังโหลดไม่เสร็จ (รอ) / null = ไม่มีไฟล์นั้น → ลองตัวถัดไป
+    // ไม่มีสักไฟล์ = เกมยังสร้างโหนดกระสุน (จากไฟล์ที่ไม่มีอยู่) → มองไม่เห็นแต่ยังบินและโดนตามเวลาบินเหมือนเดิม
     let suffix = primarySuffix
     let asset: BulletAsset | null = null
     for (const s of BULLET_FILE_CHAIN[primarySuffix] ?? [primarySuffix]) {
@@ -1219,7 +1225,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       if (a === undefined) return
       if (a) { suffix = s; asset = a; break }
     }
-    if (!asset) { hitNow(); return }
+    const hidden = !asset
     // ── วิถีแบบในเกม (จุดปล่อย / เป้า / เวลาบิน / ทรง / มุม / หมุดภาพ) ──
     // สกิล Self (targetType SELF): ก่อนยิงเกมเรียก setTarget(this) → เป้าคือตัวผู้ร่าย ไม่ใช่ศัตรู
     //   (libgame: ช่วง *_ready จบ → cd6f90 เห็น targetType SELF → cccfcc(this, this) แล้วจึงยิงกระสุน)
@@ -1232,9 +1238,9 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     const instant = !(meta.moveSpeed > 0)
     // เวลาบิน (วินาที) = ระยะ(pt) ÷ (moveSpeed × 60) → นับเป็นติ๊กของตัวเล่น (= เฟรมของไฟล์ตัวละคร)
     const travelTicks = instant ? 0 : Math.max(1, Math.round((dist / PT_TO_WORLD) / (meta.moveSpeed * GAME_FPS) * bodyFpsNow))
-    const ref = canvasCenter(asset.sam) ?? { x: 0, y: 0 }
+    const ref = (asset && canvasCenter(asset.sam)) ?? { x: 0, y: 0 }
     activeBulletsRef.current.push({
-      suffix, spawnTick: sceneTickRef.current,
+      suffix, hidden, spawnTick: sceneTickRef.current,
       startX: shot.start.x, startY: shot.start.y, targetX: shot.end.x, targetY: shot.end.y,
       travelTicks, kind, isSkill: kind !== 'normal', isAttack: !isBuff, hitRear: useRear, areaWorld, areaCenterX,
       arcStartDeg: meta.angleStart, arcEndDeg: meta.angleEnd,
@@ -1242,9 +1248,9 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       // มุมตอนเล่น finish: บินจบ = angle.end (CCRotateTo ครบ) · วาร์ป = angle.start (RotateTo อัปเดตแค่ t = 0)
       finishDeg: shot.motion === 'CURVE' ? (instant ? meta.angleStart : meta.angleEnd) : 0,
       anchorX: ref.x, anchorY: ref.y,
-      normalFrames: asset.sam.animations[asset.normalName]?.length || 1,
-      finishFrames: asset.finishName ? (asset.sam.animations[asset.finishName]?.length || 0) : 0,
-      bulletFps: asset.sam.animRate || 24,
+      normalFrames: asset ? asset.sam.animations[asset.normalName]?.length || 1 : 1,
+      finishFrames: asset?.finishName ? (asset.sam.animations[asset.finishName]?.length || 0) : 0,
+      bulletFps: asset?.sam.animRate || 24,
     })
   }, [applyHitReaction, playHitSound, sceneGroundY, targetGroundY])   // identity คงที่ทุกตัว — spawnBullet จึงไม่ถูกสร้างใหม่
   const frameLabelRef = useRef<HTMLSpanElement>(null)  // counter "X/Y" — อัปเดตผ่าน textContent
@@ -1605,8 +1611,8 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       const bodyFpsNow = s?.animRate || 24
       const alive: ActiveBullet[] = []
       for (const b of activeBulletsRef.current) {
-        const asset = bulletCacheRef.current.get(b.suffix)
-        if (!asset) continue
+        const asset = b.hidden ? null : bulletCacheRef.current.get(b.suffix)
+        if (!asset && !b.hidden) continue
         const T = sceneTickRef.current - b.spawnTick
         const finishTicksEq = b.finishFrames > 0 ? (b.finishFrames / b.bulletFps) * bodyFpsNow : 0
         // ถึงเป้าหมายแล้ว → สั่งปฏิกิริยาครั้งเดียวต่อนัด
@@ -1623,6 +1629,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
         }
         if (T < 0 || T > b.travelTicks + finishTicksEq) continue   // ยังไม่ถึงเวลา หรือเล่นจบแล้ว → ตัดทิ้ง
         alive.push(b)
+        if (!asset) continue   // กระสุนล่องหน: นับเวลา+ทริกเกอร์โดนแล้ว ไม่ต้องวาด
         let wx: number, wy: number, frame: SamFrame | undefined, spinAngle = 0
         const anchorX = b.anchorX, anchorY = b.anchorY
         // travelTicks = 0 (moveSpeed 0) → วาร์ปไปปลายทางแล้วเล่น finish ทันที ไม่มีช่วงบิน

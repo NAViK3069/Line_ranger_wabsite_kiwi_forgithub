@@ -428,10 +428,13 @@ function attackStartWorld(start: { x: number; y: number }, pos: { x: number; y: 
  */
 function gameShot(
   meta: AttackMeta, dummy: DummyAsset, dOff: number, dyOff: number, mainPos: { x: number; y: number },
+  selfCanvasH?: number,
 ): { start: { x: number; y: number }; end: { x: number; y: number }; motion: GameMotion } {
   const motion = gameMotionOf(meta.attackType)
-  const pos = dummyPointWorld(dummy, canvasCenter(dummy.sam) ?? dummy.anchor, dOff, dyOff)
-  const h = dummy.sam.canvas.h
+  // สกิล targetType SELF: เกมตั้งเป้าเป็นตัวผู้ร่ายเอง (setTarget(this)) ก่อนยิง → กระสุนบินกลับมาลงตัวเอง
+  const self = selfCanvasH !== undefined
+  const pos = self ? mainPos : dummyPointWorld(dummy, canvasCenter(dummy.sam) ?? dummy.anchor, dOff, dyOff)
+  const h = self ? selfCanvasH : dummy.sam.canvas.h
   const lift = meta.hitPointRate <= 10 ? meta.hitPointRate * h : motion === 'LINEAR' ? 0.25 * h : 0
   return { start: attackStartWorld(meta.start, mainPos), end: { x: pos.x, y: pos.y - lift }, motion }
 }
@@ -984,6 +987,8 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
   // ตำแหน่งของเรนเจอร์หลักแบบเกม (กลางกรอบไฟล์ตัวละคร) — จุดตั้งต้นของจุดปล่อย / ช่องตรวจจับ
   const mainPosRef = useRef<{ x: number; y: number } | null>(null)
   const mainGamePos = () => mainPosRef.current ?? rangerStandRef.current ?? { x: 0, y: 0 }
+  // ความสูงกรอบไฟล์ตัวละครหลัก — ใช้ยกจุดเป้าเมื่อสกิล SELF ยิงใส่ตัวเอง (hitPointRate × สูงกรอบ)
+  const mainCanvasHRef = useRef(0)
   // ── ระบบเสกกระสุน (bul/bul2/bul3) พุ่งใส่กระสอบทราย ──
   const sceneTickRef = useRef(0)                                   // ตัวนับ tick รวมแบบอิสระ (เดิน/ถอยตาม play+step) ไม่ผูกกับความยาว anim ไหน
   const spawnCheckRef = useRef<{ animKey: string; lastFrame: number }>({ animKey: '', lastFrame: -1 })
@@ -1143,6 +1148,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     if (!viewingBulletFileRef.current) {
       rangerStandRef.current = mainAnchorRef.current
       mainPosRef.current = canvasCenter(s)
+      mainCanvasHRef.current = s.canvas?.h ?? 0
       recomputeGap()
     }
     mainFaceAnchorRef.current = bbox && fc ? anchorFromRatio(bbox, fc) : null
@@ -1215,7 +1221,10 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     }
     if (!asset) { hitNow(); return }
     // ── วิถีแบบในเกม (จุดปล่อย / เป้า / เวลาบิน / ทรง / มุม / หมุดภาพ) ──
-    const shot = gameShot(meta, dummy, dummyOff, dummyYOff, mainGamePos())
+    // สกิล Self (targetType SELF): ก่อนยิงเกมเรียก setTarget(this) → เป้าคือตัวผู้ร่าย ไม่ใช่ศัตรู
+    //   (libgame: ช่วง *_ready จบ → cd6f90 เห็น targetType SELF → cccfcc(this, this) แล้วจึงยิงกระสุน)
+    const selfTarget = kind !== 'normal' && basis === 'self'
+    const shot = gameShot(meta, dummy, dummyOff, dummyYOff, mainGamePos(), selfTarget ? mainCanvasHRef.current : undefined)
     const dist = Math.hypot(shot.end.x - shot.start.x, shot.end.y - shot.start.y)
     const bodyFpsNow = samRef.current?.animRate || 24
     // moveSpeed = 0 → เวลาบิน ∞ → CCSequence แตกเวลาเป็น NaN แล้วกระโดดไปท่อนหลังตั้งแต่อัปเดตแรก:
@@ -1908,15 +1917,16 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
         vline(me.x + rangePt * PT_TO_WORLD, '#fde047', 'ATK RANGE')
         // เส้นทางกระสุน — จุดเดียวกับ spawnBullet (gameShot) · เฉพาะ attackType ที่เกมสร้างกระสุน
         // moveSpeed 0 = วาร์ปไปจุดปลายทาง → วาดแค่จุดปลายทาง ไม่มีเส้นทาง
-        const drawAtkPath = (meta: AttackMeta | null, color: string) => {
+        const drawAtkPath = (meta: AttackMeta | null, color: string, slot: 'skill1' | 'skill2' | null) => {
           if (!meta || !isGameBulletType(meta.attackType)) return
-          const shot = gameShot(meta, dummy, dOff, dyOff, me)
+          const self = !!slot && skillTargetsRef.current?.[slot] === 'self'
+          const shot = gameShot(meta, dummy, dOff, dyOff, me, self ? mainCanvasHRef.current : undefined)
           if (meta.moveSpeed > 0) pathLine(shot.start.x, shot.start.y, shot.end.x, shot.end.y, shot.motion, color)
           dot(shot.end.x, shot.end.y, color)
         }
-        drawAtkPath(attackMetaRef.current.normal, '#ffd24d')
-        drawAtkPath(attackMetaRef.current.skill1, '#a78bfa')
-        drawAtkPath(attackMetaRef.current.skill2, '#fb923c')
+        drawAtkPath(attackMetaRef.current.normal, '#ffd24d', null)
+        drawAtkPath(attackMetaRef.current.skill1, '#a78bfa', 'skill1')
+        drawAtkPath(attackMetaRef.current.skill2, '#fb923c', 'skill2')
       }
     }
   }, [])

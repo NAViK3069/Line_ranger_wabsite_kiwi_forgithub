@@ -7,7 +7,7 @@ import type { SamFrame } from '@/anme/lib/animation/samParser'
 import { assets, type RangerRuntime } from './assets'
 import {
   BANNER_TIME, HIT_FLASH, actorPos, activePose, arcHeight, arcPos, buildTimeline, cameraAt, fxFinishPoint, fxImpactPoint,
-  GAME_PX_PER_PT, facing, fxLaunchPoint, gamePathPos, gameRotation, poseFrames, visibility, type Timeline,
+  GAME_PX_PER_PT, facing, fxLaunchPoint, gamePathPos, gameRotation, gameShotDistance, poseFrames, visibility, type Timeline,
 } from './timeline'
 import { ART_FACES_LEFT, clamp } from './scene'
 import type { Actor, InfoCue, Scene, SkillCard, Vec } from './types'
@@ -255,7 +255,7 @@ function drawSkillFx(ctx: CanvasRenderingContext2D, scene: Scene, tl: Timeline, 
           const from = fxLaunchPoint(scene, c, caster, s.launchAt)
           const to = fxImpactPoint(scene, c, s.launchAt)
           const k = clamp((t - s.launchAt) / s.flightDur, 0, 1)
-          pos = gamePathPos(fx.game, from, to, k, facing(caster))
+          pos = gamePathPos(fx.game, from, to, k, facing(caster), gameShotDistance(scene, c, caster, s.launchAt))
           rot = gameRotation(fx.game, k)
           loop = true
         } else if (fx.mode === 'projectile') {

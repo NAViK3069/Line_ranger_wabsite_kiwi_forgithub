@@ -197,9 +197,7 @@ export function skillTiming(scene: Scene, cue: SkillCue): SkillTiming {
         // เกม: เวลาบิน = ระยะ(pt) ÷ (moveSpeed × 60) · 1 pt = 2 พิกเซล SAM (× scale ของผู้ยิง)
         // moveSpeed 0 → เวลา ∞ → CCSequence แตกเวลาเป็น NaN แล้วกระโดดไปท่อนหลังตั้งแต่อัปเดตแรก
         //   = กระสุนวาร์ปไปปลายทาง + โดนทันที (ท่าตกจากฟ้า / เกิดคาตัวศัตรู)
-        const from = fxLaunchPoint(scene, cue, caster, la)
-        const to = fxImpactPoint(scene, cue, la)
-        const pt = Math.hypot(to.x - from.x, to.y - from.y) / (GAME_PX_PER_PT * caster.scale)
+        const pt = gameShotDistance(scene, cue, caster, la) / (GAME_PX_PER_PT * caster.scale)
         flightDur = fx.game.moveSpeed > 0 ? Math.max(1 / 60, pt / (fx.game.moveSpeed * GAME_FPS)) : 0
       } else if (fx.mode === 'projectile' && caster) {
         const from = fxLaunchPoint(scene, cue, caster, la)
@@ -250,22 +248,23 @@ export function gameAnchorOffset(rt: RangerRuntime | null): Vec {
 }
 
 /** เป้าของกระสุนแบบเกม: getPosition ของเป้า (+ ยกตาม hitRate) */
-function gameTargetPoint(scene: Scene, target: Actor, g: GameProjectile, t: number): Vec {
+function gameTargetPoint(scene: Scene, target: Actor, g: GameProjectile, t: number, withLift = true): Vec {
   const p = actorPos(scene, target, t)
   const rt = rangerOfActor(scene, target)
   const off = gameAnchorOffset(rt)
   const dir = target.flip ? -1 : 1
   const h = rt?.sam.canvas.h ?? 0
   // hitRate ≤ 10 = สัดส่วนความสูงกรอบ · > 10 = ค่าตั้งต้น (LINEAR ยก 0.25 × สูง · CURVE ไม่ยก)
-  const lift = g.hitRate <= 10 ? g.hitRate * h : g.motion === 'LINEAR' ? 0.25 * h : 0
+  const lift = !withLift ? 0 : g.hitRate <= 10 ? g.hitRate * h : g.motion === 'LINEAR' ? 0.25 * h : 0
   return { x: p.x + off.x * target.scale * dir, y: p.y + (off.y - lift) * target.scale }
 }
 
 /** ตำแหน่งกระสุนแบบเกม ณ สัดส่วนเวลา k (0–1) — CCBezierBy (เชิงเส้นตามเวลา) หรือ CCMoveBy */
-export function gamePathPos(g: GameProjectile, from: Vec, to: Vec, k: number, forward: number): Vec {
+export function gamePathPos(g: GameProjectile, from: Vec, to: Vec, k: number, forward: number, d0?: number): Vec {
   if (g.motion !== 'CURVE') return { x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k }
   const dx = to.x - from.x, dy = to.y - from.y
-  const d = Math.hypot(dx, dy)
+  // d0 = ระยะก่อนบวกยกจุดเป้า — เกม (0xcd84c0 / 0xcd9c20) คิด 0.4·d และเวลาบินจากค่านี้
+  const d = d0 ?? Math.hypot(dx, dy)
   // พิกัดสัมพัทธ์จากจุดปล่อย: P0 = P1 = 0 · P2 = กึ่งกลาง + (0.4d ไปข้างหน้า, 0.4d ขึ้น) · P3 = (dx, dy)
   const c2x = dx / 2 + forward * GAME_CURVE_K * d, c2y = dy / 2 - GAME_CURVE_K * d
   const u = 1 - k
@@ -342,6 +341,14 @@ export function cueTarget(scene: Scene, cue: SkillCue): Actor | null {
   if (!cue.fx?.game) return set
   const caster = scene.actors.find(a => a.id === cue.actorId)
   return (caster && gameLockTarget(scene, caster, cue.start)) ?? set
+}
+
+/** ระยะจากจุดปล่อยถึง "ตำแหน่งเป้าก่อนบวก lift" (พิกเซล world) — ตัวที่เกมใช้คิดเวลาบินและจุดคุมโค้ง */
+export function gameShotDistance(scene: Scene, cue: SkillCue, caster: Actor, t: number): number {
+  const from = fxLaunchPoint(scene, cue, caster, t)
+  const target = cueTarget(scene, cue)
+  const to = target && cue.fx?.game ? gameTargetPoint(scene, target, cue.fx.game, t, false) : fxImpactPoint(scene, cue, t)
+  return Math.hypot(to.x - from.x, to.y - from.y)
 }
 
 export function fxImpactPoint(scene: Scene, cue: SkillCue, t: number): Vec {

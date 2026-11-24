@@ -143,9 +143,34 @@ const DUMMY_RANGER_ID = 'u1147e-benimaru'
 // เป้าหมาย "แนวหลัง" — โผล่เฉพาะเรนเจอร์ที่มีสกิลเล็ง Rear Enemy
 const REAR_DUMMY_RANGER_ID = 'u1148e-souei'
 // เป้าหมายตัวบิน — ใช้แทนตัวปกติเมื่อเรนเจอร์มี ability Air Ambush (สอยเฉพาะตัวบิน)
+//   Cony 8★ (ab201_flight · unitPosition 120)
 const FLYER_DUMMY_RANGER_ID = 'u1231e-cony'
 // เป้าหมายที่ยืนสุดขอบวง Area ของสกิล — ไว้ดูว่าไกลสุดที่สกิลกินถึงคือแค่ไหน
 const EDGE_DUMMY_RANGER_ID = 'u1297e-sn'
+// ตัวยืนขอบวงของเรนเจอร์ Air Ambush ต้องเป็นตัวบินด้วย (ตัวยืนพื้นไม่ลอย) — Merry 8★ (ab201_flight · unitPosition 120)
+const EDGE_FLYER_DUMMY_RANGER_ID = 'u1160e-merry'
+/**
+ * ความสูงที่ยูนิตลอยเหนือเลนพื้น (pt) = unitPosition ในฐานข้อมูลเกม (ค่าที่ไม่ใช่ 0 ทั้งหมด)
+ *   libgame: ตอนวางยูนิตลงสนาม y = เลน + unitPosition (โหนดทั้งตัวลอย ไม่ใช่แค่รูป)
+ *   ตำแหน่งยูนิต = กลางกรอบไฟล์ body → จุดปล่อย/เป้ากระสุนลอยตามไปด้วย
+ *   ตัวบิน (ab201_flight) ไม่ได้สูงเท่ากันทุกตัว: 100–130 pt
+ */
+const UNIT_POSITION_PT: Record<string, number> = {
+  'g004-poppins': 30, 'g004-poppins2': 30, 'g004-poppins3': 30, 'g007-hb': 60, 'g007-hb2': 60, 'g007-hb3': 60,
+  'g008-thunder': 50, 'g008-thunder2': 50, 'g008-thunder3': 50, 'g009-phoenix': 65, 'g009-phoenix2': 65,
+  'g009-phoenix3': 65, 'g011-vlad': 30, 'g011-vlad2': 30, 'g011-vlad3': 30, 'g016-insun': 50, 'g016-insun2': 50,
+  'g016-insun3': 50, 'g016-insun4': 50, 'g016-insun5': 50, 'g016-insun6': 50, 'g016-insun7': 50,
+  'g016-insun8': 50, 'u1102e-sally': 100, 'u1102h-sally': 100, 'u1108e-bella': 120, 'u1108h-bella': 120,
+  'u1127e-edward': 100, 'u1127h-edward': 100, 'u1127u-edward': 100, 'u1137e-cony': 120, 'u1137h-cony': 120,
+  'u1160e-merry': 120, 'u1160h-merry': 120, 'u1170e-sally': 130, 'u1170h-sally': 130, 'u1170u-sally': 130,
+  'u1196e-leonard': 110, 'u1196h-leonard': 110, 'u1196u-leonard': 110, 'u1212e-brown': 100, 'u1212h-brown': 100,
+  'u1231e-cony': 120, 'u1231h-cony': 120, 'u1231u-cony': 120, 'u1285e-sally': 130, 'u1285h-sally': 130,
+  'u1286e-sally': 130, 'u1337e-leonard': 130, 'u1337h-leonard': 130, 'u1337u-leonard': 130, 'u1363e-cony': 110,
+  'u1363h-cony': 110, 'u1364e-cony': 110, 'u1459e-elle': 130, 'u1459h-elle': 130, 'u1460e-elle': 130,
+  'u1562e-pew': 110, 'u1562h-pew': 110, 'u1563e-pew': 110, 'u3913-tuto-cony': 120, 'u40016-sally': 130,
+  'u85010sk-mettaur': -5, 'u91026-eric': 100, 'u92026-eric': 100,
+}
+const unitLiftWorld = (unitId: string) => (UNIT_POSITION_PT[unitId] ?? 0) * PT_TO_WORLD
 // เหตุการณ์ "โดนตี" หนึ่งครั้งของเป้าหมายหนึ่งตัว
 interface HitEvent { tick: number; isSkill: boolean }
 const HIT_EVENT_KEEP = 8
@@ -316,9 +341,10 @@ function canvasCenter(sam: SAMParser): { x: number; y: number } | null {
   return c && c.w > 0 && c.h > 0 ? { x: c.x + c.w / 2, y: c.y + c.h / 2 } : null
 }
 /** ตำแหน่งบนวิถีแบบเกม ณ สัดส่วนเวลา p (ผู้ยิงหันขวาเสมอในตัวเล่นนี้ → ข้างหน้า = +x) */
-function gamePathPos(motion: GameMotion, sx: number, sy: number, tx: number, ty: number, p: number): { x: number; y: number } {
+// d0 = ระยะจากจุดปล่อยถึงตำแหน่งเป้า "ก่อนบวกยกจุดเป้า" — เกมคิด 0.4·d และเวลาบินจากค่านี้ (ไม่รวม lift)
+function gamePathPos(motion: GameMotion, sx: number, sy: number, tx: number, ty: number, p: number, d0?: number): { x: number; y: number } {
   if (motion !== 'CURVE') return { x: lerp(sx, tx, p), y: lerp(sy, ty, p) }
-  const dx = tx - sx, dy = ty - sy, d = Math.hypot(dx, dy)
+  const dx = tx - sx, dy = ty - sy, d = d0 ?? Math.hypot(dx, dy)
   const c2x = dx / 2 + GAME_CURVE_K * d, c2y = dy / 2 - GAME_CURVE_K * d
   const u = 1 - p, b2 = 3 * p * p * u, b3 = p * p * p
   return { x: sx + b2 * c2x + b3 * dx, y: sy + b2 * c2y + b3 * dy }
@@ -353,6 +379,7 @@ interface ActiveBullet {
   areaCenterX: number      // จุดกึ่งกลางวง Area = ตำแหน่งของเป้าที่ล็อค (world unit)
   hitFired?: boolean       // กันไม่ให้ทริกเกอร์ซ้ำเมื่อ drawFrame ถูกเรียกหลายครั้งในติ๊กเดียว
   arcStartDeg: number; arcEndDeg: number
+  curveD: number           // ระยะก่อนบวก lift — ใช้คิดจุดคุมโค้ง 0.4·d แบบเกม
   motion: GameMotion       // ทรงวิถีแบบเกม (ท่าไม่บิน = LINEAR และจุดเริ่ม = จุดชน)
   spin: boolean            // หมุนตามมุม angle.start → angle.end (เกม: เฉพาะทรงโค้ง)
   finishDeg: number        // มุมตอนเล่น finish (บินจบ = angle.end · วาร์ป = angle.start · เส้นตรง = 0)
@@ -455,14 +482,17 @@ function attackStartWorld(start: { x: number; y: number }, pos: { x: number; y: 
 function gameShot(
   meta: AttackMeta, dummy: DummyAsset, dOff: number, dyOff: number, mainPos: { x: number; y: number },
   selfCanvasH?: number,
-): { start: { x: number; y: number }; end: { x: number; y: number }; motion: GameMotion } {
+): { start: { x: number; y: number }; end: { x: number; y: number }; motion: GameMotion; d0: number } {
   const motion = gameMotionOf(meta.attackType)
   // สกิล targetType SELF: เกมตั้งเป้าเป็นตัวผู้ร่ายเอง (setTarget(this)) ก่อนยิง → กระสุนบินกลับมาลงตัวเอง
   const self = selfCanvasH !== undefined
   const pos = self ? mainPos : dummyPointWorld(dummy, canvasCenter(dummy.sam) ?? dummy.anchor, dOff, dyOff)
   const h = self ? selfCanvasH : dummy.sam.canvas.h
   const lift = meta.hitPointRate <= 10 ? meta.hitPointRate * h : motion === 'LINEAR' ? 0.25 * h : 0
-  return { start: attackStartWorld(meta.start, mainPos), end: { x: pos.x, y: pos.y - lift }, motion }
+  const start = attackStartWorld(meta.start, mainPos)
+  // libgame (normal 0xcd84c0 · skill 0xcd9c20): ระยะ = |ตำแหน่งเป้า − จุดปล่อย| คิดก่อนบวก lift
+  //   → เวลาบิน = ระยะ ÷ (moveSpeed × 60) และจุดคุมโค้ง 0.4·ระยะ ใช้ค่านี้ · ปลายทางจริง = ตำแหน่ง + lift
+  return { start, end: { x: pos.x, y: pos.y - lift }, motion, d0: Math.hypot(pos.x - start.x, pos.y - start.y) }
 }
 // ขอบบนของภาพพื้นหลังบนจอ — จัดให้เส้นถนน (BG_ROAD_RATIO ของความสูงภาพ) ตรงกับจุดยืนเรนเจอร์
 // ค่า 77.8% วัดมาจากสไลเดอร์จูนเส้นถนน (ถอดออกแล้ว) — ด่านอื่นถ้าถนนไม่ตรงต้องแยกค่าเป็นรายด่าน
@@ -475,13 +505,6 @@ function bgTopOnScreen(originY: number, standY: number, zoom: number, bgHeight: 
 function dummyDrawOffset(dummy: { pivotX: number; anchor: { x: number; y: number } | null }, rangerStandX: number, gap: number): number {
   const mainLocal = 2 * dummy.pivotX - (dummy.anchor?.x ?? dummy.pivotX)
   return rangerStandX + gap - mainLocal
-}
-// ── ระยะเลื่อนแนวตั้งของกระสอบทราย ──
-// เรนเจอร์แต่ละตัว origin ห่างจากจุดยืนไม่เท่ากัน (วัดได้ +60 ถึง +238)
-// ถ้าวาดหุ่นที่ origin.y เดียวกับเรนเจอร์หลัก เท้าทั้งสองฝั่งจะไม่อยู่ระดับเดียวกัน
-// เลื่อนด้วยผลต่างของจุดยืน เท้าทั้งคู่จึงแตะถนนเส้นเดียวกัน
-function dummyYAlign(mainStandY: number, dummyStandY: number): number {
-  return mainStandY - dummyStandY
 }
 function dummyPointWorld(dummy: { pivotX: number }, raw: { x: number; y: number } | null, dist: number, yOff: number): { x: number; y: number } {
   const r = raw ?? { x: dummy.pivotX, y: 0 }
@@ -616,6 +639,7 @@ async function fetchRenderCenters(rangerId: string): Promise<{ shadowCenter: { x
 
 interface DummyAsset {
   sam: SAMParser; sprites: SpriteMap; idleName: string; hitName: string | null
+  liftWorld: number   // ความสูงที่ลอยเหนือเลน (unitPosition × 2) — 0 = ยูนิตพื้น
   pivotX: number; anchor: { x: number; y: number } | null; faceAnchor: { x: number; y: number } | null
   // จุด CENTER = ระดับอกของเป้าหมาย: แกน X ตาม MAIN (จุดยืน) / แกน Y คือกึ่งกลางตัวจริงๆ
   // เดิมมีแค่ MAIN (พื้น) กับ FACE (0.65 ของลำตัว = ระดับหัวสำหรับตัวหัวโต) ไม่มีจุดกลางตัว
@@ -651,7 +675,7 @@ async function loadDummyRanger(unitId: string): Promise<DummyAsset | null> {
     // ลำตัวจริงของ u1517h-ron ทิ้ง) ส่วนแกน X ยึดตาม MAIN เพราะจุดยืนคือแกนกลางตัวอยู่แล้ว
     const medBox = animMedianBBox(sam, sprites, idleName)
     const centerAnchor = anchor && medBox ? { x: anchor.x, y: (medBox.y0 + medBox.y1) / 2 } : null
-    return { sam, sprites, idleName, hitName, pivotX, anchor, faceAnchor, centerAnchor }
+    return { sam, sprites, idleName, hitName, liftWorld: unitLiftWorld(unitId), pivotX, anchor, faceAnchor, centerAnchor }
   } catch {
     return null
   }
@@ -934,6 +958,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
   const rearGapRef = useRef(0)          // ระยะ MAIN-ถึง-MAIN ของแนวหลัง (world unit) 0 = ไม่มี
   const rearHitRef = useRef<HitEvent[]>([])
   const edgeDummyRef = useRef<DummyAsset | null>(null)
+  const edgeDummyIdRef = useRef<string>('')
   const edgeHitRef = useRef<HitEvent[]>([])
   // ปฏิกิริยาตอนเป้าหมายโดนตี — โจมตีปกติ = กระพริบแดง, สกิล = เล่น anim ท่าโดนตี 1 รอบ
   // ผูกกับ sceneTick เหมือนทุกอย่างในฉาก → หยุด/ย้อน/เร่งเฟรม มีผลด้วย
@@ -950,14 +975,19 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
   // ระยะที่เรนเจอร์ประเภทบินลอยเหนือพื้น (world unit) — 0 = เดินดิน
   // ไม่ได้ยกตัวเรนเจอร์ขึ้น แต่กด "ระดับพื้นของฉาก" ลงแทน กล้องจึงไม่ต้องขยับตาม
   const flyerLiftRef = useRef(0)
-  // เป้าหมายเป็นตัวบินหรือไม่ (เรนเจอร์ Air Ambush) — ลอยอยู่ถนนเดียวกับเรนเจอร์ประเภทบิน
-  const targetFliesRef = useRef(false)
-  // ระดับพื้นของฉาก (ฉากหลัง/เป้าหมาย/แถบวัดระยะ ใช้ค่านี้ ไม่ใช่จุดยืนเรนเจอร์ตรงๆ)
+  // ระดับพื้นของฉาก (ฉากหลัง/แถบวัดระยะ ใช้ค่านี้ ไม่ใช่จุดยืนเรนเจอร์ตรงๆ)
   const sceneGroundY = useCallback(() => (rangerStandRef.current?.y ?? 0) + flyerLiftRef.current, [])
-  useEffect(() => { flyerLiftRef.current = isFlyer ? FLYER_LIFT : 0; drawFrameRef.current() }, [isFlyer])
-  useEffect(() => { targetFliesRef.current = !!isAirAmbush; drawFrameRef.current() }, [isAirAmbush])
-  // ระดับพื้นของ "เป้าหมายแนวหน้า" — ยกขึ้นไปถนนบนฟ้าถ้าเป้าหมายเป็นตัวบิน
-  const targetGroundY = useCallback(() => sceneGroundY() - (targetFliesRef.current ? FLYER_LIFT : 0), [sceneGroundY])
+  // ความสูงลอยของเรนเจอร์หลัก = unitPosition ของตัวมันเอง (เกม) · ไม่มีข้อมูลแต่เป็นตัวบิน → ค่าเดิม
+  useEffect(() => {
+    flyerLiftRef.current = UNIT_POSITION_PT[rangerId] != null ? unitLiftWorld(rangerId) : isFlyer ? FLYER_LIFT : 0
+    drawFrameRef.current()
+  }, [isFlyer, rangerId])
+  // ── เลนของสนาม (world y) — เกมวางทุกยูนิตให้ "กลางกรอบไฟล์ body" อยู่ที่ เลน − unitPosition ──
+  // เรนเจอร์หลักวาดที่ origin (ลอยสูง flyerLift) → เลน = กลางกรอบของมัน + flyerLift
+  const laneY = useCallback(() => (mainPosRef.current?.y ?? rangerStandRef.current?.y ?? 0) + flyerLiftRef.current, [])
+  // ระยะเลื่อนแกน y ของกระสอบทรายแต่ละตัว: กลางกรอบไฟล์ของมัน → เลน − ความสูงลอยของตัวมันเอง
+  const unitYOff = useCallback((d: DummyAsset) =>
+    laneY() - d.liftWorld - (canvasCenter(d.sam)?.y ?? d.anchor?.y ?? 0), [laneY])
   // canvas ชั่วคราวสำหรับย้อมสีหุ่น (ใช้เฉพาะตอนกระพริบ)
   const dummyFxCanvasRef = useRef<HTMLCanvasElement | null>(null)
   // ระยะห่างกระสอบทราย = ระยะที่เกมหยุดเดินแล้วเริ่มตี (UnitNode::searchTarget):
@@ -1194,16 +1224,15 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     const otherGap = aimRear ? dummyGapRef.current : rearGapRef.current
     if (!other || otherGap <= 0) return
     const standX = rangerStandRef.current?.x ?? 0
-    const standY = aimRear ? targetGroundY() : sceneGroundY()
     const p = dummyPointWorld(
       other, other.anchor ?? other.faceAnchor,
       dummyDrawOffset(other, standX, otherGap),
-      dummyYAlign(standY, other.anchor?.y ?? 0),
+      unitYOff(other),
     )
     if (Math.abs(p.x - centerX) <= areaWorld) {
       pushHit((aimRear ? dummyHitRef : rearHitRef).current, tick, isSkill)
     }
-  }, [sceneGroundY, targetGroundY])
+  }, [unitYOff])
   // ── สกิล MOVE_ATTACK (พุ่ง/กระโดดไปข้างหน้า) — ระยะที่เรนเจอร์เลื่อนไปแล้ว (world) ──
   // libgame 0xcda4cc (ช่วง s_action_attack_1 จบ): CCMoveTo ไปข้างหน้า factor ของสกิล (pt)
   //   เวลา = ระยะ ÷ (skillProjectileMoveSpeed × 60) — ค้างตำแหน่งใหม่จนจบท่า (ไม่ถอยกลับ)
@@ -1242,15 +1271,15 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
   const applyAreaHitAt = useCallback((centerX: number, areaWorld: number) => {
     const tick = sceneTickRef.current
     const standX = rangerStandRef.current?.x ?? 0
-    const test = (d: DummyAsset | null, gap: number, groundY: number, hitRef: { current: HitEvent[] }) => {
+    const test = (d: DummyAsset | null, gap: number, hitRef: { current: HitEvent[] }) => {
       if (!d || gap <= 0) return
-      const p = dummyPointWorld(d, canvasCenter(d.sam) ?? d.anchor, dummyDrawOffset(d, standX, gap), dummyYAlign(groundY, d.anchor?.y ?? 0))
+      const p = dummyPointWorld(d, canvasCenter(d.sam) ?? d.anchor, dummyDrawOffset(d, standX, gap), unitYOff(d))
       if (Math.abs(p.x - centerX) <= areaWorld) pushHit(hitRef.current, tick, true)
     }
-    test(dummyRef.current, dummyGapRef.current, targetGroundY(), dummyHitRef)
-    test(rearDummyRef.current, rearGapRef.current, sceneGroundY(), rearHitRef)
+    test(dummyRef.current, dummyGapRef.current, dummyHitRef)
+    test(rearDummyRef.current, rearGapRef.current, rearHitRef)
     if (areaWorld > 0) pushHit(edgeHitRef.current, tick, true)
-  }, [sceneGroundY, targetGroundY])
+  }, [unitYOff])
   // เสกกระสุน 1 นัด พุ่งจากจุดโจมตี (NormalATK/Skill1/Skill2) ไปยัง Face Center ของกระสอบทราย (จุดรับดาเมจจริง ไม่ใช่จุดยืน)
   // ทำงานเฉพาะตอนเปิดพื้นหลัง+มีกระสอบทราย และไฟล์กระสุนที่เกี่ยวข้องโหลดสำเร็จแล้วเท่านั้น
   const spawnBullet = useCallback((kind: 'normal' | 'skill1' | 'skill2', primarySuffix: string) => {
@@ -1270,7 +1299,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     // MOVE_ATTACK เป็น targetType SELF ก็จริง แต่เป็นสกิลโจมตี (พุ่งไปแล้วตีวงรอบตัว) — ไม่ใช่บัฟ
     const isMoveAttack = kind !== 'normal' && moveAttackDashPt(meta) > 0
     const isBuff = isMoveAttack ? false : basis ? basis === 'self' : meta.motionType === 'NONE'
-    const dummyYOff = dummyYAlign(useRear ? sceneGroundY() : targetGroundY(), dummy.anchor?.y ?? 0)
+    const dummyYOff = unitYOff(dummy)
     const dummyOff = dummyDrawOffset(dummy, rangerStandRef.current?.x ?? 0, gap)
     // วง Area ของสกิลนี้ (pt → world) · จุดกึ่งกลาง = ตำแหน่งของเป้าที่ล็อค (กลางกรอบไฟล์)
     const areaWorld = kind === 'normal' ? 0 : (skillAreasRef.current?.[kind] ?? 0) * PT_TO_WORLD
@@ -1305,7 +1334,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     //   (libgame: ช่วง *_ready จบ → cd6f90 เห็น targetType SELF → cccfcc(this, this) แล้วจึงยิงกระสุน)
     const selfTarget = kind !== 'normal' && basis === 'self'
     const shot = gameShot(meta, dummy, dummyOff, dummyYOff, mainGamePos(), selfTarget ? mainCanvasHRef.current : undefined)
-    const dist = Math.hypot(shot.end.x - shot.start.x, shot.end.y - shot.start.y)
+    const dist = shot.d0   // ระยะก่อนบวก lift (เกมใช้ค่านี้คิดเวลาบิน)
     const bodyFpsNow = samRef.current?.animRate || 24
     // moveSpeed = 0 → เวลาบิน ∞ → CCSequence แตกเวลาเป็น NaN แล้วกระโดดไปท่อนหลังตั้งแต่อัปเดตแรก:
     //   กระสุนวาร์ปไปจุดปลายทาง + เรียกจังหวะโดนทันที (เฟรมถัดไป) — ท่าตกจากฟ้า/เกิดคาตัวศัตรูจึงไปโผล่ที่เป้า
@@ -1317,7 +1346,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       suffix, hidden, spawnTick: sceneTickRef.current,
       startX: shot.start.x, startY: shot.start.y, targetX: shot.end.x, targetY: shot.end.y,
       travelTicks, kind, isSkill: kind !== 'normal', isAttack: !isBuff, hitRear: useRear, areaWorld, areaCenterX,
-      arcStartDeg: meta.angleStart, arcEndDeg: meta.angleEnd,
+      arcStartDeg: meta.angleStart, arcEndDeg: meta.angleEnd, curveD: shot.d0,
       motion: shot.motion, spin: shot.motion === 'CURVE',
       // มุมตอนเล่น finish: บินจบ = angle.end (CCRotateTo ครบ) · วาร์ป = angle.start (RotateTo อัปเดตแค่ t = 0)
       finishDeg: shot.motion === 'CURVE' ? (instant ? meta.angleStart : meta.angleEnd) : 0,
@@ -1326,7 +1355,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       finishFrames: asset?.finishName ? (asset.sam.animations[asset.finishName]?.length || 0) : 0,
       bulletFps: asset?.sam.animRate || 24,
     })
-  }, [applyHitReaction, applyAreaHitAt, playHitSound, sceneGroundY, targetGroundY, actionDash])   // identity คงที่ทุกตัว — spawnBullet จึงไม่ถูกสร้างใหม่
+  }, [applyHitReaction, applyAreaHitAt, playHitSound, unitYOff, actionDash])   // identity คงที่ทุกตัว — spawnBullet จึงไม่ถูกสร้างใหม่
   const frameLabelRef = useRef<HTMLSpanElement>(null)  // counter "X/Y" — อัปเดตผ่าน textContent
   // grid cache — grid เป็น static (เปลี่ยนแค่ตอน zoom/origin/size) → render ครั้งเดียวเก็บไว้ blit
   const gridCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -1510,7 +1539,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       const z = zoomRef.current
       const standX = rangerStandRef.current?.x ?? 0
       const standY = sceneGroundY()
-      const paintDummy = (d: DummyAsset, gap: number, hitRef: { current: HitEvent[] }, groundY: number) => {
+      const paintDummy = (d: DummyAsset, gap: number, hitRef: { current: HitEvent[] }) => {
         const idleFrames = d.sam.animations[d.idleName] || []
         // ── เลือกเฟรมที่จะวาด: ปกติคือท่ายืน แต่ถ้าเพิ่งโดนสกิลให้เล่นท่าโดนตี 1 รอบก่อน ──
         let frames = idleFrames
@@ -1529,7 +1558,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
         }
         if (!frames.length) return
         const dx = originRef.current.x + dummyDrawOffset(d, standX, gap) * z
-        const dy = originRef.current.y + dummyYAlign(groundY, d.anchor?.y ?? 0) * z
+        const dy = originRef.current.y + unitYOff(d) * z
         const draw = (target: CanvasRenderingContext2D) => renderSAMFrame(
           target, frames[Math.min(fi, frames.length - 1)], d.sam.images, d.sprites,
           dx, dy, z, undefined,
@@ -1562,9 +1591,9 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
           }
         }
       }
-      paintDummy(dummy, dummyGapRef.current, dummyHitRef, targetGroundY())
+      paintDummy(dummy, dummyGapRef.current, dummyHitRef)
       if (rearDummyRef.current && rearGapRef.current > 0) {
-        paintDummy(rearDummyRef.current, rearGapRef.current, rearHitRef, standY)
+        paintDummy(rearDummyRef.current, rearGapRef.current, rearHitRef)
       }
       // ── ตัวยืนสุดขอบวง Area ของสกิลที่กำลังเปิดดู ──
       // ใช้จุดกึ่งกลางวงชุดเดียวกับแถบ Area ที่วาดในโหมดดูระยะ ตำแหน่งจึงตรงกับขอบแถบเป๊ะ
@@ -1587,11 +1616,11 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
           ? (mainPosRef.current?.x ?? standX) + actionDash(true)
           : areaBasis === 'rear' && rear && rearGapRef.current > 0
           ? dummyPointWorld(rear, rear.anchor ?? rear.faceAnchor,
-              dummyDrawOffset(rear, standX, rearGapRef.current), dummyYAlign(standY, rear.anchor?.y ?? 0)).x
+              dummyDrawOffset(rear, standX, rearGapRef.current), unitYOff(rear)).x
           : dummyPointWorld(dummy, dummy.anchor ?? dummy.faceAnchor,
-              dummyDrawOffset(dummy, standX, dummyGapRef.current), dummyYAlign(targetGroundY(), dummy.anchor?.y ?? 0)).x
+              dummyDrawOffset(dummy, standX, dummyGapRef.current), unitYOff(dummy)).x
         // ขอบขวาของวง = กึ่งกลาง + รัศมี (แปลง pt → world เหมือนแถบวัดระยะ)
-        paintDummy(edgeDummyRef.current, centerX + areaPt * PT_TO_WORLD - standX, edgeHitRef, targetGroundY())
+        paintDummy(edgeDummyRef.current, centerX + areaPt * PT_TO_WORLD - standX, edgeHitRef)
       }
     }
     if (showGridRef.current) {
@@ -1717,7 +1746,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
         if (b.travelTicks > 0 && T <= b.travelTicks) {
           // ── ช่วงเดินทาง (normal) — วิถีแบบเกม (CCBezierBy / CCMoveBy เชิงเส้นตามเวลา) สูตรเดียวกับเส้นพรีวิว Hitbox ──
           const p = b.travelTicks > 0 ? Math.min(1, T / b.travelTicks) : 1
-          const pos = gamePathPos(b.motion, b.startX, b.startY, b.targetX, b.targetY, p)
+          const pos = gamePathPos(b.motion, b.startX, b.startY, b.targetX, b.targetY, p, b.curveD)
           wx = pos.x; wy = pos.y
           // หมุดภาพหมุนตามมุม (CCRotateTo angle.start → angle.end) — ตอนวาดข้างล่างหมุนเวกเตอร์หมุดตามไปด้วย
           if (b.spin) spinAngle = lerp(b.arcStartDeg, b.arcEndDeg, p) * Math.PI / 180
@@ -1759,7 +1788,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       const standX = rangerStandRef.current?.x ?? 0
       const standY = sceneGroundY()
       const dOff = dummyDrawOffset(dummy, standX, dummyGapRef.current)
-      const dyOff = dummyYAlign(standY, dummy.anchor?.y ?? 0)
+      const dyOff = unitYOff(dummy)
       const tgt = dummyPointWorld(dummy, dummy.anchor ?? dummy.faceAnchor, dOff, dyOff)
       const meX = originRef.current.x + standX * z
       const tgtX = originRef.current.x + tgt.x * z
@@ -1806,7 +1835,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
           rearDummyRef.current,
           rearDummyRef.current.anchor ?? rearDummyRef.current.faceAnchor,
           dummyDrawOffset(rearDummyRef.current, standX, rearGapRef.current),
-          dummyYAlign(standY, rearDummyRef.current.anchor?.y ?? 0),
+          unitYOff(rearDummyRef.current),
         )
         const rearX = originRef.current.x + rearTgt.x * z
         ctx.strokeStyle = REAR_LINE_COLOR
@@ -1843,7 +1872,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
             rearDummyRef.current,
             rearDummyRef.current.anchor ?? rearDummyRef.current.faceAnchor,
             dummyDrawOffset(rearDummyRef.current, standX, rearGapRef.current),
-            dummyYAlign(standY, rearDummyRef.current.anchor?.y ?? 0),
+            unitYOff(rearDummyRef.current),
           )
           cx = originRef.current.x + rt.x * z
         }
@@ -1930,7 +1959,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
         ctx.restore()
       }
       // เส้นทางกระสุนจริง (จุดเริ่ม → เป้าหมาย) — สูตรเดียวกับกระสุนจริงเป๊ะ (gamePathPos)
-      const pathLine = (startX: number, startY: number, targetX: number, targetY: number, motion: GameMotion, color: string) => {
+      const pathLine = (startX: number, startY: number, targetX: number, targetY: number, motion: GameMotion, color: string, d0?: number) => {
         const STEPS = 24
         ctx.save()
         ctx.setTransform(1, 0, 0, 1, 0, 0)
@@ -1938,7 +1967,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
         ctx.setLineDash([4, 3])
         ctx.beginPath()
         for (let i = 0; i <= STEPS; i++) {
-          const pos = gamePathPos(motion, startX, startY, targetX, targetY, i / STEPS)
+          const pos = gamePathPos(motion, startX, startY, targetX, targetY, i / STEPS, d0)
           const x = originRef.current.x + pos.x * z, y = originRef.current.y + pos.y * z
           if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
         }
@@ -1977,7 +2006,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       }
       if (bgc && dummy) {
         // DUMMY — จุดยืน (shadow center) เช่นเดียวกับ MAIN แต่คงที่ตำแหน่งเดิมของหุ่น
-        const dyOff = dummyYAlign(targetGroundY(), dummy.anchor?.y ?? 0)
+        const dyOff = unitYOff(dummy)
         const dOff = dummyDrawOffset(dummy, rangerStandRef.current?.x ?? 0, dummyGapRef.current)
         const t = dummyPointWorld(dummy, dummy.anchor, dOff, dyOff)
         vline(t.x, '#4dd0ff', 'DUMMY')
@@ -2013,7 +2042,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
           if (!meta || !isGameBulletType(meta.attackType)) return
           const self = !!slot && skillTargetsRef.current?.[slot] === 'self'
           const shot = gameShot(meta, dummy, dOff, dyOff, me, self ? mainCanvasHRef.current : undefined)
-          if (meta.moveSpeed > 0) pathLine(shot.start.x, shot.start.y, shot.end.x, shot.end.y, shot.motion, color)
+          if (meta.moveSpeed > 0) pathLine(shot.start.x, shot.start.y, shot.end.x, shot.end.y, shot.motion, color, shot.d0)
           dot(shot.end.x, shot.end.y, color)
         }
         drawAtkPath(attackMetaRef.current.normal, '#ffd24d', null)
@@ -2187,15 +2216,17 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
         : loadDummyRanger(REAR_DUMMY_RANGER_ID)
       // ตัวยืนสุดขอบวง Area — โหลดเฉพาะเรนเจอร์ที่มีสกิลกินพื้นที่จริงๆ
       const needEdge = (['skill1', 'skill2'] as const).some(k => (skillAreasRef.current?.[k] ?? 0) > 0)
+      // Air Ambush: ตัวขอบวงต้องเป็นตัวบินด้วย (เกมไม่มียูนิตพื้นลอยฟ้า)
+      const edgeWant = isAirAmbush ? EDGE_FLYER_DUMMY_RANGER_ID : EDGE_DUMMY_RANGER_ID
       const edgeTask = !needEdge ? Promise.resolve(null)
-        : edgeDummyRef.current ? Promise.resolve(edgeDummyRef.current)
-        : loadDummyRanger(EDGE_DUMMY_RANGER_ID)
+        : edgeDummyRef.current && edgeDummyIdRef.current === edgeWant ? Promise.resolve(edgeDummyRef.current)
+        : loadDummyRanger(edgeWant)
       const [cv, dummy, rear, edge] = await Promise.all([composeBattleStage(bgStage), dummyTask, rearTask, edgeTask])
       if (cancelled) return
       bgCanvasRef.current = cv
       if (dummy) { dummyRef.current = dummy; dummyIdRef.current = wantId; recomputeGap() }
       if (rear) rearDummyRef.current = rear
-      if (edge) edgeDummyRef.current = edge
+      if (edge) { edgeDummyRef.current = edge; edgeDummyIdRef.current = edgeWant }
       setBgLoading(false)
       drawFrame()
     })()

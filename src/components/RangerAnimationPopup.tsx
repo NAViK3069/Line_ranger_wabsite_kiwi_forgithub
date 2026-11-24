@@ -16,6 +16,10 @@ import { useSound } from '@/contexts/SoundContext'
 import { SAMParser, applyAttackCombos, type SamFrame } from '@/lib/animation/samParser'
 import { BATTLE_STAGES, stageLabel } from '@/lib/battleStages'
 import {
+  BULLET_FILE_CHAIN as GAME_BULLET_CHAIN, GAME_CURVE_K, GAME_FPS, UNIT_POSITION_PT, gameHitLift, gameMotionOf, isGameBulletType,
+  moveAttackDashPt as gameDashPt, type GameMotion,
+} from '@/lib/animation/gameRules'
+import {
   loadSprites,
   disposeSprites,
   renderSAMFrame,
@@ -149,27 +153,7 @@ const FLYER_DUMMY_RANGER_ID = 'u1231e-cony'
 const EDGE_DUMMY_RANGER_ID = 'u1297e-sn'
 // ตัวยืนขอบวงของเรนเจอร์ Air Ambush ต้องเป็นตัวบินด้วย (ตัวยืนพื้นไม่ลอย) — Merry 8★ (ab201_flight · unitPosition 120)
 const EDGE_FLYER_DUMMY_RANGER_ID = 'u1160e-merry'
-/**
- * ความสูงที่ยูนิตลอยเหนือเลนพื้น (pt) = unitPosition ในฐานข้อมูลเกม (ค่าที่ไม่ใช่ 0 ทั้งหมด)
- *   libgame: ตอนวางยูนิตลงสนาม y = เลน + unitPosition (โหนดทั้งตัวลอย ไม่ใช่แค่รูป)
- *   ตำแหน่งยูนิต = กลางกรอบไฟล์ body → จุดปล่อย/เป้ากระสุนลอยตามไปด้วย
- *   ตัวบิน (ab201_flight) ไม่ได้สูงเท่ากันทุกตัว: 100–130 pt
- */
-const UNIT_POSITION_PT: Record<string, number> = {
-  'g004-poppins': 30, 'g004-poppins2': 30, 'g004-poppins3': 30, 'g007-hb': 60, 'g007-hb2': 60, 'g007-hb3': 60,
-  'g008-thunder': 50, 'g008-thunder2': 50, 'g008-thunder3': 50, 'g009-phoenix': 65, 'g009-phoenix2': 65,
-  'g009-phoenix3': 65, 'g011-vlad': 30, 'g011-vlad2': 30, 'g011-vlad3': 30, 'g016-insun': 50, 'g016-insun2': 50,
-  'g016-insun3': 50, 'g016-insun4': 50, 'g016-insun5': 50, 'g016-insun6': 50, 'g016-insun7': 50,
-  'g016-insun8': 50, 'u1102e-sally': 100, 'u1102h-sally': 100, 'u1108e-bella': 120, 'u1108h-bella': 120,
-  'u1127e-edward': 100, 'u1127h-edward': 100, 'u1127u-edward': 100, 'u1137e-cony': 120, 'u1137h-cony': 120,
-  'u1160e-merry': 120, 'u1160h-merry': 120, 'u1170e-sally': 130, 'u1170h-sally': 130, 'u1170u-sally': 130,
-  'u1196e-leonard': 110, 'u1196h-leonard': 110, 'u1196u-leonard': 110, 'u1212e-brown': 100, 'u1212h-brown': 100,
-  'u1231e-cony': 120, 'u1231h-cony': 120, 'u1231u-cony': 120, 'u1285e-sally': 130, 'u1285h-sally': 130,
-  'u1286e-sally': 130, 'u1337e-leonard': 130, 'u1337h-leonard': 130, 'u1337u-leonard': 130, 'u1363e-cony': 110,
-  'u1363h-cony': 110, 'u1364e-cony': 110, 'u1459e-elle': 130, 'u1459h-elle': 130, 'u1460e-elle': 130,
-  'u1562e-pew': 110, 'u1562h-pew': 110, 'u1563e-pew': 110, 'u3913-tuto-cony': 120, 'u40016-sally': 130,
-  'u85010sk-mettaur': -5, 'u91026-eric': 100, 'u92026-eric': 100,
-}
+// ความสูงที่ยูนิตลอยเหนือเลนพื้น (pt) = unitPosition ในฐานข้อมูลเกม — ตารางอยู่ที่ @/lib/animation/gameRules (ใช้ร่วมกับ Video Studio)
 const unitLiftWorld = (unitId: string) => (UNIT_POSITION_PT[unitId] ?? 0) * PT_TO_WORLD
 // เหตุการณ์ "โดนตี" หนึ่งครั้งของเป้าหมายหนึ่งตัว
 interface HitEvent { tick: number; isSkill: boolean }
@@ -271,10 +255,10 @@ function pickIdleAnimName(sam: SAMParser): string {
  *           สตริงนี้ไม่ว่าง จึงไม่ถอยต่อ → โหลดไฟล์ที่ไม่มีอยู่ → ไม่เห็นกระสุน (แต่โหนดยังบินและโดนตามเวลา)
  * ตัวอย่าง u386u-brown (มีแค่ bul): สกิล 1 ยิง bul · สกิล 2 ไม่เห็นกระสุน (ตรงกับในเกม)
  */
-const BULLET_FILE_CHAIN: Record<string, string[]> = {
-  bul: ['bul'],
-  bul2: ['bul2', 'bul'],
-  bul3: ['bul3'],
+const BULLET_FILE_CHAIN: Record<string, readonly string[]> = {
+  bul: GAME_BULLET_CHAIN.normal,
+  bul2: GAME_BULLET_CHAIN.skill1,
+  bul3: GAME_BULLET_CHAIN.skill2,
 }
 const ATTACK_ANIM_MAP: Record<string, { kind: 'normal' | 'skill1' | 'skill2'; bulletSuffix: string }> = {
   All_attack:           { kind: 'normal', bulletSuffix: 'bul' },
@@ -325,19 +309,7 @@ function allAttackTriggers(sam: SAMParser): AllAttackTrigger[] {
 //              อื่นๆ (WEAPONC, ENERGYC …) = CCBezierBy P0 = P1 = จุดปล่อย · P2 = กึ่งกลาง + (0.4d ไปหน้า, 0.4d ขึ้น) · P3 = เป้า
 //              + setRotation(angle.start) แล้ว CCRotateTo(เวลาบิน, angle.end) เชิงเส้นตามเวลา
 //   ภาพ     = วาดให้กึ่งกลางกรอบไฟล์กระสุนอยู่บนจุดของวิถี · คลิป normal วนตลอดทาง แล้วเล่น finish ที่จุดชน
-const GAME_FPS = 60
-const GAME_CURVE_K = 0.4
-type GameMotion = 'CURVE' | 'LINEAR'
-const gameMotionOf = (attackType: string | null): GameMotion =>
-  attackType === 'WEAPON' || attackType === 'ENERGY' || attackType === 'DOUBLE' ? 'LINEAR' : 'CURVE'
-/**
- * attackType ที่เกมสร้างกระสุน (ตัวเลือกในเกม: บิต 0x3D98 ของ enum — ใช้ทั้งตีปกติและสกิล)
- *   enum: PUNCH 1 · KICK 2 · ENERGY 3 · ENERGYC 4 · SWING 5 · STAB 6 · WEAPON 7 · WEAPONC 8 · LASER 9
- *         DOUBLE 10 · DOUBLEC 11 · RETURN 12 · BEAM 13 · ACTION 14 · (NONE = 0)
- *   นอกกลุ่มนี้ไม่มีกระสุน — ตีโดนทันทีตอนช่วง *_ready จบ (ตรวจไฟล์จริง 35 ท่า: ไม่มีไฟล์ bul เลยสักท่า)
- */
-const GAME_BULLET_TYPES = new Set(['ENERGY', 'ENERGYC', 'WEAPON', 'WEAPONC', 'DOUBLE', 'DOUBLEC', 'RETURN', 'BEAM'])
-const isGameBulletType = (attackType: string | null) => !!attackType && GAME_BULLET_TYPES.has(attackType)
+// attackType ที่เกมสร้างกระสุน / ทรงวิถี (gameMotionOf) — อยู่ที่ @/lib/animation/gameRules
 /** กึ่งกลางกรอบเวทีของไฟล์ (= ตำแหน่งของโหนดในเกม) · ไฟล์ไม่มีกรอบ = null */
 function canvasCenter(sam: SAMParser): { x: number; y: number } | null {
   const c = sam.canvas
@@ -426,17 +398,8 @@ interface AttackMeta {
  *   ช่วง s_action_attack_2 จบ = setTarget(this) เก็บตำแหน่งปัจจุบัน → ดาเมจ sub-skill (เช่น sk1278_er_b ATK×36)
  *   ใส่ยูนิตที่ตำแหน่งอยู่ใน [จุดนั้น − range, จุดนั้น + range] แล้วเล่น s_action_attack_3
  */
-const MOVE_ATTACK_DASH_PT: Record<string, number> = {
-  sk1216_towa: 150,    // GRADE ADD 142 · เกรด 8
-  sk1269_brown: 130,
-  sk1278_er: 300,
-  sk1307_ab: 250,
-  sk1422_mk: 300,
-  sk1519_de: 275,
-  sk40014_brown: 130,
-}
-const moveAttackDashPt = (meta: AttackMeta | null | undefined) =>
-  meta?.attackType === 'ACTION' && meta.skillCode ? MOVE_ATTACK_DASH_PT[meta.skillCode] ?? 0 : 0
+// ตารางระยะพุ่ง MOVE_ATTACK_DASH_PT อยู่ที่ @/lib/animation/gameRules
+const moveAttackDashPt = (meta: AttackMeta | null | undefined) => gameDashPt(meta?.attackType, meta?.skillCode)
 interface BulletAsset {
   sam: SAMParser; sprites: SpriteMap; normalName: string; finishName: string | null
   // ชื่อไฟล์ล้วน (เช่น "u1381e-mk-bul3")
@@ -491,7 +454,7 @@ function gameShot(
   const self = selfCanvasH !== undefined
   const pos = self ? mainPos : dummyPointWorld(dummy, canvasCenter(dummy.sam) ?? dummy.anchor, dOff, dyOff)
   const h = self ? selfCanvasH : dummy.sam.canvas.h
-  const lift = meta.hitPointRate <= 10 ? meta.hitPointRate * h : motion === 'LINEAR' ? 0.25 * h : 0
+  const lift = gameHitLift(meta.hitPointRate, motion, h)
   const start = attackStartWorld(meta.start, mainPos)
   // libgame (normal 0xcd84c0 · skill 0xcd9c20): ระยะ = |ตำแหน่งเป้า − จุดปล่อย| คิดก่อนบวก lift
   //   → เวลาบิน = ระยะ ÷ (moveSpeed × 60) และจุดคุมโค้ง 0.4·ระยะ ใช้ค่านี้ · ปลายทางจริง = ตำแหน่ง + lift

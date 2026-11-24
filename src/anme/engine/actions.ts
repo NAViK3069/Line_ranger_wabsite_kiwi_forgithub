@@ -1,6 +1,7 @@
 // ====================================================
 // actions.ts — คำสั่งระดับสูงที่ UI เรียก (เพิ่มเรนเจอร์ / สื่อ / สกิล / ลบ / ทำซ้ำ ...)
 // ====================================================
+import { GAME_PX_PER_PT, gameBulletSet, gameMotionOf, isGameBulletType, moveAttackDashPt, unitPositionPt } from '@/lib/animation/gameRules'
 import { assets, fetchRangerListing, isAudioName, isVideoName, uploadFile, type MovePart, type RangerRuntime, type SkillSoundKind } from './assets'
 import { L, getLang } from './i18n'
 import { api, anmeFetch, rememberRanger } from './storage'
@@ -10,7 +11,7 @@ import {
 } from './scene'
 import { getState, replaceScene, select, selectedCueIds, setState, toast, updateScene } from './store'
 import { actorPos, buildTimeline, sceneEnd } from './timeline'
-import type { Actor, ActorTag, AssetDef, Cue, InfoCue, SamSetUrls, Scene, SkillCard, SkillCue, SkillFx } from './types'
+import type { Actor, ActorTag, AssetDef, Cue, GameProjectile, InfoCue, SamSetUrls, Scene, SkillCard, SkillCue, SkillFx } from './types'
 import { AUDIO_ID, CAMERA_ID } from './types'
 
 // ── รายชื่อเรนเจอร์ (ไทย/อังกฤษ) ──
@@ -39,6 +40,16 @@ function nextSlot(s: Scene, tag: ActorTag) {
   return { x: clamp(x, 60, W - 60), y: s.groundY + (Math.floor(same / 3) % 2) * 26 }
 }
 
+/**
+ * ยูนิตที่เกมวางลอยเหนือเลน (unitPosition ในฐานข้อมูลเกม เช่น ตัวบิน 100–130 pt) → ยกขึ้นเท่านั้น (px เวที ที่ scale 1)
+ * แบบเดียวกับตัวเล่นอนิเมชั่นเรนเจอร์ — ตัวยืนพื้น = 0
+ */
+export const unitLiftPx = (rangerId: string | null | undefined) => unitPositionPt(rangerId) * GAME_PX_PER_PT
+const liftOfActor = (s: Scene, a: Actor) => {
+  const d = s.assets.find(x => x.id === a.assetId)
+  return d?.type === 'ranger' && d.source === 'lerico' ? unitLiftPx(d.rangerId) * a.scale : 0
+}
+
 /** ฝ่ายเรายืนซ้ายหันขวา · ศัตรูยืนขวาหันซ้าย */
 export const facingFor = (tag: ActorTag) => (tag === 'enemy') !== ART_FACES_LEFT
 /** ทิศ "ข้างหน้า" ของ actor บนจอ (+1 = ขวา) */
@@ -60,7 +71,9 @@ export async function addLericoRanger(rangerId: string, opts: { form?: string; t
         def = { id: uid('r'), type: 'ranger', source: 'lerico', rangerId, form, name: form === 'body' ? name : `${name} (${form})` }
         s.assets.push(def)
       }
-      const a = newActor(def, nextSlot(s, tag), { tag, flip: facingFor(tag) })
+      const slot = nextSlot(s, tag)
+      // ตัวบินลอยเหนือเลนตาม unitPosition ของเกม (ตัวยืนพื้นไม่ขยับ)
+      const a = newActor(def, { x: slot.x, y: slot.y - unitLiftPx(rangerId) }, { tag, flip: facingFor(tag) })
       s.actors.push(a)
       actorId = a.id
     })
@@ -232,6 +245,8 @@ export function skillPresets(rt: RangerRuntime): SkillPreset[] {
  */
 export function skillIsBuff(rt: RangerRuntime, kind: SkillSoundKind, move: MovePart | null): boolean {
   if (kind === 'normal') return false
+  // MOVE_ATTACK เป็น targetType SELF ก็จริง แต่เป็นสกิลโจมตี (พุ่งไปแล้วตีวงรอบตัว)
+  if (moveAttackDashPt(move?.attackType, move?.skillCode) > 0) return false
   const basis = rt.gamedata?.basis?.[kind] ?? null
   return basis ? basis === 'self' : move?.motion === 'NONE'
 }
@@ -265,6 +280,39 @@ export function fxFromGameData(rt: RangerRuntime, set: string, move: MovePart | 
   fx.anchor = buff || rate === 0 ? 'stand' : 'center'
   const b = rt.bullets[set]
   if (b) { fx.flight = b.flight; fx.finish = b.finish }
+  return fx
+}
+
+/** ข้อมูลเกมรุ่นใหม่ (/data/ranger/projectile) มี attackType → ใช้กฎของเกมได้เต็มชุด · ข้อมูลเก่า (gamedata-index) ไม่มีช่องนี้ */
+export const hasGameRules = (move: MovePart | null | undefined) => !!move && move.attackType !== undefined
+
+/** วิถีกระสุนแบบเกม (SkillFx.game) จากข้อมูลท่า */
+export function gameProjectileOf(move: MovePart): GameProjectile {
+  return {
+    motion: gameMotionOf(move.attackType),
+    start: { x: move.start?.x ?? 0, y: move.start?.y ?? 0 },
+    angle: { start: move.angle?.start ?? 0, end: move.angle?.end ?? 0 },
+    moveSpeed: move.speed > 0 ? move.speed : 0,
+    hitRate: move.hitRate ?? 100,
+  }
+}
+
+/**
+ * กระสุนตามกฎของเกม — ค่าเริ่มต้นของคิวใหม่ (ชุดเดียวกับตัวเล่นอนิเมชั่นเรนเจอร์ · ดู @/lib/animation/gameRules):
+ *   attackType ไม่อยู่กลุ่มยิง (PUNCH / SWING / STAB / ACTION …) → null = ไม่มีกระสุน โดนตอนช่วง *_ready จบ
+ *   ไฟล์ = ตามชนิดท่า (bul · bul2 → bul · bul3) — สกิล 2 ไม่มี bul3 = กระสุนล่องหน (ยังบินและโดนตามเวลาบิน)
+ *   วิถี = fx.game: จุดปล่อย start · เป้า + ยกตาม hitPointRate · เวลาบิน ระยะ ÷ (moveSpeed × 60) · โค้ง/ตรงตาม attackType · มุมหัวกระสุน
+ *   ค่าแบบกำหนดเอง (launch / speed / arc …) เติมจากข้อมูลเกมไว้ให้ — ใช้ตอนปิด "วิถีแบบเกม"
+ */
+export function gameFx(rt: RangerRuntime, kind: SkillSoundKind, move: MovePart | null): SkillFx | null {
+  if (!move || !isGameBulletType(move.attackType)) return null
+  const { set } = gameBulletSet(kind, k => rt.setKeys.includes(k))
+  const fx = fxFromGameData(rt, set, move, kind)
+  fx.mode = 'projectile'
+  const b = rt.bullets[set]
+  fx.flight = b?.flight ?? 'normal'
+  fx.finish = b?.finish ?? 'finish'
+  fx.game = gameProjectileOf(move)
   return fx
 }
 
@@ -304,21 +352,40 @@ export function addSkill(actorId: string, presetKey: string, at?: number) {
   const kind = presetSoundKind(p.key)
   // สกิลบัฟ → ไม่ล็อกเป้าหมายตั้งแต่แรก (เอฟเฟกต์เกิดที่ตัวเอง ไม่มีใครโดน)
   const buff = skillIsBuff(rt, kind, p.move)
-  const cue = newSkillCue(actorId, start, { label: p.label, cast: p.cast, release: p.release, targetId: buff ? null : defaultTarget(s, a) })
-  if (p.set) cue.fx = fxFromGameData(rt, p.set, p.move, kind)
+  const game = hasGameRules(p.move)
+  const cue = newSkillCue(actorId, start, {
+    label: p.label, cast: p.cast, release: p.release, targetId: buff ? null : defaultTarget(s, a),
+    // กฎของเกม (ล็อคเป้า · Self · วง Area · ท่าพุ่ง) — ข้อมูลเกมรุ่นเก่าไม่มี attackType → ใช้แบบเดิม
+    game,
+    // แบบตัวเล่นอนิเมชั่น: ตีปกติ = เป้ากะพริบ · สกิล = เป้าเล่นท่าโดนตี (target)
+    ...(game ? { hitReact: kind !== 'normal', flash: kind === 'normal' } : {}),
+  })
+  cue.fx = game ? gameFx(rt, kind, p.move) : p.set ? fxFromGameData(rt, p.set, p.move, kind) : null
   updateScene(d => {
-    cue.gameSounds = gameSoundsFor(d, rt, kind)
+    cue.gameSounds = gameSoundsFor(d, rt, kind, isActionRelease(p.release))
     d.cues.push(cue); rippleAfter(d, cue.id); extendDuration(d)
   })
   select({ kind: 'cue', id: cue.id })
 }
 
-/** เสียงจากเกมของท่านี้: ร่าย (preparation) ตอนเริ่มร่าย + โดน (underAttack) ทุกครั้งที่กระทบ — เปิดไว้ทั้งคู่ */
-function gameSoundsFor(d: Scene, rt: RangerRuntime, kind: SkillSoundKind): SkillCue['gameSounds'] {
+/** สกิลแบบ ACTION (s_action_attack_*) — ในเกมไม่มีเสียงปล่อยท่า */
+const isActionRelease = (release: string) => release.includes('_action_')
+
+/**
+ * เสียงจากเกมของท่านี้ (จังหวะแบบเกม — libgame.so) เปิดไว้ทุกอัน:
+ *   ร่าย (preparation) ตอนเริ่มท่า · ปล่อยท่า (attack) ตอนช่วง *_ready จบ (สกิล ACTION ไม่มี) · โดน (underAttack) ทุกครั้งที่กระทบ
+ *   ทุกเสียงดังจนจบไฟล์ ซ้อนกันได้ (playEffect ของเกม)
+ */
+function gameSoundsFor(d: Scene, rt: RangerRuntime, kind: SkillSoundKind, action = false): SkillCue['gameSounds'] {
   const snd = rt.sounds?.[kind]
   if (!snd) return []
-  return ([['cast', snd.preparation], ['impact', snd.underAttack]] as const)
-    .filter((x): x is readonly ['cast' | 'impact', string] => !!x[1])
+  const list: [SkillCue['gameSounds'][number]['at'], string | null | undefined][] = [
+    ['cast', snd.preparation],
+    ...(action ? [] : [['release', snd.attack] as [SkillCue['gameSounds'][number]['at'], string | null | undefined]]),
+    ['impact', snd.underAttack],
+  ]
+  return list
+    .filter((x): x is [SkillCue['gameSounds'][number]['at'], string] => !!x[1])
     .map(([at, url]) => ({ assetId: ensureAudioAsset(d, gameSoundUrl(url), gameSoundName(url)), at, volume: 1, enabled: true }))
 }
 
@@ -664,7 +731,7 @@ export async function loadDemo() {
         const rt = a && assets.get(a.assetId)
         if (!rt || rt.kind !== 'ranger') continue
         const p = skillPresets(rt).find(x => x.release === c.release)
-        if (p) c.gameSounds = gameSoundsFor(d, rt, presetSoundKind(p.key))
+        if (p) c.gameSounds = gameSoundsFor(d, rt, presetSoundKind(p.key), isActionRelease(p.release))
       }
     }, false)
   }
@@ -734,8 +801,8 @@ export function resetScene(kind: ResetKind) {
         const enemies = s.actors.filter(a => a.tag === 'enemy' && isRangerAsset(s, a))
         const place = (list: Actor[], tag: ActorTag) => list.forEach((a, i) => {
           const x = tag === 'enemy' ? s.width * 0.72 + (i % 3) * 110 : s.width * 0.28 - (i % 3) * 110
-          a.x = Math.round(clamp(x, 60, s.width - 60)); a.y = s.groundY + (Math.floor(i / 3) % 2) * 26
           a.scale = 1; a.flip = facingFor(tag); a.opacity = 1; a.rotation = 0
+          a.x = Math.round(clamp(x, 60, s.width - 60)); a.y = s.groundY + (Math.floor(i / 3) % 2) * 26 - liftOfActor(s, a)
         })
         place(allies, 'ally'); place(enemies, 'enemy')
         for (const a of s.actors) if (!isRangerAsset(s, a)) { a.x = s.width / 2; a.y = s.height / 2; a.rotation = 0 }

@@ -7,7 +7,10 @@
 // กฎการยิงยกมาจาก LineRanger_TurnBased (shotRules.ts / rangerConfig.ts)
 // ====================================================
 import type { SamFrame } from '@/anme/lib/animation/samParser'
-import { assets, readyLength, type BulletRuntime, type RangerRuntime, type SamSet } from './assets'
+import {
+  GAME_CURVE_K, GAME_FPS, GAME_PX_PER_PT, attackKindOfClip, gameHitLift, moveAttackDashPt, type AttackKind,
+} from '@/lib/animation/gameRules'
+import { assets, readyLength, type BulletRuntime, type MovePart, type RangerRuntime, type SamSet, type SkillBasis } from './assets'
 import { ART_FACES_LEFT, EASES, clamp, lerp } from './scene'
 import type { Actor, CameraCue, Cue, Ease, GameProjectile, MoveCue, Scene, ShowCue, SkillCue, SkillFx, Vec } from './types'
 import { CAMERA_ID } from './types'
@@ -36,8 +39,53 @@ export const clipFrames = (set: SamSet | null | undefined, clip: string | null |
 /** ทิศ "ข้างหน้า" บนจอ (+1 = ขวา) */
 export const facing = (a: Actor) => ((a.flip ? -1 : 1) * (ART_FACES_LEFT ? -1 : 1))
 
+// ── กฎของเกมของคิวสกิล (ชุดเดียวกับตัวเล่นอนิเมชั่นเรนเจอร์ — ดู @/lib/animation/gameRules) ──
+export interface CueRules {
+  /** ใช้กฎของเกม (SkillCue.game · ฉากเก่าไม่มีค่า = ตาม fx.game) */
+  game: boolean
+  kind: AttackKind | null
+  move: MovePart | null
+  basis: SkillBasis
+  /** สกิล Self (targetType SELF ที่ไม่ใช่ MOVE_ATTACK) — เกม setTarget(ตัวเอง) ก่อนยิง → กระสุนบินกลับมาลงตัวผู้ร่าย */
+  self: boolean
+  /** ท่าบัฟ — ไม่มีศัตรูโดน (ไม่มีท่าโดนตี/แฟลช) */
+  buff: boolean
+  /** ระยะพุ่งของ MOVE_ATTACK (px เวที, ไปข้างหน้า) · 0 = ไม่พุ่ง */
+  dashPx: number
+  /** เวลาพุ่ง (วินาที) = ระยะ(pt) ÷ (moveSpeed × 60) */
+  dashDur: number
+  /** รัศมีวง Area ของสกิล (px เวที) · 0 = โดนแค่ตัวที่ล็อค */
+  areaPx: number
+  /** สกิล Rear: ล็อคตัวไกลสุดในระยะโจมตี × ตัวคูณนี้ */
+  rearMul: number
+}
+
+export function cueRules(scene: Scene, cue: SkillCue): CueRules {
+  const game = cue.game ?? !!cue.fx?.game
+  const caster = scene.actors.find(a => a.id === cue.actorId)
+  const gd = rangerOfActor(scene, caster)?.gamedata ?? null
+  const kind = attackKindOfClip(cue.release)
+  const move = !gd || !kind ? null : kind === 'normal' ? gd.n : kind === 'skill1' ? gd.s1 : gd.s2
+  const skill = kind === 'skill1' || kind === 'skill2' ? kind : null
+  const basis: SkillBasis = skill ? gd?.basis?.[skill] ?? null : null
+  const dashPt = game ? moveAttackDashPt(move?.attackType, move?.skillCode) : 0
+  const scale = caster?.scale ?? 1
+  const range = skill ? gd?.skillRanges?.[skill] ?? null : null
+  return {
+    game, kind, move, basis,
+    self: game && !!skill && basis === 'self' && dashPt === 0,
+    // เหมือน spawnBullet ของตัวเล่น: 觸發基準 self = บัฟ · ไม่มีข้อมูลนั้น → motion.type NONE · MOVE_ATTACK เป็นท่าโจมตีเสมอ
+    buff: !!skill && dashPt === 0 && (basis ? basis === 'self' : move?.motion === 'NONE'),
+    dashPx: dashPt * GAME_PX_PER_PT * scale,
+    dashDur: dashPt > 0 && move && move.speed > 0 ? dashPt / (move.speed * GAME_FPS) : 0,
+    areaPx: game && range ? range.area * GAME_PX_PER_PT * scale : 0,
+    rearMul: range?.rearMul && range.rearMul > 0 ? range.rearMul : 1,
+  }
+}
+
 // ── การเคลื่อนที่ ──
-interface Goto { start: number; dur: number; to: Vec; ease: Ease }
+/** to = จุดปลายทาง · by = เลื่อนจากตำแหน่ง ณ ตอนเริ่ม (ท่าพุ่ง MOVE_ATTACK) */
+interface Goto { start: number; dur: number; to: Vec; ease: Ease; by?: Vec }
 
 /** ตำแหน่งจากคิวเดินอย่างเดียว (ไม่นับการเดินเข้าหาเป้า) */
 function basePos(scene: Scene, a: Actor, t: number): Vec {
@@ -66,11 +114,12 @@ export function approachPlan(scene: Scene, c: SkillCue): ApproachPlan | null {
   return { from, stop, walk }
 }
 
-const motionCache = new WeakMap<Scene, Map<string, Goto[]>>()
+// แคชตามฉาก + รุ่นของ asset (ท่าพุ่ง MOVE_ATTACK ต้องรู้ข้อมูลเกมของผู้ร่าย ซึ่งโหลดเสร็จทีหลังได้)
+const motionCache = new WeakMap<Scene, { ver: number; map: Map<string, Goto[]> }>()
 function motionsOf(scene: Scene, actorId: string): Goto[] {
   let m = motionCache.get(scene)
-  if (!m) { m = new Map(); motionCache.set(scene, m) }
-  let list = m.get(actorId)
+  if (!m || m.ver !== assets.version) { m = { ver: assets.version, map: new Map() }; motionCache.set(scene, m) }
+  let list = m.map.get(actorId)
   if (!list) {
     list = []
     for (const c of scene.cues) {
@@ -78,13 +127,23 @@ function motionsOf(scene: Scene, actorId: string): Goto[] {
       if (c.type === 'move') list.push({ start: c.start, dur: c.duration, to: c.to, ease: c.ease })
       if (c.type === 'skill') {
         const ap = approachPlan(scene, c)
-        if (!ap) continue
-        list.push({ start: c.start, dur: ap.walk, to: ap.stop, ease: 'linear' })
-        if (c.approach.returnHome) list.push({ start: skillCore(scene, c).bodyEnd, dur: ap.walk, to: ap.from, ease: 'linear' })
+        if (ap) {
+          list.push({ start: c.start, dur: ap.walk, to: ap.stop, ease: 'linear' })
+          if (c.approach.returnHome) list.push({ start: skillCore(scene, c).bodyEnd, dur: ap.walk, to: ap.from, ease: 'linear' })
+        }
+        // MOVE_ATTACK: ช่วงแรกของท่า (s_action_attack_1) จบ → CCMoveTo พุ่งไปข้างหน้า แล้วอยู่ตรงนั้นต่อ (ไม่ถอยกลับ)
+        const r = cueRules(scene, c)
+        const caster = scene.actors.find(a => a.id === actorId)
+        if (r.dashPx > 0 && caster) {
+          const core = skillCore(scene, c)
+          const f1 = clipFrames(core.rt, c.cast[0])
+          const at = core.castF > 0 ? core.castStart + (f1 / core.castF) * core.castDur : core.castStart
+          list.push({ start: at, dur: r.dashDur, to: { x: 0, y: 0 }, by: { x: r.dashPx * facing(caster), y: 0 }, ease: 'linear' })
+        }
       }
     }
     list.sort((p, q) => p.start - q.start)
-    m.set(actorId, list)
+    m.map.set(actorId, list)
   }
   return list
 }
@@ -94,7 +153,8 @@ export function actorPos(scene: Scene, a: Actor, t: number): Vec {
   for (const g of motionsOf(scene, a.id)) {
     if (t < g.start) break
     const e = EASES[g.ease](g.dur > 0 ? clamp((t - g.start) / g.dur, 0, 1) : 1)
-    x = lerp(x, g.to.x, e); y = lerp(y, g.to.y, e)
+    const tx = g.by ? x + g.by.x : g.to.x, ty = g.by ? y + g.by.y : g.to.y
+    x = lerp(x, tx, e); y = lerp(y, ty, e)
   }
   return { x, y }
 }
@@ -227,12 +287,8 @@ export function fxLaunchPoint(scene: Scene, cue: SkillCue, caster: Actor, t: num
 }
 
 // ── วิถีกระสุนแบบในเกม (ถอดจาก libgame.so — ดู SkillFx.game) ──
-/** contentScaleFactor ของเกม: 1 pt = 2 พิกเซลของไฟล์ .sam */
-export const GAME_PX_PER_PT = 2
-/** moveSpeed เป็น pt ต่อเฟรมที่ 60 เฟรม/วินาที (ค่าคงที่ 60.0 ในเกม) */
-export const GAME_FPS = 60
-/** จุดคุมโค้ง CCBezierBy: กึ่งกลาง + 0.4 × ระยะ (ไปข้างหน้า และขึ้น) */
-export const GAME_CURVE_K = 0.4
+// ค่าคงที่ / ทรงวิถี / ชนิดท่าที่มีกระสุน อยู่ที่ @/lib/animation/gameRules (ใช้ร่วมกับตัวเล่นอนิเมชั่นเรนเจอร์)
+export { GAME_PX_PER_PT, GAME_FPS, GAME_CURVE_K, GAME_BULLET_TYPES, isGameBulletType, gameMotionOf } from '@/lib/animation/gameRules'
 
 /**
  * จุด getPosition ของยูนิตในเกม เทียบกับจุดยืนที่ตัวเล่นใช้วาด (rt.stand = กลางเงาใต้เท้า)
@@ -255,7 +311,7 @@ function gameTargetPoint(scene: Scene, target: Actor, g: GameProjectile, t: numb
   const dir = target.flip ? -1 : 1
   const h = rt?.sam.canvas.h ?? 0
   // hitRate ≤ 10 = สัดส่วนความสูงกรอบ · > 10 = ค่าตั้งต้น (LINEAR ยก 0.25 × สูง · CURVE ไม่ยก)
-  const lift = !withLift ? 0 : g.hitRate <= 10 ? g.hitRate * h : g.motion === 'LINEAR' ? 0.25 * h : 0
+  const lift = withLift ? gameHitLift(g.hitRate, g.motion, h) : 0
   return { x: p.x + off.x * target.scale * dir, y: p.y + (off.y - lift) * target.scale }
 }
 
@@ -277,25 +333,11 @@ export function gamePathPos(g: GameProjectile, from: Vec, to: Vec, k: number, fo
 export const gameRotation = (g: GameProjectile, k: number) =>
   g.motion === 'CURVE' ? ((g.angle.start + (g.angle.end - g.angle.start) * k) * Math.PI) / 180 : 0   // CCMoveBy ไม่ตั้งมุม
 
-/** attackType ที่เกมสร้างกระสุน (บิต 0x3D98) — นอกนั้นไม่มีกระสุน โดนทันทีตอนช่วง *_ready จบ */
-export const GAME_BULLET_TYPES = ['ENERGY', 'ENERGYC', 'WEAPON', 'WEAPONC', 'DOUBLE', 'DOUBLEC', 'RETURN', 'BEAM'] as const
-export const isGameBulletType = (attackType: string | null | undefined) =>
-  !!attackType && (GAME_BULLET_TYPES as readonly string[]).includes(attackType)
-
-/**
- * ทรงวิถีจาก attackType (ตัวที่เกมใช้ตัดสินจริง — ไม่ใช่ motion.type ของ lerico)
- *   enum ในเกม: PUNCH 1 · KICK 2 · ENERGY 3 · ENERGYC 4 · SWING 5 · STAB 6 · WEAPON 7 · WEAPONC 8 · LASER 9
- *               DOUBLE 10 · DOUBLEC 11 · RETURN 12 · BEAM 13 · ACTION 14
- *   WEAPON / ENERGY / DOUBLE → CCMoveBy เส้นตรง · RETURN / BEAM มีทางของตัวเอง · ที่เหลือ → CCBezierBy + หมุน
- */
-export const gameMotionOf = (attackType: string | null | undefined): 'CURVE' | 'LINEAR' =>
-  attackType === 'WEAPON' || attackType === 'ENERGY' || attackType === 'DOUBLE' ? 'LINEAR' : 'CURVE'
-
 // ── การตรวจจับ / ล็อคเป้าแบบเกม (UnitNode::searchTarget — ถอดจาก libgame.so) ──
 //   hitbox ของยูนิต   = CCRect(x − contentWidth/2, 0, contentWidth, 320) → แกน X = กว้างเท่ากรอบไฟล์ .sam คร่อมตำแหน่ง
 //   ช่องตรวจจับ        = CCRect(ตัวเอง → ข้างหน้า attackRange × (1 + บัฟระยะ), 0 … 320) — แกน Y คลุมทั้งเลน
 //   ในระยะ            = ช่องตรวจจับ intersectsRect hitbox ของศัตรู
-//   ล็อคเป้า           = เรียงตาม |x เป้า − x ตัวเอง| (แกน X อย่างเดียว) ใกล้สุดก่อน
+//   ล็อคเป้า           = เรียงตาม |x เป้า − x ตัวเอง| (แกน X อย่างเดียว) ใกล้สุดก่อน · สกิล Rear (RSEARCH) = ไกลสุดก่อน
 //   กระสุนทุกลูก (ตีปกติ / สกิล) ยิงใส่เป้าที่ล็อคไว้ตัวเดียวกัน · ปลายทางคำนวณตอนปล่อย (CCBezierBy/MoveBy แบบสัมพัทธ์ — ไม่ตามเป้าที่ขยับหลังปล่อย)
 /** ช่วงแกน X ของ hitbox ยูนิต (พิกเซลเวที) */
 export function gameHitbox(scene: Scene, a: Actor, t: number): { x0: number; x1: number } {
@@ -305,42 +347,60 @@ export function gameHitbox(scene: Scene, a: Actor, t: number): { x0: number; x1:
   const half = ((rt?.sam.canvas.w ?? 0) / 2) * a.scale
   return { x0: cx - half, x1: cx + half }
 }
-/** ช่วงแกน X ของช่องตรวจจับ (ไม่มีระยะโจมตีในข้อมูลเกม = null) */
-export function gameDetectRange(scene: Scene, a: Actor, t: number): { x0: number; x1: number } | null {
+/** ช่วงแกน X ของช่องตรวจจับ (ไม่มีระยะโจมตีในข้อมูลเกม = null) · rangeMul = ตัวคูณระยะ (สกิล Rear) */
+export function gameDetectRange(scene: Scene, a: Actor, t: number, rangeMul = 1): { x0: number; x1: number } | null {
   const rt = rangerOfActor(scene, a)
   const range = rt?.gamedata?.range
   if (!rt || !range) return null
   const x = actorPos(scene, a, t).x + gameAnchorOffset(rt).x * a.scale * (a.flip ? -1 : 1)
-  const len = range * GAME_PX_PER_PT * a.scale
+  const len = range * rangeMul * GAME_PX_PER_PT * a.scale
   return facing(a) > 0 ? { x0: x, x1: x + len } : { x0: x - len, x1: x }
 }
-/** เป้าที่เกมล็อค ณ เวลา t: ศัตรูที่มองเห็นและ hitbox ทับช่องตรวจจับ ใกล้สุดตามแกน X · ไม่มี = null */
-export function gameLockTarget(scene: Scene, caster: Actor, t: number): Actor | null {
-  const det = gameDetectRange(scene, caster, t)
-  if (!det || caster.tag === 'prop') return null
-  const me = actorPos(scene, caster, t).x
-  let best: Actor | null = null, bestD = Infinity
-  for (const a of scene.actors) {
-    if (a.id === caster.id || a.tag === 'prop' || a.tag === caster.tag || !a.visible) continue
-    if (!rangerOfActor(scene, a)) continue
+/** ศัตรูที่เกมนับว่า "อยู่ในสนาม" ณ เวลา t (เรนเจอร์ฝั่งตรงข้ามที่มองเห็น) */
+function gameFoes(scene: Scene, caster: Actor, t: number): Actor[] {
+  if (caster.tag === 'prop') return []
+  return scene.actors.filter(a => {
+    if (a.id === caster.id || a.tag === 'prop' || a.tag === caster.tag || !a.visible || !rangerOfActor(scene, a)) return false
     const vis = visibility(scene, a, t)
-    if (!vis || vis.alpha <= 0) continue
+    return !!vis && vis.alpha > 0
+  })
+}
+/**
+ * เป้าที่เกมล็อค ณ เวลา t: ศัตรูที่มองเห็นและ hitbox ทับช่องตรวจจับ เรียงตามแกน X · ไม่มี = null
+ *   ปกติ = ใกล้สุด · farthest (สกิล Rear / RSEARCH) = ไกลสุด ในระยะ × rangeMul
+ */
+export function gameLockTarget(scene: Scene, caster: Actor, t: number, opts: { farthest?: boolean; rangeMul?: number } = {}): Actor | null {
+  const det = gameDetectRange(scene, caster, t, opts.rangeMul ?? 1)
+  if (!det) return null
+  const me = gameUnitX(scene, caster, t)
+  let best: Actor | null = null, bestD = opts.farthest ? -Infinity : Infinity
+  for (const a of gameFoes(scene, caster, t)) {
     const hb = gameHitbox(scene, a, t)
     if (hb.x1 < det.x0 || hb.x0 > det.x1) continue
-    const d = Math.abs(actorPos(scene, a, t).x - me)
-    if (d < bestD) { best = a; bestD = d }
+    const d = Math.abs(gameUnitX(scene, a, t) - me)
+    if (opts.farthest ? d > bestD : d < bestD) { best = a; bestD = d }
   }
   return best
 }
+/** ตำแหน่งแกน X ของยูนิตแบบเกม (getPosition = กลางกรอบไฟล์ body) */
+export function gameUnitX(scene: Scene, a: Actor, t: number): number {
+  return actorPos(scene, a, t).x + gameAnchorOffset(rangerOfActor(scene, a)).x * a.scale * (a.flip ? -1 : 1)
+}
 /**
- * เป้าของคิวสกิล: กระสุนแบบเกม (fx.game) → ล็อคเป้าตามเกม ณ ต้นคิว (ไม่เจอในระยะ → ใช้ targetId ที่ตั้งไว้)
- * อื่นๆ → targetId ตามที่ตั้ง
+ * เป้าของคิวสกิล:
+ *   กฎของเกม (cueRules.game) → สกิล Self = ตัวผู้ร่ายเอง · อื่นๆ ล็อคเป้าแบบเกม ณ จังหวะปล่อย (ช่วง *_ready จบ — ตอนที่เกมเรียก searchTarget)
+ *                               ไม่เจอใครในระยะ → ใช้ targetId ที่ตั้งไว้
+ *   ปิดกฎของเกม → targetId ตามที่ตั้ง
  */
 export function cueTarget(scene: Scene, cue: SkillCue): Actor | null {
   const set = scene.actors.find(a => a.id === cue.targetId) ?? null
-  if (!cue.fx?.game) return set
+  const r = cueRules(scene, cue)
+  if (!r.game) return set
   const caster = scene.actors.find(a => a.id === cue.actorId)
-  return (caster && gameLockTarget(scene, caster, cue.start)) ?? set
+  if (!caster) return set
+  if (r.self) return caster
+  const rear = r.basis === 'rear'
+  return gameLockTarget(scene, caster, skillCore(scene, cue).releaseAt, { farthest: rear, rangeMul: rear ? r.rearMul : 1 }) ?? set
 }
 
 /** ระยะจากจุดปล่อยถึง "ตำแหน่งเป้าก่อนบวก lift" (พิกเซล world) — ตัวที่เกมใช้คิดเวลาบินและจุดคุมโค้ง */
@@ -426,6 +486,36 @@ export function cueBodyDuration(scene: Scene, c: Cue, skill?: SkillTiming): numb
   }
 }
 
+/**
+ * จังหวะโดนตามกฎของเกม:
+ *   มีกระสุน = ตอนกระสุนถึง (ลูกละครั้ง) · ไม่มีกระสุน (PUNCH/SWING/ACTION …) = ตอนช่วง *_ready จบ
+ *   บัฟ = ไม่มีใครโดน · สกิลมีวง Area = ศัตรูทุกตัวที่ตำแหน่งอยู่ใน [กึ่งกลาง ± รัศมี] (0xcf0c54 — ตำแหน่ง ไม่ใช่ hitbox)
+ *     กึ่งกลาง = ตำแหน่งเป้าที่ล็อคตอนปล่อย (setTarget) · MOVE_ATTACK = ตำแหน่งผู้ร่ายหลังพุ่ง (ตอน s_action_attack_2 จบ)
+ *   ไม่มีวง = โดนแค่ตัวที่ล็อค
+ */
+function pushGameHits(scene: Scene, c: SkillCue, st: SkillTiming, hits: HitEvent[]) {
+  const r = cueRules(scene, c)
+  const caster = scene.actors.find(a => a.id === c.actorId)
+  if (r.buff || !caster) return
+  const target = cueTarget(scene, c)
+  const foe = target && target.id !== caster.id ? target : null
+  const times = c.fx && st.shots.length ? st.shots.map(s => ({ at: s.impactAt, shot: s.index })) : [{ at: st.launchAt, shot: 0 }]
+  for (const h of times) {
+    const point = (a: Actor) => (c.fx && a === foe ? fxImpactPoint(scene, c, h.at) : actorHitPoint(scene, a, h.at))
+    if (r.areaPx > 0) {
+      const cx = r.dashPx > 0 ? gameUnitX(scene, caster, h.at) : foe ? gameUnitX(scene, foe, st.launchAt) : null
+      if (cx == null) continue
+      const pool = gameFoes(scene, caster, h.at)
+      if (foe && !pool.includes(foe)) pool.push(foe)
+      for (const a of pool) {
+        if (Math.abs(gameUnitX(scene, a, h.at) - cx) <= r.areaPx) hits.push({ at: h.at, targetId: a.id, cue: c, shot: h.shot, point: point(a) })
+      }
+    } else if (foe) {
+      hits.push({ at: h.at, targetId: foe.id, cue: c, shot: h.shot, point: point(foe) })
+    }
+  }
+}
+
 export function buildTimeline(scene: Scene): Timeline {
   const skill = new Map<string, SkillTiming>()
   const hits: HitEvent[] = []
@@ -439,7 +529,9 @@ export function buildTimeline(scene: Scene): Timeline {
     const st = skillTiming(scene, c)
     skill.set(c.id, st)
     dur.set(c.id, st.end - c.start)
-    if (c.fx && st.shots.length) {
+    if (cueRules(scene, c).game) {
+      pushGameHits(scene, c, st, hits)
+    } else if (c.fx && st.shots.length) {
       const tid = cueTarget(scene, c)?.id ?? c.targetId
       for (const s of st.shots) hits.push({ at: s.impactAt, targetId: tid, cue: c, shot: s.index, point: fxImpactPoint(scene, c, s.impactAt) })
     } else if (c.targetId) {

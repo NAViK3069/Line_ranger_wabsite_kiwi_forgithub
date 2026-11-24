@@ -10,8 +10,8 @@ import { addUploadedRanger, loadDemo, patchActor, patchCue, patchSkill, uploadAu
 import { actorBounds, renderScene } from '@/anme/engine/render'
 import { checkpoint, getState, select, useStore } from '@/anme/engine/store'
 import {
-  actorHitPoint, actorPos, approachPlan, arcHeight, arcPos, buildTimeline, cameraAt, facing, fxFinishPoint, fxImpactPoint,
-  fxLaunchPoint, moveFrom, visibility, type Timeline,
+  actorHitPoint, actorPos, approachPlan, arcHeight, arcPos, buildTimeline, cameraAt, cueTarget, facing, fxFinishPoint, fxImpactPoint,
+  fxLaunchPoint, gamePathPos, gameShotDistance, moveFrom, visibility, type Timeline,
 } from '@/anme/engine/timeline'
 import { L } from '@/anme/engine/i18n'
 import type { CameraCue, MoveCue, Scene, SkillCue, Vec } from '@/anme/engine/types'
@@ -203,16 +203,22 @@ function Handle({ p, px, color, label, onDown, shape = 'circle' }: { p: Vec; px:
 
 function SkillHandles({ scene, cue, tl, px, drag }: { scene: Scene; cue: SkillCue; tl: Timeline; px: number; drag: DragFn }) {
   const caster = scene.actors.find(a => a.id === cue.actorId)
-  const target = scene.actors.find(a => a.id === cue.targetId)
+  // เป้าที่ใช้จริง: กฎของเกม = ตัวที่เกมล็อค (หรือตัวผู้ร่ายเองสำหรับสกิล Self) · ปิด = ที่ตั้งไว้
+  const target = cueTarget(scene, cue) ?? undefined
   const st = tl.skill.get(cue.id)
   const fx = cue.fx
   const t0 = st?.shots[0]?.launchAt ?? st?.launchAt ?? cue.start
   const path = useMemo(() => {
     if (!fx || !caster || fx.mode !== 'projectile') return null
     const a = fxLaunchPoint(scene, cue, caster, t0), b = fxImpactPoint(scene, cue, t0)
-    const h = arcHeight(cue, st?.bullet ?? null, a, b)
+    const g = fx.game
+    const d0 = g ? gameShotDistance(scene, cue, caster, t0) : 0
+    const h = g ? 0 : arcHeight(cue, st?.bullet ?? null, a, b)
     const pts: string[] = []
-    for (let i = 0; i <= 32; i++) { const q = arcPos(a, b, i / 32, h); pts.push(`${q.x},${q.y}`) }
+    for (let i = 0; i <= 32; i++) {
+      const q = g ? gamePathPos(g, a, b, i / 32, facing(caster), d0) : arcPos(a, b, i / 32, h)
+      pts.push(`${q.x},${q.y}`)
+    }
     return pts.join(' ')
   }, [scene, cue, caster, fx, t0, st])
   if (!caster) return null
@@ -235,6 +241,13 @@ function SkillHandles({ scene, cue, tl, px, drag }: { scene: Scene; cue: SkillCu
   }
   if (!fx) return <g>{els}</g>
   if (path) els.push(<polyline key="path" points={path} className="fx-path" strokeWidth={2 * px} strokeDasharray={`${8 * px} ${6 * px}`} />)
+  // วิถีแบบเกม: จุดปล่อย/จุดกระทบมาจากข้อมูลเกม (ลากแก้ไม่ได้) — โชว์เป็นจุดเฉยๆ
+  if (fx.game) {
+    const lp = fxLaunchPoint(scene, cue, caster, t0), ip = fxImpactPoint(scene, cue, t0)
+    els.push(<circle key="glaunch" cx={lp.x} cy={lp.y} r={5 * px} className="fx-link" strokeWidth={2 * px} />)
+    els.push(<circle key="gimpact" cx={ip.x} cy={ip.y} r={5 * px} className="fx-link burst" strokeWidth={2 * px} />)
+    return <g>{els}</g>
+  }
   if (fx.mode === 'projectile' || fx.mode === 'caster') {
     const lp = fxLaunchPoint(scene, cue, caster, t0)
     els.push(<line key="ll" x1={cp.x} y1={cp.y} x2={lp.x} y2={lp.y} className="fx-link" strokeWidth={1.2 * px} />)

@@ -53,10 +53,11 @@ function gameAttack(rangerId, kind, files) {
     return { id: `snd_${kind}_${tag}`, type: 'audio', name: file.replace(/_\d+\.ogg$/, ''), url: `/api/res/_raw/sounds/${file}` }
   }
   const snd = d.soundUrls?.[kind] ?? {}
-  const prep = sound(snd.preparation, 'prep'), hit = sound(snd.underAttack, 'hit')
+  // เสียงแบบเกม: ร่าย (ต้นท่า) · ปล่อยท่า (ช่วง *_ready จบ) · โดน — แบบเดียวกับตัวเล่นอนิเมชั่น / Video Studio
+  const prep = sound(snd.preparation, 'prep'), rel = sound(snd.attack, 'rel'), hit = sound(snd.underAttack, 'hit')
   const clip = CLIP[kind]
   return {
-    assets: [prep, hit].filter(Boolean),
+    assets: [prep, rel, hit].filter(Boolean),
     cue: {
       cast: [`${clip}_ready`],
       release: clip,
@@ -74,6 +75,7 @@ function gameAttack(rangerId, kind, files) {
       },
       gameSounds: [
         prep && { assetId: prep.id, at: 'cast', volume: 1, enabled: true },
+        rel && { assetId: rel.id, at: 'release', volume: 1, enabled: true },
         hit && { assetId: hit.id, at: 'impact', volume: 1, enabled: true },
       ].filter(Boolean),
     },

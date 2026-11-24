@@ -37,11 +37,18 @@ export interface MovePart {
   enabled?: boolean
   /** hitTiming.*HitPointRate — 100 = จุดรับดาเมจ · 0 = ลงพื้น · 0–1 = กระสุนชนจุดรับดาเมจ */
   hitRate?: number
+  /** attackType ของเกม (WEAPON / WEAPONC / PUNCH / ACTION …) — ตัวตัดสินว่ามีกระสุนไหม + ทรงวิถี (ดู gameRules) */
+  attackType?: string | null
+  /** มุมหัวกระสุน (องศา) ตอนปล่อย → ตอนถึง — ใช้กับทรงโค้ง */
+  angle?: { start: number; end: number } | null
+  /** รหัสสกิล (เช่น sk1278_er) — ใช้หาระยะพุ่งของสกิล MOVE_ATTACK */
+  skillCode?: string | null
 }
 
 /** ไฟล์เสียงของแต่ละท่า (จาก /data/ranger/projectile/<id>.json → soundUrls — เซิร์ฟเวอร์จับคู่ชื่อกับไฟล์บน lerico ไว้แล้ว) */
 export type SkillSoundKind = 'normal' | 'skill1' | 'skill2'
-export type SkillSoundUrls = Record<SkillSoundKind, { preparation: string | null; underAttack: string | null }>
+/** preparation = ตอนเริ่มท่า · attack = ตอนท่าเตรียมจบ (ปล่อยท่า) · underAttack = ตอนโดน */
+export type SkillSoundUrls = Record<SkillSoundKind, { preparation: string | null; attack?: string | null; underAttack: string | null }>
 
 // ── ข้อมูลเกมล่าสุด (อัปเดตทุกวันโดย Daily Data) — ชุดเดียวกับที่ตัวเล่นอนิเมชั่นเรนเจอร์ใช้ ──
 // /data/ranger/projectile/<id>.json = ท่าโจมตี (ไฟล์กระสุน · จุดปล่อย · ความเร็ว · การพุ่ง) + เสียง
@@ -77,6 +84,9 @@ export async function fetchFreshGameData(rangerId: string): Promise<GameDataLite
     start: m.start ?? null,
     enabled: m.motion?.enabled ?? true,
     hitRate: typeof rate === 'number' ? rate : 100,
+    attackType: m.attackType ?? null,
+    angle: m.angle && typeof m.angle.start === 'number' ? { start: m.angle.start, end: m.angle.end ?? 0 } : null,
+    skillCode: m.skillCode ?? null,
   } : null)
   // s_attack / s2_attack = สกิลที่ใช้งานได้ตัวที่ 1/2 "ตามลำดับ" (ข้าม passive) — แบบเดียวกับตัวเล่นอนิเมชั่น
   // เรนเจอร์ส่วนใหญ่ slot skill2 ว่าง สกิลที่สองไปอยู่ skill3 จึงนับตามลำดับไม่ใช่ตามชื่อ slot

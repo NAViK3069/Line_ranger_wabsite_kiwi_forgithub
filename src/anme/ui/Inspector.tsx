@@ -6,14 +6,14 @@
 import { useRef } from 'react'
 import {
   addCue, addSkill, canTarget, deleteSelection, dropSameSideTargets, duplicateSelection, facingFor, fxFromGameData, moveLayer, patchActor, patchCue, presetSoundKind,
-  patchSkill, setSkillSound, skillPresets,
+  patchSkill, setSkillSound, skillPresets, gameFx, gameProjectileOf, hasGameRules,
 } from '@/anme/engine/actions'
 import { previewSound } from '@/anme/engine/audio'
 import { assets, uploadFile, type RangerRuntime } from '@/anme/engine/assets'
 import { L } from '@/anme/engine/i18n'
 import { STAGE_SIZES, cueColor, cueLabel, defaultFx } from '@/anme/engine/scene'
 import { select, setState, setTime, toast, updateScene, useStore } from '@/anme/engine/store'
-import { GAME_SPEED_TO_PXS } from '@/anme/engine/timeline'
+import { GAME_SPEED_TO_PXS, cueRules, cueTarget } from '@/anme/engine/timeline'
 import type { Actor, AnimCue, Blend, CameraCue, Cue, Ease, FxMode, MoveCue, ShowCue, SkillCue, SoundCue } from '@/anme/engine/types'
 import { BackgroundInspector } from './Library'
 import { InfoFields, RangeFields, RangerLayers } from './LayerPanels'
@@ -343,6 +343,14 @@ function SkillFields({ c }: { c: SkillCue }) {
   const gameSpeed = preset?.move?.speed ? Math.round(preset.move.speed * GAME_SPEED_TO_PXS) : null
   const audios = scene.assets.filter(d => d.type === 'audio')
   const s = L('วิ', 's')
+  // กฎของเกม (ล็อคเป้า · Self · วง Area · ท่าพุ่ง) — ชุดเดียวกับตัวเล่นอนิเมชั่นเรนเจอร์
+  const rules = cueRules(scene, c)
+  const canGame = hasGameRules(preset?.move)
+  const kind = presetSoundKind(preset?.key)
+  const locked = rules.game ? cueTarget(scene, c) : null
+  /** กระสุนเริ่มต้น: กฎของเกม → ตามเกม (null = ท่านี้ไม่มีกระสุนในเกม) · ปิด → แบบกำหนดเองจากข้อมูลเกม */
+  const freshFx = () => (rt && rules.game && canGame ? gameFx(rt, kind, preset?.move ?? null)
+    : rt ? fxFromGameData(rt, preset?.set ?? rt.setKeys[0] ?? 'bul', preset?.move ?? null, kind) : defaultFx('bul'))
 
   /** เฟรม ณ หัวอ่าน (นับจากต้นท่าร่าย) — ปุ่ม "ใช้เฟรมหัวอ่าน" */
   const frameAtPlayhead = () => {
@@ -397,9 +405,29 @@ function SkillFields({ c }: { c: SkillCue }) {
       </Section>
 
       <Section title={L('เป้าหมาย', 'Target')} accent="#ff5470">
-        <Select label={L('เป้าหมาย', 'Target')} value={c.targetId ?? ''} options={[{ value: '', label: L('— ไม่มี (ยิงไปข้างหน้า)', '— none (shoot forward)') }, ...targets.map(a => ({ value: a.id, label: `${a.tag === 'enemy' ? L('[ศัตรู]', '[Enemy]') : a.tag === 'ally' ? L('[ฝ่ายเรา]', '[Ally]') : L('[ประกอบ]', '[Prop]')} ${a.name}` }))]}
+        <Toggle label={L('กฎของเกม (ล็อคเป้า · วง Area · ท่าพุ่ง)', 'Game rules (lock-on · area · dash)')} value={rules.game}
+          hint={L('ทำงานแบบในเกม (ถอดจาก libgame.so) — ชุดเดียวกับตัวเล่นอนิเมชั่นเรนเจอร์', 'Behaves like the game (from libgame.so) — same rules as the ranger animation player')}
+          onChange={v => p(k => {
+            k.game = v
+            if (!k.fx) return
+            if (!v) delete k.fx.game
+            else if (canGame && preset?.move) k.fx.game = gameProjectileOf(preset.move)
+          })} />
+        {rules.game && <div className="muted small">
+          {rules.self ? (fx ? L('สกิล Self — เกมตั้งเป้าเป็นตัวผู้ร่ายเอง กระสุนบินกลับมาลงตัวเอง', 'Self skill — the game targets the caster, so the bullet lands on itself')
+              : L('สกิล Self — เกมตั้งเป้าเป็นตัวผู้ร่ายเอง', 'Self skill — the game targets the caster'))
+            : rules.basis === 'rear' ? L(`ล็อคศัตรูตัวไกลสุดในระยะโจมตี × ${rules.rearMul}`, `Locks the farthest enemy within attack range × ${rules.rearMul}`)
+            : L('ล็อคศัตรูตัวใกล้สุดในระยะโจมตี ณ จังหวะปล่อย', 'Locks the nearest enemy in attack range at release')}
+          {rules.dashPx > 0 && <> · {L(`พุ่งไปข้างหน้า ${Math.round(rules.dashPx / 2 / (caster?.scale ?? 1))} pt (ข้ามศัตรูได้)`, `Dashes ${Math.round(rules.dashPx / 2 / (caster?.scale ?? 1))} pt forward (jumps over enemies)`)}</>}
+          {rules.areaPx > 0 && !rules.buff && <> · {L(`วง Area ±${Math.round(rules.areaPx / 2 / (caster?.scale ?? 1))} pt — ทุกตัวในวงโดน`, `Area ±${Math.round(rules.areaPx / 2 / (caster?.scale ?? 1))} pt — everyone inside is hit`)}</>}
+          {rules.buff && <> · {L('บัฟ — ไม่มีศัตรูโดน', 'Buff — no enemy is hit')}</>}
+        </div>}
+        <Select label={rules.game ? L('เป้าสำรอง (ไม่มีศัตรูในระยะ)', 'Fallback target (no enemy in range)') : L('เป้าหมาย', 'Target')} value={c.targetId ?? ''} options={[{ value: '', label: L('— ไม่มี (ยิงไปข้างหน้า)', '— none (shoot forward)') }, ...targets.map(a => ({ value: a.id, label: `${a.tag === 'enemy' ? L('[ศัตรู]', '[Enemy]') : a.tag === 'ally' ? L('[ฝ่ายเรา]', '[Ally]') : L('[ประกอบ]', '[Prop]')} ${a.name}` }))]}
           onChange={v => p(k => { k.targetId = v || null })} />
-        {target && <>
+        {rules.game && !rules.self && <div className="muted small">
+          {locked ? L(`เกมล็อค: ${locked.name}`, `Game locks: ${locked.name}`) : L('ไม่มีศัตรูในระยะ', 'No enemy in range')}
+        </div>}
+        {(target || (rules.game && !rules.buff)) && <>
           <Toggle label={L('เป้าเล่นท่าโดนตี', 'Target plays hit clip')} value={c.hitReact} onChange={v => p(k => { k.hitReact = v })} />
           {c.hitReact && targetRt?.kind === 'ranger' && <Select label={L('ท่าโดนตี', 'Hit clip')} value={c.hitClip} options={targetRt.clips} onChange={v => p(k => { k.hitClip = v })} />}
           <Toggle label={L('เป้ากะพริบขาวตอนโดน', 'Target flashes white on hit')} value={c.flash} onChange={v => p(k => { k.flash = v })} />
@@ -407,18 +435,35 @@ function SkillFields({ c }: { c: SkillCue }) {
       </Section>
 
       <Section title={L('กระสุน / เอฟเฟกต์', 'Projectile / effect')} accent="#33e1ff" right={
-        <Toggle label="" value={!!fx} onChange={v => p(k => { k.fx = v ? (rt ? fxFromGameData(rt, preset?.set ?? rt.setKeys[0] ?? 'bul', preset?.move ?? null, presetSoundKind(preset?.key)) : defaultFx('bul')) : null })} />
+        <Toggle label="" value={!!fx} onChange={v => p(k => {
+          k.fx = !v ? null : freshFx() ?? (rt ? fxFromGameData(rt, preset?.set ?? rt.setKeys[0] ?? 'bul', preset?.move ?? null, kind) : defaultFx('bul'))
+        })} />
       }>
-        {!fx && <div className="muted small">{L('ปิดอยู่ — ท่าจะไม่มีเอฟเฟกต์ (เป้าโดนที่เฟรมปล่อย)', 'Off — no effect (target is hit at the release frame)')}</div>}
+        {!fx && <div className="muted small">{rules.game && canGame && !gameFx(rt!, kind, preset?.move ?? null)
+          ? L(`ท่านี้ไม่มีกระสุนในเกม (${preset?.move?.attackType ?? '—'}) — เป้าโดนตอนช่วงเตรียมจบ`, `No projectile in the game for this move (${preset?.move?.attackType ?? '—'}) — the target is hit when the ready clip ends`)
+          : L('ปิดอยู่ — ท่าจะไม่มีเอฟเฟกต์ (เป้าโดนที่เฟรมปล่อย)', 'Off — no effect (target is hit at the release frame)')}</div>}
         {fx && <>
           <Row>
-            <Select label={L('ไฟล์กระสุน', 'Bullet file')} value={fx.set} options={(rt?.setKeys.length ? rt.setKeys : [fx.set]).map(x => ({ value: x, label: x }))}
+            <Select label={L('ไฟล์กระสุน', 'Bullet file')} value={fx.set} options={(rt?.setKeys.length ? [...new Set([...rt.setKeys, fx.set])] : [fx.set]).map(x => ({ value: x, label: x }))}
               onChange={v => p(k => { k.fx!.set = v; const b = rt?.bullets[v]; if (b) { k.fx!.flight = b.flight; k.fx!.finish = b.finish } })} />
             {rt && <button className="btn small" style={{ alignSelf: 'flex-end' }} title={L('ตั้งค่าทั้งหมดตามข้อมูลเกม (projectile_data)', 'Reset everything from game data (projectile_data)')}
-              onClick={() => p(k => { k.fx = { ...fxFromGameData(rt, k.fx!.set, preset?.move ?? null, presetSoundKind(preset?.key)), scale: k.fx!.scale, blend: k.fx!.blend } })}><Icon name="reset" size={13} /> {L('ข้อมูลเกม', 'Game data')}</button>}
+              onClick={() => p(k => { k.fx = { ...(freshFx() ?? fxFromGameData(rt, k.fx!.set, preset?.move ?? null, kind)), scale: k.fx!.scale, blend: k.fx!.blend } })}><Icon name="reset" size={13} /> {L('ข้อมูลเกม', 'Game data')}</button>}
           </Row>
-          {rt && !rt.bullets[fx.set] && !rt.pending.has(fx.set) && <div className="error-box small">{L(`ไม่พบชุด “${fx.set}” ในเรนเจอร์นี้`, `Set “${fx.set}” not found in this ranger`)}</div>}
+          {rt && !rt.bullets[fx.set] && !rt.pending.has(fx.set) && (fx.game
+            ? <div className="muted small">{L(`ไม่มีไฟล์ “${fx.set}” — ในเกมกระสุนนี้มองไม่เห็น แต่ยังบินและโดนตามเวลาบิน`, `No “${fx.set}” file — in the game this bullet is invisible but still flies and hits on time`)}</div>
+            : <div className="error-box small">{L(`ไม่พบชุด “${fx.set}” ในเรนเจอร์นี้`, `Set “${fx.set}” not found in this ranger`)}</div>)}
 
+          <Toggle label={L('วิถีแบบเกม (จุดปล่อย · เป้า · เวลาบิน · โค้ง)', 'Game trajectory (muzzle · aim · flight time · curve)')} value={!!fx.game}
+            onChange={v => p(k => { if (!v) delete k.fx!.game; else if (preset?.move) k.fx!.game = gameProjectileOf(preset.move) })} />
+          {fx.game && <div className="muted small">
+            {fx.game.motion === 'CURVE' ? L('โค้ง (CCBezierBy)', 'Curve (CCBezierBy)') : L('เส้นตรง (CCMoveBy)', 'Straight (CCMoveBy)')}
+            {' · '}{L('จุดปล่อย', 'muzzle')} ({fx.game.start.x}, {fx.game.start.y})
+            {' · '}{fx.game.moveSpeed > 0 ? L(`ความเร็ว ${fx.game.moveSpeed}`, `speed ${fx.game.moveSpeed}`) : L('วาร์ปถึงเป้าทันที', 'warps to the target')}
+            {' · '}hitPointRate {fx.game.hitRate}
+            {fx.game.motion === 'CURVE' && <> · {L('มุม', 'angle')} {fx.game.angle.start}° → {fx.game.angle.end}°</>}
+          </div>}
+
+          {!fx.game && <>
           <div className="field-label">{L('วิธีไปถึงเป้า', 'Delivery')}</div>
           <Seg<FxMode> value={fx.mode} onChange={v => p(k => { k.fx!.mode = v; if (v === 'point' && target) k.fx!.point = { x: target.x, y: target.y - 60 } })} options={[
             { value: 'projectile', label: <><Icon name="arrow" size={13} /> {L('บินไปหา', 'Fly')}</>, title: L('กระสุนบินจากจุดปล่อยไปยังเป้า แล้วระเบิดที่เป้า', 'Flies from the muzzle to the target, then bursts') },
@@ -430,6 +475,7 @@ function SkillFields({ c }: { c: SkillCue }) {
             <Select label={L('คลิปบิน (normal)', 'Flight clip')} value={fx.flight ?? ''} options={[{ value: '', label: '—' }, ...(bullet?.clips ?? []).map(x => ({ value: x, label: x }))]} onChange={v => p(k => { k.fx!.flight = v || null })} />
             <Select label={L('คลิประเบิด (finish)', 'Burst clip')} value={fx.finish ?? ''} options={[{ value: '', label: '—' }, ...(bullet?.clips ?? []).map(x => ({ value: x, label: x }))]} onChange={v => p(k => { k.fx!.finish = v || null })} />
           </Row>
+          </>}
 
           <div className="sub-head">{L('จังหวะปล่อย', 'Release timing')}</div>
           <Row>
@@ -446,7 +492,7 @@ function SkillFields({ c }: { c: SkillCue }) {
           </Row>
           {fx.repeat > 1 && <Num label={L('ห่างกัน', 'Interval')} unit={s} step={0.01} min={0} value={fx.interval} onChange={(v, h) => p(k => { k.fx!.interval = v }, h)} />}
 
-          {fx.mode === 'projectile' && <>
+          {!fx.game && fx.mode === 'projectile' && <>
             <div className="sub-head">{L('การบิน', 'Flight')}</div>
             <Slider label={L('ความเร็ว', 'Speed')} value={fx.speed} min={100} max={6000} step={10} onChange={(v, h) => p(k => { k.fx!.speed = v }, h)} fmt={v => v + ' px/s'} />
             {gameSpeed != null && fx.speed !== gameSpeed && <button className="btn tiny" onClick={() => p(k => { k.fx!.speed = gameSpeed })}>{L('ใช้ความเร็วจากข้อมูลเกม', 'Use game-data speed')} ({gameSpeed})</button>}
@@ -466,6 +512,7 @@ function SkillFields({ c }: { c: SkillCue }) {
             </>}
           </>}
 
+          {!fx.game && <>
           <div className="sub-head">{L('ตำแหน่ง', 'Positions')}</div>
           {(fx.mode === 'projectile' || fx.mode === 'target') && <Seg value={fx.aim ?? 'face'} onChange={v => p(k => { k.fx!.aim = v })} options={[
             { value: 'center', label: L('เล็งกลางตัว', 'Aim: body'), title: L('กลางลำตัว (ระดับอก) — ค่าเริ่มต้นของกระสุนบิน', 'Body centre (chest) — default for flying bullets') },
@@ -496,6 +543,7 @@ function SkillFields({ c }: { c: SkillCue }) {
               <Num label={L('ระเบิด X', 'Burst X')} value={fx.finishOffset.x} onChange={(v, h) => p(k => { k.fx!.finishOffset.x = v }, h)} />
               <Num label="Y" value={fx.finishOffset.y} onChange={(v, h) => p(k => { k.fx!.finishOffset.y = v }, h)} />
             </Row>}
+          </>}
           </>}
 
           <div className="sub-head">{L('การแสดงผล', 'Look')}</div>

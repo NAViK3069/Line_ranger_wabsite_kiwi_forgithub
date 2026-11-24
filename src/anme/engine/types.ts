@@ -184,6 +184,13 @@ export interface SkillCue extends CueBase {
   castSpeedCap: number | null
   approach: Approach
   fx: SkillFx | null
+  /**
+   * กฎการโจมตีของเกม (ถอดจาก libgame.so — ชุดเดียวกับตัวเล่นอนิเมชั่นเรนเจอร์ · ค่าเริ่มต้นของคิวใหม่):
+   *   ล็อคเป้าแบบเกม (ศัตรูใกล้สุดในระยะ · สกิล Rear = ไกลสุดในระยะ × ตัวคูณ) — targetId เป็นเป้าสำรองเมื่อไม่มีใครในระยะ
+   *   สกิล Self ยิงใส่ตัวผู้ร่ายเอง · สกิลมีวง Area = ทุกตัวในวงโดน · สกิล MOVE_ATTACK พุ่งไปข้างหน้าแล้วตีวงรอบตัว
+   *   ไม่มีค่า = ตามฉากเก่า (ล็อคเป้าเฉพาะเมื่อ fx.game)
+   */
+  game?: boolean
   targetId: string | null
   /** เป้าหมายเล่นท่าโดนตี */
   hitReact: boolean

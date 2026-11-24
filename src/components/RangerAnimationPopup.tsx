@@ -391,9 +391,10 @@ interface AttackMeta {
 /**
  * สกิล MOVE_ATTACK (attackType ACTION · targetType SELF — "*Advance" ในคำอธิบาย) — ระยะพุ่งไปข้างหน้า (pt)
  *   libgame 0xcda4cc (ตอน s_action_attack_1 จบ): ระยะ = factor ของสกิล (FIXED = ค่าตรงๆ · GRADE ADD = เกรด + factor)
- *   ชนศัตรูที่ยังโดนได้ตัวแรกระหว่างทาง → หยุดที่ x ศัตรู − (กว้างกรอบ × 0.5 + 35 pt)
- *   เวลา = ระยะที่พุ่งจริง ÷ (skillProjectileMoveSpeed × 60) · ตัวละครอยู่ตรงนั้นต่อ (ไม่ถอยกลับ)
- *   ช่วง s_action_attack_2 จบ = สกิลโดน (วงรอบตัวผู้ร่าย ณ ตำแหน่งใหม่) แล้วเล่น s_action_attack_3
+ *   หยุดก่อนถึงได้เฉพาะสิ่งกีดขวาง/ปราสาทของด่าน (x − (กว้างกรอบ × 0.5 + 35 pt)) — เรนเจอร์ศัตรูไม่บัง กระโดดข้ามได้
+ *   เวลา = ระยะ ÷ (skillProjectileMoveSpeed × 60) · ตัวละครอยู่ตรงนั้นต่อ (ไม่ถอยกลับ)
+ *   ช่วง s_action_attack_2 จบ = setTarget(this) เก็บตำแหน่งปัจจุบัน → ดาเมจ sub-skill (เช่น sk1278_er_b ATK×36)
+ *   ใส่ยูนิตที่ตำแหน่งอยู่ใน [จุดนั้น − range, จุดนั้น + range] แล้วเล่น s_action_attack_3
  */
 const MOVE_ATTACK_DASH_PT: Record<string, number> = {
   sk1216_towa: 150,    // GRADE ADD 142 · เกรด 8
@@ -1203,40 +1204,53 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       pushHit((aimRear ? dummyHitRef : rearHitRef).current, tick, isSkill)
     }
   }, [sceneGroundY, targetGroundY])
-  // ── ระยะที่เรนเจอร์พุ่งไปแล้ว ณ เฟรมนี้ (world) — สกิล MOVE_ATTACK เท่านั้น (ดู MOVE_ATTACK_DASH_PT) ──
-  // เริ่มตอนช่วง s_action_attack_1 จบ · หยุดหน้ากระสอบทราย 35 pt (กว้างกรอบ/2 + 35) · ค้างตำแหน่งจนจบท่า
-  const actionDashWorld = useCallback((): number => {
-    const s = samRef.current, dummy = dummyRef.current
-    if (!s || !dummy || !bgCanvasRef.current || viewingBulletFileRef.current) return 0
+  // ── สกิล MOVE_ATTACK (พุ่ง/กระโดดไปข้างหน้า) — ระยะที่เรนเจอร์เลื่อนไปแล้ว (world) ──
+  // libgame 0xcda4cc (ช่วง s_action_attack_1 จบ): CCMoveTo ไปข้างหน้า factor ของสกิล (pt)
+  //   เวลา = ระยะ ÷ (skillProjectileMoveSpeed × 60) — ค้างตำแหน่งใหม่จนจบท่า (ไม่ถอยกลับ)
+  //   ตัวที่ "บัง" การพุ่งได้มาจากลิสต์สิ่งกีดขวาง/ปราสาทของ BattleManager (0x1a8 · 0xbe8 · ปราสาทฝั่งตรงข้าม)
+  //   ไม่ได้อ่านลิสต์ยูนิตศัตรู (0xb48/0xb50) → เรนเจอร์ศัตรูไม่บัง กระโดดข้ามได้เต็มระยะ
+  //   กระสอบทรายในตัวเล่นคือเรนเจอร์ศัตรู จึงไม่มีอะไรบังเลย
+  // atHit = ระยะ ณ จังหวะโดน (s_action_attack_2 จบ) — เกมเรียก setTarget(this) ตอนนั้นแล้วเก็บตำแหน่งไว้เป็น
+  //   จุดกึ่งกลางวง Area (this+0x1f8) → แถบ Area / ตัวยืนขอบวง / การโดน ใช้ค่านี้ ไม่ได้ขยับตามระหว่างกระโดด
+  const actionDash = useCallback((atHit: boolean): number => {
+    const s = samRef.current
+    if (!s || !dummyRef.current || !bgCanvasRef.current || viewingBulletFileRef.current) return 0
     const meta = attackMetaRef.current.skill1
     const distPt = moveAttackDashPt(meta)
     if (!meta || distPt <= 0) return 0
     const seg = (n: string) => s.allSegments.find(x => x[0] === n)
     const s1 = seg('s_action_attack_1'), s2 = seg('s_action_attack_2'), s3 = seg('s_action_attack_3')
     if (!s1 || !s2) return 0
-    const anim = s.animNames[animIdxRef.current]
-    const f = frameIdxRef.current
     let t: number
-    if (anim === 'All_s_action_attack') t = f - (s1[2] - s1[1])
-    else if (anim === '_all') {
-      if (f < s2[1] || f >= (s3 ?? s2)[2]) return 0
-      t = f - s2[1]
-    } else return 0
-    if (t < 0) return 0
-    const standX = rangerStandRef.current?.x ?? 0
-    const me = mainPosRef.current ?? rangerStandRef.current ?? { x: 0, y: 0 }
-    const dPos = dummyPointWorld(
-      dummy, canvasCenter(dummy.sam) ?? dummy.anchor,
-      dummyDrawOffset(dummy, standX, dummyGapRef.current),
-      dummyYAlign(targetGroundY(), dummy.anchor?.y ?? 0),
-    )
-    const stopX = dPos.x - dummy.sam.canvas.w / 2 - 35 * PT_TO_WORLD
-    // เกมใช้จุดหยุดตรงๆ (CCMoveTo) — ถ้าศัตรูอยู่ใกล้กว่า กว้าง/2 + 35 ตัวละครจะถอยหลังนิดหน่อย
-    const dx = Math.min(distPt * PT_TO_WORLD, stopX - me.x)
+    if (atHit) t = s2[2] - s2[1]
+    else {
+      const anim = s.animNames[animIdxRef.current]
+      const f = frameIdxRef.current
+      if (anim === 'All_s_action_attack') t = f - (s1[2] - s1[1])
+      else if (anim === '_all') {
+        if (f < s2[1] || f >= (s3 ?? s2)[2]) return 0
+        t = f - s2[1]
+      } else return 0
+    }
+    if (t <= 0) return 0
     const speed = meta.moveSpeed > 0 ? meta.moveSpeed : 1
-    const durTicks = Math.max(1, Math.abs(dx) / PT_TO_WORLD) / (speed * GAME_FPS) * (s.animRate || 24)
-    return dx * Math.min(1, t / Math.max(1e-6, durTicks))
-  }, [targetGroundY])
+    const durTicks = Math.max(1, distPt) / (speed * GAME_FPS) * (s.animRate || 24)
+    return distPt * PT_TO_WORLD * Math.min(1, t / Math.max(1e-6, durTicks))
+  }, [])
+  // ── สกิลวงรอบจุดเดียว (MOVE_ATTACK) — เกม cf0c54: ยูนิตที่ "ตำแหน่ง" (กลางกรอบไฟล์) อยู่ใน [cx − r, cx + r] โดนทุกตัว ──
+  //   (ccd0d4 = left ≤ x ≤ right — เทียบจุดตำแหน่ง ไม่ได้ใช้ hitbox) · ตัวยืนขอบวงยืนที่ cx + r พอดี จึงโดนเสมอ
+  const applyAreaHitAt = useCallback((centerX: number, areaWorld: number) => {
+    const tick = sceneTickRef.current
+    const standX = rangerStandRef.current?.x ?? 0
+    const test = (d: DummyAsset | null, gap: number, groundY: number, hitRef: { current: HitEvent[] }) => {
+      if (!d || gap <= 0) return
+      const p = dummyPointWorld(d, canvasCenter(d.sam) ?? d.anchor, dummyDrawOffset(d, standX, gap), dummyYAlign(groundY, d.anchor?.y ?? 0))
+      if (Math.abs(p.x - centerX) <= areaWorld) pushHit(hitRef.current, tick, true)
+    }
+    test(dummyRef.current, dummyGapRef.current, targetGroundY(), dummyHitRef)
+    test(rearDummyRef.current, rearGapRef.current, sceneGroundY(), rearHitRef)
+    if (areaWorld > 0) pushHit(edgeHitRef.current, tick, true)
+  }, [sceneGroundY, targetGroundY])
   // เสกกระสุน 1 นัด พุ่งจากจุดโจมตี (NormalATK/Skill1/Skill2) ไปยัง Face Center ของกระสอบทราย (จุดรับดาเมจจริง ไม่ใช่จุดยืน)
   // ทำงานเฉพาะตอนเปิดพื้นหลัง+มีกระสอบทราย และไฟล์กระสุนที่เกี่ยวข้องโหลดสำเร็จแล้วเท่านั้น
   const spawnBullet = useCallback((kind: 'normal' | 'skill1' | 'skill2', primarySuffix: string) => {
@@ -1260,13 +1274,14 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     const dummyOff = dummyDrawOffset(dummy, rangerStandRef.current?.x ?? 0, gap)
     // วง Area ของสกิลนี้ (pt → world) · จุดกึ่งกลาง = ตำแหน่งของเป้าที่ล็อค (กลางกรอบไฟล์)
     const areaWorld = kind === 'normal' ? 0 : (skillAreasRef.current?.[kind] ?? 0) * PT_TO_WORLD
-    // MOVE_ATTACK: วงรอบตัวผู้ร่าย ณ ตำแหน่งหลังพุ่ง
+    // MOVE_ATTACK: วงรอบตัวผู้ร่าย ณ ตำแหน่งตอนโดน (s_action_attack_2 จบ = ตอนที่ฟังก์ชันนี้ถูกเรียก)
     const areaCenterX = isMoveAttack
-      ? mainGamePos().x + actionDashWorld()
+      ? mainGamePos().x + actionDash(false)
       : dummyPointWorld(dummy, canvasCenter(dummy.sam) ?? dummy.anchor, dummyOff, dummyYOff).x
     const hitNow = () => {
       if (isBuff) return
-      applyHitReaction(useRear, kind !== 'normal', areaWorld, areaCenterX)
+      if (isMoveAttack) applyAreaHitAt(areaCenterX, areaWorld)
+      else applyHitReaction(useRear, kind !== 'normal', areaWorld, areaCenterX)
       playHitSound(kind)
     }
     // ── เกม: มีกระสุนเฉพาะ attackType กลุ่มยิง (ENERGY/ENERGYC/WEAPON/WEAPONC/DOUBLE/DOUBLEC/RETURN/BEAM) ──
@@ -1311,7 +1326,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       finishFrames: asset?.finishName ? (asset.sam.animations[asset.finishName]?.length || 0) : 0,
       bulletFps: asset?.sam.animRate || 24,
     })
-  }, [applyHitReaction, playHitSound, sceneGroundY, targetGroundY, actionDashWorld])   // identity คงที่ทุกตัว — spawnBullet จึงไม่ถูกสร้างใหม่
+  }, [applyHitReaction, applyAreaHitAt, playHitSound, sceneGroundY, targetGroundY, actionDash])   // identity คงที่ทุกตัว — spawnBullet จึงไม่ถูกสร้างใหม่
   const frameLabelRef = useRef<HTMLSpanElement>(null)  // counter "X/Y" — อัปเดตผ่าน textContent
   // grid cache — grid เป็น static (เปลี่ยนแค่ตอน zoom/origin/size) → render ครั้งเดียวเก็บไว้ blit
   const gridCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -1568,7 +1583,8 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       if (edgeDummyRef.current && areaSlot && areaPt > 0 && !areaIsBuff) {
         const rear = rearDummyRef.current
         const centerX = areaMove
-          ? (mainPosRef.current?.x ?? standX) + actionDashWorld()
+          // ยูนิตในเกมไม่ขยับตามคนร่าย — ยืนนิ่งที่ขอบวง ณ จุดที่สกิลโดนจริง (ตำแหน่งหลังกระโดด)
+          ? (mainPosRef.current?.x ?? standX) + actionDash(true)
           : areaBasis === 'rear' && rear && rearGapRef.current > 0
           ? dummyPointWorld(rear, rear.anchor ?? rear.faceAnchor,
               dummyDrawOffset(rear, standX, rearGapRef.current), dummyYAlign(standY, rear.anchor?.y ?? 0)).x
@@ -1597,7 +1613,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       const frames = s.animations[s.animNames[animIdxRef.current]] || []
       const fr = frames[frameIdxRef.current]
       // สกิล MOVE_ATTACK: ตัวละครพุ่งไปข้างหน้า (CCMoveTo ในเกม) — เลื่อนเฉพาะตอนมีฉากกระสอบทราย
-      const dashX = actionDashWorld() * zoomRef.current
+      const dashX = actionDash(false) * zoomRef.current
       if (fr) renderSAMFrame(ctx, fr, s.images, spr, originRef.current.x + dashX, originRef.current.y, zoomRef.current, hiddenImagesRef.current)
       // ── Layer panel: เก็บกรอบของแต่ละชิ้น + วาดกรอบแดงให้ชิ้นที่กำลังชี้ ──
       // คิดเฉพาะตอนเปิดแถบ (ปิดอยู่ = ไม่มีงานเพิ่มในลูปวาดเลย)
@@ -1818,6 +1834,10 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       if (slot && area != null && area > 0) {
         const basis = skillTargetsRef.current?.[slot]
         let cx = basis === 'self' ? meX : tgtX
+        // MOVE_ATTACK: เกมเก็บจุดกึ่งกลางตอน s_action_attack_2 จบ = ตำแหน่งหลังกระโดดแล้ว (ไม่ใช่จุดเริ่ม)
+        if (moveAttackDashPt(attackMetaRef.current[slot]) > 0) {
+          cx = originRef.current.x + ((mainPosRef.current?.x ?? standX) + actionDash(true)) * z
+        }
         if (basis === 'rear' && rearDummyRef.current && rearGapRef.current > 0) {
           const rt = dummyPointWorld(
             rearDummyRef.current,

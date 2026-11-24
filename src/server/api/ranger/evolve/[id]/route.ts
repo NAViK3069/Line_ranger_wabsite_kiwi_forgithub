@@ -4,14 +4,14 @@
 //
 //   { chain: [{ id, name, grade, tierIconKey, tierLabel }, ...] }
 //
-// ที่มา: https://rangers.lerico.net/api/getRanger/{id} → { evolveMaterial, evolveChain }
-//   payload เล็กมาก (~900B) แต่ยิงทีละตัว → cache Redis 7 วัน
+// ที่มา: ข้อมูลเกมของเรา (src/lib/gameData.ts → gameEvolveChain — ลิงก์ร่างถัดไปในตาราง unit)
+//   เดิมยิง /api/getRanger/{id} ของ lerico ทีละตัว — ตรวจแล้วได้สายเดียวกันทุกตัว (3,158/3,158)
 //
 // 💡 ทุกตัวในสายเดียวกันคืน chain ชุดเดียวกันเป๊ะ (ตรวจแล้ว u284e-brown = u286h-brown)
 //    → fetch ครั้งเดียวแล้วเขียน cache ให้ "ทุกสมาชิก" ในสาย ผู้ใช้กดสลับร่างไปมาไม่ยิงซ้ำ
 //
 // ชื่อ EN: อ่านจาก cache ที่ /api/translations/en?only=names สร้างไว้ (lr:translations:en:names)
-//   ถ้าไม่มีค่อยดึง en:UNIT เอง แล้วเขียน cache ก้อนนั้นให้เลย
+//   ถ้าไม่มีค่อยอ่านจากไฟล์ภาษาของเกม แล้วเขียน cache ก้อนนั้นให้เลย
 // ระดับดาว: getTierInfo() จาก ranger bundle — ตัวเดียวกับที่ RangerStatPanel ใช้โชว์รูปดาว
 // ====================================================
 
@@ -19,10 +19,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getRawRanger, getTierInfo } from '@/lib/rangerData'
 import { redis } from '@/lib/redis'
 import { cleanUnitName } from '@/lib/unitName'
+import { gameEvolveChain, gameText } from '@/lib/gameData'
 
 export const maxDuration = 60
-
-const FETCH_HEADERS = { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' }
 
 const CACHE_TTL = 60 * 60 * 24 * 7      // 7 วัน — สายวิวัฒนาการเปลี่ยนแค่ตอน game update
 const NAMES_TTL = 60 * 60 * 24 * 7
@@ -57,10 +56,7 @@ async function loadNameMap(): Promise<Record<string, string>> {
     } catch { /* ตกไปดึงเอง */ }
   }
   try {
-    const res = await fetch('https://rangers.lerico.net/api/v2/translate?keys=en:UNIT', { headers: FETCH_HEADERS })
-    if (!res.ok) return {}
-    const raw = await res.json() as Record<string, unknown>
-    const data = (raw['en:UNIT'] ?? raw) as Record<string, string>
+    const data = gameText('en', 'UNIT')
     const out: Record<string, string> = {}
     for (const [k, v] of Object.entries(data)) {
       if (k.endsWith('_nm') && typeof v === 'string') out[k] = cleanUnitName(v)
@@ -103,12 +99,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       }
     }
 
-    const res = await fetch(`https://rangers.lerico.net/api/getRanger/${encodeURIComponent(id)}`, { headers: FETCH_HEADERS })
-    if (!res.ok) throw new Error(`getRanger ${res.status}`)
-    const json = await res.json() as { evolveChain?: unknown }
-    const ids = Array.isArray(json.evolveChain)
-      ? json.evolveChain.filter((x): x is string => typeof x === 'string' && RANGER_ID_RE.test(x))
-      : []
+    const ids = gameEvolveChain(id)
 
     // ไม่มีสาย (หรือมีตัวเดียว = ตัวเอง) → คืน chain ว่าง ให้ UI ซ่อน section ไปเลย
     if (ids.length < 2) {

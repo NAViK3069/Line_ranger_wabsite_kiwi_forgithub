@@ -1,7 +1,8 @@
 name: Daily Data
 
 # ดึงข้อมูลเกมใหม่ทุกวัน (แทน cron ของ Vercel + Neon + Redis เดิม)
-#   1. sync Ranger Book + Gear Book จาก lerico/warmycat
+#   0. โหลดข้อมูลเกมที่ถอดแล้วจาก branch `gamedata` (เครื่องผู้ดูแลถอดไฟล์ล่าสุดของเกมแล้วส่งขึ้นมา)
+#   1. sync Ranger Book + Gear Book จากข้อมูลเกม (ส่วนทาเลนต์/ตื่นพลัง/Spec+ ยังใช้ warmycat — กำลังย้าย)
 #   2. scrape อันดับ PvP ทุกลีค
 #   3. เขียนข้อมูลทั้งหมดเป็นไฟล์ JSON (public/data)
 #   4. เก็บผลไว้ใน branch `data` (commit เดียว เขียนทับทุกวัน — repo ไม่บวม)
@@ -45,6 +46,20 @@ jobs:
             echo "restored: $(ls .data/db | tr '\n' ' ')"
           else
             echo "ยังไม่มี branch data — เริ่มจากศูนย์"
+          fi
+
+      # ข้อมูลเกม = JSON ที่ถอดจากไฟล์ทางการของเกม (เครื่องผู้ดูแลถอดแล้วส่งขึ้น branch `gamedata` — ที่นี่ไม่มีการถอดไฟล์)
+      # เรนเจอร์ / สกิล / ความสามารถ / เกียร์ / ข้อความทุกภาษา / ท่าโจมตี / สายวิวัฒนาการ อ่านจากชุดนี้ทั้งหมด (src/lib/gameData.ts)
+      - name: Load game data (branch `gamedata`)
+        run: |
+          if git ls-remote --exit-code --heads origin gamedata >/dev/null; then
+            git fetch --depth=1 origin gamedata
+            mkdir -p .gamedata
+            git archive FETCH_HEAD | tar -x -C .gamedata
+            echo "gamedata: $(node -p "require('./.gamedata/manifest.json').generatedAt") · $(ls .gamedata/db | wc -l) tables"
+          else
+            echo "::error::ยังไม่มี branch gamedata — รันสคริปต์อัปเดตข้อมูลเกม (--publish) บนเครื่องผู้ดูแลก่อน"
+            exit 1
           fi
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0

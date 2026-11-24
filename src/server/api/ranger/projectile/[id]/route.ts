@@ -1,8 +1,10 @@
 // ====================================================
 // API: GET /api/ranger/projectile/[id]
-// คืนข้อมูล projectile ของ unit เดียวจาก warmycat projectile_data.json
-// • ไฟล์ต้นทาง ~4MB → ห้ามให้ client โหลดเอง ตัดเหลือ unit เดียวที่นี่
-// • cache ทั้งฝั่ง CDN + in-memory (ข้อมูลนิ่ง เปลี่ยนตอนเกมออกตัวใหม่เท่านั้น)
+// คืนข้อมูลท่าโจมตี (กระสุน / จุดปล่อย / มุม / ความเร็ว / จังหวะโดน / เสียง) ของ unit เดียว
+// • จากข้อมูลเกมของเรา (src/lib/gameData.ts → gameProjectileUnit — คอลัมน์ในตาราง unit ตรงๆ)
+//   เดิมใช้ projectile_data.json ของ warmycat — ตรวจแล้วทุกฟิลด์ตรงกันทั้ง 3,158 ตัว
+//   ยกเว้น motion ที่ warmycat สรุปเอง (ตอนนี้สรุปตามกฎของเกม) และ skill2.skillCode ของตัวที่สกิลที่สองอยู่ช่อง skillCode3
+// • cache ทั้งฝั่ง CDN (ข้อมูลนิ่ง เปลี่ยนตอนเกมออกตัวใหม่เท่านั้น)
 //
 // พิกัดใน start/end เป็น "game unit" ซึ่งวัดจาก anchor ของ unit —
 // ตรงกับ world coordinate ของไฟล์ .sam แบบ 1:1 (origin เดียวกัน)
@@ -10,8 +12,8 @@
 // ====================================================
 
 import { NextResponse } from 'next/server'
+import { gameProjectileUnit } from '@/lib/gameData'
 
-const SRC = 'https://rangerbook.warmycat.com/res/projectile_data.json'
 const ID_RE = /^[a-z0-9][a-z0-9_-]+$/i
 
 interface ProjectilePoint { x: number; y: number }
@@ -63,7 +65,7 @@ interface ProjectileUnit {
 }
 
 // ── เสียงของแต่ละท่า ──
-// ต้นทางให้มาแค่ "ชื่อ" (เช่น attrd_u1640xi) แต่ไฟล์จริงบน lerico มีเวลาต่อท้าย
+// ข้อมูลเกมให้มาแค่ "ชื่อ" (เช่น attrd_u1640xi) แต่ไฟล์จริงบน lerico มีเวลาต่อท้าย
 // (attrd_u1640xi_20260928130004344.ogg) จึงต้องเปิดสารบัญโฟลเดอร์มาจับคู่ชื่อ → ไฟล์
 //   preparation = ตอนเริ่มร่าย (ช่วง Cast Time)
 //   attack      = ตอนปล่อยท่า (เริ่มช่วง Recovery)
@@ -96,25 +98,14 @@ function loadSoundIndex() {
 }
 
 
-let cache: Promise<Record<string, ProjectileUnit>> | null = null
-function loadAll() {
-  if (!cache) {
-    cache = fetch(SRC, { next: { revalidate: 604800 } })
-      .then(r => { if (!r.ok) throw new Error(`origin ${r.status}`); return r.json() })
-      .then(j => (j?.units ?? {}) as Record<string, ProjectileUnit>)
-      .catch(err => { cache = null; throw err })
-  }
-  return cache
-}
-
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: raw } = await params
   const id = raw.toLowerCase().trim()
   if (!ID_RE.test(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
 
   try {
-    const [units, index] = await Promise.all([loadAll(), loadSoundIndex().catch(() => null)])
-    const unit = units[id] ?? null
+    const index = await loadSoundIndex().catch(() => null)
+    const unit = gameProjectileUnit(id) as ProjectileUnit | null
     let soundUrls: SoundUrls | null = null
     if (unit?.sounds && index) {
       const pick = (name?: string) => {

@@ -12,6 +12,7 @@ import { ensureGearData, getAllGearItems, getGearEffects } from '@/lib/pvpScrape
 import { buildRangerBookPayload, buildGearBookPayload, GEAR_BOOK_CACHE_KEY } from '@/lib/bookPayloads'
 import { redis, redisKey, REDIS_TTL } from './redis'
 import { cleanUnitName } from './unitName'
+import { gameText } from './gameData'
 
 function extractSortOrder(unitCode: string): number {
   const m = unitCode.match(/^u(\d+)/)
@@ -181,21 +182,10 @@ export async function performRangerSync(): Promise<SyncResult> {
   await ensureRangerBundle()
   const rawRangers = getAllRawRangers()
 
-  // 2. ดึงชื่อ English
+  // 2. ชื่อ English จากไฟล์ภาษาของเกม
   const nameMap = new Map<string, string>()
-  try {
-    const res = await fetch('https://rangers.lerico.net/api/v2/translate?keys=en:UNIT', {
-      headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' },
-    })
-    if (res.ok) {
-      const raw = await res.json() as Record<string, unknown>
-      const data = (raw['en:UNIT'] ?? raw) as Record<string, string>
-      for (const [key, name] of Object.entries(data)) {
-        if (typeof name === 'string') nameMap.set(key, cleanUnitName(name))
-      }
-    }
-  } catch (e) {
-    console.error('[Sync] Failed to fetch unit names:', e)
+  for (const [key, name] of Object.entries(gameText('en', 'UNIT'))) {
+    if (typeof name === 'string') nameMap.set(key, cleanUnitName(name))
   }
 
   // 3. Build ranger records

@@ -38,3 +38,7 @@ Thumbs.db
 *.tsbuildinfo
 next-env.d.ts
 exports/
+
+# ข้อมูลเกมที่ถอดแล้ว (สร้างโดยสคริปต์ส่วนตัวนอก repo · ขึ้น git เฉพาะ branch `gamedata`)
+/.gamedata/
+/.gamedata.tmp/

@@ -22,11 +22,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { redis, REDIS_TTL, redisKey } from '@/lib/redis'
 import { fetchCustomLocale, localizeBoth, WARMYCAT_V2_RANGERS_URL } from '@/lib/warmycatLocale'
 import type { LocaleCatalog, Localized } from '@/lib/warmycatLocale'
+import { gameText } from '@/lib/gameData'
 
 export const maxDuration = 60
 
 const WARMYCAT_URL = 'https://rangerbook.warmycat.com/res/Rangers_data.json'
-const LERICO_ABILITY_URL = 'https://rangers.lerico.net/api/v2/translate?keys=th:ABILITY,en:ABILITY'
 const FETCH_HEADERS = { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' }
 
 // สกัด skill id จากชื่อไฟล์ icon ของ 技能1 เช่น "skill_icon_sk1549_moon.png" → "1549"
@@ -37,17 +37,10 @@ function extractSkillId(icon: unknown): string | null {
   return m ? m[1] : null
 }
 
-/** Fetch lerico th/en:ABILITY dict ครั้งเดียว → ใช้แปล ab_tlt_{id}_desc เป็นคำอธิบาย Major Talent
- *  (ไม่ cache แยก — ฟังก์ชันนี้ถูกเรียกจาก populateAllTalents ซึ่งรันแค่ 1 ครั้ง/7วันอยู่แล้ว) */
+/** ข้อความ th/en ของ ABILITY จากไฟล์ภาษาของเกม → ใช้แปล ab_tlt_{id}_desc เป็นคำอธิบาย Major Talent
+ *  (เดิมดึง th/en:ABILITY ของ lerico — ข้อความชุดเดียวกัน) */
 async function fetchTalentDescDict(): Promise<{ th: Record<string, string>; en: Record<string, string> }> {
-  try {
-    const res = await fetch(LERICO_ABILITY_URL, { headers: FETCH_HEADERS })
-    if (!res.ok) return { th: {}, en: {} }
-    const json = await res.json() as Record<string, Record<string, string>>
-    return { th: json['th:ABILITY'] ?? {}, en: json['en:ABILITY'] ?? {} }
-  } catch {
-    return { th: {}, en: {} }
-  }
+  return { th: gameText('th', 'ABILITY'), en: gameText('en', 'ABILITY') }
 }
 
 // browser/CDN cache 1 ชั่วโมง (stale-while-revalidate 1 วัน) — เดิม 7 วันทำให้ ranger ที่เพิ่งมี talent

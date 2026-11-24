@@ -333,7 +333,8 @@ async function tierlistApi(method: string, body: Record<string, unknown>): Promi
 async function top40Fresh(): Promise<Response> {
   const [rankRes, namesRes] = await Promise.all([
     fetch(lericoProxy('https://rangers.lerico.net/api/v2/pvp/league/rank/LEGEND'), { cache: 'no-store' }),
-    fetch(lericoProxy('https://rangers.lerico.net/api/v2/translate?keys=en:UNIT')),
+    // ชื่อเรนเจอร์จากข้อมูลเกมของเรา (ไฟล์ static รูปแบบ { "en:UNIT": {...} }) — อันดับ PvP ยังดึงจาก lerico
+    apiFetch('/api/lerico/ranger-names'),
   ])
   if (!rankRes.ok) return json({ error: `lerico league rank failed: ${rankRes.status}` }, 502)
   type Resp = {

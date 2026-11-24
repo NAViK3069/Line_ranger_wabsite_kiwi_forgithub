@@ -6,27 +6,24 @@
 //   bundle เต็มหนัก ~3MB แต่ชื่อเรนเจอร์ล้วนๆ ~180KB
 //   ใช้ตอนค้นหาข้ามภาษา (อยู่โหมด EN แล้วพิมพ์ไทย) ซึ่งไม่ต้องใช้อย่างอื่นเลย
 //
-// ใช้ lerico API: /api/v2/translate?keys=<lang>:UNIT (และอื่นๆ)
+// ข้อความจากไฟล์ภาษาของเกมรุ่นล่าสุด (src/lib/gameData.ts) — เดิมดึง /api/v2/translate ของ lerico
 // Cache Redis 7 วัน (game data ไม่เปลี่ยนบ่อย)
 // ====================================================
 
 import { NextRequest, NextResponse } from 'next/server'
 import { redis } from '@/lib/redis'
 import { FRESH_CACHE_HEADERS } from '@/lib/cacheHeaders'
+import { gameText } from '@/lib/gameData'
 
 export const maxDuration = 60
 
 const SUPPORTED_LANGS = ['en', 'th'] as const
 type Lang = typeof SUPPORTED_LANGS[number]
 
+// CUSTOM = ข้อความที่ lerico เขียนเอง (ไม่ได้มาจากเกม) — คืนว่างเสมอ (ไม่มีหน้าไหนใช้)
 const TRANSLATION_TYPES = ['UNIT', 'EQUIP', 'SKILL', 'ABILITY', 'PROPERTIES', 'CUSTOM'] as const
 
 const CACHE_TTL = 60 * 60 * 24 * 7  // 7 วัน
-
-const FETCH_HEADERS = {
-  Accept: 'application/json',
-  'User-Agent': 'Mozilla/5.0',
-}
 
 // sync ล้าง lr:translations:th/en ให้ทุกครั้ง ต้นทางจึงสด — CDN ต้องตามให้ทัน
 const CACHE_HEADERS = FRESH_CACHE_HEADERS
@@ -42,25 +39,15 @@ interface TranslationBundle {
 }
 
 async function fetchOneType(lang: Lang, type: string): Promise<Record<string, string>> {
-  try {
-    const res = await fetch(
-      `https://rangers.lerico.net/api/v2/translate?keys=${lang}:${type}`,
-      { headers: FETCH_HEADERS },
-    )
-    if (!res.ok) return {}
-    const raw = await res.json() as Record<string, unknown>
-    const data = (raw[`${lang}:${type}`] ?? raw) as Record<string, string>
-    // ทำความสะอาด: ลบ \n, collapse spaces
-    const out: Record<string, string> = {}
-    for (const [k, v] of Object.entries(data)) {
-      if (typeof v === 'string') {
-        out[k] = v.replace(/\\n/g, ' ').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
-      }
+  if (type === 'CUSTOM') return {}
+  // ทำความสะอาด: ลบ \n, collapse spaces
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(gameText(lang, type))) {
+    if (typeof v === 'string') {
+      out[k] = v.replace(/\\n/g, ' ').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
     }
-    return out
-  } catch {
-    return {}
   }
+  return out
 }
 
 // ชื่อเรนเจอร์ = unit key ที่ลงท้าย _nm — ตัดออกมาแล้ว cache แยก
@@ -101,7 +88,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lan
         const data = (typeof cached === 'string' ? JSON.parse(cached) : cached) as TranslationBundle
         return NextResponse.json(onlyNames ? cacheNames(namesKey, data.units) : data, { headers: CACHE_HEADERS })
       }
-    } catch { /* fallback to lerico */ }
+    } catch { /* fallback to game data */ }
   }
 
   // ── 2. Fetch ทั้ง 6 types พร้อมกัน ──

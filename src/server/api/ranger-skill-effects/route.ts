@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { redis, REDIS_TTL } from '@/lib/redis'
 import { ensureRangerBundle, getAllRawRangers, getRawSkill, skillIconUrlFromRaw } from '@/lib/rangerData'
+import { gameText } from '@/lib/gameData'
 import type { RangerAbilitiesPayload } from '@/server/api/ranger-abilities/route'
 
 export const maxDuration = 60
@@ -72,13 +73,11 @@ function effectLines(desc: string): string[] {
   return out
 }
 
+/** คำอธิบายสกิลจากไฟล์ภาษาของเกม (เดิมดึงจาก lerico) */
 async function fetchSkillTexts(lang: Lang): Promise<Record<string, string>> {
-  const res = await fetch(`https://rangers.lerico.net/api/v2/translate?keys=${lang}:SKILL`, {
-    headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' },
-  })
-  if (!res.ok) throw new Error(`lerico ${res.status}`)
-  const raw = await res.json() as Record<string, unknown>
-  return (raw[`${lang}:SKILL`] ?? raw) as Record<string, string>
+  const texts = gameText(lang, 'SKILL')
+  if (!Object.keys(texts).length) throw new Error(`no SKILL texts for ${lang}`)
+  return texts
 }
 
 async function build(lang: Lang): Promise<SkillFxPayload> {

@@ -1,15 +1,17 @@
 // ====================================================
 // Ranger Data — Lazy-loaded stats, skills, abilities, translations
 //
-// ดึงครั้งเดียวตอน Ranger Detail ถูกเปิดครั้งแรก:
-//   • /api/getRangersBasics  — เรนเจอร์ทั้งหมด (~3000 ตัว)
-//   • /api/getSkills          — สกิลทั้งหมด พร้อม probability + skillDelayTime
-//   • /api/v2/abilities       — ability + groupBuffs
-//   • /api/v2/translate?keys=en:SKILL|ABILITY|PROPERTIES|CUSTOM
-// ใช้ in-flight promise guard กันยิงซ้ำ
+// โหลดครั้งเดียวจากข้อมูลเกมของเราเอง (src/lib/gameData.ts — ถอดจากไฟล์ทางการของเกมรุ่นล่าสุด):
+//   • เรนเจอร์ทั้งหมด (ตาราง unit + unit_reinforce_rate)
+//   • สกิลทั้งหมด (ตาราง skill)
+//   • ความสามารถ + บัฟกลุ่ม (ตาราง ability + group_buff)
+//   • ข้อความภาษาอังกฤษของสกิล / ความสามารถ / PROPERTIES (ไฟล์ภาษาของเกม)
+// (เดิมดึง JSON จาก API ของ lerico — เลิกใช้แล้ว)
+// ใช้ in-flight promise guard กันโหลดซ้ำ
 // ====================================================
 
 import { calcRangerLevelStats } from './rangerLevelCalc'
+import { gameAbilities, gameRangersBasics, gameSkills, gameText } from './gameData'
 
 // =========== Types ===========
 
@@ -167,8 +169,6 @@ const customTranslate   = new Map<string, string>()
 let bundleLoaded = false
 let bundleLoadingPromise: Promise<void> | null = null
 
-const FETCH_HEADERS = { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' }
-
 // =========== Bundle loader (lazy + in-flight guard) ===========
 
 export async function ensureRangerBundle(): Promise<void> {
@@ -180,70 +180,30 @@ export async function ensureRangerBundle(): Promise<void> {
 }
 
 async function loadRangerBundle(): Promise<void> {
-  console.log('[RangerBundle] loading: rangers + skills + abilities + 4 translations…')
+  console.log('[RangerBundle] loading from game data: rangers + skills + abilities + translations…')
   try {
-    const [
-      basicsRes,
-      skillsRes,
-      abilitiesRes,
-      skillTransRes,
-      abilityTransRes,
-      propTransRes,
-      customTransRes,
-    ] = await Promise.all([
-      fetch('https://rangers.lerico.net/api/getRangersBasics',                { headers: FETCH_HEADERS }),
-      fetch('https://rangers.lerico.net/api/getSkills',                       { headers: FETCH_HEADERS }),
-      fetch('https://rangers.lerico.net/api/v2/abilities',                    { headers: FETCH_HEADERS }),
-      fetch('https://rangers.lerico.net/api/v2/translate?keys=en:SKILL',      { headers: FETCH_HEADERS }),
-      fetch('https://rangers.lerico.net/api/v2/translate?keys=en:ABILITY',    { headers: FETCH_HEADERS }),
-      fetch('https://rangers.lerico.net/api/v2/translate?keys=en:PROPERTIES', { headers: FETCH_HEADERS }),
-      fetch('https://rangers.lerico.net/api/v2/translate?keys=en:CUSTOM',     { headers: FETCH_HEADERS }),
-    ])
+    rawRangerCache.clear()
+    for (const r of gameRangersBasics() as RawRanger[]) if (r.unitCode) rawRangerCache.set(r.unitCode, r)
 
-    // ── Rangers (numeric-keyed object → array) ──
-    if (basicsRes.ok) {
-      const data = await basicsRes.json() as Record<string, RawRanger> | RawRanger[]
-      const list = Array.isArray(data) ? data : Object.values(data)
-      rawRangerCache.clear()
-      for (const r of list) {
-        if (r?.unitCode) rawRangerCache.set(r.unitCode, r)
-      }
-      console.log(`[RangerBundle] cached ${rawRangerCache.size} rangers`)
-    }
+    rawSkillCache.clear()
+    for (const s of gameSkills() as RawSkill[]) if (s.skillCode) rawSkillCache.set(s.skillCode, s)
 
-    // ── Skills (array) ──
-    if (skillsRes.ok) {
-      const data = await skillsRes.json() as RawSkill[]
-      rawSkillCache.clear()
-      if (Array.isArray(data)) {
-        for (const s of data) if (s?.skillCode) rawSkillCache.set(s.skillCode, s)
-      }
-      console.log(`[RangerBundle] cached ${rawSkillCache.size} skills`)
-    }
+    const { abilities, groupBuffs } = gameAbilities() as { abilities: RawAbility[]; groupBuffs: RawGroupBuff[] }
+    rawAbilityCache.clear()
+    groupBuffsByRanger.clear()
+    for (const a of abilities) if (a.abilityCode) rawAbilityCache.set(a.abilityCode, a)
+    for (const gb of groupBuffs) for (const rId of gb.rangers ?? []) groupBuffsByRanger.set(rId, gb)
 
-    // ── Abilities ({ abilities, groupBuffs }) ──
-    if (abilitiesRes.ok) {
-      const data = await abilitiesRes.json() as { abilities?: RawAbility[]; groupBuffs?: RawGroupBuff[] }
-      rawAbilityCache.clear()
-      groupBuffsByRanger.clear()
-      for (const a of data.abilities ?? []) {
-        if (a?.abilityCode) rawAbilityCache.set(a.abilityCode, a)
-      }
-      for (const gb of data.groupBuffs ?? []) {
-        for (const rId of gb.rangers ?? []) groupBuffsByRanger.set(rId, gb)
-      }
-      console.log(`[RangerBundle] cached ${rawAbilityCache.size} abilities, ${groupBuffsByRanger.size} ranger→groupBuff`)
-    }
-
-    await loadTranslationMap(skillTransRes,   'en:SKILL',      skillTranslate)
-    await loadTranslationMap(abilityTransRes, 'en:ABILITY',    abilityTranslate)
-    await loadTranslationMap(propTransRes,    'en:PROPERTIES', propertyTranslate)
-    await loadTranslationMap(customTransRes,  'en:CUSTOM',     customTranslate)
+    loadTranslationMap(gameText('en', 'SKILL'), skillTranslate)
+    loadTranslationMap(gameText('en', 'ABILITY'), abilityTranslate)
+    loadTranslationMap(gameText('en', 'PROPERTIES'), propertyTranslate)
+    // customTranslate: ข้อความที่ lerico เขียนเอง (ไม่ได้มาจากเกม) — เลิกใช้ ไม่มีที่ไหนเรียก
 
     bundleLoaded = true
     console.log(
-      `[RangerBundle] ready — translations skill/ability/props/custom: ` +
-      `${skillTranslate.size}/${abilityTranslate.size}/${propertyTranslate.size}/${customTranslate.size}`
+      `[RangerBundle] ready — ${rawRangerCache.size} rangers · ${rawSkillCache.size} skills · ` +
+      `${rawAbilityCache.size} abilities · ${groupBuffsByRanger.size} ranger→groupBuff · ` +
+      `translations skill/ability/props: ${skillTranslate.size}/${abilityTranslate.size}/${propertyTranslate.size}`
     )
   } catch (err) {
     console.error('[RangerBundle] load failed:', err)
@@ -251,21 +211,10 @@ async function loadRangerBundle(): Promise<void> {
   }
 }
 
-async function loadTranslationMap(
-  res: Response,
-  key: string,
-  target: Map<string, string>
-): Promise<void> {
-  if (!res.ok) return
-  try {
-    const raw = await res.json() as Record<string, unknown>
-    const data = (raw[key] ?? raw) as Record<string, string>
-    target.clear()
-    for (const [k, v] of Object.entries(data)) {
-      if (typeof v === 'string') target.set(k, v.replace(/\\n/g, ' ').replace(/\n/g, ' ').trim())
-    }
-  } catch (err) {
-    console.error(`[RangerBundle] failed to parse ${key}:`, err)
+function loadTranslationMap(data: Record<string, string>, target: Map<string, string>): void {
+  target.clear()
+  for (const [k, v] of Object.entries(data)) {
+    if (typeof v === 'string') target.set(k, v.replace(/\\n/g, ' ').replace(/\n/g, ' ').trim())
   }
 }
 

@@ -7,6 +7,7 @@
 
 import { NextResponse } from 'next/server'
 import { redis, REDIS_TTL } from '@/lib/redis'
+import { gameText } from '@/lib/gameData'
 
 const WARMYCAT_RANGERS = 'https://rangerbook.warmycat.com/res/Rangers_data.json'
 const WARMYCAT_ABILITY  = 'https://rangerbook.warmycat.com/res/%E8%83%BD%E5%8A%9B.json'
@@ -35,20 +36,14 @@ const MEM_TTL = 10 * 60 * 1000  // 10 min
 async function ensureData() {
   if (abilityDict && rangersMap && Date.now() - fetchedAt < MEM_TTL) return
 
-  const [rangersRes, abilityRes, enTransRes] = await Promise.all([
+  const [rangersRes, abilityRes] = await Promise.all([
     fetch(WARMYCAT_RANGERS, { next: { revalidate: 600 } }),
     fetch(WARMYCAT_ABILITY,  { next: { revalidate: 600 } }),
-    fetch('https://rangers.lerico.net/api/v2/translate?keys=en:ABILITY', { next: { revalidate: 3600 } }),
   ])
   if (!rangersRes.ok || !abilityRes.ok) throw new Error('warmycat fetch failed')
 
-  // lerico EN translations: en:ABILITY → { aab213_lastatk_nm: 'Last Attack', ... }
-  const enDict: Record<string, string> = {}
-  if (enTransRes.ok) {
-    const enData = await enTransRes.json() as Record<string, Record<string, string>>
-    const enAbility = enData['en:ABILITY'] ?? {}
-    Object.assign(enDict, enAbility)
-  }
+  // ข้อความ EN ของ ABILITY จากไฟล์ภาษาของเกม → { aab213_lastatk_nm: 'Last Attack', ... } (เดิมดึงจาก lerico)
+  const enDict: Record<string, string> = { ...gameText('en', 'ABILITY') }
 
   // 能力.json: { [code]: { icon, 名稱, 敘述, ... } }
   const abilityRaw = await abilityRes.json() as Record<string, {

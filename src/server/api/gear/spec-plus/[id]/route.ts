@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { redis, REDIS_TTL, redisKey } from '@/lib/redis'
 import { fetchCustomLocale, localizeBoth } from '@/lib/warmycatLocale'
 import type { LocaleCatalog, Localized } from '@/lib/warmycatLocale'
+import { gameText } from '@/lib/gameData'
 
 export const maxDuration = 60
 
@@ -25,7 +26,6 @@ const WARMYCAT_URL =
   'https://rangerbook.warmycat.com/res/' + encodeURIComponent('裝備資料庫') + '.json'
 // ข้อมูล v2 ของ warmycat — Spec+ เก็บเป็นคีย์ข้อความ (เรนเดอร์เป็นไทย/อังกฤษทางการได้ตรงๆ)
 const WARMYCAT_V2_EQUIP_URL = 'https://rangerbook.warmycat.com/res/v2/equipment.json'
-const LERICO_EQUIP_URL = 'https://rangers.lerico.net/api/v2/translate?keys=zh:EQUIP,th:EQUIP,en:EQUIP'
 const FETCH_HEADERS = { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' }
 
 // "裝備種類" (จีน) → prefix ที่ lerico EQUIP dict ใช้ใน key "SPC_{prefix}_{id}_..."
@@ -38,17 +38,10 @@ const GEAR_TYPE_PREFIX: Record<string, string> = {
 
 interface EquipDict { zh: Record<string, string>; th: Record<string, string>; en: Record<string, string> }
 
-/** Fetch lerico zh/th/en:EQUIP dict ครั้งเดียว → ใช้หา SPC_{prefix}_{id} จากชื่อ (จีน) + แปล desc
- *  (ไม่ cache แยก — เรียกจาก populateAllSpecs ซึ่งรันแค่ 1 ครั้ง/7วันอยู่แล้ว) */
+/** ข้อความ zh/th/en ของ EQUIP จากไฟล์ภาษาของเกม → ใช้หา SPC_{prefix}_{id} จากชื่อ (จีน) + แปล desc
+ *  (เดิมดึง zh/th/en:EQUIP ของ lerico — ข้อความชุดเดียวกัน) */
 async function fetchEquipDict(): Promise<EquipDict> {
-  try {
-    const res = await fetch(LERICO_EQUIP_URL, { headers: FETCH_HEADERS })
-    if (!res.ok) return { zh: {}, th: {}, en: {} }
-    const json = await res.json() as Record<string, Record<string, string>>
-    return { zh: json['zh:EQUIP'] ?? {}, th: json['th:EQUIP'] ?? {}, en: json['en:EQUIP'] ?? {} }
-  } catch {
-    return { zh: {}, th: {}, en: {} }
-  }
+  return { zh: gameText('zh', 'EQUIP'), th: gameText('th', 'EQUIP'), en: gameText('en', 'EQUIP') }
 }
 
 /** สร้าง lookup "prefix:ชื่อจีน" → SPC id (เช่น "wpn:褪色" → "0001") จาก zh:EQUIP dict

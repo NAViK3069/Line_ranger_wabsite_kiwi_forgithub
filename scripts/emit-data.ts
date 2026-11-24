@@ -212,44 +212,20 @@ async function emitGameData() {
   if (want('res')) await emitResRoot()
 }
 
-// ── สายวิวัฒนาการ: ต้องถาม lerico getRanger ทีละตัว → เก็บผลไว้ใน .data/db/evolve-chains.json
-//    สายเดียวใช้ร่วมกันทุกตัวในสาย ดึงครั้งแรกราว 1,000 ครั้ง หลังจากนั้นดึงเฉพาะเรนเจอร์ใหม่ ──
+// ── สายวิวัฒนาการ: จากข้อมูลเกม (ลิงก์ร่างถัดไปในตาราง unit — src/lib/gameData.ts) ──
+//    เดิมถาม getRanger ของ lerico ทีละตัวแล้วแคชไว้ — ตรวจแล้วได้สายเดียวกันทุกตัว
 async function emitEvolve(rangerIds: string[]) {
   console.log('[emit] evolve chains')
   const { getRawRanger, getTierInfo } = await import('../src/lib/rangerData')
-  const cacheFile = path.join(ROOT, '.data', 'db', 'evolve-chains.json')
-  let cache: Record<string, string[]> = {}
-  try { cache = JSON.parse(fs.readFileSync(cacheFile, 'utf8')) } catch { /* ครั้งแรก */ }
-  const ID_RE = /^[a-z0-9][a-z0-9_-]{2,50}$/i
-  const HEADERS = { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' }
-
-  const missing = rangerIds.filter(id => !(id in cache))
-  let fetched = 0
-  await pool(missing, async (id) => {
-    if (id in cache) return
-    try {
-      const res = await fetch(`https://rangers.lerico.net/api/getRanger/${encodeURIComponent(id)}`, { headers: HEADERS })
-      if (!res.ok) return
-      const j = await res.json() as { evolveChain?: unknown }
-      const ids = Array.isArray(j.evolveChain) ? j.evolveChain.filter((x): x is string => typeof x === 'string' && ID_RE.test(x)) : []
-      for (const cid of new Set([id, ...ids])) cache[cid] = ids
-      fetched++
-    } catch { /* รอบหน้าค่อยลองใหม่ */ }
-  }, `evolve fetch (missing ${missing.length})`)
-  if (fetched) {
-    fs.mkdirSync(path.dirname(cacheFile), { recursive: true })
-    fs.writeFileSync(cacheFile, JSON.stringify(cache))
-  }
-
-  const namesRes = await fetch('https://rangers.lerico.net/api/v2/translate?keys=en:UNIT', { headers: HEADERS })
-  const rawNames = namesRes.ok ? (await namesRes.json() as Record<string, any>) : {}
-  const nameData = (rawNames['en:UNIT'] ?? rawNames) as Record<string, string>
-  const nameOf = (id: string) => (nameData[`${id}_nm`] ?? id).replace(/\s+/g, ' ').trim()
+  const { gameEvolveChain, gameText } = await import('../src/lib/gameData')
+  const { cleanUnitName } = await import('../src/lib/unitName')
+  const nameData = gameText('en', 'UNIT')
+  const nameOf = (id: string) => cleanUnitName(nameData[`${id}_nm`] ?? id)
 
   const done = new Set<string>()
   for (const id of rangerIds) {
-    const ids = cache[id]
-    if (!ids || ids.length < 2 || done.has(id)) continue
+    const ids = gameEvolveChain(id)
+    if (ids.length < 2 || done.has(id)) continue
     const chain = await Promise.all(ids.map(async cid => {
       const raw = await getRawRanger(cid)
       const tier = raw ? getTierInfo(raw) : null

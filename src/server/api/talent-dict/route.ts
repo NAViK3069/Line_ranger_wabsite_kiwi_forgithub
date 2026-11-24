@@ -13,12 +13,12 @@
 
 import { NextResponse } from 'next/server'
 import { redis, REDIS_TTL, redisKey } from '@/lib/redis'
+import { gameText } from '@/lib/gameData'
 import { fetchCustomLocale, phraseTemplates } from '@/lib/warmycatLocale'
 import type { PhraseTemplate } from '@/lib/warmycatLocale'
 
 export const maxDuration = 30
 
-const LERICO_BASE = 'https://rangers.lerico.net/api/v2/translate'
 // dict types ที่มีประโยชน์กับ talent text (zh:TALENT ของ lerico เป็น {} จึงไม่ใช้)
 const DICT_TYPES = ['PROPERTIES', 'ABILITY'] as const
 
@@ -33,14 +33,9 @@ interface TalentDict {
   templates: PhraseTemplate[]        // แม่แบบประโยคทางการ zh → th/en จาก warmycat custom.json
 }
 
-const FETCH_HEADERS = { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' }
-
+/** ข้อความ zh / en ของเกม (ไฟล์ภาษาของเกม — เดิมดึงจาก lerico) */
 async function fetchLericoMap(lang: 'zh' | 'en', type: string): Promise<Record<string, string>> {
-  const url = `${LERICO_BASE}?keys=${lang}:${type}`
-  const res = await fetch(url, { headers: FETCH_HEADERS, next: { revalidate: 604800 } })
-  if (!res.ok) return {}
-  const json = await res.json() as Record<string, Record<string, string>>
-  return json[`${lang}:${type}`] ?? {}
+  return gameText(lang, type)
 }
 
 /** zip zh + en by shared key — เก็บเฉพาะที่ทั้งคู่มีค่า และ zh ≠ en */

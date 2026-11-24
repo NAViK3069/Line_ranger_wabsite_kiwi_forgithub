@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiRateLimit, getClientIp } from '@/lib/rateLimit'
 import { FRESH_CACHE_HEADERS } from '@/lib/cacheHeaders'
+import { gameTranslate } from '@/lib/gameData'
 
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request.headers)
@@ -10,13 +11,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const res = await fetch('https://rangers.lerico.net/api/v2/translate?keys=en:UNIT', {
-      next: { revalidate: 3600 }
-    })
-    const data = await res.json()
+    // ข้อความจากไฟล์ภาษาของเกม (รูปแบบเดิม { "en:UNIT": { code: ข้อความ } }) — เดิมดึงจาก lerico
+    const data = gameTranslate('en:UNIT')
     return NextResponse.json(data, {
       headers: {
-        // ต้นทางรีเฟรชจาก lerico ทุกชั่วโมง (revalidate: 3600) CDN จึงไม่ควรยึดนานกว่านั้น
+        // ข้อมูลเกมอัปเดตเมื่อเกมออกไฟล์ใหม่ — CDN ไม่ควรยึดนาน
         ...FRESH_CACHE_HEADERS,
       },
     })

@@ -7,6 +7,7 @@ import { prisma } from './db'
 import { redis, redisKey, REDIS_TTL } from './redis'
 import { aggregateGearRanking } from './gearAggregate'
 import { cleanUnitName } from './unitName'
+import { gameEquipments, gameText } from './gameData'
 import {
   calcBasicEffectValue, calcSwitchableEffectValue, calcSkillPlusEffectValue,
   type BasicEffectGrowth, type SwitchableEffectGrowth, type SkillPlusEffectGrowth,
@@ -266,9 +267,9 @@ export const LEAGUES = [
 /** ค่า league ที่ยังใช้งานอยู่ — ใช้ตรวจ input แทนการเขียนช่วงเลขตายตัว */
 export const isValidLeague = (v: number): boolean => LEAGUES.some(l => l.value === v)
 
-// =========== Translation API ===========
-// ชื่อ Ranger: https://rangers.lerico.net/api/v2/translate?keys=en:UNIT
-// ชื่อ Gear:   https://rangers.lerico.net/api/v2/translate?keys=en:EQUIP
+// =========== Translation / gear data ===========
+// ชื่อ Ranger / ชื่อ Gear / ข้อมูลเกียร์ทั้งชุด — จากข้อมูลเกมของเราเอง (src/lib/gameData.ts)
+// (เดิมดึง /api/v2/translate + /api/v2/equipments ของ lerico)
 
 const unitTranslateCache = new Map<string, string>()  // unitId     → ชื่อ เช่น "u001e-bella_snm" → "BELLA"
 const equipTranslateCache = new Map<string, string>()  // itemCode_nm → ชื่อ เช่น "eq_2202_wpn_06_nm" → "[YSH]Hisui's Hiraikotsu"
@@ -409,8 +410,8 @@ function applyTranslationBundle(bundle: TranslationBundle): void {
 }
 
 export async function loadTranslations(force = false): Promise<void> {
-  // ── 1. ลอง Redis ก่อน — ลด cold start overhead (3 lerico.net calls → 1 Redis read) ──
-  //    force = true → ข้าม Redis ไป fetch lerico สดเลย (ใช้ตอน admin sync เพื่อดึง gear ใหม่)
+  // ── 1. ลอง Redis ก่อน — ลด cold start overhead ──
+  //    force = true → ข้าม Redis ไปอ่านข้อมูลเกมสดเลย (ใช้ตอน admin sync เพื่อเอา gear ใหม่)
   if (!force && redis) {
     try {
       const cached = await redis.get<string>(redisKey.translations())
@@ -420,53 +421,27 @@ export async function loadTranslations(force = false): Promise<void> {
         console.log(`[Translate] ✓ Redis cache — ${unitTranslateCache.size} units, ${equipDataCache.size} equips`)
         return
       }
-    } catch { /* Redis unavailable → fallback to lerico.net */ }
+    } catch { /* Redis unavailable → fallback to game data */ }
   }
 
-  // ── 2. Fetch จาก lerico.net ──
+  // ── 2. อ่านจากข้อมูลเกม ──
   try {
-    const [unitRes, equipRes, equipDataRes] = await Promise.all([
-      fetch('https://rangers.lerico.net/api/v2/translate?keys=en:UNIT', {
-        headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' },
-      }),
-      fetch('https://rangers.lerico.net/api/v2/translate?keys=en:EQUIP', {
-        headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' },
-      }),
-      fetch('https://rangers.lerico.net/api/v2/equipments', {
-        headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' },
-      }),
-    ])
-
-    let units: Record<string, string> = {}
-    let equips: Record<string, string> = {}
-    let equipRaw: TranslationBundle['equipRaw'] = {}
-
-    if (unitRes.ok) {
-      const raw = await unitRes.json() as Record<string, unknown>
-      // ชื่อบางตัวมี "\n" ติดมา → แปลงเป็นช่องว่าง (ดู unitName.ts)
-      units = Object.fromEntries(
-        Object.entries((raw['en:UNIT'] ?? raw) as Record<string, unknown>)
-          .filter((e): e is [string, string] => typeof e[1] === 'string')
-          .map(([k, v]) => [k, cleanUnitName(v)]),
-      )
-    }
-    if (equipRes.ok) {
-      const raw = await equipRes.json() as Record<string, unknown>
-      equips = (raw['en:EQUIP'] ?? raw) as Record<string, string>
-    }
-    if (equipDataRes.ok) {
-      equipRaw = await equipDataRes.json() as TranslationBundle['equipRaw']
-    }
+    // ชื่อบางตัวมี "\n" ติดมา → แปลงเป็นช่องว่าง (ดู unitName.ts)
+    const units: Record<string, string> = Object.fromEntries(
+      Object.entries(gameText('en', 'UNIT')).map(([k, v]) => [k, cleanUnitName(v)]),
+    )
+    const equips: Record<string, string> = { ...gameText('en', 'EQUIP') }
+    const equipRaw = gameEquipments() as unknown as TranslationBundle['equipRaw']
 
     const bundle: TranslationBundle = { units, equips, equipRaw }
     applyTranslationBundle(bundle)
 
     console.log(
-      `[Translate] ✓ lerico.net — ${unitTranslateCache.size} units, ${equipTranslateCache.size} equips, ` +
+      `[Translate] ✓ game data — ${unitTranslateCache.size} units, ${equipTranslateCache.size} equips, ` +
       `${equipDataCache.size} items, ${attributesCache.size} attrs`
     )
 
-    // ── 3. บันทึกลง Redis (24h TTL) — cold start ถัดไปใช้ Redis แทน lerico.net ──
+    // ── 3. บันทึกลง Redis (24h TTL) ──
     if (redis && unitTranslateCache.size > 0) {
       redis.set(redisKey.translations(), JSON.stringify(bundle), {
         ex: REDIS_TTL.translations,

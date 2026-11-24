@@ -193,12 +193,14 @@ export function skillTiming(scene: Scene, cue: SkillCue): SkillTiming {
     for (let i = 0; i < n; i++) {
       const la = launchAt + i * fx.interval
       let flightDur: number
-      if (fx.game && caster && fx.game.moveSpeed > 0) {
+      if (fx.game && caster) {
         // เกม: เวลาบิน = ระยะ(pt) ÷ (moveSpeed × 60) · 1 pt = 2 พิกเซล SAM (× scale ของผู้ยิง)
+        // moveSpeed 0 → เวลา ∞ → CCSequence แตกเวลาเป็น NaN แล้วกระโดดไปท่อนหลังตั้งแต่อัปเดตแรก
+        //   = กระสุนวาร์ปไปปลายทาง + โดนทันที (ท่าตกจากฟ้า / เกิดคาตัวศัตรู)
         const from = fxLaunchPoint(scene, cue, caster, la)
         const to = fxImpactPoint(scene, cue, la)
         const pt = Math.hypot(to.x - from.x, to.y - from.y) / (GAME_PX_PER_PT * caster.scale)
-        flightDur = Math.max(1 / 60, pt / (fx.game.moveSpeed * GAME_FPS))
+        flightDur = fx.game.moveSpeed > 0 ? Math.max(1 / 60, pt / (fx.game.moveSpeed * GAME_FPS)) : 0
       } else if (fx.mode === 'projectile' && caster) {
         const from = fxLaunchPoint(scene, cue, caster, la)
         const to = fxImpactPoint(scene, cue, la)
@@ -275,6 +277,11 @@ export function gamePathPos(g: GameProjectile, from: Vec, to: Vec, k: number, fo
 /** มุมหมุนกระสุนแบบเกม (เรเดียน, บวก = ตามเข็ม) — setRotation(start) แล้ว CCRotateTo(เวลาบิน, end) */
 export const gameRotation = (g: GameProjectile, k: number) =>
   g.motion === 'CURVE' ? ((g.angle.start + (g.angle.end - g.angle.start) * k) * Math.PI) / 180 : 0   // CCMoveBy ไม่ตั้งมุม
+
+/** attackType ที่เกมสร้างกระสุน (บิต 0x3D98) — นอกนั้นไม่มีกระสุน โดนทันทีตอนช่วง *_ready จบ */
+export const GAME_BULLET_TYPES = ['ENERGY', 'ENERGYC', 'WEAPON', 'WEAPONC', 'DOUBLE', 'DOUBLEC', 'RETURN', 'BEAM'] as const
+export const isGameBulletType = (attackType: string | null | undefined) =>
+  !!attackType && (GAME_BULLET_TYPES as readonly string[]).includes(attackType)
 
 /**
  * ทรงวิถีจาก attackType (ตัวที่เกมใช้ตัดสินจริง — ไม่ใช่ motion.type ของ lerico)

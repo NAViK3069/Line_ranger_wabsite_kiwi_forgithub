@@ -279,7 +279,8 @@ function drawSkillFx(ctx: CanvasRenderingContext2D, scene: Scene, tl: Timeline, 
         clip = fx.finish
         local = (t - s.impactAt) * fps
         pos = fxFinishPoint(scene, c, s.impactAt)
-        if (fx.game) rot = gameRotation(fx.game, 1)
+        // โหนดเดียวกับช่วงบิน: finish ค้างมุมที่ CCRotateTo ไปถึง (วาร์ป moveSpeed 0 = มุมเริ่ม)
+        if (fx.game) rot = gameRotation(fx.game, s.flightDur > 0 ? 1 : 0)
         else if (fx.rotate && fx.rotateFinish && fx.mode === 'projectile') {
           const from = fxLaunchPoint(scene, c, caster, s.launchAt)
           const to = fxImpactPoint(scene, c, s.impactAt)

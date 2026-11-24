@@ -34,14 +34,15 @@ const clone = o => JSON.parse(JSON.stringify(o))
 // ── ท่าโจมตีจากข้อมูลเกม (public/data/ranger/projectile/<id>.json) → คิวสกิลของ Video Studio ──
 //   กระสุนใช้ fx.game = วิถีแบบในเกมเป๊ะ (ถอดจาก libgame.so — ดู SkillFx.game ใน src/anme/engine/types.ts)
 //   kind: 'normal' | 'skill1' | 'skill2' · คืน { cue (ส่วนที่ทับคิวต้นฉบับ), assets (เสียง) }
+//   เกม: มีกระสุนเฉพาะ attackType กลุ่มยิง (ENERGY/ENERGYC/WEAPON/WEAPONC/DOUBLE/DOUBLEC/RETURN/BEAM)
+//        นอกนั้นไม่มีกระสุน (fx: null = โดนตอนเฟรมปล่อย) · moveSpeed 0 = วาร์ปไปปลายทางแล้วโดนทันที
 const CLIP = { normal: 'attack', skill1: 's_attack', skill2: 's2_attack' }
 const HIT_RATE = { normal: 'normalHitPointRate', skill1: 'skill1HitPointRate', skill2: 'skill2HitPointRate' }
 function gameAttack(rangerId, kind) {
   const d = require(`../../public/data/ranger/projectile/${rangerId}.json`)
   const u = d.unit, k = u[kind]
   if (!k) throw new Error(`${rangerId} has no ${kind}`)
-  const m = k.motion ?? {}
-  if (!m.enabled || !(k.moveSpeed > 0)) throw new Error(`${rangerId} ${kind}: not a flying projectile`)
+  const bullet = ['ENERGY', 'ENERGYC', 'WEAPON', 'WEAPONC', 'DOUBLE', 'DOUBLEC', 'RETURN', 'BEAM'].includes(k.attackType)
   const sound = (url, tag) => {
     if (!url) return null
     const file = url.split('/').pop()
@@ -55,14 +56,14 @@ function gameAttack(rangerId, kind) {
     cue: {
       cast: [`${clip}_ready`],
       release: clip,
-      fx: {
+      fx: !bullet ? null : {
         set: k.animationPart, mode: 'projectile', flight: 'normal', finish: 'finish',
         game: {
           // เกมตัดสินทรงวิถีจาก attackType: WEAPON / ENERGY / DOUBLE = เส้นตรง · อื่นๆ = โค้ง (ดู gameMotionOf)
           motion: ['WEAPON', 'ENERGY', 'DOUBLE'].includes(k.attackType) ? 'LINEAR' : 'CURVE',
           start: { x: k.start.x, y: k.start.y },
           angle: { start: k.angle?.start ?? 0, end: k.angle?.end ?? 0 },
-          moveSpeed: k.moveSpeed,
+          moveSpeed: k.moveSpeed > 0 ? k.moveSpeed : 0,
           hitRate: u.hitTiming?.[HIT_RATE[kind]] ?? 100,
         },
       },
@@ -73,7 +74,8 @@ function gameAttack(rangerId, kind) {
     },
   }
 }
-const mergeCue = (base, over) => (over ? { ...clone(base), ...clone(over), fx: { ...clone(base.fx), ...clone(over.fx ?? {}) } } : base)
+const mergeCue = (base, over) => (!over ? base
+  : { ...clone(base), ...clone(over), fx: over.fx === null ? null : { ...clone(base.fx), ...clone(over.fx ?? {}) } })
 
 function buildScene(src, cfg) {
   const baseAtk = src.cues.find(c => c.label === 'โจมตีปกติ')

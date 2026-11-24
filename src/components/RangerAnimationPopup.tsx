@@ -22,11 +22,9 @@ import {
   renderGrid,
   autoFit,
   animCenterX,
-  animBBox,
   animBBoxLoose,
   animBodyBBox,
   animStandPoint,
-  animGroundDecalY,
   animMedianBBox,
   animFrame0Center,
   anchorFromRatio,
@@ -292,6 +290,14 @@ const GAME_CURVE_K = 0.4
 type GameMotion = 'CURVE' | 'LINEAR'
 const gameMotionOf = (attackType: string | null): GameMotion =>
   attackType === 'WEAPON' || attackType === 'ENERGY' || attackType === 'DOUBLE' ? 'LINEAR' : 'CURVE'
+/**
+ * attackType ที่เกมสร้างกระสุน (ตัวเลือกในเกม: บิต 0x3D98 ของ enum — ใช้ทั้งตีปกติและสกิล)
+ *   enum: PUNCH 1 · KICK 2 · ENERGY 3 · ENERGYC 4 · SWING 5 · STAB 6 · WEAPON 7 · WEAPONC 8 · LASER 9
+ *         DOUBLE 10 · DOUBLEC 11 · RETURN 12 · BEAM 13 · ACTION 14 · (NONE = 0)
+ *   นอกกลุ่มนี้ไม่มีกระสุน — ตีโดนทันทีตอนช่วง *_ready จบ (ตรวจไฟล์จริง 35 ท่า: ไม่มีไฟล์ bul เลยสักท่า)
+ */
+const GAME_BULLET_TYPES = new Set(['ENERGY', 'ENERGYC', 'WEAPON', 'WEAPONC', 'DOUBLE', 'DOUBLEC', 'RETURN', 'BEAM'])
+const isGameBulletType = (attackType: string | null) => !!attackType && GAME_BULLET_TYPES.has(attackType)
 /** กึ่งกลางกรอบเวทีของไฟล์ (= ตำแหน่งของโหนดในเกม) · ไฟล์ไม่มีกรอบ = null */
 function canvasCenter(sam: SAMParser): { x: number; y: number } | null {
   const c = sam.canvas
@@ -318,19 +324,6 @@ const AREA_BAR_ABOVE_STAND = 330
 // (ยึดฉากทำให้ระยะบนจอคูณ zoom ไปด้วย ซูมเข้ามากๆ แถบจะพ้นขอบบน)
 // เผื่อที่ให้ป้ายตัวเลขที่วาดเหนือเส้นราว 22px ด้วย
 const AREA_BAR_MIN_SCREEN_Y = 26
-// ── เกณฑ์แยก "ท่าตกใส่ศัตรูจากฟ้า" ออกจากเอฟเฟกต์ที่เกิดคาตัวเป้าหมาย (world unit) ──
-// ทั้งสองแบบเป็น motion.enabled=false เหมือนกัน API ไม่มีฟิลด์ไหนแยกได้ และรอยพื้นก็แยกไม่ได้
-// (u1524e-ak-bul3 ไม่มีรอยพื้นแต่ต้องลงพื้น / u1577e-ap-bul3 มีรอยพื้น 6.6 แต่ต้องอยู่ที่ตัว)
-// ตัวที่แยกขาดคือความสูงของภาพ เพราะของที่ตกมาจากฟ้าถูกวาดยาวขึ้นไปนอกจอ:
-//   ตกใส่ศัตรู      ขอบบน y0 = -410, -504, -852, -1042
-//   เกิดคาตัวศัตรู  ขอบบน y0 = -184, -117, -113     ← ช่องว่าง 226 หน่วย
-// ยืนยันด้วยตา 7 ไฟล์ ถ้าเจอตัวที่หลุดเกณฑ์ให้ปรับเลขนี้หรือหาตัวชี้วัดที่ดีกว่า
-const INSTANT_DROP_ART_TOP = -300
-// ── ระยะที่ท่าพุ่งเข้าไปชนต้อง "หยุดก่อนถึงตัว" (world unit) ──
-// กฎ MAIN ชน MAIN ทำให้ภาพไปทับตัวเป้าหมายพอดี ซึ่งทับมากเกินไป ถอยกลับมาทางผู้ร่ายเล็กน้อย
-// ค่านี้จูนด้วยตา ปรับที่นี่ที่เดียว (มากขึ้น = หยุดไกลตัวเป้าหมายขึ้น)
-// นับตามแกน world ซึ่ง +X = ทิศออกจากผู้ร่ายเสมอ จึงใช้ได้ทั้งตอนหันซ้ายและหันขวา
-const CHARGE_STOP_SHORT = 40
 // ความกว้างรวมของแถบ Area (หน่วย pt) ที่ต่ำกว่านี้จะไม่แสดงป้ายซ้าย/ขวา — แคบเกินจะซ้อนป้ายกลาง
 const AREA_SIDE_LABEL_MIN_PT = 250
 interface ActiveBullet {
@@ -343,22 +336,15 @@ interface ActiveBullet {
   isSkill: boolean         // ใช้เลือกปฏิกิริยาของเป้าหมายตอนโดน (กระพริบ vs เล่นท่าโดนตี)
   isAttack: boolean        // false = ท่าบัฟ (motion.type NONE) — ไม่สั่งปฏิกิริยาใส่เป้าหมาย
   hitRear: boolean         // true = นัดนี้เล็งเป้าหมายแนวหลัง
-  fitNormal: boolean       // true = ยืด anim normal ให้จบพอดีตอนถึงเป้าหมาย แทนการวนซ้ำ
   areaWorld: number        // รัศมี Area ของสกิล (world unit) 0 = ไม่มี → โดนแค่ตัวที่เล็ง
-  areaCenterX: number      // จุดกึ่งกลางวง Area = MAIN ของเป้าหมายที่เล็ง (world unit)
+  areaCenterX: number      // จุดกึ่งกลางวง Area = ตำแหน่งของเป้าที่ล็อค (world unit)
   hitFired?: boolean       // กันไม่ให้ทริกเกอร์ซ้ำเมื่อ drawFrame ถูกเรียกหลายครั้งในติ๊กเดียว
   arcStartDeg: number; arcEndDeg: number
   motion: GameMotion       // ทรงวิถีแบบเกม (ท่าไม่บิน = LINEAR และจุดเริ่ม = จุดชน)
   spin: boolean            // หมุนตามมุม angle.start → angle.end (เกม: เฉพาะทรงโค้ง)
-  // จุดบนตัวกระสุนที่ใช้เป็นหมุดวางตำแหน่ง (world unit ในพิกัดท้องถิ่นของกระสุน)
-  //   • กระสุนบินจริง → จุด face (ให้ face ไปชน face ของเป้าหมาย)
-  //   • ท่าไม่บิน (วาปไปตี/ทุบพื้น) → origin (0,0) เพราะ anim ถูกวาดโดยยึด origin เป็นจุดกระทบพื้นอยู่แล้ว
+  finishDeg: number        // มุมตอนเล่น finish (บินจบ = angle.end · วาร์ป = angle.start · เส้นตรง = 0)
+  // หมุดภาพ = กึ่งกลางกรอบไฟล์กระสุน (SuperAnimNode anchor 0.5, 0.5) — ช่วงบินและ finish ใช้โหนดเดียวกัน
   anchorX: number; anchorY: number
-  // หมุดของช่วง finish แยกจากช่วงบิน — normal กับ finish ใช้ origin ร่วมกัน (พิสูจน์แล้วว่า
-  // _all = normal ++ finish เมทริกซ์ตรงเป๊ะ 25/25 ไฟล์) แต่ "จุดบนตัวกระสุนที่ควรแตะเป้าหมาย"
-  // เป็นคนละจุดได้ เพราะศิลปะสองช่วงถูกวาดเยื้องกันตามท่า (u1297e-sn-bul เยื้อง Y ถึง 53)
-  // ปกติเท่ากับหมุดช่วงบิน → ไฟล์ที่ไม่ได้ระบุอะไรจึงไม่เปลี่ยนพฤติกรรมเลย
-  finishAnchorX: number; finishAnchorY: number
   normalFrames: number
   finishFrames: number
   bulletFps: number
@@ -389,135 +375,13 @@ interface AttackMeta {
 }
 interface BulletAsset {
   sam: SAMParser; sprites: SpriteMap; normalName: string; finishName: string | null
-  // กึ่งกลางภาพเฟรมแรกของ anim ช่วงบิน = จุดที่ควรไปโผล่ตรงปากกระบอก (ดู animFrame0Center)
-  spawnRef: { x: number; y: number } | null
-  // กึ่งกลางภาพระเบิด (เฟรมแรกของ finish)
-  burstRef: { x: number; y: number } | null
-  // ขอบบนสุดของภาพ (y น้อยสุด) — ใช้แยก "ท่าตกใส่ศัตรูจากฟ้า" ออกจากเอฟเฟกต์ที่เกิดคาตัว
-  artTop: number | null
-  // ── ไฟล์ bul บางไฟล์เป็น "ตัวละครวิ่ง/พุ่งเข้าไปตี" ไม่ใช่ลูกกระสุน ──
-  // เงาที่วาดไว้ในไฟล์ = จุดที่เท้าแตะพื้น (null ถ้าไฟล์ไม่มีเงา เช่น ท่าพุ่งแบบลอยตัว)
-  // สำรวจ 17 ไฟล์เจอแค่ 3 ไฟล์ที่มีเงา — เป็นกลุ่มเล็กและเจาะจง
-  bulShadow: { x: number; y: number } | null
-  // จุด "face" ของกระสุนเอง (world unit ในพิกัดท้องถิ่นของกระสุน) — คำนวณจาก bbox ของ anim "normal" x faceCenter
-  // ของตัวละคร (ratio เดียวกับที่ใช้กับ MAIN/DUMMY) ใช้เป็นจุดอ้างอิงตอนวาง/เล็งกระสุนแทนจุด origin (0,0) ดิบๆ
-  faceAnchor: { x: number; y: number } | null
-  // หมุด MAIN ของกระสุน = shadowCenter x กรอบ "แม่นยำ" (คนละจุดกับ origin 0,0)
-  // ใช้กรอบแม่นยำไม่ใช่กรอบหลวมเหมือน faceAnchor เพราะกรอบหลวมพองผิดจริงในบางไฟล์
-  // u1550e-moon-bul2 ภาพสูง 86 แต่กรอบหลวมพองเป็น 462 (5 เท่า) หมุดเลยหลุดไป 203 = ลอยเหนือหัว
-  // (faceAnchor ยังใช้กรอบหลวมต่อไป เพราะเป็นค่าที่ตรวจผ่านมาแล้วหลายสิบไฟล์ ห้ามขยับ)
-  shadowAnchor: { x: number; y: number } | null
-  // ชื่อไฟล์ล้วน (เช่น "u1381e-mk-bul3") — คีย์ของตารางยกเว้นแกน Y ด้านล่าง
+  // ชื่อไฟล์ล้วน (เช่น "u1381e-mk-bul3")
   fileKey: string
-  // กึ่งกลางแนวนอนของภาพเอฟเฟกต์ — เหลือไว้โชว์ในแถบดีบักเท่านั้น ห้ามใช้เป็นหมุด (ดูเหตุผลที่ anchorX)
-  centerX: number
-  // Y ของรอยกระแทกพื้นที่ศิลปินวาดไว้ในไฟล์ (null = ไฟล์นี้ไม่มี) — หมุดแนวตั้งของท่าไม่บิน
-  decalY: number | null
-}
-
-// ── หมุดแนวตั้งของท่าไม่บิน: ค่ายกเว้นรายไฟล์ ──
-// ปกติใช้ "จุดยืนของเรนเจอร์เจ้าของ" (ดูคำอธิบายที่ anchorY) ซึ่งตรงกับของจริงเป๊ะเป็นส่วนใหญ่
-// แต่บางไฟล์ศิลปินวางไม่ตามนั้น และ .sam ก็ไม่มีหมุดจุดชนให้อ่าน — ยืนยันแล้ว 3 ทาง:
-//   1. หัวไฟล์ .sam มีแค่ x,y (= 0 ทุกไฟล์) กับ canvas_w/h (ขนาดสเตจตอนวาด ไม่สัมพันธ์กับตำแหน่ง)
-//   2. ไม่มี sprite marker — รูปทุกชิ้นใน .plist เป็นภาพจริง ส่วนอ็อบเจกต์ alpha=0 เป็นภาพที่เฟดหาย
-//      ไม่ใช่หมุด (u1023h-brown-bul3 ไม่มี alpha=0 เลยสักชิ้นแต่ตำแหน่งถูกต้อง)
-//   3. projectile_data ให้ start เป็น {0,0} ล้วนสำหรับท่า motion.enabled=false
-// → ไฟล์ที่เพี้ยนจึงต้องระบุค่าตรงๆ ค่าเป็น world unit นับลงจาก origin เท่ากับหน่วยของ mainAnchor
-// targetFace = ให้เอฟเฟกต์ไปโผล่ที่จุดรับดาเมจ (FACE) ของเป้าหมาย ไม่ใช่จุดยืน (MAIN) ตามปกติ
-// fitNormal = ยืด/ย่อ anim "normal" ให้เล่นจบพอดีตอนกระสุนถึงเป้าหมาย (ปกติจะวนซ้ำตามจังหวะของตัวเอง)
-// ยังไม่เจอฟิลด์ใน API ที่บอกเรื่องนี้ — motion.loopNormal เป็น true เหมือนกันทั้งตัวที่ต้องวนและไม่ต้อง
-// contactFace = จุดของกระสุนที่ต้อง "แตะ" เป้าหมายคือหมุด face ไม่ใช่หมุด MAIN
-//   ใช้กับกระสุนบิน hitPointRate=0.5 ที่ค่าตั้งต้นให้ MAIN แตะ FACE ของเป้าหมาย
-//   ตั้งค่านี้แล้วหมุดยังเป็น MAIN เหมือนเดิม (จุดปล่อย/ช่วงบินไม่ขยับ) แต่เลื่อนปลายทางเท่าระยะ MAIN-face
-const INSTANT_ANCHOR_OVERRIDE: Record<string, { x?: number; y?: number; targetFace?: boolean; fitNormal?: boolean; contactFace?: boolean; finishMain?: boolean }> = {
-  // ท่าวาปไปตีที่ยึด 0,0 ของไฟล์ ไม่ใช่จุดยืนเรนเจอร์ — ให้ 0,0 ของกระสุนไปชน MAIN ของเป้าหมาย
-  // ไม่มีอะไรใน .sam หรือ API แยกไฟล์กลุ่มนี้ออกจากกลุ่มที่ใช้จุดยืนได้เลย (วัดแล้วเหมือนกันทุกค่า)
-  'u1524-ak-bul3': { x: 0, y: 0 },
-  // ท่าโจมตีปกติของตัวเดียวกัน — แกน X ต้องยึด 0,0 เหมือน bul3 ไม่งั้นเอฟเฟกต์ค้างอยู่ทางซ้าย
-  // ไม่ถึงแกน X ของเป้าหมาย (จุดยืนเรนเจอร์อยู่ x=80 จึงดึงภาพถอยไป 80 หน่วย)
-  // ส่วนแกน Y ปล่อยให้กฎเดิมจัดการ (รอยพื้นในไฟล์อยู่ที่ 9 ซึ่งใช้ได้อยู่แล้ว)
-  'u1524-ak-bul': { x: 0 },
-  // ท่าตกจากฟ้า — X ต้องยึดหมุด face ของกระสุน (184) ไม่ใช่จุดยืนเรนเจอร์ (64) ห่างกัน 120 หน่วย
-  // Y ต้องยึด "รอยพื้น" ในไฟล์ (241) ซึ่งอยู่ต่ำกว่าจุดยืน (67) — instantAnchorY() ใช้ min()
-  // จึงเลือกจุดยืนแล้วภาพจมใต้พื้น 189 หน่วย ส่วนรอยพื้นทำให้เหลือ 15 (พอดีกับเอฟเฟกต์ตกลงพื้น)
-  // นี่คือเคสที่คอมเมนต์ของ instantAnchorY() เตือนไว้ว่า min() อาจผิด — ถ้าเจอเพิ่มอีก 2-3 ไฟล์
-  // ให้เปลี่ยน instantAnchorY() เป็นเชื่อรอยพื้นเสมอ แล้วลบรายการพวกนี้ออก
-  // (ยังไม่เปลี่ยนตอนนี้เพราะ u286u-brown-bul2 ที่ยืนยันแล้วจะขยับ 15 หน่วย)
-  'u1004-sally-bul2': { x: 184, y: 241 },
-  // กระสุนบินที่ hitPointRate=0 แต่ต้องชนที่ FACE ไม่ใช่ลงพื้น
-  // ไล่หาตัวแยกแล้วยังไม่เจอ — ทุกฟิลด์เหมือนกลุ่มที่ลงพื้นหมด (LINEAR/FIXED/WEAPON/rate 0)
-  // สมมติฐาน "start.y = 0 → ชน FACE" ใช้ไม่ได้: u1550e-moon skill1 ก็ start.y = 0 แต่ต้องลงพื้น
-  //   ลงพื้น  : u1616e-brown normal (110,280) / u1281e-lv skill1 (270,360) / u1550e-moon skill1 (135,0)
-  //   ชน FACE : u1522e-po normal (224,0) / u1512e-ty normal (150,0)
-  'u1522-po-bul': { targetFace: true },
-  'u1512-ty-bul': { targetFace: true },
-  // กระสุนบินที่ hitPointRate=0 และต้องเอา 0,0 ของกระสุนไปชน MAIN ของเป้าหมายตรงๆ
-  // (ค่า 0,0 ทำให้ค่าชดเชยปลายทางกลายเป็นระยะ face เต็มๆ → origin ของภาพไปลงที่ MAIN พอดี)
-  'u1281-lv-bul2': { x: 0, y: 0 },
-  // anim ช่วงบินต้องเล่นจบพอดีตอนถึงเป้าหมาย ไม่ใช่วนซ้ำ
-  'u1556-af-bul3': { fitNormal: true },
-  // ต้องเอา face ของกระสุนไปชน face ของเป้าหมาย (ค่าตั้งต้นของ rate=0.5 ใช้ MAIN ซึ่งห่างกัน 111 หน่วย)
-  'u1612-cony-bul3': { contactFace: true },
-  // ท่าวาปไปตี — ให้ 0,0 ของกระสุนไปชน MAIN ของเป้าหมาย (ค่าตั้งต้นใช้จุดยืนเรนเจอร์ (92, 87))
-  'u1539-en-bul': { x: 0, y: 0 },
-  // 0,0 ของเอฟเฟกต์ต้องไปชน MAIN ของเป้าหมาย (ผู้ใช้ยืนยันด้วยตา) เหมือน u1539e-en-bul
-  'u1374-fe-bul3': { x: 0, y: 0 },
-  // ── ผลการหาเงื่อนไขแยกกลุ่ม (ทำใหม่ตอนได้ตัวอย่างที่ 4) ──
-  // API ยังแยกไม่ได้: u1374e-fe:skill2 มีทุกฟิลด์ตรงกับ u1381e-mk:skill2 และ u1588e-es:skill2 เป๊ะ
-  // (WEAPON / UNIT / hitPointRate null / attackScope null / attackRange null / moveSpeed 0 /
-  //  LINEAR-false-FIXED / start 0,0 / end 0,0) ทั้งที่สองกลุ่มนี้ต้องใช้หมุดตรงข้ามกัน
-  // → ตัดความหวังว่าจะมีกฎจากข้อมูล API ได้เลย ต้องดูจากตัวศิลปะในไฟล์
-  // เงื่อนไขที่พอมีเค้า วัดจาก 6 ไฟล์ (A = ต้องใช้ 0,0 / B = ใช้จุดยืนแล้วถูก):
-  //   รอยพื้นของเอฟเฟกต์เอง  A: 6.9, 9.45, ไม่มี, ไม่มี   B: 50, 49.9, ไม่มี
-  //     → ตรงกับกฎ instantAnchorY ที่ใช้อยู่แล้ว (รอยพื้นใกล้ origin = ศิลปะยึด origin เป็นพื้น)
-  //     แต่ช่วยได้แค่แกน Y และเฉพาะไฟล์ที่มีรอยพื้น
-  //   กึ่งกลางภาพเฟรมแรก X   A: -108, -269, -52   B: +32, +39, +41   ← แยกขาดพอดี 3 ต่อ 3
-  //     ถ้าเก็บได้อีก 3-4 ตัวแล้วยังแยกขาด ให้ทำเป็นกฎ "เฟรมแรกอยู่ฝั่งลบ → ยึด 0,0" แทนตารางนี้
-  // ── ตระกูล sn (e/h/u ใช้กฎเดียวกันผ่านคีย์ตระกูล) ──
-  // อาการ: หมุดช่วงบิน (face y -41) ไปแตะ FACE ของเป้าหมาย แต่ภาพระเบิดถูกวาดต่ำกว่าหมุด 67 หน่วย
-  //   ภาพระเบิดจึงพาดตั้งแต่กลางลำตัวลงไปจ่อพื้น (วัดกับเป้าหมาย u1147e-benimaru:
-  //   FACE y -17 / พื้น y 80 — ภาพระเบิดกิน y 21..78 คือชนขอบพื้นพอดี)
-  // (ตอนนี้การให้ช่วง finish ยึดกลางระเบิดของตัวเองเป็นค่าตั้งต้นของทุกไฟล์ไปแล้ว
-  //  จึงเหลือแต่ contactChest ที่ต้องระบุ)
-  // ── สองวิธีที่ลองแล้วไม่ผ่าน อย่าวนกลับไปทำซ้ำ ──
-  //   finishMain (หมุด finish = 0,0): กลางระเบิดไปอยู่ที่ FACE+25 ยังเหลือช่องว่าง 25 จากจุดชน
-  //   เลื่อนปลายทางลงไปหาระเบิด: จุดชนไปอยู่ y 50 เหลือ 30 จากพื้น = เหมือนยิงลงถนน (ผู้ใช้ทัก)
-}
-
-// ── หาค่ายกเว้นของไฟล์กระสุน โดยไม่สนร่างวิวัฒน์ ──
-// ไฟล์กระสุนแยกตามร่าง (u1297e-sn-bul / u1297h-sn-bul / u1297u-sn-bul เป็นสามไฟล์)
-// แต่เนื้อในเหมือนกันเป๊ะ ทั้งศิลปะและค่าใน API (ตรวจกับตระกูล sn แล้ว: faceCenter, shadowCenter,
-// start, moveSpeed, attackRange, กรอบภาพ, กลางระเบิด ตรงกันหมดทั้งสามร่าง)
-// ถ้าคีย์ด้วยชื่อไฟล์ตรงๆ ค่ายกเว้นจะลงแค่ร่างเดียว อีกสองร่างยิงไม่เหมือนกัน = ผิดแน่นอน
-// จึงถอดตัวอักษรบอกร่างออกเป็น "คีย์ตระกูล": u1297e-sn-bul → u1297-sn-bul
-// ยังหาแบบตรงตัวก่อนเสมอ เผื่อร่างไหนศิลปะต่างจริงๆ จะยังเจาะเฉพาะร่างนั้นได้
-function familyKey(fileKey: string): string {
-  return fileKey.replace(/^(u\d+)[a-z]+-/, '$1-')
-}
-function bulletOverride(fileKey: string) {
-  return INSTANT_ANCHOR_OVERRIDE[fileKey] ?? INSTANT_ANCHOR_OVERRIDE[familyKey(fileKey)]
-}
-
-// ── หมุดแนวตั้งของท่าไม่บิน ──
-// ตั้งต้นที่ "จุดยืนของเรนเจอร์เจ้าของ" เพราะไฟล์เอฟเฟกต์ถูกวาดในระบบพิกัดเดียวกับ rig ตัวละคร
-// แต่ถ้าไฟล์นั้นวาดรอยกระแทกพื้นมาเอง ให้เชื่อรอยพื้นเมื่อมันอยู่ "สูงกว่า" เส้นจุดยืน
-// (Y ชี้ลง → สูงกว่า = ค่าน้อยกว่า) ไม่งั้นภาพจะลอยเหนือพื้นเป้าหมาย
-//
-// วัดจริง 5 ไฟล์ คลาดเคลื่อน 0/0/0/-2/-2:
-//   u402e-james-bul2  ไม่มีรอยพื้น           → จุดยืน 88
-//   u1023h-brown-bul3 ไม่มีรอยพื้น           → จุดยืน 87
-//   u286u-brown-bul2  รอยพื้น 118 ต่ำกว่าจุดยืน → จุดยืน 103
-//   u1381e-mk-bul3    รอยพื้น 50 สูงกว่า 77   → 50
-//   u1588e-es-bul3    รอยพื้น 50 สูงกว่า 87   → 50
-// หมายเหตุ: เงื่อนไข min() ยืนอยู่บนตัวอย่างเดียวคือ u286u-brown ถ้าเจอไฟล์ที่มีรอยพื้น
-// อยู่ต่ำกว่าจุดยืนอีกตัวแล้วมันควรใช้รอยพื้น แปลว่า min() ผิด ให้เปลี่ยนเป็นเชื่อรอยพื้นเสมอ
-function instantAnchorY(rangerStandY: number, decalY: number | null): number {
-  return decalY === null ? rangerStandY : Math.min(rangerStandY, decalY)
 }
 
 // โหลด .sam/.plist/.png ของไฟล์กระสุน (bul/bul2/bul3) จากรายชื่อไฟล์ที่มีของเรนเจอร์ตัวนี้
-// anim ชื่อ "normal" = เดินทางไปเป้าหมาย, "finish" = หลังชนเป้าหมายแล้ว (ตามที่ผู้ใช้ยืนยัน)
-async function loadBulletSam(samFilesList: string[], suffix: string, faceCenterRatio: { x: number; y: number } | null, shadowCenterRatio: { x: number; y: number } | null): Promise<BulletAsset | null> {
+// เกม: normal = ช่วงบิน (วน) · finish = เล่นครั้งเดียวที่จุดชน แล้วลบทิ้ง · หมุดภาพ = กลางกรอบไฟล์ (ไม่ต้องวัดภาพ)
+async function loadBulletSam(samFilesList: string[], suffix: string): Promise<BulletAsset | null> {
   const re = new RegExp(`-${suffix}\\.sam$`, 'i')
   const samUrl = samFilesList.find(u => re.test(u))
   if (!samUrl) return null
@@ -535,28 +399,7 @@ async function loadBulletSam(samFilesList: string[], suffix: string, faceCenterR
       : sam.animNames.find(n => n !== '_all' && sam.animations[n]?.length) ?? null
     if (!normalName) { disposeSprites(sprites); return null }
     const finishName = sam.animations['finish']?.length ? 'finish' : null
-    // ใช้ bbox ของ normal เป็นหลักเสมอ (ตำแหน่งที่ถูกต้องอยู่แล้วสำหรับกระสุนส่วนใหญ่) — fallback ไป finish
-    // เฉพาะตอน normal ว่างเปล่าจริงๆ เท่านั้น (เช่น u286u-brown-bul2 ที่ normal ไม่มีอะไรวาดเลย)
-    // ห้าม "รวม" สอง bbox เข้าด้วยกันเด็ดขาด เพราะจะไปเลื่อนตำแหน่งของกระสุนที่ normal ถูกต้องอยู่แล้วให้เพี้ยน
-    // จุดเล็งของกระสุนบิน ใช้กรอบแบบหลวม (animBBoxLoose) ไม่ใช่กรอบแม่นยำ — ดูเหตุผลที่ตัวฟังก์ชัน
-    // สรุปสั้นๆ: จุดเล็งเป็นแค่สัดส่วนของกรอบ ค่าที่ตรวจแล้วว่าเล็งตรงมาจากกรอบแบบนี้
-    // ถ้าสลับไปใช้ animBBox จะเพี้ยนมัธยฐาน 6 หน่วย แต่ u286u-brown-bul3 เพี้ยนถึง 75
-    const bbox = animBBoxLoose(sam, sprites, normalName) ?? (finishName ? animBBoxLoose(sam, sprites, finishName) : null)
-    const faceAnchor = bbox && faceCenterRatio ? anchorFromRatio(bbox, faceCenterRatio) : null
-    const exactBox = animBBox(sam, sprites, normalName) ?? (finishName ? animBBox(sam, sprites, finishName) : null)
-    const shadowAnchor = exactBox && shadowCenterRatio ? anchorFromRatio(exactBox, shadowCenterRatio) : null
-    // ท่าไม่บิน: ศิลปะจริงมักอยู่ใน finish (normal เป็นเฟรมเปล่า) → วัดหมุดจาก anim ที่มีของจริง
-    const effectAnim = finishName && animBBox(sam, sprites, finishName) ? finishName : normalName
-    const effectBox = animBBox(sam, sprites, effectAnim) ?? bbox
-    const centerX = effectBox ? (effectBox.x0 + effectBox.x1) / 2 : 0
-    const fileKey = prefix.split('/').pop() ?? ''
-    const decalY = animGroundDecalY(sam, sprites, effectAnim)
-    const spawnRef = animFrame0Center(sam, sprites, normalName)
-    const burstRef = finishName ? animFrame0Center(sam, sprites, finishName) : null
-    const artTop = effectBox ? effectBox.y0 : null
-    // ส่ง shadowCenter = null → ได้เงาจริงเท่านั้น ไม่มีการเดาจากสัดส่วนกรอบ
-    const bulShadow = animStandPoint(sam, sprites, normalName, null)
-    return { sam, sprites, normalName, finishName, faceAnchor, shadowAnchor, fileKey, centerX, decalY, spawnRef, burstRef, artTop, bulShadow }
+    return { sam, sprites, normalName, finishName, fileKey: prefix.split('/').pop() ?? '' }
   } catch {
     return null
   }
@@ -1329,210 +1172,57 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       && skillTargetsRef.current?.[kind] === 'rear'
       && !!rearDummyRef.current && rearGapRef.current > 0
     const dummy = useRear ? rearDummyRef.current : dummyRef.current
-    const hitRef = useRear ? rearHitRef : dummyHitRef
     const gap = useRear ? rearGapRef.current : dummyGapRef.current
     if (!bgCanvasRef.current || !dummy) return
     const meta = attackMetaRef.current[kind]
     if (!meta) return
-    // ── แยกสกิลโจมตีออกจากสกิลบัฟ ──
+    // ── สกิลบัฟ (ไม่มีปฏิกิริยาที่เป้าหมาย) ──
     // ตัวชี้ขาดคือ 觸發基準 ที่โชว์อยู่ใต้คำอธิบายสกิล: Self = บัฟตัวเอง, Front/Rear Enemy = โจมตี
-    // (ค่าเดียวกับที่ผู้ใช้เห็นบนหน้าจอ จึงตรงกับที่คาดหวังเสมอ)
-    // ถ้าไม่มีค่านั้น (สกิลไม่มีข้อมูล หรือเป็นท่าโจมตีปกติ) ค่อยถอยไปใช้ motion.type === "NONE"
-    // ซึ่งครอบคลุมได้กว้างแต่หยาบกว่า — เช็คแล้ว 3,393 ท่าเป็น NONE ทั้งที่ยังมี animationPart ติดมาด้วย
+    // ไม่มีค่านั้น (ท่าโจมตีปกติ / สกิลไม่มีข้อมูล) → motion.type === "NONE"
     const basis = kind === 'normal' ? null : skillTargetsRef.current?.[kind] ?? null
     const isBuff = basis ? basis === 'self' : meta.motionType === 'NONE'
-    // ไฟล์กระสุนจริงมาจาก API (animationPart) ตรงๆ — ใช้ fallback (จาก ATTACK_ANIM_MAP) แค่ตอน API ไม่ส่งมาให้
-    const suffix = meta.animationPart ?? fallbackSuffix
-    // undefined = ยังโหลดไม่เสร็จ / null = โหลดแล้วแต่ไม่มีไฟล์นี้จริงๆ
-    const asset = bulletCacheRef.current.get(suffix)
-    if (!asset) {
-      // ตัวระยะประชิดไม่มีไฟล์กระสุน ท่าโจมตีอยู่ใน body ล้วนๆ → ไม่มีกระสุนลอยไปชนให้ทริกเกอร์
-      // สั่งปฏิกิริยาตรงนี้เลย (จุดนี้คือจังหวะที่ _ready เล่นจบพอดี ซึ่งเป็นจังหวะที่ออกอาวุธ)
-      // เช็ค === null เท่านั้น ไม่งั้นตัวระยะไกลที่ไฟล์ยังโหลดไม่เสร็จจะถูกนับเป็นประชิดไปด้วย
-      if (asset === null && !isBuff) {
-        const off = dummyDrawOffset(dummy, rangerStandRef.current?.x ?? 0, gap)
-        const yOff = dummyYAlign(useRear ? sceneGroundY() : targetGroundY(), dummy.anchor?.y ?? 0)
-        applyHitReaction(
-          useRear, kind !== 'normal',
-          kind === 'normal' ? 0 : (skillAreasRef.current?.[kind] ?? 0) * PT_TO_WORLD,
-          dummyPointWorld(dummy, dummy.anchor ?? dummy.faceAnchor, off, yOff).x,
-        )
-        playHitSound(kind)
-      }
-      return
-    }
-    // จุดปล่อย = ค่า start จาก API แปลงผ่าน attackStartWorld — จุดเดียวกับ marker "NormalATK/Skill1/Skill2"
-    // สีเหลือง/ม่วง/ส้ม ที่เห็นตอนเปิด Hitbox เป๊ะ (ใช้ฟังก์ชันเดียวกัน กระสุนจึงออกตรงหมุดเสมอ)
-    const sp = attackStartWorld(meta.start, mainGamePos())
-    // motion.enabled=false = ไม่มีการพุ่งจริง (เช่น วาปไปตี/ตกจากฟ้าทุบพื้น/melee) — ใช้ค่านี้จาก API ตรงๆ แทนการเดาจาก moveSpeed
-    // ── ท่าที่ไม่มีการ "พุ่ง" จริง → เอฟเฟกต์เกิดคาตัวเป้าหมาย ──
-    //   motion.enabled=false หรือ moveSpeed=0 → ชัดเจนว่าไม่บิน
-    //   start={0,0} → ประกาศว่าบิน (enabled=true, moveSpeed>0) แต่ไม่มีจุดปล่อยให้บินออกมา
-    //     พวกนี้คือสกิลตกจากฟ้า/เกิดคาตัวศัตรู เช่น u1054h-knuckles skill2 (enabled=true speed=60
-    //     แต่ start={0,0}) ถ้าจัดเป็นกระสุนบินจะไปเล็ง FACE แล้วตำแหน่งแกน Y เพี้ยนต่ำลงไปมาก
-    //     พบ 116 ท่าที่เป็นแบบนี้ ทั้งหมดควรใช้กฎเดียวกับท่าวาปมาตี
-    const isInstant = !meta.motionEnabled || meta.moveSpeed <= 0 || (!meta.start.x && !meta.start.y)
     const dummyYOff = dummyYAlign(useRear ? sceneGroundY() : targetGroundY(), dummy.anchor?.y ?? 0)
     const dummyOff = dummyDrawOffset(dummy, rangerStandRef.current?.x ?? 0, gap)
-    // วง Area ของสกิลนี้ (pt → world) และจุดกึ่งกลาง = MAIN ของเป้าหมายที่เล็ง
+    // วง Area ของสกิลนี้ (pt → world) · จุดกึ่งกลาง = ตำแหน่งของเป้าที่ล็อค (กลางกรอบไฟล์)
     const areaWorld = kind === 'normal' ? 0 : (skillAreasRef.current?.[kind] ?? 0) * PT_TO_WORLD
-    const mainPt = dummyPointWorld(dummy, dummy.anchor ?? dummy.faceAnchor, dummyOff, dummyYOff)
-    const areaCenterX = mainPt.x
-    const normalFrames = asset.sam.animations[asset.normalName]?.length || 1
-    const finishFrames = asset.finishName ? (asset.sam.animations[asset.finishName]?.length || 0) : 0
-    const bulletFps = asset.sam.animRate || 24
+    const areaCenterX = dummyPointWorld(dummy, canvasCenter(dummy.sam) ?? dummy.anchor, dummyOff, dummyYOff).x
+    const hitNow = () => {
+      if (isBuff) return
+      applyHitReaction(useRear, kind !== 'normal', areaWorld, areaCenterX)
+      playHitSound(kind)
+    }
+    // ── เกม: มีกระสุนเฉพาะ attackType กลุ่มยิง (ENERGY/ENERGYC/WEAPON/WEAPONC/DOUBLE/DOUBLEC/RETURN/BEAM) ──
+    // นอกนั้น (PUNCH/KICK/SWING/STAB/LASER/ACTION/NONE) ไม่มีไฟล์กระสุนเลย — ท่าอยู่ในไฟล์ตัวละครล้วน
+    // โดนทันทีตอนช่วง *_ready จบ (จังหวะเดียวกับที่ฟังก์ชันนี้ถูกเรียก)
+    if (!isGameBulletType(meta.attackType)) { hitNow(); return }
+    // ไฟล์กระสุนจริงมาจาก API (animationPart) ตรงๆ — ใช้ fallback (จาก ATTACK_ANIM_MAP) แค่ตอน API ไม่ส่งมาให้
+    const suffix = meta.animationPart ?? fallbackSuffix
+    // undefined = ยังโหลดไม่เสร็จ / null = โหลดแล้วแต่ไม่มีไฟล์นี้จริงๆ → โดนทันที
+    const asset = bulletCacheRef.current.get(suffix)
+    if (asset === undefined) return
+    if (asset === null) { hitNow(); return }
+    // ── วิถีแบบในเกม (จุดปล่อย / เป้า / เวลาบิน / ทรง / มุม / หมุดภาพ) ──
+    const shot = gameShot(meta, dummy, dummyOff, dummyYOff, mainGamePos())
+    const dist = Math.hypot(shot.end.x - shot.start.x, shot.end.y - shot.start.y)
     const bodyFpsNow = samRef.current?.animRate || 24
-    // ── กระสุนบินจริง → วิถีแบบในเกมทั้งหมด (จุดปล่อย / เป้า / เวลาบิน / ทรง / มุม / หมุดภาพ) ──
-    if (!isInstant && !isBuff) {
-      const shot = gameShot(meta, dummy, dummyOff, dummyYOff, mainGamePos())
-      const dist = Math.hypot(shot.end.x - shot.start.x, shot.end.y - shot.start.y)
-      // เวลาบิน (วินาที) = ระยะ(pt) ÷ (moveSpeed × 60) → นับเป็นติ๊กของตัวเล่น (= เฟรมของไฟล์ตัวละคร)
-      const travelTicks = Math.max(1, Math.round((dist / PT_TO_WORLD) / (meta.moveSpeed * GAME_FPS) * bodyFpsNow))
-      const ref = canvasCenter(asset.sam) ?? { x: 0, y: 0 }
-      activeBulletsRef.current.push({
-        suffix, spawnTick: sceneTickRef.current,
-        startX: shot.start.x, startY: shot.start.y, targetX: shot.end.x, targetY: shot.end.y,
-        travelTicks, kind, isSkill: kind !== 'normal', isAttack: true, hitRear: useRear, areaWorld, areaCenterX,
-        fitNormal: false,
-        arcStartDeg: meta.angleStart, arcEndDeg: meta.angleEnd,
-        motion: shot.motion, spin: shot.motion === 'CURVE',
-        anchorX: ref.x, anchorY: ref.y, finishAnchorX: ref.x, finishAnchorY: ref.y,
-        normalFrames, finishFrames, bulletFps,
-      })
-      return
-    }
-    // จุดเป้าหมาย ขึ้นกับว่าเป็นกระสุนบินหรือเอฟเฟกต์ที่เกิดคาตัวเป้าหมาย:
-    //   • บินจริง (enabled:true)  → FACE = จุดรับดาเมจ (อก/หัว) เพราะกระสุนลอยมาชนตัว
-    //   • ไม่บิน  (enabled:false) → MAIN = จุดยืน เพราะเป็นเอฟเฟกต์ที่เกิดคาตัวเป้าหมายบนพื้น
-    // ── เล็ง MAIN (จุดยืน) หรือ FACE (จุดรับดาเมจ) ของเป้าหมาย ──
-    //   ท่าไม่บิน → MAIN (เกิดคาตัวบนพื้น) ยกเว้นไฟล์ที่ระบุ targetFace ไว้
-    //   กระสุนบิน → FACE ตามปกติ แต่ถ้า hitPointRate = 0 ต้องไปลงที่พื้น (MAIN)
-    // targetFace บังคับให้เล็ง FACE ได้ทั้งท่าไม่บินและกระสุนบิน
-    // จำเป็นเพราะ hitPointRate=0 ไม่พอเป็นกฎ: u1616e-brown-bul (rate 0) ต้องลงพื้น
-    // แต่ u1522e-po-bul (rate 0 เหมือนกัน) ต้อง face ชน face — ยังไม่เจอฟิลด์ไหนแยกสองกลุ่มนี้ได้
-    // ── hitPointRate เป็นเศษส่วน (0 < rate <= 1) → เอาจุดของกระสุนเองไปชน FACE ของเป้าหมาย ──
-    // ต่างจาก 100 (จุดรับดาเมจตามปกติ) และ 0 (ลงพื้น) ซึ่งเป็นค่าคนละสเกลกัน
-    //   ท่าไม่บิน  : ยึด 0,0 ของไฟล์ ไปโผล่ที่ FACE ของเป้าหมาย (u1577e-ap-bul3, u1622e-re-bul2 rate 0.5
-    //                / u1526e-ko-bul2 rate 1)
-    //   กระสุนบิน : ยึดหมุด MAIN ของกระสุน (shadowCenter x กรอบ ไม่ใช่ 0,0) ออกจากปากกระบอก
-    //               แล้ววิ่งไปชน FACE ของเป้าหมาย (u1556e-af-bul3 rate 0.5)
-    // วัดแล้ว MAIN ห่างจาก 0,0 คนละระยะทุกไฟล์ (ap 197, re 143, af 78) จึงเป็นคนละจุดกันจริง
-    // ครอบคลุม 353 ท่า (0.5 = 308, 1 = 34, 0.3 = 11) — ยืนยันด้วยตาแล้ว 5 ตัว ที่ rate 0.5 กับ 1
-    // ส่วน 0.3 ยังไม่มีตัวยืนยัน เป็นการเหมารวมเพราะอยู่สเกลเดียวกัน ถ้าเจอตัวเพี้ยนต้องแยกออก
-    const halfRate = meta.hitPointRate > 0 && meta.hitPointRate <= 1
-    const ov = bulletOverride(asset.fileKey)
-    const forceFace = ov?.targetFace === true || halfRate
-    // ── ท่าไม่บินที่เป็น "ของตกมาจากฟ้า" เท่านั้นที่ลงพื้น ส่วนที่เหลือเกิดคาตัวเป้าหมาย ──
-    const dropFromSky = asset.artTop !== null && asset.artTop <= INSTANT_DROP_ART_TOP
-    // ไฟล์ที่ระบุพิกัดหมุดไว้ตรงๆ = จูนด้วยตาจนตรงแล้ว อย่าเปลี่ยนพฤติกรรม
-    const pinnedAnchor = ov?.x !== undefined || ov?.y !== undefined
-    const aimGround = !forceFace && (meta.hitPointRate === 0 || (isInstant && (dropFromSky || pinnedAnchor)))
-    // หมุดสองแบบ: แบบท่าวาปมาตี (จุดยืนเรนเจอร์ + รอยพื้น) กับ face ของกระสุนเอง
-    // ลำดับความสำคัญของหมุดท่าไม่บิน: ค่าที่ระบุตรงๆ → กฎ rate 0.5 (0,0) → จุดยืนเรนเจอร์
-    const instA = {
-      x: ov?.x ?? (halfRate ? 0 : rangerStandRef.current?.x ?? 0),
-      y: ov?.y ?? (halfRate ? 0 : instantAnchorY(rangerStandRef.current?.y ?? 0, asset.decalY)),
-    }
-    const faceA = asset.faceAnchor ?? { x: 0, y: 0 }
-    const targetFacePt = dummyPointWorld(dummy, dummy.faceAnchor ?? dummy.anchor, dummyOff, dummyYOff)
-    const targetMainPt = dummyPointWorld(dummy, dummy.anchor ?? dummy.faceAnchor, dummyOff, dummyYOff)
-    // ── จุดที่ต้องไปแตะบนตัวเป้าหมาย ──
-    // ค่าตั้งต้น = CENTER (ระดับอก) ไม่ใช่ FACE อีกแล้ว เพราะ faceCenter จาก API ผูกกับสัดส่วนหัว
-    // ของแต่ละตัว วัดแล้วเหวี่ยง 59-69% ของความสูง (ตัวหัวโตดันไปถึงระดับหัว = ปาใส่หัว)
-    // ส่วน CENTER เกาะกลุ่ม 46-47% ทุกตัว — ยืนยันด้วยตาแล้ว 8 ไฟล์ว่าต้องเป็นจุดนี้
-    // targetFace ยังบังคับให้กลับไปใช้ FACE ได้สำหรับไฟล์ที่ต้องการจริงๆ
-    const targetCenterPt = ov?.targetFace === true || !dummy.centerAnchor
-      ? targetFacePt
-      : dummyPointWorld(dummy, dummy.centerAnchor, dummyOff, dummyYOff)
-    const target = isBuff
-      // ท่าบัฟเกิดที่ตัวผู้ร่าย ไม่ใช่ที่เป้าหมาย
-      ? { x: rangerStandRef.current?.x ?? 0, y: rangerStandRef.current?.y ?? 0 }
-      : aimGround ? targetMainPt : targetCenterPt
-    // ── กระสุนบินที่ต้องลงพื้น (hitPointRate=0) ──
-    // หมุดคุมทั้งจุดปล่อยและจุดตก แก้ที่หมุดจึงพังอีกฝั่งเสมอ:
-    //   ใช้หมุด face → จุดปล่อยถูก แต่ตอนจบภาพลอยสูงเท่าระยะ face
-    //   ใช้หมุดวาปมาตี → ตอนจบถูก แต่จุดปล่อยเพี้ยน
-    // → คงหมุด face ไว้ (จุดปล่อยถูก) แล้วเลื่อนปลายทางเท่าผลต่างของสองหมุด
-    //   พอหมุด face ถึงปลายทางนั้น origin ของภาพจะไปอยู่ที่เดียวกับที่หมุดวาปมาตีจะให้พอดี
-    // เลื่อนปลายทางเพื่อให้ "จุดที่ต้องแตะเป้าหมาย" ไปตรงเป้า โดยไม่ต้องย้ายหมุด (จุดปล่อยจึงไม่เพี้ยน)
-    // สูตรนี้เป็นค่าเชิงผลต่าง (หมุด - instA) → ผลลัพธ์คือ "จุดยืนเรนเจอร์ในพิกัดไฟล์กระสุน
-    // ไปตกที่ MAIN ของเป้าหมาย" เหมือนกันหมดไม่ว่าหมุดจะเป็นอะไร นี่คือเงื่อนไขที่ยืนยันด้วยตาแล้ว
-    // สำหรับท่าพุ่งเข้าไปชน (u1616e-brown-bul / u1526e-ko-bul: main กระสุนอยู่แกน Y เดียวกับ main เป้าหมาย)
-    // เคยลองเปลี่ยนหมุดกลุ่มนี้ไปยึด "เส้นพื้นของภาพ" แล้วแย่ลง — อย่าทำซ้ำ ปล่อยให้สูตรผลต่างทำงาน
-    //   aimGround   : หมุดอะไรก็ได้ → ภาพไปลงตำแหน่งเดียวกับหมุดวาปมาตี
-    //   contactFace : หมุด MAIN (จาก rate=0.5) → อยากให้ face เป็นจุดแตะแทน MAIN
-    const contactFace = ov?.contactFace === true
-    const mainA = asset.shadowAnchor ?? { x: 0, y: 0 }
-    // ── หมุดช่วงบิน ──
-    // ค่าตั้งต้น = จุดกึ่งกลางรูปกระสุนของ anim ช่วงนั้นเอง (ไม่ใช่หมุด face อีกแล้ว)
-    // หมุด face เดิมคือ faceCenter ของ "คน" (0.54-0.69 ของลำตัว) เอาไปคูณกรอบของลูกกระสุน
-    // ซึ่งไม่มีหน้า → ค่าที่ได้แปรตามขนาดไฟล์กระสุนแต่ละตัว ไม่ใช่จุดที่มีความหมาย
-    // → "center ของกระสุน ไปอยู่ที่ center ของเป้าหมาย"
-    // กฎที่ยืนยันด้วยตาแล้วยังอยู่: ท่าลงพื้นใช้ instA / hitPointRate<=1 ใช้หมุด MAIN ของกระสุน
-    const flightA = (isInstant && aimGround) ? instA
-      : (halfRate ? mainA : (asset.spawnRef ?? asset.burstRef ?? faceA))
-    // ── ท่าพุ่งเข้าไปชนที่ลงพื้น: หมุด MAIN ของกระสุน ไปชน MAIN ของเป้าหมาย ──
-    // MAIN ของกระสุน = shadowCenter x กรอบแม่นยำ (จุดเดียวกับเส้น MAIN ในโหมด Hitbox)
-    // ไม่ใช่ instA (จุดยืนเรนเจอร์) และไม่ใช่ขอบล่างภาพ — สองอย่างนั้นลองแล้วเพี้ยนทั้งคู่:
-    //   instA      → ตัวด้วง u1616e-brown-bul ลอยเหนือพื้น 56 หน่วย (ขอบล่างภาพ 27.6 / พื้น rig 83)
-    //   ขอบล่างภาพ → แกน X กระเด็นไปซ้าย 109 หน่วย (กึ่งกลางกรอบ -46 / จุดยืน 63)
-    const shiftX = !isInstant && aimGround ? flightA.x - mainA.x
-      : !isInstant && halfRate && contactFace ? flightA.x - faceA.x : 0
-    const shiftY = !isInstant && aimGround ? flightA.y - mainA.y
-      : !isInstant && halfRate && contactFace ? flightA.y - faceA.y : 0
-    // ท่าพุ่งเข้าไปชน (กระสุนบิน + ลงพื้น): หยุดก่อนถึงตัวเป้าหมายเล็กน้อย ไม่ให้ภาพทับกันเกินไป
-    const stopShort = !isInstant && aimGround ? CHARGE_STOP_SHORT : 0
-    const endX = target.x + shiftX - stopShort, endY = target.y + shiftY
-    // ── จุดปล่อยกระสุนบิน ──
-    // หมุด (flightA) ถูกล็อกไว้ด้วยฝั่งปลายทางแล้ว แก้ที่หมุดจะพังจุดกระทบ
-    // → ใช้วิธีเดียวกับที่เลื่อนปลายทาง: เลื่อน "จุดเริ่ม" เท่าผลต่างระหว่างหมุดกับจุดอ้างอิงตอนโผล่
-    //   พอหมุดไปอยู่ที่จุดนั้น ภาพเฟรมแรกของกระสุนจะไปตกตรงปากกระบอกพอดี
-    // ทำไมต้องใช้เฟรมแรก ไม่ใช่หมุด face เหมือนเดิม: หมุด face มาจากกรอบเฉลี่ยทุกเฟรม
-    // ไฟล์ที่ anim ช่วงบินมีสไปรต์ตัวเดียวได้ค่าตรงกันเป๊ะ (จึงไม่กระทบไฟล์ที่ถูกอยู่แล้ว)
-    // แต่ไฟล์หลายสไปรต์/มีหางลาก กรอบเฉลี่ยจะไถลไปตามหาง เพี้ยนมัธยฐาน 19 สูงสุด 148 หน่วย
-    // ข้ามไฟล์ที่มีค่าใน ATTACK_START_OVERRIDE เพราะนั่นเป็นพิกัดที่จูนด้วยตาจนตรงแล้ว
-    // ── ท่าวิ่ง/พุ่งเข้าไปตี: ไฟล์ bul เป็นตัวละคร ไม่ใช่ลูกกระสุน ──
-    // จุดปล่อยต้องให้ "เงาในไฟล์กระสุน" ทับ "เงาของเรนเจอร์" พอดี ไม่ใช่ยึดค่า start จาก API
-    // (u1526e-ko-bul: เงาในไฟล์ (22, 50) / เงาเรนเจอร์ (47, 79) — ทั้งสองอ่านจากเงาที่วาดไว้จริง)
-    // เดิมใช้ตัวเลขที่จูนด้วยตาใน ATTACK_START_OVERRIDE ซึ่งคำนวณบนหมุดชุดเก่า พอเปลี่ยนหมุด
-    // เป็นกึ่งกลางรูปแล้วค่านั้นก็ค้างผิด — กฎนี้คำนวณเองจากไฟล์ ไม่ต้องจูนอีก
-    const runIn = !isInstant && !!asset.bulShadow && !!rangerStandRef.current
-    const spawnRefPt = runIn ? asset.bulShadow! : asset.spawnRef
-    const spawnAt = runIn ? rangerStandRef.current! : sp
-    const spawnShift = !isInstant && spawnRefPt
-      ? { x: flightA.x - spawnRefPt.x, y: flightA.y - spawnRefPt.y }
-      : { x: 0, y: 0 }
-    const startX = spawnAt.x + spawnShift.x, startY = spawnAt.y + spawnShift.y
-    // (ถึงตรงนี้เหลือแต่ท่าไม่บิน / ท่าบัฟ — กระสุนบินจริงออกไปทางวิถีแบบเกมข้างบนแล้ว)
-    const travelTicks = Math.max(1, Math.round(normalFrames * (bodyFpsNow / bulletFps)))
+    // moveSpeed = 0 → เวลาบิน ∞ → CCSequence แตกเวลาเป็น NaN แล้วกระโดดไปท่อนหลังตั้งแต่อัปเดตแรก:
+    //   กระสุนวาร์ปไปจุดปลายทาง + เรียกจังหวะโดนทันที (เฟรมถัดไป) — ท่าตกจากฟ้า/เกิดคาตัวศัตรูจึงไปโผล่ที่เป้า
+    const instant = !(meta.moveSpeed > 0)
+    // เวลาบิน (วินาที) = ระยะ(pt) ÷ (moveSpeed × 60) → นับเป็นติ๊กของตัวเล่น (= เฟรมของไฟล์ตัวละคร)
+    const travelTicks = instant ? 0 : Math.max(1, Math.round((dist / PT_TO_WORLD) / (meta.moveSpeed * GAME_FPS) * bodyFpsNow))
+    const ref = canvasCenter(asset.sam) ?? { x: 0, y: 0 }
     activeBulletsRef.current.push({
       suffix, spawnTick: sceneTickRef.current,
-      startX: endX, startY: endY,
-      targetX: endX, targetY: endY,
+      startX: shot.start.x, startY: shot.start.y, targetX: shot.end.x, targetY: shot.end.y,
       travelTicks, kind, isSkill: kind !== 'normal', isAttack: !isBuff, hitRear: useRear, areaWorld, areaCenterX,
-      fitNormal: ov?.fitNormal === true,
       arcStartDeg: meta.angleStart, arcEndDeg: meta.angleEnd,
-      motion: 'LINEAR', spin: meta.motionRotation === 'ANGLE_LERP',
-      // ท่าไม่บิน (motion.enabled=false): ไฟล์เอฟเฟกต์ถูกวาดในระบบพิกัดเดียวกับ rig ของตัวละคร
-      // → "จุดยืน" ของเอฟเฟกต์อยู่ที่เดียวกับจุดยืนของเรนเจอร์เจ้าของ คือเยื้องขวา-ล่างจาก origin
-      // (วัดจริง 5 ตัว: +60..+74 แนวนอน, +77..+103 แนวตั้ง — ตรงกับ offset ที่จูนด้วยตา r=0.918)
-      // ห้ามใช้กึ่งกลาง bbox: bbox กินทุกเฟรม ถ้าเอฟเฟกต์กวาด/ยิงลำแสงออกข้าง กึ่งกลางจะไถลตาม
-      // เช่น u1023h-brown-bul3 bbox X -171..1647 → กึ่งกลาง 738 ทั้งที่เฟรมแรกอยู่ ~50 (เพี้ยน ~700)
-      // ส่วน API ช่วยไม่ได้ ท่าพวกนี้ start เป็น {0,0} ล้วน
-      // ท่าไม่บินยึดหมุดแบบวาปมาตี ส่วนกระสุนบินยึด face เสมอ (จุดปล่อยจึงถูกทุกกรณี)
-      // กระสุนบินปกติยึดหมุด face ของตัวเอง แต่ถ้า rate=0.5 ยึด 0,0 (ฝั่งท่าไม่บิน instA เป็น 0 อยู่แล้ว)
-      anchorX: flightA.x, anchorY: flightA.y,
-      // finishMain: ตอนระเบิดยึด MAIN (0,0) ของไฟล์แทนหมุดช่วงบิน — จุดที่แตะเป้าหมายยังเป็นจุดเดิม
-      // ── ท่าที่ "ลงพื้น" ใช้หมุดเดียวทั้งท่า ไม่แยกตามช่วง ──
-      // กฎคือ MAIN ของกระสุนชน MAIN ของเป้าหมาย ซึ่งเป็นจุดเดียวตลอดท่า ไม่ใช่จุดที่ขยับตาม anim
-      // ถ้าให้ช่วงระเบิดยึดกึ่งกลางรูปของตัวเอง ภาพจะกระตุกตอนกระทบ:
-      //   u1616e-brown-bul ช่วงบินขอบล่างจมพื้น 12 แต่ช่วงระเบิดลอยเหนือพื้น 13 = เด้งขึ้น 25 หน่วย
-      finishAnchorX: ov?.finishMain ? 0 : (aimGround ? flightA.x : (asset.burstRef?.x ?? flightA.x)),
-      // ── หมุดช่วงระเบิด: แยกจากช่วงบิน เพราะกึ่งกลางรูปสองช่วงอยู่คนละที่ ──
-      // (u1297e-sn-bul: normal กึ่งกลาง y -29 / finish กึ่งกลาง y +26 ห่างกัน 55)
-      // ใช้กึ่งกลางรูป finish → กลางระเบิดไปตรงจุดชนพอดี ไม่ต้องพึ่งค่าเยื้องที่วาดไว้ในไฟล์
-      finishAnchorY: ov?.finishMain ? 0 : (aimGround ? flightA.y : (asset.burstRef?.y ?? flightA.y)),
-      normalFrames, finishFrames, bulletFps,
+      motion: shot.motion, spin: shot.motion === 'CURVE',
+      // มุมตอนเล่น finish: บินจบ = angle.end (CCRotateTo ครบ) · วาร์ป = angle.start (RotateTo อัปเดตแค่ t = 0)
+      finishDeg: shot.motion === 'CURVE' ? (instant ? meta.angleStart : meta.angleEnd) : 0,
+      anchorX: ref.x, anchorY: ref.y,
+      normalFrames: asset.sam.animations[asset.normalName]?.length || 1,
+      finishFrames: asset.finishName ? (asset.sam.animations[asset.finishName]?.length || 0) : 0,
+      bulletFps: asset.sam.animRate || 24,
     })
   }, [applyHitReaction, playHitSound, sceneGroundY, targetGroundY])   // identity คงที่ทุกตัว — spawnBullet จึงไม่ถูกสร้างใหม่
   const frameLabelRef = useRef<HTMLSpanElement>(null)  // counter "X/Y" — อัปเดตผ่าน textContent
@@ -1912,8 +1602,9 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
         if (T < 0 || T > b.travelTicks + finishTicksEq) continue   // ยังไม่ถึงเวลา หรือเล่นจบแล้ว → ตัดทิ้ง
         alive.push(b)
         let wx: number, wy: number, frame: SamFrame | undefined, spinAngle = 0
-        let anchorX = b.anchorX, anchorY = b.anchorY
-        if (T <= b.travelTicks) {
+        const anchorX = b.anchorX, anchorY = b.anchorY
+        // travelTicks = 0 (moveSpeed 0) → วาร์ปไปปลายทางแล้วเล่น finish ทันที ไม่มีช่วงบิน
+        if (b.travelTicks > 0 && T <= b.travelTicks) {
           // ── ช่วงเดินทาง (normal) — วิถีแบบเกม (CCBezierBy / CCMoveBy เชิงเส้นตามเวลา) สูตรเดียวกับเส้นพรีวิว Hitbox ──
           const p = b.travelTicks > 0 ? Math.min(1, T / b.travelTicks) : 1
           const pos = gamePathPos(b.motion, b.startX, b.startY, b.targetX, b.targetY, p)
@@ -1923,19 +1614,16 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
           // ระหว่างลอย เล่น normal วนซ้ำไปเรื่อยๆ จนกว่าจะถึงเป้าหมาย
           // (anim ช่วงเดินทางของกระสุนสั้นกว่าเวลาบินมาก ถ้าไม่วนจะค้างเฟรมสุดท้ายนิ่งๆ ระหว่างทาง)
           // fitNormal: ยืดให้จบพอดีตอนถึงเป้าหมายแทน — เฟรมผูกกับความคืบหน้า p ไม่ใช่เวลาจริง
-          const normalFrameRaw = T * (b.bulletFps / bodyFpsNow)
-          const bulletFrame = b.fitNormal
-            ? Math.min(b.normalFrames - 1, Math.floor(p * b.normalFrames))
-            : Math.floor(normalFrameRaw) % b.normalFrames
+          // เกม: เล่น normal แบบวน (PlaySection loop) ตลอดทางจนถึงจุดชน
+          const bulletFrame = Math.floor(T * (b.bulletFps / bodyFpsNow)) % b.normalFrames
           frame = asset.sam.animations[asset.normalName]?.[bulletFrame]
         } else if (asset.finishName && b.finishFrames > 0) {
           // ── ช่วงหลังชนเป้าหมาย (finish) — อยู่นิ่งที่จุดกระทบ ──
           const finishAge = T - b.travelTicks
           const finishFrame = Math.min(b.finishFrames - 1, Math.floor(finishAge * (b.bulletFps / bodyFpsNow)))
           wx = b.targetX; wy = b.targetY
-          anchorX = b.finishAnchorX; anchorY = b.finishAnchorY
-          // โหนดเดียวกับช่วงบิน → ระเบิดค้างมุมสุดท้ายของ CCRotateTo (เกม: เฉพาะกระสุนโค้ง)
-          if (b.spin && b.motion === 'CURVE') spinAngle = b.arcEndDeg * Math.PI / 180
+          // โหนดเดียวกับช่วงบิน → finish ค้างมุมที่ CCRotateTo ไปถึง (เกม: เฉพาะกระสุนโค้ง)
+          if (b.spin) spinAngle = b.finishDeg * Math.PI / 180
           frame = asset.sam.animations[asset.finishName]?.[finishFrame]
         } else {
           wx = b.targetX; wy = b.targetY
@@ -2161,7 +1849,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
         // จุดเริ่มโจมตีแต่ละแบบจาก projectile_data (ผ่าน attackStartWorld — ดูระบบพิกัดที่นั่น)
         // (0,0) ตอนนี้เป็นไปได้ทั้ง "ไม่มีข้อมูล" และ "เสกทับเป้าหมายทันที" (moveSpeed=0) → ไม่วาด marker ให้รกภาพ ทั้งสองแบบ
         const drawStart = (meta: AttackMeta | null, color: string, label: string) => {
-          if (!meta || (!meta.start.x && !meta.start.y)) return
+          if (!meta || !isGameBulletType(meta.attackType) || !(meta.moveSpeed > 0)) return   // จุดปล่อยมีผลเฉพาะกระสุนที่บินจริง
           const p = attackStartWorld(meta.start, mainGamePos())
           cross(p.x, p.y, color, label)
         }
@@ -2205,12 +1893,12 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
         const me = mainGamePos()
         const rangePt = attackRangeRef.current && attackRangeRef.current > 0 ? attackRangeRef.current : DUMMY_FALLBACK_RANGE
         vline(me.x + rangePt * PT_TO_WORLD, '#fde047', 'ATK RANGE')
-        // เส้นทางกระสุนที่ "บินจริง" เท่านั้น — จุดเดียวกับ spawnBullet (gameShot)
-        // ท่าที่ไม่บิน (enabled:false เช่น วาปไปตี) ถูกกรองออกใน drawAtkPath อยู่แล้ว — ไม่มีเส้นทางให้วาด
+        // เส้นทางกระสุน — จุดเดียวกับ spawnBullet (gameShot) · เฉพาะ attackType ที่เกมสร้างกระสุน
+        // moveSpeed 0 = วาร์ปไปจุดปลายทาง → วาดแค่จุดปลายทาง ไม่มีเส้นทาง
         const drawAtkPath = (meta: AttackMeta | null, color: string) => {
-          if (!meta || (!meta.start.x && !meta.start.y) || !meta.motionEnabled || meta.moveSpeed <= 0) return
+          if (!meta || !isGameBulletType(meta.attackType)) return
           const shot = gameShot(meta, dummy, dOff, dyOff, me)
-          pathLine(shot.start.x, shot.start.y, shot.end.x, shot.end.y, shot.motion, color)
+          if (meta.moveSpeed > 0) pathLine(shot.start.x, shot.start.y, shot.end.x, shot.end.y, shot.motion, color)
           dot(shot.end.x, shot.end.y, color)
         }
         drawAtkPath(attackMetaRef.current.normal, '#ffd24d')
@@ -2407,7 +2095,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     ;(async () => {
       for (const suffix of ['bul', 'bul2', 'bul3'] as const) {
         if (bulletCacheRef.current.has(suffix)) continue
-        const asset = await loadBulletSam(samFiles, suffix, mainFaceCenterRef.current, mainShadowCenterRef.current)
+        const asset = await loadBulletSam(samFiles, suffix)
         if (cancelled) { if (asset) disposeSprites(asset.sprites); continue }
         bulletCacheRef.current.set(suffix, asset)
       }

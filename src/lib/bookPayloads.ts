@@ -1,20 +1,10 @@
 // ====================================================
-// Payload ของ /api/ranger-book และ /api/gear-book
-//
-// แยกออกมาจาก route เพื่อให้ "ตอน sync" สร้าง payload ชุดเดียวกันได้
-// เหตุผลเรื่องทรัพยากร: เดิม sync แค่ลบคีย์ Redis ทิ้ง → คนแรกที่เปิดหน้าหลังจากนั้น
-// ต้องไปอ่าน Neon (ranger_book 3,081 แถว / gear_book ~861 แถว) = ปลุก compute อีก 5 นาที
-// ทั้งที่ตอน sync compute ตื่นอยู่แล้ว อ่านตอนนั้นทีเดียวแล้วเขียนแคชไว้เลยจึงถูกกว่า
-// ผลคือเส้นทางสาธารณะสองเส้นนี้ไม่แตะ Neon อีกเลยในการใช้งานปกติ
+// Payload ของ /api/ranger-book และ /api/gear-book (รันตอน build — scripts/emit-data.ts)
+// อ่านจาก .data/db/ranger-book.json + gear-book.json ที่ scripts/sync-rangers.ts สร้างจากข้อมูลเกม
 // ====================================================
 
 import { prisma } from '@/lib/db'
 import { getGearEffectsAsync } from '@/lib/pvpScraper'
-
-// ⚠ คีย์ของ gear book ต้องใช้ตัวนี้ทุกที่ — เดิม route ใช้ 'lr:gear:book:all:v2'
-// แต่ sync ไปลบ 'lr:gear:book:all' (ไม่มี v2) แคชจึงไม่เคยถูกล้างจริงเลยหลัง sync
-// v3: เพิ่ม fx (คีย์เอฟเฟกต์ต่อชิ้น) + fxNames สำหรับตัวกรองค่าเกียร์
-export const GEAR_BOOK_CACHE_KEY = 'lr:gear:book:all:v3'
 
 function extractGearNumber(id: string): number {
   const m = id.match(/^eq_(\d+)_/)
@@ -36,8 +26,7 @@ export async function buildGearBookPayload() {
   const rawItems = await prisma.gearBook.findMany()
   rawItems.sort((a, b) => extractGearNumber(b.id) - extractGearNumber(a.id))
 
-  // เสริม skillPlusNames จาก pvpScraper (batch เป็นก้อนละ 30 — ไม่ยิง Redis GET
-  // ทีเดียว ~861 ครั้งพร้อมกันตอน cache miss ซึ่งเสี่ยงชน rate limit + ค่าใช้จ่าย Upstash)
+  // เสริม skillPlusNames + คีย์เอฟเฟกต์จากข้อมูลเกียร์ (ทีละก้อน 30 ชิ้น)
   const BATCH = 30
   // fx = คีย์เอฟเฟกต์ของแต่ละชิ้น (b = พื้นฐาน, w = สลับ, s = Skill+) ใช้กรองฝั่ง client
   // คีย์คือ nameKey ของ EQUIP (แปลชื่อตามภาษาได้) — ไม่มีก็ใช้ "~ชื่อ" แทน; ชื่อดิบเก็บรวมไว้ใน fxNames ชุดเดียว

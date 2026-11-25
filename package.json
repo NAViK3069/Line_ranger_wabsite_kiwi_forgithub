@@ -10,8 +10,7 @@
     "data:sync": "tsx scripts/sync-rangers.ts",
     "data:pvp": "tsx scripts/refresh-pvp.ts",
     "data:emit": "tsx scripts/emit-data.ts",
-    "data:emit:content": "tsx scripts/emit-data.ts --content-only",
-    "check:talents": "tsx scripts/check-talent-coverage.ts"
+    "data:emit:content": "tsx scripts/emit-data.ts --content-only"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",

@@ -121,9 +121,9 @@ export function slotLook(f: RangerFacts | null, level: number, talent = 0): Slot
 }
 
 // ── ไปเอาข้อมูลเรนเจอร์มาให้ครบตามที่กฎต้องใช้ ──
-// /api/meta/ranger-stats ให้ tier / ดาว / เลเวลสูงสุด / ธาตุ  (แคช Redis 7 วัน)
+// /api/meta/ranger-stats ให้ tier / ดาว / เลเวลสูงสุด / ธาตุ  (ไฟล์ static /data/ranger/stats)
 // /api/ranger/evolve     ให้สายร่าง — ขอเฉพาะ 7★ ธรรมดาเท่านั้น เพราะกฎข้อ 3 ใช้ตัวเดียว
-// /api/ranger/talents    บอกว่ามีพรสวรรค์ไหม (แคช 7 วันทั้ง Redis และ CDN)
+// /api/ranger/talents    บอกว่ามีพรสวรรค์ไหม (ไฟล์ static /data/ranger/talents)
 const factsCache = new Map<string, RangerFacts | null>()
 
 interface StatsShape {

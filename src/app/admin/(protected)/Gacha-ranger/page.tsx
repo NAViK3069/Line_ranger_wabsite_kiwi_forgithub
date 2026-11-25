@@ -388,7 +388,7 @@ export default function AdminPoolsPage() {
   //   • /api/lerico/ranger-names → ชื่อ EN → id
   //   • /api/ranger-book         → id → grade + evolution → ดาว
   // ทำให้วาง text ได้แค่ {"ชื่อ","เรท"} ไม่ต้องพิมพ์ดาวเองทุกบรรทัดอีก
-  // (ทั้งสองเส้นเป็นแคช Redis/CDN อยู่แล้ว เปิดฟอร์มทีเดียวไม่ไปแตะ DB)
+  // (ทั้งสองเส้นเป็นไฟล์ static ใน /data — โหลดครั้งเดียวตอนเปิดฟอร์ม)
   const lookupRef = useRef<{ nameToId: Map<string, string>; starById: Map<string, string> } | null>(null)
 
   async function ensureLookup() {

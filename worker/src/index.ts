@@ -333,7 +333,7 @@ async function commitFiles(env: Env, message: string, files: CommitFile[]): Prom
 }
 
 /** workflow ที่หน้าแอดมินกรองดูได้ */
-const WORKFLOW_FILES = ['data.yml', 'deploy.yml', 'talent-coverage-check.yml']
+const WORKFLOW_FILES = ['data.yml', 'deploy.yml']
 
 /** ตัวเลขจาก query — นอกช่วง/ไม่ใช่ตัวเลข = ค่าเริ่มต้น */
 function intParam(v: string | null, def: number, min: number, max: number): number {

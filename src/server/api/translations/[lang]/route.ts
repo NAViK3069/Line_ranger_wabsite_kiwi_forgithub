@@ -1,32 +1,22 @@
 // ====================================================
-// API: GET /api/translations/[lang]
-// คืน translation maps ทุกประเภทในภาษาที่ระบุ
+// GET /api/translations/[lang]
+// คืนข้อความทุกประเภทในภาษาที่ระบุ (ไฟล์ภาษาของเกมรุ่นล่าสุด — src/lib/gameData.ts)
 //
 // ?only=names → คืนเฉพาะชื่อเรนเจอร์ ({ "<id>_nm": "ชื่อ" })
 //   bundle เต็มหนัก ~3MB แต่ชื่อเรนเจอร์ล้วนๆ ~180KB
 //   ใช้ตอนค้นหาข้ามภาษา (อยู่โหมด EN แล้วพิมพ์ไทย) ซึ่งไม่ต้องใช้อย่างอื่นเลย
 //
-// ข้อความจากไฟล์ภาษาของเกมรุ่นล่าสุด (src/lib/gameData.ts) — เดิมดึง /api/v2/translate ของ lerico
-// Cache Redis 7 วัน (game data ไม่เปลี่ยนบ่อย)
+// รันเฉพาะตอน build (scripts/emit-data.ts)
 // ====================================================
 
 import { NextRequest, NextResponse } from 'next/server'
-import { redis } from '@/lib/redis'
-import { FRESH_CACHE_HEADERS } from '@/lib/cacheHeaders'
 import { gameText } from '@/lib/gameData'
-
-export const maxDuration = 60
 
 const SUPPORTED_LANGS = ['en', 'th'] as const
 type Lang = typeof SUPPORTED_LANGS[number]
 
-// CUSTOM = ข้อความที่ lerico เขียนเอง (ไม่ได้มาจากเกม) — คืนว่างเสมอ (ไม่มีหน้าไหนใช้)
+// CUSTOM = ข้อความที่ lerico เขียนเอง (ไม่ได้มาจากเกม) — คืนว่างเสมอ (ไม่มีหน้าไหนใช้ แต่คงคีย์ไว้ให้หน้าตา JSON เดิม)
 const TRANSLATION_TYPES = ['UNIT', 'EQUIP', 'SKILL', 'ABILITY', 'PROPERTIES', 'CUSTOM'] as const
-
-const CACHE_TTL = 60 * 60 * 24 * 7  // 7 วัน
-
-// sync ล้าง lr:translations:th/en ให้ทุกครั้ง ต้นทางจึงสด — CDN ต้องตามให้ทัน
-const CACHE_HEADERS = FRESH_CACHE_HEADERS
 
 interface TranslationBundle {
   lang: Lang
@@ -38,7 +28,7 @@ interface TranslationBundle {
   custom:     Record<string, string>
 }
 
-async function fetchOneType(lang: Lang, type: string): Promise<Record<string, string>> {
+function fetchOneType(lang: Lang, type: string): Record<string, string> {
   if (type === 'CUSTOM') return {}
   // ทำความสะอาด: ลบ \n, collapse spaces
   const out: Record<string, string> = {}
@@ -50,15 +40,14 @@ async function fetchOneType(lang: Lang, type: string): Promise<Record<string, st
   return out
 }
 
-// ชื่อเรนเจอร์ = unit key ที่ลงท้าย _nm — ตัดออกมาแล้ว cache แยก
-function cacheNames(key: string, units: Record<string, string>): Record<string, string> {
+// ชื่อเรนเจอร์ = unit key ที่ลงท้าย _nm
+function namesOnly(units: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(units)) if (k.endsWith('_nm')) out[k] = v
-  if (redis && Object.keys(out).length > 0) redis.set(key, JSON.stringify(out), { ex: CACHE_TTL }).catch(() => {})
   return out
 }
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ lang: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ lang: string }> }) {
   const { lang: rawLang } = await params
   const lang = rawLang.toLowerCase() as Lang
 
@@ -66,44 +55,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ lan
     return NextResponse.json({ error: 'Unsupported language' }, { status: 400 })
   }
 
-  const onlyNames = _req.nextUrl.searchParams.get('only') === 'names'
-  const redisKey = `lr:translations:${lang}`
-  const namesKey = `${redisKey}:names`
+  const [units, equips, skills, abilities, properties, custom] = TRANSLATION_TYPES.map(t => fetchOneType(lang, t))
 
-  // ── 0. ชุดชื่อล้วน — มี cache แยกของตัวเอง จะได้ไม่ต้องอ่านแล้วตัด bundle 3MB ทุกครั้ง ──
-  if (onlyNames && redis) {
-    try {
-      const cached = await redis.get<string>(namesKey)
-      if (cached) {
-        return NextResponse.json(typeof cached === 'string' ? JSON.parse(cached) : cached, { headers: CACHE_HEADERS })
-      }
-    } catch { /* fallback */ }
-  }
+  if (req.nextUrl.searchParams.get('only') === 'names') return NextResponse.json(namesOnly(units))
 
-  // ── 1. ลอง Redis ก่อน ──
-  if (redis) {
-    try {
-      const cached = await redis.get<string>(redisKey)
-      if (cached) {
-        const data = (typeof cached === 'string' ? JSON.parse(cached) : cached) as TranslationBundle
-        return NextResponse.json(onlyNames ? cacheNames(namesKey, data.units) : data, { headers: CACHE_HEADERS })
-      }
-    } catch { /* fallback to game data */ }
-  }
-
-  // ── 2. Fetch ทั้ง 6 types พร้อมกัน ──
-  const [units, equips, skills, abilities, properties, custom] = await Promise.all(
-    TRANSLATION_TYPES.map(t => fetchOneType(lang, t))
-  )
-
-  const bundle: TranslationBundle = {
-    lang, units, equips, skills, abilities, properties, custom,
-  }
-
-  // ── 3. Save Redis ──
-  if (redis && Object.keys(units).length > 0) {
-    redis.set(redisKey, JSON.stringify(bundle), { ex: CACHE_TTL }).catch(() => {})
-  }
-
-  return NextResponse.json(onlyNames ? cacheNames(namesKey, units) : bundle, { headers: CACHE_HEADERS })
+  const bundle: TranslationBundle = { lang, units, equips, skills, abilities, properties, custom }
+  return NextResponse.json(bundle)
 }

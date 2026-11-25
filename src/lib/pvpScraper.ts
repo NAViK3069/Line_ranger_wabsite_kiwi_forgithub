@@ -1,11 +1,11 @@
 // ====================================================
-// PVP Tracker Scraper - Pure API version (ไม่ต้องเปิด browser)
-// Rankings + Gear + Names ดึงจาก lerico.net API โดยตรง
+// PVP Tracker Scraper — ส่วนเดียวของเว็บที่ยังดึงข้อมูลจากเว็บอื่น
+//   • อันดับ PvP ทุกลีค + ทีม/เกียร์ของผู้เล่น → API ของ rangers.lerico.net (scripts/refresh-pvp.ts ใน Daily Data)
+//   • ชื่อเรนเจอร์/เกียร์ + ข้อมูลเกียร์ทั้งชุด → ข้อมูลเกมของเราเอง (src/lib/gameData.ts)
+// ผลเก็บใน .data/db (league-rankings / ranger-gear) แล้ว route handler อ่านตอน build
 // ====================================================
 
 import { prisma } from './db'
-import { redis, redisKey, REDIS_TTL } from './redis'
-import { aggregateGearRanking } from './gearAggregate'
 import { cleanUnitName } from './unitName'
 import { gameEquipments, gameText } from './gameData'
 import {
@@ -15,46 +15,9 @@ import {
 
 // =========== DB helpers ===========
 
-// โหลด league rankings: Redis → DB (fallback)
-// Redis ช่วยลด DB network transfer — ทุก Vercel instance share cache เดียวกัน
-async function loadLeagueRankingsFromDB(): Promise<void> {
-  try {
-    // ── ลองโหลดจาก Redis ก่อน ──
-    if (redis) {
-      let redisHits = 0
-      // อ่านจาก LEAGUES ไม่ใช่ช่วงเลขตายตัว — ตัดลีคออกเมื่อไหร่ก็ไม่ไปขอคีย์ที่ไม่มีแล้ว
-      const values = await redis.mget<string[]>(...LEAGUES.map(l => redisKey.league(l.value)))
-      for (let i = 0; i < LEAGUES.length; i++) {
-        const raw = values[i]
-        if (!raw) continue
-        try {
-          const cached = typeof raw === 'string' ? JSON.parse(raw) : raw
-          leagueCache.set(LEAGUES[i].value, cached)
-          redisHits++
-        } catch { /* JSON parse error → ข้ามไป */ }
-      }
-      if (redisHits > 0) {
-        console.log(`[PvpScraper] Loaded ${redisHits} league rankings from Redis ✓`)
-        return  // ได้จาก Redis แล้ว ไม่ต้อง query DB
-      }
-    }
-
-    // ── Redis miss → ไม่โหลด DB ทั้งตารางแล้ว ──
-    // เดิม findMany() ดึง league_rankings ทั้งตาราง (~7.5MB) ทุกครั้งที่ Redis miss
-    // และฟังก์ชันนี้ถูกเรียกตอนโหลดโมดูล = ทุก cold start ของ Vercel → กิน Neon transfer มหาศาล
-    // ตอนนี้เปลี่ยนเป็นโหลดทีละลีคแบบ lazy ผ่าน ensureLeagueLoaded() เฉพาะลีคที่ถูกเปิดจริง
-    console.log('[PvpScraper] League rankings: Redis miss → จะโหลดทีละลีคแบบ lazy')
-  } catch (err) {
-    console.error('[PvpScraper] Failed to load rankings from Redis:', err)
-  }
-}
-
-// ── เขียน DB แบบรวบไว้เขียนทีเดียวตอนท้าย (ใช้ตอน refresh รายวัน) ──
-// Neon คิดเงินตามเวลาที่ compute ตื่น และตื่นค้างอีก 5 นาทีหลังคำสั่งสุดท้าย
-// เดิมตัว refresh เขียนแถวลีค + แถวเกียร์ (100-200 แถว) ทันทีที่ scrape แต่ละลีคเสร็จ
-// คำสั่งกระจายตลอดเวลาที่ scrape ทั้ง 10 ลีค → compute ตื่นตลอดทั้งรอบ
-// ตอนนี้ scripts/refresh-pvp.ts เปิดโหมดนี้ → เก็บคำสั่งไว้ก่อน แล้วเขียนรวดเดียวตอนจบ (ตื่นแค่ไม่กี่นาที)
-// คำสั่ง Prisma เป็น lazy (ยังไม่ยิงจนกว่าจะถูก await/then) จึงเก็บใส่คิวไว้ได้เลย
+// ── คำสั่งเขียน DB ระหว่าง refresh รายวัน ──
+// scripts/refresh-pvp.ts เปิดโหมดนี้ → เก็บคำสั่งไว้ในคิว แล้วรอให้ครบทุกคำสั่งตอนจบ (flushDeferredDbWrites)
+// ก่อนสคริปต์จะเซฟไฟล์ .data/db — คำสั่งที่ไม่ได้รอจะถูกทิ้งไว้กลางทางตอนสคริปต์ปิดตัว
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DbOp = any
 let deferredDbOps: DbOp[] | null = null
@@ -80,8 +43,7 @@ function dbWrite(op: DbOp, label: string): void {
   op.catch((err: unknown) => console.error(`[PvpScraper] Failed to save ${label}:`, err))
 }
 
-// โหลด league เดียวจาก DB ถ้ายังไม่มีใน memory (lazy) — ใช้แทนการดึงทั้งตารางตอน boot
-// ดึงแค่แถวเดียว (~535KB) แทนทั้งตาราง และเฉพาะลีคที่ผู้ใช้เปิดจริงเท่านั้น
+// โหลด league เดียวจาก DB ถ้ายังไม่มีใน memory (lazy)
 async function ensureLeagueLoaded(league: number): Promise<void> {
   if (leagueCache.has(league)) return
   try {
@@ -94,55 +56,21 @@ async function ensureLeagueLoaded(league: number): Promise<void> {
       totalPlayers: row.totalPlayers,
     }
     leagueCache.set(row.id, payload)
-    // เขียนกลับ Redis ด้วย — memory cache อยู่กับ instance เดียวเท่านั้น
-    // ถ้าไม่เขียน ทุก instance ที่เกิดใหม่จะดึงแถวนี้ (~535KB) จาก Neon ซ้ำอีกคนละครั้ง
-    // = ปลุก compute ใหม่ทุกครั้ง ทั้งที่เป็นข้อมูลชุดเดิมที่เปลี่ยนแค่วันละครั้ง
-    // fetchedAt คงค่าจาก DB ไว้ เพราะ getMetaRangers ใช้ค่านี้ตัดสินความสด (ไม่ใช่เวลาที่เขียนแคช)
-    if (redis) {
-      redis.set(redisKey.league(league), JSON.stringify(payload), { ex: REDIS_TTL.leagueRanking })
-        .catch((e) => console.error(`[Redis] Failed to warm league ${league}:`, e))
-    }
   } catch (err) {
     console.error(`[PvpScraper] Failed to load league ${league} from DB:`, err)
   }
 }
 
-type BadgeRow = {
-  id: string; grade: number | null; evolution: string | null; type: string | null
-  element: string | null; elementOpen: string | null
-}
-let rangerBookMemo: Promise<BadgeRow[] | null> | null = null
-function rangerBookFromRedis(): Promise<BadgeRow[] | null> {
-  if (!rangerBookMemo) {
-    rangerBookMemo = (async () => {
-      if (!redis) return null
-      try {
-        const raw = await redis.get<string>(redisKey.rangerBookAll())
-        if (!raw) return null
-        const p = (typeof raw === 'string' ? JSON.parse(raw) : raw) as { rangers?: BadgeRow[] }
-        return Array.isArray(p.rangers) ? p.rangers : null
-      } catch { return null }
-    })()
-  }
-  return rangerBookMemo
-}
-
-/** ดาว/ชนิด/ธาตุ ของเรนเจอร์ที่ติดอันดับ — ดึงจาก ranger_book ที่ sync ไว้แล้ว
- *  ขอเฉพาะ id ที่ใช้จริง (52–200 แถว) ไม่ได้ดึงทั้งตาราง 3,081 แถว */
+/** ดาว/ชนิด/ธาตุ ของเรนเจอร์ที่ติดอันดับ — ดึงจาก Ranger Book ที่ sync ไว้แล้ว (.data/db/ranger-book.json) */
 async function loadRangerBadges(ids: string[]): Promise<Map<string, {
   grade: number | null; evolution: string | null; type: string | null; element: string | null
 }>> {
   const out = new Map<string, { grade: number | null; evolution: string | null; type: string | null; element: string | null }>()
   try {
-    // อ่านจากแคช Ranger Book ใน Redis ก่อน (sync เขียนไว้ทั้งเล่มอยู่แล้ว) — ไม่ต้องปลุก Neon กลางรอบ scrape
-    // โหลดครั้งเดียวต่อ process แล้วใช้ซ้ำทุกลีค ไม่มีค่อยตกไปถาม DB
-    const book = await rangerBookFromRedis()
-    const rows = book
-      ? book.filter(r => ids.includes(r.id))
-      : await prisma.rangerBook.findMany({
-          where: { id: { in: ids } },
-          select: { id: true, grade: true, evolution: true, type: true, element: true, elementOpen: true },
-        })
+    const rows = await prisma.rangerBook.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, grade: true, evolution: true, type: true, element: true, elementOpen: true },
+    })
     for (const r of rows) {
       // elementOpen: '0' = ไม่มีช่องธาตุ, '1' = มีช่องแต่ยังไม่ปลด, '2' = ปลดแล้ว
       // โชว์ธาตุเฉพาะตอนปลดแล้วเท่านั้น ให้ตรงกับที่เกมแสดง
@@ -174,75 +102,27 @@ async function saveLeagueRankingToDB(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       create: { id: league, data: data as any, teams: teams as any, totalPlayers, fetchedAt: new Date(fetchedAt) },
     }), `ranking ${league}`)
-    // ── บันทึกลง Redis ด้วย ──
-    if (redis) {
-      const payload = { data, teams, fetchedAt, totalPlayers }
-      await redis.set(redisKey.league(league), JSON.stringify(payload), { ex: REDIS_TTL.leagueRanking })
-        .catch((e) => console.error('[Redis] Failed to save league ranking:', e))
-    }
   } catch (err) {
     console.error('[PvpScraper] Failed to save league ranking:', err)
   }
 }
 
-// โหลด gear: Redis batch keys (1 key/league) → DB fallback
-// ใช้ batch key แทน index+individual keys เพื่อลด Redis commands
+// โหลดเกียร์ของทุกลีคจาก .data/db/ranger-gear.json เข้า memory
+// ต้องโหลดไว้ก่อน เพราะ withTopGear() (เกียร์ยอดนิยมใต้ชื่อในหน้า /meta) อ่านจาก gearMemCache เท่านั้น
 async function loadGearFromDB(): Promise<void> {
   try {
-    if (redis) {
-      // ── ลอง batch keys ก่อน: 1 key ต่อลีค (14 GETs รวมเป็น 1 MGET) ──
-      const batchKeys = LEAGUES.map(l => redisKey.gearBatch(l.value))
-      const batchValues = await redis.mget<string[]>(...batchKeys)
-      let totalHits = 0
-      let batchHits = 0
-      for (let i = 0; i < LEAGUES.length; i++) {
-        const raw = batchValues[i]
-        if (!raw) continue
-        try {
-          const batch = (typeof raw === 'string' ? JSON.parse(raw) : raw) as Record<string, { data: GearRanking; topSets: GearSet[]; sampled: number; fetchedAt: number }>
-          for (const [rId, payload] of Object.entries(batch)) {
-            // ตรวจ shape ก่อนเสมอ — กันค่าผิดชนิดจาก key ที่เคยชนกันมาเข้ามาปนใน memory cache
-            // (ของเก่าที่ยังค้างใน Redis จนกว่า TTL 7 วันจะหมด ก็จะถูกกรองทิ้งตรงนี้)
-            if (!payload || typeof payload !== 'object' || !('data' in payload) || !('fetchedAt' in payload)) continue
-            gearMemCache.set(`${rId}:${LEAGUES[i].value}`, payload)
-            totalHits++
-          }
-          if (totalHits > 0) batchHits++
-        } catch { /* ข้ามไป */ }
-      }
-      if (batchHits > 0) {
-        console.log(`[PvpScraper] Loaded ${totalHits} gear entries from Redis batch (${batchHits}/${LEAGUES.length} leagues) ✓`)
-        // มี Redis hit แม้แต่บางส่วน → trust Redis, ไม่ต้อง findMany ทั้ง table
-        // ลีคที่ขาด user จะเปิดได้แต่ gear ว่าง — GitHub Actions cron จะเติมในรอบถัดไป
-        // (ลด Neon network transfer มหาศาล)
-        return
-      }
+    const rows = await prisma.rangerGear.findMany()
+    for (const r of rows) {
+      gearMemCache.set(r.id, {
+        data: r.gearData as GearRanking,
+        topSets: r.topSets as GearSet[],
+        sampled: r.sampled,
+        fetchedAt: new Date(r.fetchedAt).getTime(),
+      })
     }
-
-    // ── static build: "DB" เป็นไฟล์ JSON ในเครื่อง อ่านทั้งตารางได้ฟรี ──
-    // ต้องโหลดไว้ก่อน เพราะ withTopGear() (เกียร์ยอดนิยมใต้ชื่อในหน้า /meta) อ่านจาก gearMemCache เท่านั้น
-    if (!redis) {
-      const rows = await prisma.rangerGear.findMany()
-      for (const r of rows) {
-        gearMemCache.set(r.id, {
-          data: r.gearData as GearRanking,
-          topSets: r.topSets as GearSet[],
-          sampled: r.sampled,
-          fetchedAt: new Date(r.fetchedAt).getTime(),
-        })
-      }
-      console.log(`[PvpScraper] Loaded ${rows.length} gear entries from file DB ✓`)
-      return
-    }
-
-    // ── Redis ว่างเปล่า → ไม่ดึง DB ทั้งตารางแล้ว ──
-    // เดิม findMany() ดึง ranger_gear ทั้งตาราง (~28MB / 7,979 แถว) ทุกครั้งที่ Redis miss
-    // และฟังก์ชันนี้รันตอนโหลดโมดูล = ทุก cold start ของ Vercel → ตัวกิน Neon transfer อันดับ 1
-    // ไม่จำเป็นเลยเพราะ getRangerDetail() มี lazy fallback ต่อ key อยู่แล้ว
-    // (findUnique({ where: { id: `${rangerId}:${league}` } }) ~4KB ต่อครั้ง เฉพาะตัวที่เปิดจริง)
-    console.log('[PvpScraper] Gear: Redis miss → จะโหลดทีละตัวแบบ lazy ตอนเปิดเรนเจอร์')
+    console.log(`[PvpScraper] Loaded ${rows.length} gear entries from file DB ✓`)
   } catch (err) {
-    console.error('[PvpScraper] Failed to load gear from Redis:', err)
+    console.error('[PvpScraper] Failed to load gear from file DB:', err)
   }
 }
 
@@ -259,9 +139,9 @@ export const LEAGUES = [
   { value: 7,  label: 'Gold Ⅰ',    pages: 1, apiName: 'GOLD_1'    },
   { value: 8,  label: 'Gold Ⅱ',    pages: 1, apiName: 'GOLD_2'    },
   { value: 9,  label: 'Gold Ⅲ',    pages: 1, apiName: 'GOLD_3'    },
-  // Silver Ⅰ–Ⅲ (10–12) กับ Bronze (13) ถูกตัดออกแล้ว — ลีคล่างไม่มีใครดู
-  // แต่กินทั้งแถวใน Neon, คีย์ใน Redis และรอบ refresh ของ cron เท่าลีคบนทุกประการ
+  // Silver Ⅰ–Ⅲ (10–12) กับ Bronze (13) ถูกตัดออกแล้ว — ลีคล่างไม่มีใครดู แต่ใช้เวลา scrape เท่าลีคบน
   // ถ้าจะเอากลับ ใส่ค่าเดิมกลับมาได้เลย โค้ดที่เหลืออ่านจากอาเรย์นี้ทั้งหมด
+  // (ต้องแก้ LEAGUES ในหน้า src/app/meta/page.tsx และ LEAGUE_URLS ใน src/lib/pvpUsage.ts ให้ตรงกันด้วย)
 ]
 
 /** ค่า league ที่ยังใช้งานอยู่ — ใช้ตรวจ input แทนการเขียนช่วงเลขตายตัว */
@@ -358,7 +238,7 @@ export interface GearEffects {
   skillPlus: GearEffect[]
 }
 
-// ── Translation bundle type (เก็บ raw API responses เพื่อ replay ตอนโหลดจาก Redis) ──
+// ── ชุดชื่อ + ข้อมูลเกียร์ที่ loadTranslations() อ่านจากข้อมูลเกม ──
 interface TranslationBundle {
   units:    Record<string, string>
   equips:   Record<string, string>
@@ -409,22 +289,8 @@ function applyTranslationBundle(bundle: TranslationBundle): void {
   for (const ue of raw.unlimitEffects ?? []) unlimitEffectsCache.push(ue)
 }
 
-export async function loadTranslations(force = false): Promise<void> {
-  // ── 1. ลอง Redis ก่อน — ลด cold start overhead ──
-  //    force = true → ข้าม Redis ไปอ่านข้อมูลเกมสดเลย (ใช้ตอน admin sync เพื่อเอา gear ใหม่)
-  if (!force && redis) {
-    try {
-      const cached = await redis.get<string>(redisKey.translations())
-      if (cached) {
-        const bundle = typeof cached === 'string' ? JSON.parse(cached) : cached as TranslationBundle
-        applyTranslationBundle(bundle)
-        console.log(`[Translate] ✓ Redis cache — ${unitTranslateCache.size} units, ${equipDataCache.size} equips`)
-        return
-      }
-    } catch { /* Redis unavailable → fallback to game data */ }
-  }
-
-  // ── 2. อ่านจากข้อมูลเกม ──
+/** ชื่อเรนเจอร์/เกียร์ + ข้อมูลเกียร์ทั้งชุด จากข้อมูลเกมของเราเอง (อ่านใหม่ทุกครั้งที่เรียก) */
+export async function loadTranslations(): Promise<void> {
   try {
     // ชื่อบางตัวมี "\n" ติดมา → แปลงเป็นช่องว่าง (ดู unitName.ts)
     const units: Record<string, string> = Object.fromEntries(
@@ -440,13 +306,6 @@ export async function loadTranslations(force = false): Promise<void> {
       `[Translate] ✓ game data — ${unitTranslateCache.size} units, ${equipTranslateCache.size} equips, ` +
       `${equipDataCache.size} items, ${attributesCache.size} attrs`
     )
-
-    // ── 3. บันทึกลง Redis (24h TTL) ──
-    if (redis && unitTranslateCache.size > 0) {
-      redis.set(redisKey.translations(), JSON.stringify(bundle), {
-        ex: REDIS_TTL.translations,
-      }).catch(() => {})
-    }
   } catch (err) {
     console.error('[Translate] Failed to load translations:', err)
   }
@@ -589,11 +448,6 @@ function toLevels(input: number | EnchantLevels): EnchantLevels {
   return input
 }
 
-/** All 3 levels at max (5,5,5) — เกณฑ์ที่ใช้ Redis cache */
-function isMaxAll(lv: EnchantLevels): boolean {
-  return lv.basic === 5 && lv.switchable === 5 && lv.skillPlus === 5
-}
-
 export function getGearEffects(itemCode: string, input: number | EnchantLevels = 5): GearEffects | null {
   const eq = equipDataCache.get(itemCode)
   if (!eq) return null
@@ -724,13 +578,7 @@ function extractGearFromUnit(unit: Record<string, unknown>): { slot: string; ite
       const val = equipMap[key]
       if (val?.itemCode) {
         gear.push({ slot, itemCode: val.itemCode })
-        const c = val.itemCode
-        itemSlotCache.set(c, slot)
-        // NX = set only if key does NOT exist in Redis ← เขียนแค่ครั้งเดียวตลอด 30 วัน
-        // ป้องกัน cold-start ทุก instance เขียนซ้ำ (ต่างจาก in-memory check ที่ instance-local)
-        if (redis && !c.includes('_wpn_') && !c.includes('_amr_') && !c.includes('_acc_')) {
-          redis.set(redisKey.itemSlot(c), slot, { ex: REDIS_TTL.itemSlot, nx: true }).catch(() => {})
-        }
+        itemSlotCache.set(val.itemCode, slot)
       }
     }
     if (gear.length > 0) return gear
@@ -741,11 +589,7 @@ function extractGearFromUnit(unit: Record<string, unknown>): { slot: string; ite
     const val = unit[key] as { itemCode?: string } | undefined
     if (val?.itemCode) {
       gear.push({ slot, itemCode: val.itemCode })
-      const c = val.itemCode
-      itemSlotCache.set(c, slot)
-      if (redis && !c.includes('_wpn_') && !c.includes('_amr_') && !c.includes('_acc_')) {
-        redis.set(redisKey.itemSlot(c), slot, { ex: REDIS_TTL.itemSlot, nx: true }).catch(() => {})
-      }
+      itemSlotCache.set(val.itemCode, slot)
     }
   }
   if (gear.length > 0) return gear
@@ -805,46 +649,6 @@ async function fetchPlayerGearViaAPI(
       }
     }
     return result.size > 0 ? result : null
-  } catch {
-    return null
-  }
-}
-
-// ดึง gear ของ ranger ที่ต้องการจาก player คนเดียว
-// คืน array ของ gear set — 1 set ต่อ 1 instance ของ ranger (ทีม A + ทีม B รวมกัน)
-// เช่น ถ้า ranger อยู่ทั้ง slot "1" และ "2" จะได้ 2 sets
-async function fetchRangerGearFromPlayer(
-  mid: string,
-  targetRangerId: string
-): Promise<{ slot: string; itemCode: string }[][] | null> {
-  try {
-    const res = await fetch(`https://rangers.lerico.net/api/getPlayer/${mid}`, {
-      headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0' },
-    })
-    if (!res.ok) return null
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const data = await res.json() as Record<string, any>
-    // ✅ path จริง: playerUnitTeamGroupMap.pvpteam
-    const pvpteam = data?.playerUnitTeamGroupMap?.pvpteam
-    if (!pvpteam) return null
-
-    const allInstances: { slot: string; itemCode: string }[][] = []
-
-    for (const slotValue of Object.values(pvpteam)) {
-      const units: Record<string, unknown>[] = Array.isArray(slotValue)
-        ? slotValue as Record<string, unknown>[]
-        : (slotValue !== null && typeof slotValue === 'object'
-            ? [slotValue as Record<string, unknown>]
-            : [])
-
-      for (const unit of units) {
-        if (unit.unitCode !== targetRangerId) continue
-        const gear = extractGearFromUnit(unit)
-        if (gear.length > 0) allInstances.push(gear)  // เก็บแต่ละ instance แยกกัน
-      }
-    }
-    return allInstances.length > 0 ? allInstances : null
   } catch {
     return null
   }
@@ -942,7 +746,7 @@ const gearMemCache = new Map<string, {
 const refreshingLeagues = new Set<number>()
 
 // ── เกียร์ที่ใช้มากสุดของแต่ละช่อง (ชุดเดียวกับที่ป๊อปอัพรายละเอียดเรนเจอร์โชว์ในโหมดเมต้า) ──
-// อ่านจาก gearMemCache ที่โหลดจาก Redis ตอน boot อยู่แล้ว — ไม่แตะ DB และไม่มี request เพิ่มฝั่ง browser
+// อ่านจาก gearMemCache ที่โหลดจาก .data/db ตอน boot อยู่แล้ว — ไม่มี request เพิ่มฝั่ง browser
 export interface TopGearItem { name: string; iconUrl: string; grade: number | null }
 export type TopGear = Partial<Record<'WPN' | 'AMR' | 'ACC', TopGearItem>>
 
@@ -962,9 +766,8 @@ export function withTopGear<T extends { id: string }>(rangers: T[], league: numb
   })
 }
 
-// โหลด DB cache + translations พร้อมกัน ตอน boot
+// โหลดเกียร์ PvP + ชื่อ/ข้อมูลเกียร์พร้อมกัน ตอน boot (อันดับลีคโหลดทีละลีคตอนใช้ — ensureLeagueLoaded)
 const cacheReady: Promise<void> = Promise.all([
-  loadLeagueRankingsFromDB(),
   loadGearFromDB(),
   loadTranslations(),
 ]).then(() => {})
@@ -975,14 +778,12 @@ export async function awaitCacheReady(): Promise<void> {
 }
 
 // ── ensureGearData: โหลดเฉพาะ gear data (ไม่รอ PVP rankings) ──
-// ใช้ใน sync route เพื่อ pre-cache gear effects โดยไม่ต้องโหลด cacheReady ทั้งหมด
+// force = true → อ่านข้อมูลเกมใหม่เสมอ (ใช้ตอน sync Gear Book)
 let gearDataLoadPromise: Promise<void> | null = null
 
 export async function ensureGearData(force = false): Promise<void> {
-  // force = true → fetch lerico สดเสมอ (ข้ามทั้ง in-memory + Redis cache)
-  //   ใช้ตอน admin sync เพื่อให้ได้ gear ใหม่ล่าสุด ไม่ติด cache เก่า 7 วัน
   if (force) {
-    await loadTranslations(true)
+    await loadTranslations()
     return
   }
   if (equipDataCache.size > 0) return  // โหลดแล้ว (จาก cacheReady หรือ call ก่อนหน้า)
@@ -1016,30 +817,14 @@ export function getAllGearItems(): GearBookItem[] {
   return items
 }
 
-// async wrapper ของ getGearEffects
-// ลำดับ: Redis cache → in-memory cache → โหลด lerico.net ใหม่
+// async wrapper ของ getGearEffects — รอข้อมูลเกียร์โหลดเสร็จก่อน
 let equipmentsLoadPromise: Promise<void> | null = null
 
 export async function getGearEffectsAsync(itemCode: string, input: number | EnchantLevels = 5): Promise<GearEffects | null> {
   const lv = toLevels(input)
-  // ── 1. ตรวจ Redis ก่อน (pre-cached ตอน sync — ไม่ต้องการ lerico.net เลย) ──
-  // ⚠️ cache เก็บเฉพาะตอน level all-max (basic=5, switch=5, skillPlus=5)
-  //    ถ้าไม่ใช่ all-max → ข้าม cache (ไม่งั้นจะได้ค่า max กลับเสมอ)
-  if (redis && isMaxAll(lv)) {
-    try {
-      const cached = await redis.get<string>(redisKey.gearEffects(itemCode))
-      if (cached !== null) {
-        return typeof cached === 'string' ? JSON.parse(cached) : cached as GearEffects | null
-      }
-    } catch {
-      // Redis error → fall through to normal path
-    }
-  }
-
-  // ── 2. ตรวจ in-memory cache (โหลดแล้ว) ──
   await cacheReady
   if (!equipDataCache.get(itemCode)) {
-    // ── 3. Cache miss → reload translations จาก lerico.net ──
+    // ไม่เจอในชุดที่โหลดไว้ → อ่านข้อมูลเกมใหม่อีกรอบ
     if (!equipmentsLoadPromise) {
       console.log(`[GearEffects] cache miss for ${itemCode} — reloading translations`)
       equipmentsLoadPromise = loadTranslations().finally(() => { equipmentsLoadPromise = null })
@@ -1050,18 +835,6 @@ export async function getGearEffectsAsync(itemCode: string, input: number | Ench
 }
 
 // =========== Public helpers ===========
-
-export function getCachedTeams(league: number): TeamEntry[] {
-  return leagueCache.get(league)?.teams ?? []
-}
-
-export function isLeagueRefreshing(league: number): boolean {
-  return refreshingLeagues.has(league)
-}
-
-export function isGearRefreshing(_league: number): boolean {
-  return false // gear refresh รวมอยู่ใน ranking refresh แล้ว
-}
 
 export function getMetaRangersFromCache(league: number): MetaResult | null {
   const cached = leagueCache.get(league)
@@ -1085,7 +858,7 @@ export async function getMetaRangers(
   onProgress?: (done: number, total: number) => void
 ): Promise<MetaResult> {
   await cacheReady
-  // ดึงลีคนี้จาก DB ถ้า Redis miss (แถวเดียว) — กันไม่ให้ต้องไป scrape lerico ใหม่ทั้งลีคโดยไม่จำเป็น
+  // ดึงลีคนี้จาก DB (แถวเดียว) — กันไม่ให้ต้องไป scrape lerico ใหม่ทั้งลีคโดยไม่จำเป็น
   if (!force) await ensureLeagueLoaded(league)
 
   const cached = leagueCache.get(league)
@@ -1098,32 +871,6 @@ export async function getMetaRangers(
       hasPartialNames: false,
       totalPlayers: cached.totalPlayers,
     }
-  }
-
-  // ── ลอง Redis ก่อน scrape (ทั้ง force=true และ false) ──
-  // force=false → freshness = Redis TTL (12h)
-  // force=true  → freshness = 1h (cooldown ป้องกัน scrape ถี่เกิน แม้แต่ cron/admin)
-  if (redis) {
-    try {
-      const raw = await redis.get<string>(redisKey.league(league))
-      if (raw) {
-        const redisData = typeof raw === 'string' ? JSON.parse(raw) : raw
-        const FRESH_MS = force
-          ? 60 * 60 * 1000                    // force=true: cooldown 1h
-          : REDIS_TTL.leagueRanking * 1000    // force=false: TTL เต็ม (12h)
-        if (redisData.fetchedAt && Date.now() - redisData.fetchedAt < FRESH_MS) {
-          leagueCache.set(league, redisData)
-          return {
-            rangers: redisData.data,
-            fetchedAt: redisData.fetchedAt,
-            fromCache: true,
-            isStale: false,
-            hasPartialNames: false,
-            totalPlayers: redisData.totalPlayers,
-          }
-        }
-      }
-    } catch { /* Redis unavailable → ดำเนินการ scrape ต่อ */ }
   }
 
   // ถ้ากำลัง refresh อยู่แล้ว — คืน cache เก่าทันที (ไม่รอ)
@@ -1300,9 +1047,6 @@ export async function getMetaRangers(
       .catch((err) => console.error('[PvpScraper] Failed to save ranking:', err))
 
     // ── Step 6: Commit gear cache + DB ──
-    // รวม gear ทุก ranger ของลีคนี้ไว้ใน batch เดียว → Redis 1 write ต่อลีค (แทน N writes)
-    const gearBatch: Record<string, { data: GearRanking; topSets: GearSet[]; sampled: number; fetchedAt: number }> = {}
-
     for (const [rId, gm] of rangerGearMaps) {
       const buildSlot = (slot: string): GearItem[] =>
         Array.from(gm.values())
@@ -1322,7 +1066,6 @@ export async function getMetaRangers(
       const gearKey = `${rId}:${league}`
 
       gearMemCache.set(gearKey, { data: ranking, topSets, sampled, fetchedAt })
-      gearBatch[rId] = { data: ranking, topSets, sampled, fetchedAt }
 
       dbWrite(prisma.rangerGear.upsert({
         where: { id: gearKey },
@@ -1333,155 +1076,11 @@ export async function getMetaRangers(
       }), `gear ${gearKey}`)
     }
 
-    // ── เขียน batch key เดียวต่อลีค (แทน N individual keys + index) ──
-    if (redis && Object.keys(gearBatch).length > 0) {
-      redis.set(redisKey.gearBatch(league), JSON.stringify(gearBatch), { ex: REDIS_TTL.rangerGear })
-        .catch((e) => console.error(`[Redis] Failed to save gear batch for league ${league}:`, e))
-      // อันดับเกียร์ทั้งลีค + ชื่อเรนเจอร์ + เวลารอบนี้ — คำนวณจากข้อมูลที่เพิ่ง scrape ใน memory
-      // เดิม route ไปอ่าน rangerGear ทั้งลีคจาก Neon ตอนแคช 7 วันหมด → ข้อมูลค้างได้ทั้งสัปดาห์ + ปลุก compute
-      const rows = Object.entries(gearBatch).map(([rangerId, v]) => ({ rangerId, gearData: v.data, sampled: v.sampled }))
-      const rankingPayload = aggregateGearRanking(rows, getEquipGrade)
-      const names = Object.fromEntries(result.map(r => [r.id, r.name]))
-      Promise.all([
-        redis.set(redisKey.gearRanking(league), JSON.stringify(rankingPayload), { ex: REDIS_TTL.rangerGear }),
-        redis.set(redisKey.leagueNames(league), JSON.stringify(names), { ex: REDIS_TTL.rangerGear }),
-        redis.set(redisKey.leagueStamp(league), String(fetchedAt), { ex: REDIS_TTL.rangerGear }),
-      ]).catch((e) => console.error(`[Redis] Failed to save gear summary for league ${league}:`, e))
-    }
-
     console.log(`[PvpScraper] ✓ ${leagueInfo.label}: ${result.length} rangers (${uniquePlayerCount} players), gear for ${rangerGearMaps.size} rangers`)
     return { rangers: result, fetchedAt, fromCache: false, isStale: false, hasPartialNames: false, totalPlayers: uniquePlayerCount }
 
   } finally {
     refreshingLeagues.delete(league)
-  }
-}
-
-// =========== refreshRangerGear (public) ===========
-// Force re-fetch gear สำหรับ ranger คนเดียว — ดึง getPlayer สำหรับทุก player ที่ใช้ ranger นี้
-
-export async function refreshRangerGear(rangerId: string, league: number): Promise<RangerDetailResult> {
-  await cacheReady
-  await ensureLeagueLoaded(league)   // Redis miss → ดึงเฉพาะลีคนี้จาก DB (แทนการดึงทั้งตารางตอน boot)
-
-  const leagueData = leagueCache.get(league)
-  if (!leagueData) throw new Error('ยังไม่มีข้อมูล League — กรุณารอสักครู่')
-
-  // หา unique players ที่มี ranger นี้ในทีม
-  const playerIds = [...new Set(
-    leagueData.teams
-      .filter((t) => t.rangers.includes(rangerId))
-      .map((t) => t.playerId)
-  )]
-
-  if (playerIds.length === 0) throw new Error(`ไม่พบ Ranger นี้ใน League`)
-
-  console.log(`[PvpScraper] refreshRangerGear ${rangerId}:${league} — ${playerIds.length} players`)
-
-  // ดึง gear เฉพาะ ranger ตัวนี้จากแต่ละ player (batch 10 + retry)
-  const BATCH = 10
-  const failedIds: string[] = []
-  const gearResults: { slot: string; itemCode: string }[][] = []
-
-  for (let i = 0; i < playerIds.length; i += BATCH) {
-    const batch = playerIds.slice(i, i + BATCH)
-    const results = await Promise.allSettled(
-      batch.map((mid) => fetchRangerGearFromPlayer(mid, rangerId))
-    )
-    for (let j = 0; j < results.length; j++) {
-      const r = results[j]
-      if (r.status === 'fulfilled' && r.value) gearResults.push(...r.value)
-      else failedIds.push(batch[j])
-    }
-  }
-
-  if (failedIds.length > 0) {
-    console.log(`[PvpScraper] Retrying ${failedIds.length} failed players...`)
-    await new Promise((r) => setTimeout(r, 1000))
-    for (let i = 0; i < failedIds.length; i += BATCH) {
-      const batch = failedIds.slice(i, i + BATCH)
-      const results = await Promise.allSettled(
-        batch.map((mid) => fetchRangerGearFromPlayer(mid, rangerId))
-      )
-      for (let j = 0; j < results.length; j++) {
-        const r = results[j]
-        if (r.status === 'fulfilled' && r.value) gearResults.push(...r.value)
-      }
-    }
-  }
-
-  console.log(`[PvpScraper] refreshRangerGear: ${gearResults.length} instances from ${playerIds.length} players`)
-
-  // Aggregate
-  const gm = new Map<string, { slot: string; name: string; iconUrl: string; grade: number | null; count: number }>()
-  const sm = new Map<string, GearSet>()
-
-  for (const gear of gearResults) {
-    let wpn: string | undefined, amr: string | undefined, acc: string | undefined
-    for (const g of gear) {
-      const key = `${g.slot}::${g.itemCode}`
-      const ex = gm.get(key)
-      if (ex) { ex.count++ }
-      else gm.set(key, { slot: g.slot, name: gearName(g.itemCode), iconUrl: gearIconUrl(g.itemCode), grade: gearGrade(g.itemCode), count: 1 })
-      if (g.slot === 'WPN') wpn = g.itemCode
-      else if (g.slot === 'AMR') amr = g.itemCode
-      else if (g.slot === 'ACC') acc = g.itemCode
-    }
-    if (wpn && amr && acc) {
-      const setKey = `${wpn}::${amr}::${acc}`
-      const exSet = sm.get(setKey)
-      if (exSet) { exSet.count++ }
-      else sm.set(setKey, {
-        WPN: gearName(wpn), WPNIcon: gearIconUrl(wpn),
-        AMR: gearName(amr), AMRIcon: gearIconUrl(amr),
-        ACC: gearName(acc), ACCIcon: gearIconUrl(acc),
-        count: 1,
-      })
-    }
-  }
-
-  const buildSlot = (slot: string): GearItem[] =>
-    Array.from(gm.values()).filter((g) => g.slot === slot).sort((a, b) => b.count - a.count).slice(0, 10)
-
-  const ranking: GearRanking = { WPN: buildSlot('WPN'), AMR: buildSlot('AMR'), ACC: buildSlot('ACC') }
-  const topSets = Array.from(sm.values()).sort((a, b) => b.count - a.count).slice(0, 5)
-  const sampled = gearResults.length
-  const fetchedAt = Date.now()
-  const gearKey = `${rangerId}:${league}`
-
-  gearMemCache.set(gearKey, { data: ranking, topSets, sampled, fetchedAt })
-  prisma.rangerGear.upsert({
-    where: { id: gearKey },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    update: { gearData: ranking as any, topSets: topSets as any, sampled, fetchedAt: new Date(fetchedAt) },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    create: { id: gearKey, rangerId, league, gearData: ranking as any, topSets: topSets as any, sampled, fetchedAt: new Date(fetchedAt) },
-  }).catch((err: unknown) => console.error(`[PvpScraper] Failed to save gear ${gearKey}:`, err))
-  // เขียน individual key ด้วย — getRangerDetail() อ่านคีย์นี้ก่อนตก DB แล้ว
-  // ถ้าไม่เขียน คีย์เดิม (หรือ sentinel "ไม่มีข้อมูล") จะค้างทับของใหม่ที่เพิ่ง refresh ไปอีก 7 วัน
-  if (redis) {
-    redis.set(
-      redisKey.gear(rangerId, league),
-      JSON.stringify({ data: ranking, topSets, sampled, fetchedAt }),
-      { ex: REDIS_TTL.rangerGear },
-    ).catch((e) => console.error(`[Redis] Failed to save gear ${gearKey}:`, e))
-  }
-
-  // นับ unique players (ไม่ใช่ team-slots)
-  const usersInLeague = new Set(
-    leagueData.teams.filter((t) => t.rangers.includes(rangerId)).map((t) => t.playerId)
-  ).size
-
-  return {
-    id: rangerId,
-    name: unitName(rangerId),
-    imageUrl: `https://rangers.lerico.net/res/${rangerId}/${rangerId}-thum.png`,
-    gear: ranking,
-    topSets,
-    gearFromCache: false,
-    gearLoading: false,
-    usersInLeague,
-    gearSampled: sampled,
   }
 }
 
@@ -1493,7 +1092,7 @@ export async function getRangerDetail(
   league: number
 ): Promise<RangerDetailResult> {
   await cacheReady
-  await ensureLeagueLoaded(league)   // Redis miss → ดึงเฉพาะลีคนี้จาก DB (แทนการดึงทั้งตารางตอน boot)
+  await ensureLeagueLoaded(league)
 
   const leagueData = leagueCache.get(league)
   if (!leagueData) throw new Error('ยังไม่มีข้อมูล League — กรุณารอสักครู่')
@@ -1501,31 +1100,8 @@ export async function getRangerDetail(
   const gearKey = `${rangerId}:${league}`
   let memGear = gearMemCache.get(gearKey)
 
-  // ── ไม่มีใน memory → Redis ต่อตัว แล้วค่อยถึง DB ──
-  // เดิมตกไป Neon ทันทีทุกครั้งที่ instance เพิ่งเกิด (ซึ่งเป็นเรื่องปกติของ serverless)
-  // ทุกครั้งที่แตะ Neon = ปลุก compute ไว้อีก 5 นาที → หน้า popup เมต้าคนเดียวก็ทำให้
-  // compute ตื่นค้างได้ทั้งวัน กิน CU-hrs ฟรีหมดโดยที่ข้อมูลเปลี่ยนแค่วันละครั้ง
-  // ตอนนี้ DB ถูกแตะแค่ครั้งแรกต่อ ranger+ลีคต่อ 7 วัน ที่เหลืออ่านจาก Redis
-  let knownEmpty = false
-  if (!memGear && redis) {
-    try {
-      const raw = await redis.get<string>(redisKey.gear(rangerId, league))
-      if (raw) {
-        const c = typeof raw === 'string' ? JSON.parse(raw) : raw
-        // sentinel "ไม่มีข้อมูลใน DB" — จำผลว่างไว้ด้วย ไม่งั้นเรนเจอร์ที่ไม่มีแถวเกียร์
-        // จะยิง findUnique ซ้ำทุก request ตลอดไป (เป็น DB touch ที่ไม่เคยได้อะไรกลับมา)
-        if (c && typeof c === 'object' && 'data' in c) {
-          memGear = c as { data: GearRanking; topSets: GearSet[]; sampled: number; fetchedAt: number }
-          gearMemCache.set(gearKey, memGear)
-        } else if (c && typeof c === 'object' && 'none' in c) {
-          knownEmpty = true
-        }
-      }
-    } catch { /* Redis ล่ม → ตกไป DB ตามปกติ */ }
-  }
-
-  // ลอง DB ถ้าไม่มีทั้งใน memory และ Redis
-  if (!memGear && !knownEmpty) {
+  // ไม่มีใน memory → อ่านจาก DB
+  if (!memGear) {
     try {
       const dbRow = await prisma.rangerGear.findUnique({ where: { id: gearKey } })
       if (dbRow) {
@@ -1536,13 +1112,6 @@ export async function getRangerDetail(
           fetchedAt: dbRow.fetchedAt.getTime(),
         }
         gearMemCache.set(gearKey, memGear)
-      }
-      if (redis) {
-        redis.set(
-          redisKey.gear(rangerId, league),
-          JSON.stringify(memGear ?? { none: 1 }),
-          { ex: REDIS_TTL.rangerGear },
-        ).catch(() => {})
       }
     } catch { /* ok */ }
   }

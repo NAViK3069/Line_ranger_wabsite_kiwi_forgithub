@@ -1,10 +1,6 @@
 // ====================================================
-// รวมข้อมูลเกียร์ของทั้งลีค — ใช้ร่วมกันระหว่างตัว refresh รายวัน (pvpScraper) กับ API route
-//
-// เหตุผล: เดิม /api/meta/gear-ranking และ /api/meta/gear-detail อ่าน rangerGear ทั้งลีคจาก Neon
-// ทุกครั้งที่แคช Redis (7 วัน) หมด = ปลุก compute ตอนไหนของวันก็ได้ และข้อมูลค้างได้ถึง 7 วัน
-// ตอนนี้ตัว refresh รายวันคำนวณผลจากข้อมูลที่เพิ่ง scrape (อยู่ใน memory แล้ว) แล้วเขียน Redis ทับให้เลย
-// ส่วน route สร้างผลจาก gearBatch ใน Redis แทน DB → เส้นทางสาธารณะไม่แตะ Neon ในการใช้งานปกติ
+// รวมข้อมูลเกียร์ของทั้งลีค (ข้อมูล PvP ใน .data/db/ranger-gear.json) — ใช้ตอน build
+//   /api/meta/gear-ranking = อันดับเกียร์ทั้งลีค · scripts/emit-data.ts = รายชื่อเรนเจอร์ที่ใช้เกียร์แต่ละชิ้น
 // ====================================================
 
 export interface GearItem {
@@ -26,13 +22,6 @@ export interface RangerGearRow {
   rangerId: string
   gearData: GearRanking
   sampled: number
-}
-
-/** gearBatch ใน Redis: { [rangerId]: { data, topSets, sampled, fetchedAt } } → แถวแบบเดียวกับ DB */
-export function rowsFromGearBatch(
-  batch: Record<string, { data: GearRanking; sampled: number }>,
-): RangerGearRow[] {
-  return Object.entries(batch).map(([rangerId, v]) => ({ rangerId, gearData: v.data, sampled: v.sampled }))
 }
 
 /** อันดับเกียร์ทั้งลีค (หน้า Meta แท็บเกียร์) */

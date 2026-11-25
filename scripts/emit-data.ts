@@ -8,7 +8,10 @@
  *   npx tsx scripts/emit-data.ts                 ← ทั้งหมด (ต้องมี .data/db จาก sync/refresh ก่อน)
  *   npx tsx scripts/emit-data.ts --content-only  ← เฉพาะข้อมูลที่แอดมินแก้ (gacha, top40, about) — เร็ว ไม่ต่อเน็ต
  *
- * ข้อมูลส่วนใหญ่มาจาก .data/db/*.json (scrape แล้ว) + ไฟล์ใหญ่จาก lerico/warmycat (ดึงครั้งเดียวต่อรอบ)
+ * ที่มาของข้อมูล:
+ *   • ข้อมูลเกม (เรนเจอร์ / สกิล / เกียร์ / ข้อความ) → .gamedata (ข้อมูลที่ถอดเอง — src/lib/gameData.ts)
+ *   • Ranger/Gear Book + อันดับ PvP → .data/db/*.json (scripts/sync-rangers.ts + scripts/refresh-pvp.ts)
+ *   • ดึงสดจากเว็บอื่นระหว่าง emit: อัตราใช้ตื่นพลัง/ทาเลนต์ PvP (warmycat) + รายชื่อโฟลเดอร์ /res (lerico)
  */
 
 process.env.EMIT_NO_SCRAPE = '1'

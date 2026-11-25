@@ -1,12 +1,15 @@
 name: Daily Data
 
-# ดึงข้อมูลเกมใหม่ทุกวัน (แทน cron ของ Vercel + Neon + Redis เดิม)
-#   0. โหลดข้อมูลเกมที่ถอดแล้วจาก branch `gamedata` (เครื่องผู้ดูแลถอดไฟล์ล่าสุดของเกมแล้วส่งขึ้นมา)
-#   1. sync Ranger Book + Gear Book จากข้อมูลเกม (ทาเลนต์ / ตื่นพลัง / Spec+ ก็มาจากข้อมูลเกมทั้งหมด)
-#   2. scrape อันดับ PvP ทุกลีค
-#   3. เขียนข้อมูลทั้งหมดเป็นไฟล์ JSON (public/data)
+# สร้างไฟล์ข้อมูลของเว็บใหม่ทุกวัน
+#   0. โหลดข้อมูลเกมที่ถอดแล้วจาก branch `gamedata` (เครื่องผู้ดูแลถอดไฟล์ล่าสุดของเกมแล้วส่งขึ้นมา — ที่นี่ไม่มีการถอดไฟล์)
+#   1. Ranger Book + Gear Book จากข้อมูลเกมของเราเอง
+#   2. อันดับ PvP ทุกลีค (หน้า /meta) — ส่วนเดียวที่ยังดึงจากเว็บอื่น (API ของ rangers.lerico.net)
+#   3. เขียนไฟล์ JSON ทั้งหมด (public/data) — ข้อมูลเกมแปลงจาก branch `gamedata`
+#      ที่ยังดึงจากเว็บอื่นในขั้นนี้: อัตราใช้ตื่นพลัง/ทาเลนต์ PvP (warmycat) + รายชื่อโฟลเดอร์ของหน้า /res (lerico)
 #   4. เก็บผลไว้ใน branch `data` (commit เดียว เขียนทับทุกวัน — repo ไม่บวม)
 # จากนั้น workflow "Deploy" จะ build เว็บด้วยข้อมูลชุดใหม่เอง (on: workflow_run)
+# อัปข้อมูลเกมชุดใหม่ขึ้น `gamedata` แล้วอยากให้เว็บเปลี่ยนทันที → กด Run workflow ที่นี่ (หรือปุ่ม Sync ในหน้าแอดมิน)
+# ⚠ ชื่อขั้น (name:) ด้านล่างต้องตรงกับ KEY_STEPS / STEP_LABEL ใน src/components/AdminBuildLog.tsx
 
 on:
   schedule:
@@ -69,10 +72,12 @@ jobs:
 
       - run: npm ci
 
+      # ข้อมูลเกมของเราเอง (.gamedata) → .data/db/ranger-book.json + gear-book.json
       - name: Sync Ranger Book + Gear Book
         run: npx tsx scripts/sync-rangers.ts
         continue-on-error: true
 
+      # ข้อมูลจากเว็บอื่น: อันดับ + ทีม/เกียร์ผู้เล่น PvP (lerico) → .data/db/league-rankings.json + ranger-gear.json
       - name: Refresh PvP rankings (all leagues)
         run: npx tsx scripts/refresh-pvp.ts
         continue-on-error: true

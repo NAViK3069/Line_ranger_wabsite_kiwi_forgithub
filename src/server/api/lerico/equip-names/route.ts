@@ -1,24 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { apiRateLimit, getClientIp } from '@/lib/rateLimit'
-import { FRESH_CACHE_HEADERS } from '@/lib/cacheHeaders'
+// GET /api/lerico/equip-names — ชื่อเกียร์ภาษาอังกฤษ { "en:EQUIP": { code: ข้อความ } } จากไฟล์ภาษาของเกม
+// (ชื่อ path เดิมคงไว้ให้หน้าเว็บไม่ต้องแก้ — ไม่ได้ดึงจาก lerico แล้ว) · รันเฉพาะตอน build
+import { NextResponse } from 'next/server'
 import { gameTranslate } from '@/lib/gameData'
 
-export async function GET(request: NextRequest) {
-  const ip = getClientIp(request.headers)
-  const rl = apiRateLimit(ip)
-  if (!rl.success) {
-    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
-  }
-
+export async function GET() {
   try {
-    // ข้อความจากไฟล์ภาษาของเกม (รูปแบบเดิม { "en:EQUIP": { code: ข้อความ } }) — เดิมดึงจาก lerico
-    const data = gameTranslate('en:EQUIP')
-    return NextResponse.json(data, {
-      headers: {
-        // ข้อมูลเกมอัปเดตเมื่อเกมออกไฟล์ใหม่ — CDN ไม่ควรยึดนาน
-        ...FRESH_CACHE_HEADERS,
-      },
-    })
+    return NextResponse.json(gameTranslate('en:EQUIP'))
   } catch {
     return NextResponse.json({}, { status: 500 })
   }

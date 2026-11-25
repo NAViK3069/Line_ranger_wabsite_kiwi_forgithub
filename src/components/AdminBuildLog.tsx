@@ -13,7 +13,7 @@ import { getRuns, getRunsPage, getRunJobs, type RunJob, type WorkflowRun } from 
 
 // ── ประเภท ──────────────────────────────────────────
 
-type Cat = 'data' | 'publish' | 'admin' | 'code' | 'manual' | 'check' | 'other'
+type Cat = 'data' | 'publish' | 'admin' | 'code' | 'manual' | 'other'
 type Filter = 'all' | Exclude<Cat, 'other'>
 
 const CATS: { id: Filter; label: string; icon: string; tone: string; workflow?: string; hint: string }[] = [
@@ -23,7 +23,6 @@ const CATS: { id: Filter; label: string; icon: string; tone: string; workflow?: 
   { id: 'admin', label: 'บันทึกจากแอดมิน', icon: 'edit_note', tone: 'text-pink-300', workflow: 'deploy.yml', hint: 'กดบันทึกในหน้าแอดมิน (Gacha / Tier List / Top 40 / About) แล้วเว็บ build ใหม่' },
   { id: 'code', label: 'แก้โค้ดเว็บ', icon: 'code', tone: 'text-violet-300', workflow: 'deploy.yml', hint: 'push โค้ดใหม่ขึ้น main' },
   { id: 'manual', label: 'สั่ง build เอง', icon: 'touch_app', tone: 'text-amber-300', workflow: 'deploy.yml', hint: 'กดรัน Deploy เองที่ GitHub' },
-  { id: 'check', label: 'ตรวจคำแปล', icon: 'translate', tone: 'text-cyan-300', workflow: 'talent-coverage-check.yml', hint: 'เช็คคำแปล Talent ที่ยังขาด (ทุกวันอังคาร)' },
 ]
 const CAT_OF: Record<Cat, { label: string; icon: string; tone: string }> = {
   ...(Object.fromEntries(CATS.map(c => [c.id, c])) as unknown as Record<Filter, { label: string; icon: string; tone: string }>),
@@ -35,7 +34,6 @@ function workflowOf(r: WorkflowRun): string {
   if (r.workflow) return r.workflow
   if (r.name === 'Daily Data') return 'data.yml'
   if (r.name === 'Deploy') return 'deploy.yml'
-  if (r.name.startsWith('Talent')) return 'talent-coverage-check.yml'
   return ''
 }
 const isAdminCommit = (title?: string) => /^admin:/i.test(title ?? '')
@@ -43,7 +41,6 @@ const isAdminCommit = (title?: string) => /^admin:/i.test(title ?? '')
 function categorize(r: WorkflowRun): Cat {
   const wf = workflowOf(r)
   if (wf === 'data.yml') return 'data'
-  if (wf === 'talent-coverage-check.yml') return 'check'
   if (wf === 'deploy.yml') {
     if (r.event === 'workflow_run') return 'publish'
     if (r.event === 'workflow_dispatch') return 'manual'
@@ -93,7 +90,6 @@ function runTitle(r: WorkflowRun, cat: Cat): string {
     case 'admin': return adminInfo(r.title).text
     case 'code': return r.title || 'อัปเดตโค้ดเว็บ'
     case 'manual': return 'สั่ง build หน้าเว็บเอง'
-    case 'check': return 'ตรวจคำแปล Talent'
     default: return r.title || r.name
   }
 }
@@ -158,8 +154,6 @@ const STEP_LABEL: Record<string, string> = {
   'Build (static export)': 'Build หน้าเว็บ',
   'Custom domain + no Jekyll': 'ตั้งโดเมน',
   'Run npm ci': 'ติดตั้งแพ็กเกจ',
-  'Run coverage check': 'ตรวจคำแปล',
-  'Create issue if missing translations': 'เปิด issue คำแปลที่ขาด',
 }
 const stepLabel = (n: string) => STEP_LABEL[n]
   ?? (/^Run actions\/upload-pages-artifact/.test(n) ? 'อัปโหลดไฟล์เว็บ' : /^Run actions\/deploy-pages/.test(n) ? 'ขึ้นเว็บ (GitHub Pages)' : n)

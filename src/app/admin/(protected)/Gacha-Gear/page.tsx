@@ -391,7 +391,7 @@ export default function AdminGearPoolsPage() {
   //   • /api/lerico/equip-names → ชื่อ EN → gearId (คีย์ลงท้าย _nm)
   //   • /api/gear-book          → id (itemCode ไม่มี _nm) → grade → ดาว
   // ทำให้วาง text ได้แค่ {"ชื่อ","เรท"} ไม่ต้องพิมพ์ดาวเองทุกบรรทัดอีก
-  // (ทั้งสองเส้นเป็นแคช Redis/CDN อยู่แล้ว เปิดฟอร์มทีเดียวไม่ไปแตะ DB)
+  // (ทั้งสองเส้นเป็นไฟล์ static ใน /data — โหลดครั้งเดียวตอนเปิดฟอร์ม)
   const lookupRef = useRef<{ nameToId: Map<string, string>; starById: Map<string, string>; idToName: Map<string, string> } | null>(null)
 
   async function ensureLookup() {

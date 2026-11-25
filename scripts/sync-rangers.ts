@@ -1,9 +1,9 @@
 /**
- * sync-rangers.ts — GitHub Actions script
- * Sync Ranger Book + Gear Book จาก lerico.net → บันทึกลง Neon + Redis
+ * sync-rangers.ts — สร้าง Ranger Book + Gear Book จากข้อมูลเกมของเราเอง (.gamedata)
+ * เขียนผลลง .data/db/ranger-book.json + gear-book.json (ไม่ดึงข้อมูลจากเว็บอื่น)
  *
  * Run locally : npx tsx scripts/sync-rangers.ts
- * Run in CI   : ถูกเรียกอัตโนมัติโดย .github/workflows/daily-refresh.yml
+ * Run in CI   : ขั้น "Sync Ranger Book + Gear Book" ของ .github/workflows/data.yml
  */
 
 import { performRangerSync } from '../src/lib/syncRangerBook'
@@ -13,9 +13,7 @@ async function main() {
   console.log(`[RangerSync] เริ่มต้น — ${new Date().toISOString()}`)
 
   const result = await performRangerSync()
-
   console.log(`[RangerSync] ✓ ${result.message}`)
-  console.log(`[RangerSync] Cache: ${result.cached}`)
 
   await prisma.$disconnect()
   process.exit(0)

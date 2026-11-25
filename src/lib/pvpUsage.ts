@@ -5,11 +5,9 @@
 // • รองรับเฉพาะ Legend~Gold 3 (warmycat ไม่มีข้อมูล Silver/Bronze) — ลีคนอกลิสต์คืน null ทันที ไม่ fetch
 // • ใช้ข้อมูลจาก data.rangers (sample เต็มทั้งลีค) เท่านั้น — ไม่แตะ data.scopes
 //   (scopes = breakdown เฉพาะ top 10/30/50/100 ผู้เล่น ไม่ใช่ข้อมูลทั้งหมดที่เว็บนี้ต้องการ)
-// • Cache ทั้งลีคเป็น 1 Redis key (ไฟล์ warmycat เป็น 1 ไฟล์ต่อลีคอยู่แล้ว) + in-memory 10 นาที
-//   กัน Redis round-trip ถี่เกินในเครื่องเดียว — ไม่ต้อง fetch ใหม่ทุก request
+// • ข้อมูลส่วนนี้เราคำนวณเองไม่ได้ (ข้อมูลผู้เล่นของ lerico ไม่มีตื่นพลัง/ทาเลนต์) จึงยังใช้ของ warmycat
+// • โหลดครั้งเดียวต่อลีค (ไฟล์ warmycat เป็น 1 ไฟล์ต่อลีคอยู่แล้ว) แล้วเก็บใน memory 10 นาที ตอน emit-data
 // ====================================================
-
-import { redis, redisKey, REDIS_TTL } from './redis'
 
 export interface UsageEntry {
   code: string
@@ -64,16 +62,11 @@ async function populateLeague(league: number, url: string): Promise<Map<string, 
     map.set(id, { awakeningUsage, talentUsage })
   }
 
-  if (redis) {
-    redis.set(redisKey.usageRanking(league), JSON.stringify(Array.from(map.entries())), {
-      ex: REDIS_TTL.usageRanking,
-    }).catch(() => {})
-  }
   memCache.set(league, { data: map, fetchedAt: Date.now() })
   return map
 }
 
-/** โหลด usage ranking ทั้งลีค (ทุก ranger) — cache 3 ชั้น: in-memory → Redis → warmycat */
+/** โหลด usage ranking ทั้งลีค (ทุก ranger) — in-memory → warmycat */
 export async function getUsageRankingsForLeague(league: number): Promise<Map<string, RangerUsageData> | null> {
   const url = WARMYCAT_USAGE_URL[league]
   if (!url) return null   // ลีคที่ไม่รองรับ (Silver/Bronze) — ไม่ fetch เลย
@@ -86,17 +79,6 @@ export async function getUsageRankingsForLeague(league: number): Promise<Map<str
   if (inFlight) return inFlight
 
   const task = (async () => {
-    if (redis) {
-      try {
-        const cached = await redis.get<string>(redisKey.usageRanking(league))
-        if (cached) {
-          const entries = typeof cached === 'string' ? JSON.parse(cached) : cached
-          const map = new Map<string, RangerUsageData>(entries)
-          memCache.set(league, { data: map, fetchedAt: Date.now() })
-          return map
-        }
-      } catch { /* Redis พัง → fetch สดแทน */ }
-    }
     try {
       return await populateLeague(league, url)
     } catch (err) {

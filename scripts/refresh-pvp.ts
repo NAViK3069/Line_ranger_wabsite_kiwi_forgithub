@@ -1,9 +1,10 @@
 /**
- * refresh-pvp.ts — GitHub Actions script
- * Refresh PvP rankings ทุก league จาก lerico.net → บันทึกลง Neon + Redis
+ * refresh-pvp.ts — ดึงอันดับ PvP ทุกลีค + ทีม/เกียร์ของผู้เล่น จาก API ของ rangers.lerico.net
+ * (ข้อมูลส่วนเดียวของเว็บที่ยังมาจากเว็บอื่น — ใช้ในหน้า /meta และ popup เรนเจอร์)
+ * เขียนผลลง .data/db/league-rankings.json + ranger-gear.json
  *
  * Run locally : npx tsx scripts/refresh-pvp.ts
- * Run in CI   : ถูกเรียกอัตโนมัติโดย .github/workflows/daily-refresh.yml
+ * Run in CI   : ขั้น "Refresh PvP rankings" ของ .github/workflows/data.yml
  */
 
 import { beginDeferredDbWrites, flushDeferredDbWrites, getMetaRangers, LEAGUES, loadTranslations } from '../src/lib/pvpScraper'
@@ -13,14 +14,10 @@ async function main() {
   console.log(`[RefreshPvP] เริ่มต้น — ${new Date().toISOString()}`)
   console.log(`[RefreshPvP] จำนวน league: ${LEAGUES.length}`)
 
-  // ดึงคำแปลสดก่อนเสมอ — ชื่อเรนเจอร์ถูก "ฝัง" ลงในตารางอันดับตอน scrape
-  // ถ้าใช้ของที่แคชไว้ (TTL 7 วัน) เรนเจอร์ที่เพิ่งออกจะถูกบันทึกเป็นรหัสดิบ
-  // เช่น u1631e-sally แล้วค้างอยู่แบบนั้นจนกว่าจะ scrape รอบถัดไปหลังแคชหมดอายุ
-  console.log('[RefreshPvP] ดึงคำแปลสดจาก lerico ก่อน...')
-  await loadTranslations(true)
+  // โหลดชื่อเรนเจอร์/เกียร์จากข้อมูลเกมก่อน — ชื่อถูก "ฝัง" ลงในตารางอันดับตอน scrape
+  await loadTranslations()
 
-  // เก็บคำสั่งเขียน DB ไว้ก่อน แล้วเขียนรวดเดียวตอนจบ — Neon ตื่นแค่ช่วงท้ายไม่กี่นาที
-  // แทนที่จะตื่นตลอดเวลาที่ scrape ทั้ง 10 ลีค (ดู beginDeferredDbWrites ใน pvpScraper)
+  // เก็บคำสั่งเขียน DB ไว้ แล้วรอให้ครบทุกคำสั่งตอนจบ (ก่อนเซฟไฟล์)
   beginDeferredDbWrites()
 
   let success = 0
@@ -41,7 +38,7 @@ async function main() {
   console.log(`\n[RefreshPvP] เสร็จสิ้น — สำเร็จ ${success}/${LEAGUES.length} leagues, ล้มเหลว ${failed}`)
 
   const written = await flushDeferredDbWrites()
-  console.log(`[RefreshPvP] เขียน DB รวดเดียว ${written} แถว`)
+  console.log(`[RefreshPvP] เขียน DB ${written} แถว`)
 
   await prisma.$disconnect()
   process.exit(failed > 0 ? 1 : 0)

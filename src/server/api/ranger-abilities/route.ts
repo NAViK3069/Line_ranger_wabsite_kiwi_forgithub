@@ -6,11 +6,10 @@
 // • ข้อมูลมาจากข้อมูลเกมของเรา (ranger bundle + ความสามารถตื่นพลังจาก awake_ability_group — src/lib/gameData.ts)
 // • byRanger เก็บเป็น "เลข index" ของ ability ไม่ใช่ตัว code
 //   เพราะ 3,000 เรนเจอร์ × โค้ดยาว ๆ ทำให้ payload บวมโดยไม่จำเป็น
-// • Redis 7 วัน + browser/CDN 7 วัน — ข้อมูลเปลี่ยนแค่ตอนเกมอัปเดต
+// • รันเฉพาะตอน build (scripts/emit-data.ts)
 // ====================================================
 
 import { NextResponse } from 'next/server'
-import { redis, REDIS_TTL, redisKey } from '@/lib/redis'
 import {
   ensureRangerBundle,
   getAllRawRangers,
@@ -19,12 +18,6 @@ import {
   abilityIconUrlFromRaw,
 } from '@/lib/rangerData'
 import { gameAwakenAbilities, gameTable } from '@/lib/gameData'
-
-export const maxDuration = 60
-
-const CACHE_HEADERS = {
-  'Cache-Control': 'public, max-age=604800, s-maxage=604800, stale-while-revalidate=604800',
-}
 
 export interface AbilityOption {
   code: string
@@ -158,32 +151,17 @@ function addAwakening(ix: Index): number {
 }
 
 export async function GET() {
-  if (redis) {
-    try {
-      const cached = await redis.get<string>(redisKey.rangerAbilities())
-      if (cached) {
-        const data = typeof cached === 'string' ? JSON.parse(cached) : cached
-        return NextResponse.json(data, { headers: CACHE_HEADERS })
-      }
-    } catch { /* Redis ล่ม → คิดใหม่ */ }
-  }
-
   try {
     await ensureRangerBundle()
     const ix = new Index()
     addNormal(ix)
     addAwakening(ix)
     const payload: RangerAbilitiesPayload = { abilities: ix.options, byRanger: ix.byRanger }
-    // ข้อมูลเกมโหลดไม่สำเร็จ → อย่าเพิ่ง cache ของว่างไว้ 7 วัน
+    // ข้อมูลเกมโหลดไม่สำเร็จ → ไม่เขียนไฟล์ว่าง
     if (payload.abilities.length === 0) {
       return NextResponse.json(EMPTY, { status: 503 })
     }
-    if (redis) {
-      redis.set(redisKey.rangerAbilities(), JSON.stringify(payload), {
-        ex: REDIS_TTL.rangerAbilities,
-      }).catch(() => {})
-    }
-    return NextResponse.json(payload, { headers: CACHE_HEADERS })
+    return NextResponse.json(payload)
   } catch (err) {
     console.error('[ranger-abilities] build failed:', err)
     // ตัวกรองจะไม่ขึ้นให้เลือก แต่หน้า Ranger Book ยังใช้ได้ตามปกติ

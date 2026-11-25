@@ -1,7 +1,5 @@
 // ====================================================
-// buildRangerStats — shared logic สำหรับสร้าง RangerStatsResponse
-// ใช้ทั้งใน /api/meta/ranger-stats (per-request) และ
-// /api/admin/ranger-book/sync (pre-cache ทุก ranger ลง Redis)
+// buildRangerStats — สร้าง RangerStatsResponse ของ /api/meta/ranger-stats (รันตอน build)
 // ====================================================
 
 import {

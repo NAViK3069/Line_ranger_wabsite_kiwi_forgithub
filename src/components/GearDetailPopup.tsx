@@ -400,7 +400,7 @@ export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gear
     let cancelled = false
     const fetch_ = async () => {
       try {
-        // ถ้าเปิด slider → fetch ที่ max เสมอ (5,5,5 — เข้า Redis cache เดียวกับ path อื่น) ครั้งเดียว
+        // ถ้าเปิด slider → fetch ที่ max เสมอ (5,5,5 — ไฟล์ static ชุดเดียวกับ path อื่น) ครั้งเดียว
         //   แล้วคำนวณทุก level 0-15 เองฝั่ง client จาก growth metadata ที่แนบมา (ดู useMemo ด้านบน)
         //   ไม่ต้อง fetch ซ้ำเวลาลากสไลเดอร์อีกต่อไป
         // ถ้าไม่เปิด → ส่ง level เดียวแบบเดิม (backward compat)

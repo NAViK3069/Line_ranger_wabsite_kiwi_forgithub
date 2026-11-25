@@ -9,7 +9,7 @@
 
 ```
 GitHub Actions
-  ├─ Daily Data (ทุกวัน 07:00 น.)  scrape lerico/warmycat → public/data/*.json → เก็บใน branch `data`
+  ├─ Daily Data (ทุกวัน 07:23 น.)  ข้อมูลเกมของเราเอง (branch `gamedata`) + อันดับ PvP (lerico) → public/data/*.json → เก็บใน branch `data`
   └─ Deploy (push main / หลัง Daily Data)  next build (static export) → GitHub Pages
 
 Cloudflare Worker (ฟรี)  worker/  →  https://api.ranger-kiwi.com
@@ -28,13 +28,25 @@ Cloudflare Worker (ฟรี)  worker/  →  https://api.ranger-kiwi.com
 | `worker/` | Cloudflare Worker |
 | `src/anme/` | Video Studio (`/custom-video`) — โคลนจากโปรเจค Line_ranger_ANME · CSS แก้ที่ `styles.src.css` แล้วรัน `node scripts/scope-anme-css.cjs` |
 
+## ที่มาของข้อมูล
+
+| ข้อมูล | มาจาก |
+|---|---|
+| เรนเจอร์ / สกิล / ความสามารถ / ทาเลนต์ / ตื่นพลัง / เกียร์ / Spec+ / ข้อความทุกภาษา | ข้อมูลเกมที่เราถอดเองจากไฟล์ล่าสุดของเกม (branch `gamedata` → `src/lib/gameData.ts`) |
+| อันดับ PvP + เกียร์ที่ผู้เล่นใช้ (หน้า /meta) | API ของ rangers.lerico.net (`scripts/refresh-pvp.ts`) |
+| อัตราใช้ตื่นพลัง / ทาเลนต์ใน PvP | pvp-data.warmycat.com (`src/lib/pvpUsage.ts`) |
+| รูป / เสียง / ไฟล์อนิเมชัน (.sam) / หน้า /res | rangers.lerico.net/res ผ่าน Worker |
+
 ## รันในเครื่อง
 
 ```bash
 npm install
 cp .env.example .env.local
 
-# ข้อมูลเกม (ครั้งแรกใช้เวลาราว 10–20 นาที)
+# ข้อมูลเกมที่ถอดแล้ว (.gamedata) — ดึงจาก branch gamedata
+git fetch --depth=1 origin gamedata && mkdir -p .gamedata && git archive FETCH_HEAD | tar -x -C .gamedata
+
+# Ranger/Gear Book + อันดับ PvP + ไฟล์ JSON ของเว็บ
 npm run data:sync
 npm run data:pvp
 npm run data:emit

@@ -7,26 +7,16 @@
 //   แล้วตัดตัวเลข/เวลาทิ้ง → "เพิ่มพลังชีวิต" สกิลที่ค่าต่างกันจึงรวมเป็นตัวเลือกเดียว
 // • แยกตามภาษา เพราะข้อความไทย/อังกฤษไม่ได้เรียงบรรทัดตรงกันเสมอ
 // • byRanger เก็บเป็นเลข index (เหตุผลเดียวกับ /api/ranger-abilities)
-// • Redis 7 วัน + browser/CDN 7 วัน — ยิง lerico แค่ตอน Redis หมดอายุ
+// • รันเฉพาะตอน build (scripts/emit-data.ts) · คำอธิบายสกิลจากไฟล์ภาษาของเกม
 // ====================================================
 
 import { NextRequest, NextResponse } from 'next/server'
-import { redis, REDIS_TTL } from '@/lib/redis'
 import { ensureRangerBundle, getAllRawRangers, getRawSkill, skillIconUrlFromRaw } from '@/lib/rangerData'
 import { gameText } from '@/lib/gameData'
 import type { RangerAbilitiesPayload } from '@/server/api/ranger-abilities/route'
 
-export const maxDuration = 60
-
-const CACHE_HEADERS = {
-  'Cache-Control': 'public, max-age=604800, s-maxage=604800, stale-while-revalidate=604800',
-}
-
 const LANGS = ['en', 'th'] as const
 type Lang = typeof LANGS[number]
-
-// ⚠ แก้วิธีแตก/ตัดข้อความเมื่อไหร่ต้องบวกเลขนี้ (และ SKILL_FX_RULES_VERSION ฝั่งหน้า Ranger Book)
-const cacheKey = (lang: Lang) => `lr:ranger:skillfx:${lang}:v5`
 
 /** atk = สกิลโจมตี (เล็งศัตรู), buff = สกิลบัฟ/ช่วยเหลือ (targetType = SELF) */
 export type SkillFxKind = 'atk' | 'buff'
@@ -134,24 +124,11 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('lang')
   const lang: Lang = (LANGS as readonly string[]).includes(q ?? '') ? q as Lang : 'en'
 
-  if (redis) {
-    try {
-      const cached = await redis.get<string>(cacheKey(lang))
-      if (cached) {
-        const data = typeof cached === 'string' ? JSON.parse(cached) : cached
-        return NextResponse.json(data, { headers: CACHE_HEADERS })
-      }
-    } catch { /* Redis ล่ม → คิดใหม่ */ }
-  }
-
   try {
     const payload = await build(lang)
-    // lerico ล่ม → อย่า cache ของว่างไว้ 7 วัน
+    // ข้อมูลเกมโหลดไม่สำเร็จ → ไม่เขียนไฟล์ว่าง
     if (payload.abilities.length === 0) return NextResponse.json(EMPTY, { status: 503 })
-    if (redis) {
-      redis.set(cacheKey(lang), JSON.stringify(payload), { ex: REDIS_TTL.rangerAbilities }).catch(() => {})
-    }
-    return NextResponse.json(payload, { headers: CACHE_HEADERS })
+    return NextResponse.json(payload)
   } catch (err) {
     console.error('[ranger-skill-effects] build failed:', err)
     return NextResponse.json(EMPTY, { status: 503 })

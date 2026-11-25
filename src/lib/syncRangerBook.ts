@@ -1,28 +1,22 @@
 // ====================================================
-// syncRangerBook — core sync logic
-// ใช้ร่วมกันระหว่าง:
-//   • POST /api/admin/ranger-book/sync  (admin กดเอง)
-//   • GET  /api/cron/ranger-sync        (Vercel Cron รายวัน)
+// syncRangerBook — สร้าง Ranger Book + Gear Book จากข้อมูลเกมของเราเอง (src/lib/gameData.ts)
+// เรียกโดย scripts/sync-rangers.ts (ขั้น "Sync Ranger Book + Gear Book" ใน Daily Data)
+// ผลลัพธ์เขียนลง .data/db/ranger-book.json + gear-book.json (ผ่าน src/lib/db.ts)
 // ====================================================
 
 import { prisma } from '@/lib/db'
-import { ensureRangerBundle, getAllRawRangers, getTier, type RawRanger } from '@/lib/rangerData'
-import { buildRangerStatsResponse } from '@/lib/buildRangerStats'
+import { ensureRangerBundle, getAllRawRangers, getTier } from '@/lib/rangerData'
 import { ensureGearData, getAllGearItems, getGearEffects } from '@/lib/pvpScraper'
-import { buildRangerBookPayload, buildGearBookPayload, GEAR_BOOK_CACHE_KEY } from '@/lib/bookPayloads'
-import { redis, redisKey, REDIS_TTL } from './redis'
 import { cleanUnitName } from './unitName'
-import { gameText } from './gameData'
+import { gameTable, gameText } from './gameData'
 
 function extractSortOrder(unitCode: string): number {
   const m = unitCode.match(/^u(\d+)/)
   return m ? parseInt(m[1], 10) : 0
 }
 
-// ── เทียบของเดิมกับของใหม่ แล้วบอกว่าต้องเขียนอะไรบ้าง ──
-// เดิมใช้ deleteMany + createMany ซึ่งเขียนใหม่ทุกแถวทุกวัน (ranger ~3,000 + gear ~500)
-// ทั้งที่ข้อมูลเกมแทบไม่ขยับเลยระหว่าง patch → WAL ของ Neon บวมฟรีทุกคืน
-// ตอนนี้เขียนเฉพาะแถวที่ค่าต่างจริง วันที่เกมไม่อัพเดตจะไม่มี write เลยสักแถว
+// ── เทียบของเดิมกับของใหม่ แล้วเขียนเฉพาะแถวที่เปลี่ยน ──
+// แถวที่ไม่เปลี่ยนจะคง syncedAt เดิมไว้ (วันที่เกมไม่อัปเดต ไฟล์จึงไม่ขยับ)
 interface DiffPlan<T> {
   create: T[]
   update: T[]
@@ -56,102 +50,43 @@ function planDiff<T extends { id: string }>(
 const planSummary = (p: DiffPlan<unknown>) =>
   `+${p.create.length} ~${p.update.length} -${p.remove.length}`
 
-/** ส่ง update เป็นก้อนผ่าน $transaction แทนการ await ทีละแถว
- *  วันที่เกมออก patch ใหญ่ ชื่อเรนเจอร์เปลี่ยนเป็นพันแถว การ await ทีละตัวคือรอ
- *  round-trip ไป Neon พันครั้งเรียงกัน = compute ตื่นทำงานอยู่นานเท่านั้น
- *  ก้อนละ 50 ส่งครั้งเดียวจบ ลดเวลาที่ compute ต้องตื่นลงเป็นสิบเท่า
- *  (connection_limit=1 → ยิงขนานไม่ช่วย เพราะคิวอยู่ที่ connection เดียวอยู่แล้ว) */
-async function batchUpdate<T extends { id: string }>(
-  rows: T[],
-  op: (row: T) => Promise<unknown>,
-): Promise<void> {
-  const BATCH = 50
-  for (let i = 0; i < rows.length; i += BATCH) {
-    await prisma.$transaction(rows.slice(i, i + BATCH).map(op))
-  }
+async function updateRows<T extends { id: string }>(rows: T[], op: (row: T) => Promise<unknown>): Promise<void> {
+  for (const row of rows) await op(row)
 }
 
-// ── Pipeline helper — เขียน entries ลง Redis เป็น batch ──
-async function pipelineSave(
-  entries: Array<{ key: string; value: string }>,
-  ttl: number,
-  label: string,
-): Promise<void> {
-  if (!redis || entries.length === 0) return
-  const BATCH = 150
-  for (let i = 0; i < entries.length; i += BATCH) {
-    const batch = entries.slice(i, i + BATCH)
-    try {
-      const pipe = redis.pipeline()
-      for (const { key, value } of batch) pipe.set(key, value, { ex: ttl })
-      await pipe.exec()
-    } catch (e) {
-      console.error(`[Sync] ${label} pipeline failed at batch ${i}:`, e)
-    }
-  }
-  console.log(`[Sync] ${label}: cached ${entries.length} entries → Redis (TTL ${ttl}s)`)
-}
-
-// ── Pre-cache Ranger Stats ──────────────────────────
-async function precacheRangerStats(rawRangers: RawRanger[]): Promise<void> {
-  if (!redis) return
-  const entries: Array<{ key: string; value: string }> = []
-  for (const r of rawRangers) {
-    if (!r.unitCode) continue
-    try {
-      entries.push({
-        key: redisKey.rangerStats(r.unitCode),
-        value: JSON.stringify(await buildRangerStatsResponse(r, r.unitCode)),
-      })
-    } catch (e) {
-      console.warn(`[Sync] buildStats failed for ${r.unitCode}:`, e)
-    }
-  }
-  await pipelineSave(entries, REDIS_TTL.rangerStats, 'Ranger Stats')
-}
-
-// คอลัมน์ที่ใช้ตัดสินว่า "แถวนี้เปลี่ยนไหม" — ไม่รวม syncedAt/updatedAt เพราะสองตัวนั้น
-// ขยับทุกครั้งอยู่แล้วและไม่มีหน้าไหนเอาไปแสดง (ตรวจแล้ว มีแค่ใน type ไม่ได้ render)
+// คอลัมน์ที่ใช้ตัดสินว่า "แถวนี้เปลี่ยนไหม" — ไม่รวม syncedAt/updatedAt (ขยับทุกครั้ง และไม่มีหน้าไหนแสดง)
 const GEAR_FIELDS = ['name', 'grade', 'slot', 'iconUrl', 'switchableType'] as const
 const RANGER_FIELDS = ['name', 'grade', 'evolution', 'type', 'role', 'element', 'elementOpen', 'sortOrder'] as const
 
-// ── Sync Gear Book (DB + Redis) ─────────────────────
-async function syncGearBook(): Promise<void> {
-  // โหลด gear data จาก lerico.net แบบ force — ข้าม cache เก่า (in-memory + Redis lr:translations)
-  // เพื่อให้ได้ gear ใหม่ล่าสุด (ไม่งั้นจะติด cache 7 วัน → gear ใหม่ไม่ขึ้น)
+// ── Gear Book ───────────────────────────────────────
+async function syncGearBook(): Promise<number> {
+  // อ่านข้อมูลเกียร์จากข้อมูลเกมใหม่เสมอ (ไม่ใช้ของที่โหลดค้างไว้)
   await ensureGearData(true)
 
   const gearItems = getAllGearItems()
   if (gearItems.length === 0) {
     console.warn('[Sync] GearBook: no gear items found — skipping')
-    return
+    return 0
   }
 
-  // ── A. Upsert GearBook DB ──
+  // ช่องของเกียร์ที่ชื่อรหัสไม่บอกช่อง (รุ่นเก่า เช่น eq_2310_est_18) → equipType ของเกม
+  const EQUIP_SLOT: Record<string, string> = { WEAPON: 'WPN', ARMOR: 'AMR', ACC: 'ACC' }
+  const slotFromGame = new Map<string, string>()
+  for (const e of gameTable<{ itemCode?: string; equipType?: string }>('game_item_equip')) {
+    const slot = EQUIP_SLOT[e.equipType ?? '']
+    if (e.itemCode && slot) slotFromGame.set(e.itemCode, slot)
+  }
+
   const now = new Date()
-
-  // สำหรับ item ที่ slot = null (รูปแบบชื่อเก่า เช่น eq_2310_est_18)
-  // ลอง lookup จาก Redis ที่ populate ไว้ตอน pvp scraping
-  const nullSlotItems = gearItems.filter(i => !i.slot)
-  const redisSlotMap = new Map<string, string>()
-  const r = redis  // capture ก่อนเข้า async callback เพื่อแก้ TypeScript null-check
-  if (r && nullSlotItems.length > 0) {
-    await Promise.all(nullSlotItems.map(async (item) => {
-      const cached = await r.get<string>(redisKey.itemSlot(item.itemCode))
-      if (cached) redisSlotMap.set(item.itemCode, cached)
-    }))
-  }
-
   const records = gearItems.map(item => {
     const effects = getGearEffects(item.itemCode)
-    const switchableType = effects?.switchable?.trigType ?? null
     return {
       id:             item.itemCode,
       name:           item.name,
       grade:          item.grade,
-      slot:           item.slot ?? redisSlotMap.get(item.itemCode) ?? null,
+      slot:           item.slot ?? slotFromGame.get(item.itemCode) ?? null,
       iconUrl:        `https://rangers.lerico.net/res/gear_icon/${item.itemCode}_icon.png`,
-      switchableType,
+      switchableType: effects?.switchable?.trigType ?? null,
       syncedAt:       now,
       updatedAt:      now,
     }
@@ -164,21 +99,20 @@ async function syncGearBook(): Promise<void> {
 
   if (plan.remove.length) await prisma.gearBook.deleteMany({ where: { id: { in: plan.remove } } })
   if (plan.create.length) await prisma.gearBook.createMany({ data: plan.create })
-  await batchUpdate(plan.update, row => prisma.gearBook.update({ where: { id: row.id }, data: row }))
+  await updateRows(plan.update, row => prisma.gearBook.update({ where: { id: row.id }, data: row }))
   console.log(`[Sync] GearBook DB: ${planSummary(plan)} (จาก ${records.length} ชิ้น)`)
-  // หมายเหตุ: ไม่ pre-cache GearEffects ใน Redis — ใช้ lazy cache เมื่อ user request แทน
-  // (ลด ~500 Redis writes ต่อ sync)
+  return records.length
 }
 
-// ── Main sync function ──────────────────────────────
+// ── Ranger Book ─────────────────────────────────────
 export interface SyncResult {
   synced: number
-  cached: string
+  gears: number
   message: string
 }
 
 export async function performRangerSync(): Promise<SyncResult> {
-  // 1. โหลด ranger bundle
+  // 1. เรนเจอร์ทั้งหมดจากข้อมูลเกม
   await ensureRangerBundle()
   const rawRangers = getAllRawRangers()
 
@@ -188,7 +122,7 @@ export async function performRangerSync(): Promise<SyncResult> {
     if (typeof name === 'string') nameMap.set(key, cleanUnitName(name))
   }
 
-  // 3. Build ranger records
+  // 3. สร้างแถวของ Ranger Book
   const now = new Date()
   const ELEM_ALIAS: Record<string, string> = {
     tree: 'wood', nature: 'wood', earth: 'wood', plant: 'wood',
@@ -219,7 +153,7 @@ export async function performRangerSync(): Promise<SyncResult> {
       }
     })
 
-  // 4. เขียน RangerBook เฉพาะแถวที่ต่างจากของเดิม
+  // 4. เขียน Ranger Book เฉพาะแถวที่ต่างจากของเดิม
   const prevRangers = await prisma.rangerBook.findMany({
     select: {
       id: true, name: true, grade: true, evolution: true,
@@ -230,70 +164,17 @@ export async function performRangerSync(): Promise<SyncResult> {
 
   if (plan.remove.length) await prisma.rangerBook.deleteMany({ where: { id: { in: plan.remove } } })
   if (plan.create.length) await prisma.rangerBook.createMany({ data: plan.create })
-  await batchUpdate(plan.update, row => prisma.rangerBook.update({ where: { id: row.id }, data: row }))
+  await updateRows(plan.update, row => prisma.rangerBook.update({ where: { id: row.id }, data: row }))
   const changed = plan.create.length + plan.update.length + plan.remove.length
   console.log(`[Sync] RangerBook DB: ${planSummary(plan)} (จาก ${records.length} ตัว)`)
 
-  // 5. Invalidate cache ที่ DB อัพเดตเสร็จแล้ว (RangerBook DB เสร็จใน step 4)
-  //    + translation cache (th/en) → ranger ใหม่ได้ชื่อไทยจาก lerico ทันที
-  //    + talent primed flag → ranger ใหม่ได้ talent จาก warmycat ทันที
-  //      (ลบแค่ primed flag พอ — request ถัดไปจะ re-populate ทั้งหมดจาก warmycat สด
-  //       per-ranger key เก่าจะถูก overwrite ตอน populate, ไม่ต้องลบทีละตัว)
-  //    ⚠️ ห้ามลบ gearBookAll ตรงนี้ — เพราะ gear DB ยังไม่อัพเดต (syncGearBook อยู่ step 6)
-  //       ถ้าลบก่อน แล้วมีคนเปิด /gear-book → cache จะถูก rebuild ด้วย gear DB เก่า → ค้าง
-  // ไม่มีแถวไหนขยับ = ของใน cache ยังตรงอยู่ ไม่ต้องล้างให้ต้องไปดึงใหม่ทั้งก้อน
-  // (ล้าง translations ทีนึงแปลว่าคนถัดไปต้องรอโหลด bundle 3MB จาก lerico ใหม่)
-  if (redis && changed > 0) {
-    const r = redis   // capture ก่อนเข้า async callback เพื่อแก้ TypeScript null-check
-    await Promise.allSettled([
-      // เขียนทับด้วยของใหม่เลย ไม่ใช่ลบทิ้ง — ตอนนี้ compute ตื่นอยู่แล้วเพราะเพิ่งเขียน DB เสร็จ
-      // ถ้าลบทิ้ง คนแรกที่เปิดหน้าหลังจากนี้จะต้องอ่าน ranger_book ทั้งตารางจาก Neon
-      // = ปลุก compute อีกรอบ 5 นาที ทั้งที่อ่านตอนนี้ทีเดียวก็ได้ของชุดเดียวกัน
-      buildRangerBookPayload()
-        .then(p => r.set(redisKey.rangerBookAll(), JSON.stringify(p), { ex: REDIS_TTL.rangerBookAll }))
-        .catch(e => { console.error('[Sync] warm rangerBookAll failed:', e); return r.del(redisKey.rangerBookAll()) }),
-      redis.del('lr:translations:th'),
-      redis.del('lr:translations:en'),
-      // คนละคีย์กับสองอันบน — อันนี้เป็นคำแปลที่ตัว scraper ใช้ตอนฝังชื่อลงตารางอันดับ
-      // ไม่ล้างด้วย ชื่อเรนเจอร์ใหม่จะยังเป็นรหัสดิบในหน้าเมต้า ทั้งที่ ranger book ถูกแล้ว
-      redis.del(redisKey.translations()),
-    ])
-    console.log('[Sync] Warmed rangerBookAll + invalidated translation cache (th/en/scraper)')
-  } else if (redis) {
-    console.log('[Sync] ไม่มีเรนเจอร์เปลี่ยน — ข้ามการล้าง cache')
-  }
-
-  // 6. Fire-and-forget background tasks (ไม่ block response)
-  // precacheRangerStats: push stats ทุก ranger เข้า Redis ระหว่าง sync
-  // → cold start ถัดไป user request ใด ๆ จะ hit Redis แทน ไม่ต้องโหลด bundle 7 API จาก lerico.net
-  Promise.allSettled([
-    // syncGearBook เสร็จ → ค่อยลบ gearBookAll cache (ตอนนี้ gear DB ใหม่แล้ว)
-    syncGearBook().then(async () => {
-      if (redis) {
-        const r = redis   // capture ก่อนเข้า async callback เพื่อแก้ TypeScript null-check
-        await Promise.allSettled([
-          // เขียนทับด้วยของใหม่ด้วยเหตุผลเดียวกับ rangerBookAll (ประหยัดการปลุก compute)
-          // ⚠ ต้องใช้ GEAR_BOOK_CACHE_KEY — เดิมลบ redisKey.gearBookAll() ซึ่งเป็นคีย์ v1
-          //   ที่ไม่มีใครอ่านแล้ว แคชจริง (v2) จึงค้างข้ามการ sync ไปได้นานถึง 7 วัน
-          buildGearBookPayload()
-            .then(p => r.set(GEAR_BOOK_CACHE_KEY, JSON.stringify(p), { ex: REDIS_TTL.gearBookAll }))
-            .catch(e => { console.error('[Sync] warm gearBook failed:', e); return r.del(GEAR_BOOK_CACHE_KEY) }),
-        ])
-        console.log('[Sync] Warmed gearBook cache (หลัง gear DB อัพเดตเสร็จ)')
-      }
-    }),
-    precacheRangerStats(rawRangers),
-  ]).then(results => {
-    results.forEach((r, i) => {
-      if (r.status === 'rejected') console.error(`[Sync] background task ${i} failed:`, r.reason)
-    })
-  })
+  // 5. Gear Book — ต้องรอให้เสร็จก่อนคืนค่า
+  //    (เดิมสั่งแบบไม่รอ สคริปต์จึงเขียนไฟล์แล้วปิดตัวไปก่อน Gear Book จะได้อัปเดต)
+  const gears = await syncGearBook()
 
   return {
     synced: records.length,
-    cached: redis
-      ? `กำลัง cache Ranger Stats + Gear Book ลง Redis ใน background...`
-      : 'ไม่มี Redis (ข้าม)',
-    message: `อัพเดตเรนเจอร์สำเร็จ ${records.length} ตัว (เขียนจริง ${changed} แถว)`,
+    gears,
+    message: `อัปเดตเรนเจอร์ ${records.length} ตัว (เขียนจริง ${changed} แถว) · เกียร์ ${gears} ชิ้น`,
   }
 }

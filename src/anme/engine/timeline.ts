@@ -539,10 +539,17 @@ export function buildTimeline(scene: Scene): Timeline {
       const tgt = scene.actors.find(a => a.id === c.targetId)
       hits.push({ at: st.launchAt, targetId: c.targetId, cue: c, shot: 0, point: tgt ? actorHitPoint(scene, tgt, st.launchAt) : { x: 0, y: 0 } })
     }
+    // โดนซ้ำ (followUp) — ซ้ำทุกจังหวะโดนของคิวนี้ ณ เวลา + หน่วง
+    const follow = (c.followUp ?? []).filter(d => d > 0)
+    if (follow.length) {
+      const own = hits.filter(h => h.cue === c)
+      for (const d of follow) for (const h of own) hits.push({ ...h, at: h.at + d })
+    }
     // เสียงจากเกม (ร่าย/โดน — ปิดทีละอันได้) + เสียงที่ผู้ใช้ใส่เอง
     for (const snd of [...(c.gameSounds ?? []), ...(c.sound ? [c.sound] : [])]) {
       if (!snd.assetId || snd.enabled === false) continue
-      const times = snd.at === 'cast' ? [st.castStart] : snd.at === 'release' ? [st.launchAt] : (st.shots.length ? st.shots.map(x => x.impactAt) : [st.launchAt])
+      const impacts = st.shots.length ? st.shots.map(x => x.impactAt) : [st.launchAt]
+      const times = snd.at === 'cast' ? [st.castStart] : snd.at === 'release' ? [st.launchAt] : [...impacts, ...follow.flatMap(d => impacts.map(at => at + d))]
       for (const at of times) sounds.push({ at, assetId: snd.assetId, offset: 0, dur: null, volume: snd.volume, fadeIn: 0, fadeOut: 0 })
     }
   }

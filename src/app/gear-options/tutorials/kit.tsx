@@ -77,10 +77,10 @@ export const elementOf = (r: RangerStats) => ELEMENTS[(r.element ?? '').trim().t
 export const loadStats = (id: string) =>
   apiFetch(`/api/meta/ranger-stats?id=${encodeURIComponent(id)}`).then(r => r.json() as Promise<RangerStats>)
 
-/** ค่าเกียร์ที่ +5 (recalcGearEffects = ตัวเดียวกับสไลเดอร์ระดับในหน้าต่างเกียร์) + โบนัสรวมแบบ Ranger Book (เฉพาะ Basic) */
-export async function loadGear(code: string): Promise<{ gear: GearEffects; bonus: StatBonusMap }> {
+/** ค่าเกียร์ที่ +5 (หรือ level ที่ระบุ เช่น +10 = Switchable เต็ม) (recalcGearEffects = ตัวเดียวกับสไลเดอร์ระดับในหน้าต่างเกียร์) + โบนัสรวมแบบ Ranger Book (เฉพาะ Basic) */
+export async function loadGear(code: string, level = GEAR_LEVEL): Promise<{ gear: GearEffects; bonus: StatBonusMap }> {
   const fx = await fetch(`${DATA_BASE}/${gearEffectsFile(code)}`).then(r => r.json() as Promise<Record<string, GearEffects>>)
-  const gear = recalcGearEffects(fx['5'], GEAR_LEVEL) as GearEffects
+  const gear = recalcGearEffects(fx['5'], level) as GearEffects
   return { gear, bonus: aggregateGearBonuses([gear], [null]) }
 }
 
@@ -346,13 +346,12 @@ const GLOW_FPS = 16
  *   ช่องว่าง = ไอคอนมืดแบบสลัก · ช่องที่ใส่ของแล้ว = ไอคอน _on เรืองแสง
  *   เกียร์ในช่อง = ป้ายเลเวลมุมบนขวา (เลเวลที่ใช้คิดค่าในวิดีโอ = GEAR_LEVEL) + ดาวใต้ไอคอน — แบบช่องเกียร์บนเว็บ
  */
-export interface SlotGear { icon: string; grade: number }
+export interface SlotGear { icon: string; grade: number; /** เลเวลของเกียร์ (ไม่ใส่ = GEAR_LEVEL) */ level?: number }
 export function GearSlots({ t, equip, filled }: {
   t: number; equip?: SlotGear & { at: number; kind?: GearKind }
   /** ช่องที่ใส่ของอยู่แล้วตั้งแต่ต้น (ไม่มีแสงวาบ) เช่น เกียร์ของศัตรู */
   filled?: Partial<Record<GearKind, SlotGear>>
 }) {
-  const badge = gearLevelBadgeUrl(GEAR_LEVEL)
   return (
     <div className="relative mx-auto" style={{ width: SLOT_W * 3, height: 140 }}>
       {SLOT_KINDS.map((key, i) => {
@@ -395,9 +394,9 @@ export function GearSlots({ t, equip, filled }: {
               const a = eq ? pop : 1
               return (
                 <>
-                  {badge && (
+                  {gearLevelBadgeUrl(g.level ?? GEAR_LEVEL) && (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={badge} alt="" className="absolute h-[32px] w-auto max-w-none"
+                    <img src={gearLevelBadgeUrl(g.level ?? GEAR_LEVEL)!} alt="" className="absolute h-[32px] w-auto max-w-none"
                       style={{ left: cx + 48, top: SLOT_Y - 44, transform: `translate(-100%, 0) scale(${a})`, transformOrigin: 'right top', opacity: Math.min(1, a) }} />
                   )}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -481,7 +480,10 @@ export function Opening({ t, lang, T, title }: { t: number; lang: string; T: (th
       {s.on && (
         <div className="absolute inset-0 flex flex-col items-center justify-center" style={popStyle(s, 40)}>
           <div className={`text-[30px] font-black text-amber-300/90 ${lang === 'th' ? 'tracking-normal' : 'tracking-[0.3em]'}`}>{T('ออพชั่นของอุปกรณ์', 'GEAR OPTION')}</div>
-          <div className="text-[120px] font-black text-white leading-none mt-3 drop-shadow-[0_8px_30px_rgba(251,191,36,0.5)]">{title}</div>
+          {/* ชื่อยาว (เช่น อัตราความแม่นยำของทักษะ) ย่อให้อยู่บรรทัดเดียวในกรอบ 1160 px */}
+          <Fit1 className="w-[1160px] text-center mt-3" min={0.45}>
+            <span className="text-[112px] font-black text-white leading-tight whitespace-nowrap drop-shadow-[0_8px_30px_rgba(251,191,36,0.5)]">{title}</span>
+          </Fit1>
           <div className="mt-5 h-[4px] bg-gradient-to-r from-transparent via-amber-300 to-transparent" style={{ width: 620 * easeOut(s.enter) }} />
         </div>
       )}
@@ -493,12 +495,16 @@ export function Opening({ t, lang, T, title }: { t: number; lang: string; T: (th
  * การ์ดเกียร์ (หน้าตาเดียวกับหน้าต่างเกียร์บนเว็บ) — ไฮไลท์ Basic ช่องแรก (ค่าที่ทดสอบ) ตอน 3.8 วิ
  *   แถวอื่นค่อยๆ มืด · แถวที่ทดสอบค่อยๆ ขยาย + เปลี่ยนสี (ไม่เด้งทีเดียว) · ลูกศร "ทดสอบค่านี้" ผูกกับแถวนั้น
  */
-export function GearCard({ t, T, gear, icon, name, effName, switchable, kind = 'weapon', grade = 7, tested = [0] }: {
+export function GearCard({ t, T, gear, icon, name, effName, switchable, kind = 'weapon', grade = 7, tested = [0], testSwitchable = false, level = GEAR_LEVEL }: {
   t: number; T: (th: string, en: string) => string; gear: GearEffects; icon: string; name: string
   effName: (e: GearEffect) => string; switchable: GearEffect | null
   kind?: GearKind; grade?: number
   /** ลำดับค่า Basic ที่วิดีโอนี้ทดสอบ (ไฮไลท์ทุกตัว · ลูกศรชี้กึ่งกลางกลุ่ม) */
   tested?: number[]
+  /** ทดสอบค่า Switchable แทน Basic (เช่น อัพเกรดธาตุ ที่มีแต่ในช่อง Switchable) — ส่ง tested={[]} ด้วย */
+  testSwitchable?: boolean
+  /** เลเวลเกียร์ที่แสดง (ไม่ใส่ = GEAR_LEVEL) */
+  level?: number
 }) {
   const s = span(t, 2.1, 7.4, 0.55, 0.4)
   if (!s.on) return null
@@ -522,11 +528,11 @@ export function GearCard({ t, T, gear, icon, name, effName, switchable, kind = '
       </div>
       <div className="flex items-center justify-between mt-4 text-[22px]">
         <span className="text-gray-400 font-bold">{T('ค่าเกียร์ที่ระดับ', 'Gear level')}</span>
-        <span className="text-amber-300 font-black">+{GEAR_LEVEL}</span>
+        <span className="text-amber-300 font-black">+{level}</span>
       </div>
       {/* หลอดเต็ม = เลเวลสูงสุดตามดาว (≤6★ = 5 · 7★ = 10 · 8★ = 15 · 9★ = 20) */}
       <div className="h-3 rounded-full bg-white/10 mt-2 overflow-hidden">
-        <div className="h-full bg-gradient-to-r from-amber-400 to-yellow-300" style={{ width: `${Math.min(1, GEAR_LEVEL / gearMaxLevel(grade)) * 100 * easeOut(prog(t, 2.6, 3.4))}%` }} />
+        <div className="h-full bg-gradient-to-r from-amber-400 to-yellow-300" style={{ width: `${Math.min(1, level / gearMaxLevel(grade)) * 100 * easeOut(prog(t, 2.6, 3.4))}%` }} />
       </div>
       <div className="mt-4 rounded-2xl border-2 border-blue-400/30 bg-[#0f1d3a] p-3.5">
         <div className="text-[20px] font-black text-blue-200 tracking-wider mb-1.5 px-2">BASIC EFFECT</div>
@@ -554,12 +560,21 @@ export function GearCard({ t, T, gear, icon, name, effName, switchable, kind = '
         })}
       </div>
       {switchable && (
-        <div className="mt-3 rounded-2xl border-2 border-orange-400/30 bg-[#2a1a10] p-3.5" style={{ opacity: 1 - 0.5 * hlK }}>
+        <div className="mt-3 rounded-2xl border-2 border-orange-400/30 bg-[#2a1a10] p-3.5" style={testSwitchable ? undefined : { opacity: 1 - 0.5 * hlK }}>
           <div className="text-[20px] font-black text-orange-200 tracking-wider mb-1 px-2">SWITCHABLE EFFECT</div>
-          <div className="flex items-center justify-between gap-4 px-3">
-            <Fit1 className="flex-1"><span className="text-[26px] font-bold text-orange-100">{effName(switchable)}</span></Fit1>
-            <span className="shrink-0 text-[28px] font-black text-white tabular-nums">{switchable.value}</span>
-          </div>
+          <Highlight t={t} at={testSwitchable ? 3.8 : null} radius={12}>
+            <div className="relative flex items-center justify-between gap-4 px-3 py-1">
+              <Fit1 className="flex-1"><span className="text-[26px] font-bold" style={{ color: testSwitchable ? mix(C.amber100, C.amber100, 1) : undefined }}>{effName(switchable)}</span></Fit1>
+              <span className="shrink-0 font-black text-white tabular-nums" style={{ fontSize: testSwitchable ? 28 + 8 * hlK : 28 }}>{switchable.value}</span>
+              {testSwitchable && hl && (
+                <div className="absolute left-full top-1/2 ml-6 flex items-center gap-2 whitespace-nowrap"
+                  style={{ opacity: easeOut(prog(t, 4.6, 5.1)), transform: `translateY(-50%) translateX(${(1 - easeOut(prog(t, 4.6, 5.1))) * 40 + Math.sin(t * 5) * 6}px)` }}>
+                  <span className="material-icons-round text-amber-300 text-[56px]">west</span>
+                  <span className="px-4 py-2 rounded-xl bg-amber-400 text-[26px] font-black text-[#1a1200]">{T('ทดสอบค่านี้', 'Testing this')}</span>
+                </div>
+              )}
+            </div>
+          </Highlight>
         </div>
       )}
     </FitCard>
@@ -691,18 +706,26 @@ export function SkillFormulaCard({ t, T, skill, skillName, mul, atkLabel, atk, r
 
 const EQ_CARD = { x: 690, y: 70 }
 /** ค่าพลัง 1 แถวบนการ์ดใส่เกียร์ (ก่อน → หลัง) */
-export interface EquipStat { icon: string; label: string; before: number; after: number }
+export interface EquipStat {
+  icon: string; label: string; before: number; after: number
+  /** รูปแบบตัวเลข (ไม่ใส่ = จำนวนเต็ม) เช่น % สำหรับค่าอัตรา */
+  format?: (v: number) => string
+  /** บรรทัดสูตรใต้ตัวเลข (ไม่ใส่ = ก่อน × (1 + %)) เช่น ค่าที่บวกตรงแล้วติดเพดาน */
+  formula?: string
+}
 /** ความสูงคงที่ของแต่ละแถวค่าพลัง (แถวไม่ยืดหดตามความยาวตัวเลข) */
 const EQ_ROW_H = 84
 const EQ_ROW_GAP = 10
 
-export function EquipCard({ t, T, gearIcon, gearName, bonusPct, kind = 'weapon', grade, stats }: {
+export function EquipCard({ t, T, gearIcon, gearName, bonusPct, kind = 'weapon', grade, stats, level = GEAR_LEVEL }: {
   t: number; T: (th: string, en: string) => string; gearIcon: string; gearName: string; bonusPct: number
   kind?: GearKind
   /** ดาวของเกียร์ (ใต้ไอคอนในช่องเกียร์) */
   grade: number
   /** 1 แถว = ตัวเลขใหญ่ · หลายแถว (เช่น DEF กายภาพ / เวท) = เล็กลงนิดหน่อย */
   stats: EquipStat[]
+  /** เลเวลเกียร์ (ไม่ใส่ = GEAR_LEVEL) */
+  level?: number
 }) {
   const at = TL.equip
   const s = span(t, at - 0.9, at + 2.7, 0.4, 0.35)
@@ -717,9 +740,9 @@ export function EquipCard({ t, T, gearIcon, gearName, bonusPct, kind = 'weapon',
           {/* ชื่อบรรทัดเดียวเสมอ (ยาวไป = ย่อตัวหนังสือ) */}
           <div className="min-w-0 flex-1">
             <div className="text-[20px] text-gray-400 font-bold">{t >= at ? T('ใส่เกียร์แล้ว', 'Equipped') : T('กำลังใส่เกียร์', 'Equipping')}</div>
-            <Fit1><span className="text-[30px] font-black text-white leading-tight">{gearName} +{GEAR_LEVEL}</span></Fit1>
+            <Fit1><span className="text-[30px] font-black text-white leading-tight">{gearName} +{level}</span></Fit1>
           </div>
-          <span className="shrink-0 px-3.5 py-1.5 rounded-xl bg-amber-400 text-[26px] font-black text-[#1a1200]">+{(bonusPct * 100).toFixed(0)}%</span>
+          <span className="shrink-0 px-3.5 py-1.5 rounded-xl bg-amber-400 text-[26px] font-black text-[#1a1200]">+{pctAuto(bonusPct)}</span>
         </div>
         {stats.map((st, i) => (
           <div key={st.label} className="flex flex-col justify-center" style={{ height: EQ_ROW_H, marginTop: i === 0 ? 16 : EQ_ROW_GAP }}>
@@ -729,16 +752,16 @@ export function EquipCard({ t, T, gearIcon, gearName, bonusPct, kind = 'weapon',
               <Fit1 className="flex-1"><span className="text-[26px] text-gray-200 font-bold">{st.label}</span></Fit1>
               <span className="ml-auto shrink-0 whitespace-nowrap font-black text-amber-200 tabular-nums leading-none"
                 style={{ fontSize: big ? 50 : 42, textShadow: `0 0 ${14 + 14 * pulse(t, 3) * (t > at + 0.55 && t < at + 1.85 ? 1 : 0)}px rgba(251,191,36,0.75)` }}>
-                {fmtInt(countUp(t, at + 0.55 + i * 0.15, at + 1.85 + i * 0.15, st.before, st.after))}
+                {(st.format ?? fmtInt)(countUp(t, at + 0.55 + i * 0.15, at + 1.85 + i * 0.15, st.before, st.after))}
               </span>
             </div>
             <div className="mt-1 text-right text-[22px] text-gray-400 tabular-nums" style={{ opacity: easeOut(prog(t, at + 1.75, at + 2.15)) }}>
-              {fmtInt(st.before)} × {(1 + bonusPct).toFixed(2)}
+              {st.formula ?? `${fmtInt(st.before)} × ${(1 + bonusPct).toFixed(2)}`}
             </div>
           </div>
         ))}
         <div className="mt-3 pt-3 border-t-2 border-white/10">
-          <GearSlots t={t} equip={{ at, icon: gearIcon, kind, grade }} />
+          <GearSlots t={t} equip={{ at, icon: gearIcon, kind, grade, level }} />
         </div>
     </FitCard>
   )

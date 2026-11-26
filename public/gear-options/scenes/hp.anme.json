@@ -97,6 +97,30 @@
    }
   },
   {
+   "id": "snd_normal_prep",
+   "type": "audio",
+   "name": "attrd_u1224ebrown",
+   "url": "/api/res/_raw/sounds/attrd_u1224ebrown_20220222194105566.ogg"
+  },
+  {
+   "id": "snd_normal_hit",
+   "type": "audio",
+   "name": "hit_body_punch",
+   "url": "/api/res/_raw/sounds/hit_body_punch_20140603152640882.ogg"
+  },
+  {
+   "id": "snd_skill1_prep",
+   "type": "audio",
+   "name": "skattrd_u1224ebrown",
+   "url": "/api/res/_raw/sounds/skattrd_u1224ebrown_20220222194109814.ogg"
+  },
+  {
+   "id": "snd_skill1_hit",
+   "type": "audio",
+   "name": "skhit_buff",
+   "url": "/api/res/_raw/sounds/skhit_buff_20151231103544387.ogg"
+  },
+  {
    "id": "snd_bgm",
    "type": "audio",
    "name": "bgm_lobby2",
@@ -286,7 +310,20 @@
     "repeat": 1,
     "interval": 0.12,
     "aim": "center",
-    "anchor": "center"
+    "anchor": "center",
+    "game": {
+     "motion": "CURVE",
+     "start": {
+      "x": 95,
+      "y": 110
+     },
+     "angle": {
+      "start": 60,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
    },
    "targetId": "ak1zzx9ceu",
    "hitReact": true,
@@ -296,13 +333,13 @@
    "sound": null,
    "gameSounds": [
     {
-     "assetId": "s5fbjb2lds",
+     "assetId": "snd_normal_prep",
      "at": "cast",
      "volume": 1,
      "enabled": true
     },
     {
-     "assetId": "szzsq2clds",
+     "assetId": "snd_normal_hit",
      "at": "impact",
      "volume": 1,
      "enabled": true
@@ -345,7 +382,7 @@
    },
    "fx": {
     "set": "bul2",
-    "mode": "target",
+    "mode": "projectile",
     "flight": "normal",
     "finish": "finish",
     "launch": {
@@ -378,7 +415,20 @@
     "repeat": 1,
     "interval": 0.12,
     "aim": "ground",
-    "anchor": "stand"
+    "anchor": "stand",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 0,
+      "y": 0
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 0,
+     "hitRate": 0
+    }
    },
    "targetId": "ak1zzx9ceu",
    "hitReact": true,
@@ -388,13 +438,13 @@
    "sound": null,
    "gameSounds": [
     {
-     "assetId": "ssdmeq74ih",
+     "assetId": "snd_skill1_prep",
      "at": "cast",
      "volume": 1,
      "enabled": true
     },
     {
-     "assetId": "shr988jeew",
+     "assetId": "snd_skill1_hit",
      "at": "impact",
      "volume": 1,
      "enabled": true
@@ -483,7 +533,20 @@
     "repeat": 1,
     "interval": 0.12,
     "aim": "center",
-    "anchor": "center"
+    "anchor": "center",
+    "game": {
+     "motion": "CURVE",
+     "start": {
+      "x": 95,
+      "y": 110
+     },
+     "angle": {
+      "start": 60,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
    },
    "targetId": "ak1zzx9ceu",
    "hitReact": true,
@@ -493,13 +556,13 @@
    "sound": null,
    "gameSounds": [
     {
-     "assetId": "s5fbjb2lds",
+     "assetId": "snd_normal_prep",
      "at": "cast",
      "volume": 1,
      "enabled": true
     },
     {
-     "assetId": "szzsq2clds",
+     "assetId": "snd_normal_hit",
      "at": "impact",
      "volume": 1,
      "enabled": true
@@ -542,7 +605,7 @@
    },
    "fx": {
     "set": "bul2",
-    "mode": "target",
+    "mode": "projectile",
     "flight": "normal",
     "finish": "finish",
     "launch": {
@@ -575,7 +638,20 @@
     "repeat": 1,
     "interval": 0.12,
     "aim": "ground",
-    "anchor": "stand"
+    "anchor": "stand",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 0,
+      "y": 0
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 0,
+     "hitRate": 0
+    }
    },
    "targetId": "ak1zzx9ceu",
    "hitReact": true,
@@ -585,13 +661,13 @@
    "sound": null,
    "gameSounds": [
     {
-     "assetId": "ssdmeq74ih",
+     "assetId": "snd_skill1_prep",
      "at": "cast",
      "volume": 1,
      "enabled": true
     },
     {
-     "assetId": "shr988jeew",
+     "assetId": "snd_skill1_hit",
      "at": "impact",
      "volume": 1,
      "enabled": true
@@ -602,7 +678,7 @@
    "id": "cam_wide3",
    "type": "camera",
    "actorId": "__camera",
-   "start": 47.333,
+   "start": 47.3,
    "center": {
     "x": 640,
     "y": 360
@@ -648,7 +724,7 @@
    "id": "victim_knockback0",
    "type": "anim",
    "actorId": "ak1zzx9ceu",
-   "start": 31.353,
+   "start": 31.32,
    "clip": "knockback",
    "speed": 1,
    "loop": false,
@@ -660,7 +736,7 @@
    "type": "show",
    "actorId": "ak1zzx9ceu",
    "start": 0,
-   "duration": 32.883,
+   "duration": 32.85,
    "fadeIn": 0,
    "fadeOut": 0.15000000000000013
   },
@@ -701,7 +777,7 @@
    "id": "sfx_death0",
    "type": "sound",
    "actorId": "__audio",
-   "start": 32.733000000000004,
+   "start": 32.7,
    "assetId": "snd_death",
    "volume": 1,
    "offset": 0,

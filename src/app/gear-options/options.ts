@@ -28,19 +28,19 @@ export const GEAR_OPTIONS: GearOption[] = [
   { id: 'def',             th: 'พลังป้องกัน',                    en: 'DEF', scene: 'def' },   // tutorials/def.tsx
   { id: 'atk-speed',       th: 'ความเร็วในการโจมตี',             en: 'Attack Speed', scene: 'atk-speed' },   // tutorials/atk-speed.tsx
   { id: 'move-speed',      th: 'ความเร็วการเคลื่อนที่',          en: 'Move Speed', scene: 'move-speed' },   // tutorials/move-speed.tsx
-  { id: 'skill-use',       th: 'อัตราการใช้ทักษะ',               en: 'Skill Use Rate' },
-  { id: 'skill-evade',     th: 'อัตราการหลบทักษะ',               en: 'Skill Evade Rate' },
-  { id: 'skill-hit',       th: 'อัตราความแม่นยำของทักษะ',        en: 'Skill Hit Rate' },
-  { id: 'skill-resist',    th: 'การต้านทักษะ',                   en: 'Skill Resistance' },
-  { id: 'dmg-reduction',   th: 'ลดความเสียหาย',                  en: 'Damage Reduction' },
-  { id: 'element',         th: 'อัพเกรดธาตุ',                    en: 'Elemental Prowess' },
-  { id: 'blitz-rush',      th: 'โอกาสโจมตีต่อเนื่อง',            en: 'Blitz Rush Odds' },
-  { id: 'skill-reactivate',th: 'อัตราการใช้ทักษะอีกครั้ง',       en: 'Skill Reactivation Rate' },
-  { id: 'surehit',         th: 'อัตราโจมตีโดนแน่นอน',            en: 'Surehit Rate' },
-  { id: 'skill-surehit',   th: 'อัตราโจมตีโดนแน่นอนของทักษะ',    en: 'Skill Surehit Rate' },
+  { id: 'skill-use',       th: 'อัตราการใช้ทักษะ',               en: 'Skill Use Rate', scene: 'skill-use' },   // tutorials/skill-rates.tsx
+  { id: 'skill-evade',     th: 'อัตราการหลบทักษะ',               en: 'Skill Evade Rate', scene: 'skill-evade' },   // tutorials/skill-rates.tsx
+  { id: 'skill-hit',       th: 'อัตราความแม่นยำของทักษะ',        en: 'Skill Hit Rate', scene: 'skill-hit' },   // tutorials/skill-rates.tsx
+  { id: 'skill-resist',    th: 'การต้านทักษะ',                   en: 'Skill Resistance', scene: 'skill-resist' },   // tutorials/skill-resist.tsx
+  { id: 'dmg-reduction',   th: 'ลดความเสียหาย',                  en: 'Damage Reduction', scene: 'dmg-reduction' },   // tutorials/dmg-reduction.tsx
+  { id: 'element',         th: 'อัพเกรดธาตุ',                    en: 'Elemental Prowess', scene: 'element' },   // tutorials/element.tsx
+  { id: 'blitz-rush',      th: 'โอกาสโจมตีต่อเนื่อง',            en: 'Blitz Rush Odds', scene: 'blitz-rush' },   // tutorials/blitz-rush.tsx
+  { id: 'skill-reactivate',th: 'อัตราการใช้ทักษะอีกครั้ง',       en: 'Skill Reactivation Rate', scene: 'skill-reactivate' },   // tutorials/skill-reactivate.tsx
+  { id: 'surehit',         th: 'อัตราโจมตีโดนแน่นอน',            en: 'Surehit Rate', scene: 'surehit' },   // tutorials/surehit.tsx
+  { id: 'skill-surehit',   th: 'อัตราโจมตีโดนแน่นอนของทักษะ',    en: 'Skill Surehit Rate', scene: 'skill-surehit' },   // tutorials/surehit.tsx
   { id: 'skill-cooldown',  th: 'เวลารอทักษะ',                    en: 'Skill Cooldown' },
-  { id: 'skill-pierce',    th: 'อัตราการเจาะทักษะ',              en: 'Skill Pierce Rate' },
+  { id: 'skill-pierce',    th: 'อัตราการเจาะทักษะ',              en: 'Skill Pierce Rate', scene: 'skill-pierce' },   // tutorials/skill-pierce.tsx
   { id: 'blood-veil',      th: 'ม่านโลหิต',                      en: 'Blood Veil' },
   { id: 'atk-cancel',      th: 'อัตราต้านการโจมตีปกติ',          en: 'Normal Attack Cancel Rate' },
-  { id: 'skill-cancel',    th: 'อัตราต้านการโจมตีด้วยทักษะ',     en: 'Skill Attack Cancel Rate' },
+  { id: 'skill-cancel',    th: 'อัตราต้านการโจมตีด้วยทักษะ',     en: 'Skill Attack Cancel Rate', scene: 'skill-cancel' },   // tutorials/skill-cancel.tsx
 ]

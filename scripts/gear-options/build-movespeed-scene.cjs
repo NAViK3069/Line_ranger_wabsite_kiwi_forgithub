@@ -35,8 +35,8 @@ const LANES = [
 const walkTime = L => DIST_PT / L.speed
 const RACE_END = +(GO + walkTime(LANES[0]) + 1.2).toFixed(2)
 const END = +(RACE_END + 9.6).toFixed(2)
-// หน้าเว็บเล่นเร็ว ×2 ตั้งแต่เดินไปได้ 3 วิจนตัวบนถึงเส้นชัย (FAST_AFTER / FAST_RATE ใน move-speed.tsx) แต่เสียงเล่นความเร็วปกติ
-const FAST_AFTER = 3, FAST_RATE = 2
+// หน้าเว็บเล่นช่วงเดินทั้งหมดที่ความเร็วเกม x2 (GAME_SPEED ใน move-speed.tsx) แต่เสียงเล่นความเร็วปกติ
+const FAST_AFTER = 0, FAST_RATE = 2
 const REAL_END = +(END - (walkTime(LANES[0]) - FAST_AFTER) * (1 - 1 / FAST_RATE)).toFixed(2)
 
 const clone = o => JSON.parse(JSON.stringify(o))

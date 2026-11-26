@@ -205,6 +205,12 @@ export interface SkillCue extends CueBase {
    * ปกติ 2 อัน: เสียงร่าย (preparation → at 'cast') · เสียงโดน (underAttack → at 'impact')
    */
   gameSounds: SkillSound[]
+  /**
+   * โดนซ้ำหลังโดนครั้งแรก (วินาทีหลังจังหวะโดนแต่ละครั้ง) — ไม่มีกระสุน/ท่าใหม่ เป้าแค่โดนซ้ำ (ท่าโดนตี + แฟลช + เสียงโดน)
+   *   ใช้กับ "โอกาสโจมตีต่อเนื่อง" (DOUBLE_ATK_PROB): เกมสุ่มติดตอนตีปกติโดน → CCDelayTime 0.3 วิ แล้วโดนซ้ำ (0xced7e4 → 0xcedd40)
+   *   ไม่มีค่า = ไม่โดนซ้ำ
+   */
+  followUp?: number[]
 }
 
 export interface SkillSound {

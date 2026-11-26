@@ -46,9 +46,11 @@ const SPE_ADD = 'SPE_ADD'
 const TL = { ranger: [8.0, 12.2], formula: [12.6, 18.0], equip: [18.4, 20.8], equipAt: 19.4, count: 21.0 } as const
 /** เสียง arena_startcount: 3 · 2 · 1 · เริ่ม (วินาทีหลัง TL.count) */
 const COUNT_BEATS = [0.1, 0.8, 1.25, 1.9]
-/** เดินไปได้ FAST_AFTER วิแล้วเล่นเร็ว ×FAST_RATE จนตัวบนเข้าเส้นชัย (คลิปไม่ยาวเกิน) · นาฬิกายังนับเวลาจริงในเกม */
-const FAST_AFTER = 3
-const FAST_RATE = 2
+/**
+ * แสดงที่ความเร็วเกม x2 (ปุ่ม x2 ในการต่อสู้ · battle_auto_btn_x2 / BATTLE_SPEED — ด่านสอนเล่นบังคับ 2)
+ *   ฉากเก็บเวลาแบบเกม x1 · ช่วงเดินเล่นเร็ว ×GAME_SPEED · นาฬิกา/ตัวเลขทั้งหมด = เวลาจริงที่ x2 (เวลา x1 ÷ 2)
+ */
+const GAME_SPEED = 2
 const SPEED_TYPE: Record<string, [string, string]> = {
   VERYSLOW: ['ช้ามาก', 'Very slow'], SLOW: ['ช้า', 'Slow'], NORMAL: ['ปกติ', 'Normal'], FAST: ['เร็ว', 'Fast'], VERYFAST: ['เร็วมาก', 'Very fast'],
 }
@@ -93,7 +95,8 @@ export default function MoveSpeedTutorial({ autoPlay }: { autoPlay: boolean }) {
   const tested = shownGear.basic.map((e, i) => (e.basicGrowth?.reinforceType === SPE_ADD ? i : -1)).filter(i => i >= 0)
   const addTxt = `+${d.add}`
   const slots = Object.fromEntries(GEARS.map(g => [g.kind, { icon: gearIconUrl(g.code), grade: g.grade }])) as Partial<Record<GearKind, SlotGear>>
-  const timeOf = (speed: number) => (speed > 0 ? DIST_PT / speed : 0)
+  /** เวลาเดิน (วินาทีจริงที่ความเร็วเกม x2) = ระยะ ÷ ความเร็ว ÷ 2 */
+  const timeOf = (speed: number) => (speed > 0 ? DIST_PT / speed / GAME_SPEED : 0)
   const timeBase = timeOf(d.speed), timeGear = timeOf(d.speedGear)
   const typeTxt = SPEED_TYPE[d.type] ? T(...SPEED_TYPE[d.type]) : d.type
 
@@ -101,7 +104,7 @@ export default function MoveSpeedTutorial({ autoPlay }: { autoPlay: boolean }) {
     const t = c.t
     const R = raceOf(c)
     const S = R.summary[0]
-    const elapsed = R.dur.map(dur => Math.min(dur, Math.max(0, t - R.go)))
+    const elapsed = R.dur.map(dur => Math.min(dur, Math.max(0, t - R.go)) / GAME_SPEED)   // เวลาจริงที่ x2
     const done = R.dur.map(dur => t >= R.go + dur)
 
     // ── นับถอยหลัง 3 · 2 · 1 · เริ่ม ──
@@ -124,7 +127,7 @@ export default function MoveSpeedTutorial({ autoPlay }: { autoPlay: boolean }) {
         <div key={L.id} className="absolute flex flex-col items-center" style={{ left: s.x, top: s.y - 200, transform: 'translateX(-50%)', opacity: hud.alpha }}>
           {fin && (
             <div className="mb-1 font-black tabular-nums whitespace-nowrap text-amber-300" style={{ ...STROKE, fontSize: 40, transform: `scale(${finK})` }}>
-              🏁 {sec2(R.dur[i])} {T('วิ', 's')}
+              🏁 {sec2(R.dur[i] / GAME_SPEED)} {T('วิ', 's')}
             </div>
           )}
           <div className={`px-3 py-1 rounded-lg border-2 text-[18px] font-black whitespace-nowrap ${gear ? 'bg-amber-500/90 border-amber-200/70 text-[#1a1200]' : 'bg-slate-700/90 border-white/25 text-white'}`}>
@@ -136,7 +139,6 @@ export default function MoveSpeedTutorial({ autoPlay }: { autoPlay: boolean }) {
 
     // ── กระดานเวลา (มุมขวาบน) ──
     const board = span(t, R.go - 0.2, S + 0.2, 0.3, 0.4)
-    const fast = t >= R.go + FAST_AFTER && t < R.go + Math.max(...R.dur)
 
     // ── สรุป ──
     const bar = (a: number) => easeOut(prog(t, a, a + 0.9))
@@ -157,7 +159,7 @@ export default function MoveSpeedTutorial({ autoPlay }: { autoPlay: boolean }) {
               note={T(`${typeTxt} · เดิน ${d.speed} หน่วยระยะต่อวินาที`, `${typeTxt} · walks ${d.speed} range units per second`)} />
             <StatRow t={t} label={T('ระยะโจมตี', 'Attack range')} value={String(d.range)} hlAt={9.6}
               note={T('หน่วยเดียวกับความเร็วเดิน', 'Same unit as move speed')} />
-            <StatRow t={t} label={T(`เดิน ${DIST_PT} หน่วย`, `Walk ${DIST_PT} units`)} value={T(`${sec2(timeBase)} วิ`, `${sec2(timeBase)} s`)} dim />
+            <StatRow t={t} label={T(`เดิน ${DIST_PT} หน่วย (เกม x${GAME_SPEED})`, `Walk ${DIST_PT} units (game x${GAME_SPEED})`)} value={T(`${sec2(timeBase)} วิ`, `${sec2(timeBase)} s`)} dim />
           </>}
           slots={<GearSlots t={t} />} />
 
@@ -166,7 +168,7 @@ export default function MoveSpeedTutorial({ autoPlay }: { autoPlay: boolean }) {
         <EquipSetCard t={t} T={T} names={GEARS.map((_, i) => gearName(i))} perGear={d.perGear} add={d.add} slots={slots} speed={d.speed} speedGear={d.speedGear} />
 
         <Banner t={t} start={TL.count - 0.4} end={R.go + 0.9} title={T(`แข่งเดิน ${DIST_PT} หน่วยระยะ`, `${DIST_PT}-unit walking race`)}
-          sub={T('จาก START ถึง FINISH · จับเวลา', 'START to FINISH · timed')} color={BANNER_COLOR.normalGear} />
+          sub={T(`จาก START ถึง FINISH · ความเร็วเกม x${GAME_SPEED}`, `START to FINISH · game speed x${GAME_SPEED}`)} color={BANNER_COLOR.normalGear} />
         {countOn && (
           <div className="absolute left-1/2 top-[300px] -translate-x-1/2 -translate-y-1/2 font-black text-white pointer-events-none"
             style={{ ...STROKE, WebkitTextStroke: '12px #0b0d18', fontSize: beat < 3 ? 150 : 120, color: beat < 3 ? '#fff' : '#fcd34d',
@@ -187,12 +189,10 @@ export default function MoveSpeedTutorial({ autoPlay }: { autoPlay: boolean }) {
                 <span className="text-[20px] font-bold text-gray-400">{T('วิ', 's')}</span>
               </div>
             ))}
-            {fast && (
-              <div className="flex items-center justify-end gap-2 pt-1">
-                <span className="text-[18px] font-bold text-gray-300">{T('เร่งความเร็ว', 'Speed up')}</span>
-                <span className="px-2.5 py-0.5 rounded-lg bg-amber-400 text-[20px] font-black text-[#1a1200]">▶▶ ×{FAST_RATE}</span>
-              </div>
-            )}
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <span className="text-[18px] font-bold text-gray-300">{T('ความเร็วเกม', 'Game speed')}</span>
+              <span className="px-2.5 py-0.5 rounded-lg bg-amber-400 text-[20px] font-black text-[#1a1200]">▶▶ ×{GAME_SPEED}</span>
+            </div>
           </div>
         )}
 
@@ -230,17 +230,17 @@ export default function MoveSpeedTutorial({ autoPlay }: { autoPlay: boolean }) {
               `Move Speed is a flat bonus, so slow walkers gain the most: ${d.speed} → ${d.speedGear} (×${(d.speedGear / Math.max(1, d.speed)).toFixed(1)}), while a speed-120 ranger gets 120 → ${120 + d.add} (×${((120 + d.add) / 120).toFixed(1)}) · It only helps while walking toward enemies — once a ranger stops to attack, it does nothing`)}
           </div>
           <div className="mt-2 text-center text-[18px] text-gray-500">
-            {T(`เกียร์ +${GEAR_LEVEL} · ชุด Move Speed สูงสุดในเกม ${addTxt} (ไม่ต้องตรงชนิด/ธาตุ)`, `Gear +${GEAR_LEVEL} · the highest Move Speed set in the game, ${addTxt} (works for any type/element)`)}
+            {T(`เกียร์ +${GEAR_LEVEL} · ชุด Move Speed สูงสุดในเกม ${addTxt} (ไม่ต้องตรงชนิด/ธาตุ) · เวลาที่ความเร็วเกม x${GAME_SPEED}`, `Gear +${GEAR_LEVEL} · the highest Move Speed set in the game, ${addTxt} (any type/element) · times at game speed x${GAME_SPEED}`)}
           </div>
         </SummaryShell>
       </>
     )
   }
 
-  // ช่วงเร่ง: เดินไปได้ FAST_AFTER วิ → ตัวบน (ช้าสุด) ถึงเส้นชัย · เริ่มเดิน = TL.count + จังหวะ "เริ่ม" ของเสียงนับ (ตรงกับคิวเดินในฉาก)
+  // ช่วงเดินทั้งหมด (เริ่ม → ตัวบนที่ช้าสุดถึงเส้นชัย) เล่นที่ความเร็วเกม x2 · เริ่มเดิน = TL.count + จังหวะ "เริ่ม" ของเสียงนับ (ตรงกับคิวเดินในฉาก)
   const goAt = TL.count + COUNT_BEATS[3]
-  const fastEnd = goAt + timeOf(Math.min(d.speed, d.speedGear))
-  const rateAt = (t: number) => (t >= goAt + FAST_AFTER && t < fastEnd ? FAST_RATE : 1)
+  const walkEnd = goAt + DIST_PT / Math.max(1, Math.min(d.speed, d.speedGear))   // เวลาฉาก (เกม x1)
+  const rateAt = (t: number) => (t >= goAt && t < walkEnd ? GAME_SPEED : 1)
   return <ScenePlayer src={SCENE} autoPlay={autoPlay} overlay={overlay} canvasLayers={MAP} rateAt={rateAt} />
 }
 
@@ -278,17 +278,17 @@ function FormulaCard({ t, T, speed, add, speedGear, tBase, tGear }: {
       <div className="mt-4 grid grid-cols-2 gap-4" style={step(t, a + 2.6)}>
         <div className="rounded-2xl bg-white/[0.05] border-2 border-white/10 px-4 py-3">
           <div className="text-[20px] font-bold text-gray-400">{T('ไม่ใส่เกียร์', 'No gear')}</div>
-          <Fit1><span className="text-[24px] font-bold text-gray-200 tabular-nums">{DIST_PT} ÷ {speed}</span></Fit1>
-          <div className="text-[40px] font-black text-white tabular-nums leading-tight">{sec2(tBase)} {T('วิ', 's')}</div>
+          <Fit1><span className="text-[24px] font-bold text-gray-200 tabular-nums">{DIST_PT} ÷ {speed} = {sec2(tBase * GAME_SPEED)} {T('วิ', 's')} <span className="text-gray-400">(x1)</span></span></Fit1>
+          <div className="text-[40px] font-black text-white tabular-nums leading-tight">{sec2(tBase)} {T('วิ', 's')} <span className="text-[22px] text-gray-400">(x{GAME_SPEED})</span></div>
         </div>
         <div className="rounded-2xl bg-[#2a1f08] border-2 border-amber-400/50 px-4 py-3">
           <div className="text-[20px] font-bold text-amber-200">Move Speed +{add}</div>
-          <Fit1><span className="text-[24px] font-bold text-gray-200 tabular-nums">{DIST_PT} ÷ {speedGear}</span></Fit1>
-          <div className="text-[40px] font-black text-amber-300 tabular-nums leading-tight">{sec2(tGear)} {T('วิ', 's')}</div>
+          <Fit1><span className="text-[24px] font-bold text-gray-200 tabular-nums">{DIST_PT} ÷ {speedGear} = {sec2(tGear * GAME_SPEED)} {T('วิ', 's')} <span className="text-gray-400">(x1)</span></span></Fit1>
+          <div className="text-[40px] font-black text-amber-300 tabular-nums leading-tight">{sec2(tGear)} {T('วิ', 's')} <span className="text-[22px] text-gray-400">(x{GAME_SPEED})</span></div>
         </div>
       </div>
       <div className="mt-3 text-center text-[21px] font-black text-sky-300 text-balance" style={step(t, a + 3.4)}>
-        {T(`เวลาเดิน = ระยะ ÷ ความเร็ว · แข่งเดิน ${DIST_PT} หน่วยระยะ`, `Walk time = distance ÷ speed · race over ${DIST_PT} range units`)}
+        {T(`เวลาเดิน = ระยะ ÷ ความเร็ว · กดเร่งเกม x${GAME_SPEED} เวลาจริงเหลือครึ่งเดียว`, `Walk time = distance ÷ speed · at game speed x${GAME_SPEED} it takes half the real time`)}
       </div>
     </FitCard>
   )

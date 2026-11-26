@@ -1,0 +1,762 @@
+{
+ "version": 1,
+ "name": "Blitz Rush Odds — Brown",
+ "width": 1280,
+ "height": 720,
+ "duration": 48,
+ "fps": 30,
+ "groundY": 560,
+ "background": {
+  "kind": "stage",
+  "color": "#0b1020",
+  "gradient": [
+   "#1b2550",
+   "#06070d"
+  ],
+  "stage": "battle24",
+  "assetId": null,
+  "fit": "height",
+  "scale": 1,
+  "offsetX": 0,
+  "offsetY": 0,
+  "scrollX": 0,
+  "dim": 0,
+  "blur": 0
+ },
+ "assets": [
+  {
+   "id": "s25gar6eew",
+   "type": "audio",
+   "name": "skattrd_u1353ebrown",
+   "url": "/api/res/_raw/sounds/skattrd_u1353ebrown_20231030114435184.ogg"
+  },
+  {
+   "id": "shr988jeew",
+   "type": "audio",
+   "name": "skhit_buff",
+   "url": "/api/res/_raw/sounds/skhit_buff_20151231103544387.ogg"
+  },
+  {
+   "id": "s5fbjb2lds",
+   "type": "audio",
+   "name": "attrd_u1224ebrown",
+   "url": "/api/res/_raw/sounds/attrd_u1224ebrown_20220222194105566.ogg"
+  },
+  {
+   "id": "szzsq2clds",
+   "type": "audio",
+   "name": "hit_body_punch",
+   "url": "/api/res/_raw/sounds/hit_body_punch_20140603152640882.ogg"
+  },
+  {
+   "id": "ssdmeq74ih",
+   "type": "audio",
+   "name": "skattrd_u1224ebrown",
+   "url": "/api/res/_raw/sounds/skattrd_u1224ebrown_20220222194109814.ogg"
+  },
+  {
+   "id": "sthwrz2its",
+   "type": "audio",
+   "name": "sk2attrd_u1224ebrown",
+   "url": "/api/res/_raw/sounds/sk2attrd_u1224ebrown_20220222194107518.ogg"
+  },
+  {
+   "id": "sjd9qgkits",
+   "type": "audio",
+   "name": "hit_u467eryu",
+   "url": "/api/res/_raw/sounds/hit_u467eryu_20170530153107600.ogg"
+  },
+  {
+   "id": "r_u1260e-brown_ak1zzx9ceu",
+   "type": "ranger",
+   "source": "lerico",
+   "rangerId": "u1260e-brown",
+   "form": "body",
+   "name": "Brown ตำนานร็อค"
+  },
+  {
+   "id": "r_u1242e-brown_a9ijjdi134",
+   "type": "ranger",
+   "source": "lerico",
+   "rangerId": "u1242e-brown",
+   "form": "body",
+   "name": "Brown อนูบิสเพชฌฆาต"
+  },
+  {
+   "id": "snd_normal_prep",
+   "type": "audio",
+   "name": "attrd_u1224ebrown",
+   "url": "/api/res/_raw/sounds/attrd_u1224ebrown_20220222194105566.ogg"
+  },
+  {
+   "id": "snd_normal_hit",
+   "type": "audio",
+   "name": "hit_body_punch",
+   "url": "/api/res/_raw/sounds/hit_body_punch_20140603152640882.ogg"
+  },
+  {
+   "id": "fx_light_b",
+   "type": "ranger",
+   "source": "upload",
+   "name": "icon_ab_light_eff2_b",
+   "body": "body",
+   "sets": {
+    "body": {
+     "sam": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.sam",
+     "plist": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.plist",
+     "png": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.png"
+    }
+   }
+  },
+  {
+   "id": "snd_bgm",
+   "type": "audio",
+   "name": "bgm_lobby2",
+   "url": "/api/res/_raw/sounds/bgm_lobby2_20151123104811121.ogg"
+  },
+  {
+   "id": "snd_equip",
+   "type": "audio",
+   "name": "gear_equip",
+   "url": "/api/res/_raw/sounds/gear_equip_20151123104728600.ogg"
+  },
+  {
+   "id": "snd_spin",
+   "type": "audio",
+   "name": "roulette_spin",
+   "url": "/api/res/_raw/sounds/roulette_spin_20230820235101402.ogg"
+  },
+  {
+   "id": "snd_win",
+   "type": "audio",
+   "name": "slot_result_success",
+   "url": "/api/res/_raw/sounds/labyrinth_revivalstage_slot_result_success_20240220133016681.ogg"
+  },
+  {
+   "id": "snd_lose",
+   "type": "audio",
+   "name": "slot_result_fail",
+   "url": "/api/res/_raw/sounds/labyrinth_revivalstage_slot_result_fail_20240220133014809.ogg"
+  }
+ ],
+ "actors": [
+  {
+   "id": "a_light_b",
+   "name": "fx_light_b",
+   "assetId": "fx_light_b",
+   "tag": "prop",
+   "x": 358,
+   "y": 714.6875,
+   "scale": 2.2,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "start",
+   "hiddenParts": [],
+   "loop": false,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "a9ijjdi134",
+   "name": "Brown อนูบิสเพชฌฆาต",
+   "assetId": "r_u1242e-brown_a9ijjdi134",
+   "tag": "enemy",
+   "x": 898,
+   "y": 560,
+   "scale": 1,
+   "flip": true,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "ak1zzx9ceu",
+   "name": "Brown ตำนานร็อค",
+   "assetId": "r_u1260e-brown_ak1zzx9ceu",
+   "tag": "ally",
+   "x": 358,
+   "y": 560,
+   "scale": 1,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  }
+ ],
+ "cues": [
+  {
+   "id": "roll_0",
+   "type": "skill",
+   "actorId": "ak1zzx9ceu",
+   "start": 19.506,
+   "label": "ตีปกติ #1",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "CURVE",
+     "start": {
+      "x": 95,
+      "y": 110
+     },
+     "angle": {
+      "start": 60,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "a9ijjdi134",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_hit",
+     "at": "impact",
+     "volume": 1,
+     "enabled": true
+    }
+   ]
+  },
+  {
+   "id": "roll_1",
+   "type": "skill",
+   "actorId": "ak1zzx9ceu",
+   "start": 23.906,
+   "label": "ตีปกติ #2",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "CURVE",
+     "start": {
+      "x": 95,
+      "y": 110
+     },
+     "angle": {
+      "start": 60,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "a9ijjdi134",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_hit",
+     "at": "impact",
+     "volume": 1,
+     "enabled": true
+    }
+   ]
+  },
+  {
+   "id": "roll_2",
+   "type": "skill",
+   "actorId": "ak1zzx9ceu",
+   "start": 31.506,
+   "label": "ตีปกติ + โดนซ้ำ #3",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "CURVE",
+     "start": {
+      "x": 95,
+      "y": 110
+     },
+     "angle": {
+      "start": 60,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "a9ijjdi134",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_hit",
+     "at": "impact",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "followUp": [
+    0.3
+   ]
+  },
+  {
+   "id": "roll_3",
+   "type": "skill",
+   "actorId": "ak1zzx9ceu",
+   "start": 35.906,
+   "label": "ตีปกติ #4",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "CURVE",
+     "start": {
+      "x": 95,
+      "y": 110
+     },
+     "angle": {
+      "start": 60,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "a9ijjdi134",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_hit",
+     "at": "impact",
+     "volume": 1,
+     "enabled": true
+    }
+   ]
+  },
+  {
+   "id": "cam_wide0",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 0,
+   "center": {
+    "x": 640,
+    "y": 360
+   },
+   "zoom": 1,
+   "duration": 0,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_ally",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 7.5,
+   "center": {
+    "x": 470,
+    "y": 470
+   },
+   "zoom": 1.65,
+   "duration": 0.9,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_wide1",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 12.2,
+   "center": {
+    "x": 640,
+    "y": 360
+   },
+   "zoom": 1,
+   "duration": 0.8,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_fight0",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 18,
+   "center": {
+    "x": 640,
+    "y": 398.5714285714286
+   },
+   "zoom": 1.12,
+   "duration": 0.7,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_equip",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 27.55,
+   "center": {
+    "x": 470,
+    "y": 470
+   },
+   "zoom": 1.65,
+   "duration": 0.7,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_fight1",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 29.900000000000002,
+   "center": {
+    "x": 640,
+    "y": 398.5714285714286
+   },
+   "zoom": 1.12,
+   "duration": 0.7,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_outro",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 40.2,
+   "center": {
+    "x": 640,
+    "y": 386.6666666666667
+   },
+   "zoom": 1.08,
+   "duration": 7.799999999999997,
+   "ease": "linear"
+  },
+  {
+   "id": "light_once",
+   "type": "anim",
+   "actorId": "a_light_b",
+   "start": 28.6,
+   "clip": "start",
+   "speed": 0.8,
+   "loop": false,
+   "hold": true,
+   "duration": 0.9583333333333334
+  },
+  {
+   "id": "show_light_b",
+   "type": "show",
+   "actorId": "a_light_b",
+   "start": 28.6,
+   "duration": 0.9583333333333334,
+   "fadeIn": 0.05,
+   "fadeOut": 0.2
+  },
+  {
+   "id": "bgm",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 0,
+   "assetId": "snd_bgm",
+   "volume": 1,
+   "offset": 0,
+   "duration": 48,
+   "fadeIn": 1,
+   "fadeOut": 2
+  },
+  {
+   "id": "sfx_equip",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 28.6,
+   "assetId": "snd_equip",
+   "volume": 1,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
+  },
+  {
+   "id": "sfx_spin2",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 30.900000000000002,
+   "assetId": "snd_spin",
+   "volume": 0.8,
+   "offset": 0,
+   "duration": 1.5999999999999999,
+   "fadeIn": 0,
+   "fadeOut": 0.15
+  },
+  {
+   "id": "sfx_result2",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 32.8,
+   "assetId": "snd_win",
+   "volume": 0.9,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
+  },
+  {
+   "id": "sfx_spin3",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 35.3,
+   "assetId": "snd_spin",
+   "volume": 0.8,
+   "offset": 0,
+   "duration": 1.5999999999999999,
+   "fadeIn": 0,
+   "fadeOut": 0.15
+  },
+  {
+   "id": "sfx_result3",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 36.9,
+   "assetId": "snd_lose",
+   "volume": 0.9,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
+  }
+ ],
+ "depthSort": false,
+ "smooth": true
+}

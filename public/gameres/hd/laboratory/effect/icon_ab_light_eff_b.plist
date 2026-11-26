@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>frames</key>
+        <dict>
+            <key>icon_ab_light_eff_b_152x134.png</key>
+            <dict>
+                <key>aliases</key>
+                <array/>
+                <key>spriteOffset</key>
+                <string>{0,0}</string>
+                <key>spriteSize</key>
+                <string>{152,134}</string>
+                <key>spriteSourceSize</key>
+                <string>{152,134}</string>
+                <key>textureRect</key>
+                <string>{{2,2},{152,134}}</string>
+                <key>textureRotated</key>
+                <false/>
+            </dict>
+        </dict>
+        <key>metadata</key>
+        <dict>
+            <key>format</key>
+            <integer>3</integer>
+            <key>pixelFormat</key>
+            <string>RGBA8888</string>
+            <key>premultiplyAlpha</key>
+            <false/>
+            <key>realTextureFileName</key>
+            <string>icon_ab_light_eff_b.png</string>
+            <key>size</key>
+            <string>{156,138}</string>
+            <key>smartupdate</key>
+            <string>$TexturePacker:SmartUpdate:b414feeec3596952256f94a5bee7bfd6:cf8186fd0bae8dd7088b6ecff0322bab:9bcc5f36fff0021aa74c3833777b6bb0$</string>
+            <key>textureFileName</key>
+            <string>icon_ab_light_eff_b.png</string>
+        </dict>
+    </dict>
+</plist>

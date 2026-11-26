@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>frames</key>
+        <dict>
+            <key>ml_specialstage_title_th.png</key>
+            <dict>
+                <key>aliases</key>
+                <array/>
+                <key>spriteOffset</key>
+                <string>{0,0}</string>
+                <key>spriteSize</key>
+                <string>{204,46}</string>
+                <key>spriteSourceSize</key>
+                <string>{204,46}</string>
+                <key>textureRect</key>
+                <string>{{5,5},{204,46}}</string>
+                <key>textureRotated</key>
+                <false/>
+            </dict>
+        </dict>
+        <key>metadata</key>
+        <dict>
+            <key>format</key>
+            <integer>3</integer>
+            <key>pixelFormat</key>
+            <string>RGBA4444</string>
+            <key>premultiplyAlpha</key>
+            <false/>
+            <key>realTextureFileName</key>
+            <string>ml_special_stage_entry_th.16.png</string>
+            <key>size</key>
+            <string>{214,56}</string>
+            <key>smartupdate</key>
+            <string>$TexturePacker:SmartUpdate:ddf5f85229deb924fd37033191425248:5bb94f5bcd3c9bbcfbf0ebae54c35d78:b35287d2a95170a3c7304f276451047a$</string>
+            <key>textureFileName</key>
+            <string>ml_special_stage_entry_th.16.png</string>
+        </dict>
+    </dict>
+</plist>

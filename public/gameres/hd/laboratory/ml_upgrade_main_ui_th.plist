@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>frames</key>
+        <dict>
+            <key>ml_upgrade_unit_maxlevel_th.png</key>
+            <dict>
+                <key>aliases</key>
+                <array/>
+                <key>spriteOffset</key>
+                <string>{0,0}</string>
+                <key>spriteSize</key>
+                <string>{302,142}</string>
+                <key>spriteSourceSize</key>
+                <string>{302,142}</string>
+                <key>textureRect</key>
+                <string>{{5,5},{302,142}}</string>
+                <key>textureRotated</key>
+                <false/>
+            </dict>
+        </dict>
+        <key>metadata</key>
+        <dict>
+            <key>format</key>
+            <integer>3</integer>
+            <key>pixelFormat</key>
+            <string>RGBA4444</string>
+            <key>premultiplyAlpha</key>
+            <false/>
+            <key>realTextureFileName</key>
+            <string>ml_upgrade_main_ui_th.png</string>
+            <key>size</key>
+            <string>{312,152}</string>
+            <key>smartupdate</key>
+            <string>$TexturePacker:SmartUpdate:a05c1cbab7b70f16ab76dc19d7fc29fc:1b21de523587b32c5c7451205f2e28ae:87eb32cbbaa94ceb5ed5e2a0fb19a64d$</string>
+            <key>textureFileName</key>
+            <string>ml_upgrade_main_ui_th.png</string>
+        </dict>
+    </dict>
+</plist>

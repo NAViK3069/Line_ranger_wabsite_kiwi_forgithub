@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>frames</key>
+        <dict>
+            <key>ml_battle_popup_pause_ja.png</key>
+            <dict>
+                <key>aliases</key>
+                <array/>
+                <key>spriteOffset</key>
+                <string>{0,0}</string>
+                <key>spriteSize</key>
+                <string>{178,44}</string>
+                <key>spriteSourceSize</key>
+                <string>{178,44}</string>
+                <key>textureRect</key>
+                <string>{{5,5},{178,44}}</string>
+                <key>textureRotated</key>
+                <false/>
+            </dict>
+        </dict>
+        <key>metadata</key>
+        <dict>
+            <key>format</key>
+            <integer>3</integer>
+            <key>pixelFormat</key>
+            <string>RGBA4444</string>
+            <key>premultiplyAlpha</key>
+            <false/>
+            <key>realTextureFileName</key>
+            <string>ml_battle_pause_ja.16.png</string>
+            <key>size</key>
+            <string>{188,54}</string>
+            <key>smartupdate</key>
+            <string>$TexturePacker:SmartUpdate:9c5eab98797d01769226620f789e9c4f:c70d97d2b59e1897702366e294cd4c4c:64898aafc125b1eede1c26e3abd0956f$</string>
+            <key>textureFileName</key>
+            <string>ml_battle_pause_ja.16.png</string>
+        </dict>
+    </dict>
+</plist>

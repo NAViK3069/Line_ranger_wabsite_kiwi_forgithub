@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>frames</key>
+        <dict>
+            <key>ml_invite_btn_done_tw.png</key>
+            <dict>
+                <key>aliases</key>
+                <array/>
+                <key>spriteOffset</key>
+                <string>{0,0}</string>
+                <key>spriteSize</key>
+                <string>{94,28}</string>
+                <key>spriteSourceSize</key>
+                <string>{94,28}</string>
+                <key>textureRect</key>
+                <string>{{5,5},{94,28}}</string>
+                <key>textureRotated</key>
+                <false/>
+            </dict>
+        </dict>
+        <key>metadata</key>
+        <dict>
+            <key>format</key>
+            <integer>3</integer>
+            <key>pixelFormat</key>
+            <string>RGBA4444</string>
+            <key>premultiplyAlpha</key>
+            <false/>
+            <key>realTextureFileName</key>
+            <string>ml_friend_locale_tw.png</string>
+            <key>size</key>
+            <string>{104,38}</string>
+            <key>smartupdate</key>
+            <string>$TexturePacker:SmartUpdate:37fd511d802af3691c928448b200bddb:7b3ec1c5a55f99d85d922b883c998cd6:f1867b3300b8891f995d89a4e4b017b1$</string>
+            <key>textureFileName</key>
+            <string>ml_friend_locale_tw.png</string>
+        </dict>
+    </dict>
+</plist>

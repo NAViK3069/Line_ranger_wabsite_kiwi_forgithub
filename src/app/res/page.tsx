@@ -19,6 +19,7 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import { usePro } from '@/contexts/ProContext'
 import RangerAnimationPopup from '@/components/RangerAnimationPopup'
 import PlistPieces, { downloadUrl } from './PlistPieces'
+import { isLocalRes, localResUrl } from '@/lib/gameRes'
 
 interface DirEntry {
   name: string
@@ -28,8 +29,9 @@ interface DirEntry {
 }
 
 const ORIGIN = 'https://rangers.lerico.net/res/'
+/** hd/... = ไฟล์ของเราเอง (public/gameres) · อื่นๆ = lerico ผ่าน Worker */
 const fileUrl = (path: string) =>
-  proxyFile(ORIGIN + path)
+  isLocalRes(path) ? localResUrl(path) : proxyFile(ORIGIN + path)
 
 // รายการของแต่ละโฟลเดอร์ — เก็บไว้ทั้ง session เดินกลับไปกลับมาไม่ต้องโหลดซ้ำ
 const dirCache = new Map<string, DirEntry[]>()
@@ -294,7 +296,7 @@ function ResBrowser() {
         const base = e.name.slice(0, -4)
         return names.has(`${base}.plist`) && names.has(`${base}.png`)
       })
-      .map(e => ORIGIN + (path ? `${path}/${e.name}` : e.name))
+      .map(e => { const p = path ? `${path}/${e.name}` : e.name; return isLocalRes(p) ? localResUrl(p) : ORIGIN + p })
   }, [entries, path])
 
   // ปิดตัวเล่นเองเมื่อเปลี่ยนโฟลเดอร์ ไม่งั้นจะค้างเล่นไฟล์ของโฟลเดอร์เดิม

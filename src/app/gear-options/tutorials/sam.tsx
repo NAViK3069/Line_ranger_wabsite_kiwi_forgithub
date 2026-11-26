@@ -11,8 +11,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { SAMParser } from '@/lib/animation/samParser'
 import { animBBox, loadSprites, renderSAMFrame, type SpriteMap } from '@/lib/animation/samRenderer'
 import { LERICO_ORIGIN, lericoProxy } from '@/lib/staticApi'
+import { isLocalRes, localResUrl } from '@/lib/gameRes'
 
-const resUrl = (path: string) => lericoProxy(`${LERICO_ORIGIN}/res/${path}`)
+/** hd/... = ไฟล์ APK ล่าสุดที่เว็บเก็บเอง (public/gameres) · อื่นๆ = lerico ผ่าน Worker */
+const resUrl = (path: string) => (isLocalRes(path) ? localResUrl(path) : lericoProxy(`${LERICO_ORIGIN}/res/${path}`))
 
 const atlasCache = new Map<string, Promise<SpriteMap>>()
 /** atlas = พาธใต้ res/ ไม่มีนามสกุล เช่น 'gear_main/gear_common' */

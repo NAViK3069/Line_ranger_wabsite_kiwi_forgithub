@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>frames</key>
+        <dict>
+            <key>fx01-backlight.png</key>
+            <dict>
+                <key>aliases</key>
+                <array/>
+                <key>spriteOffset</key>
+                <string>{0,0}</string>
+                <key>spriteSize</key>
+                <string>{344,344}</string>
+                <key>spriteSourceSize</key>
+                <string>{344,344}</string>
+                <key>textureRect</key>
+                <string>{{0,0},{344,344}}</string>
+                <key>textureRotated</key>
+                <false/>
+            </dict>
+        </dict>
+        <key>metadata</key>
+        <dict>
+            <key>format</key>
+            <integer>3</integer>
+            <key>pixelFormat</key>
+            <string>RGBA8888</string>
+            <key>premultiplyAlpha</key>
+            <false/>
+            <key>realTextureFileName</key>
+            <string>backlight_effect.png</string>
+            <key>size</key>
+            <string>{344,344}</string>
+            <key>smartupdate</key>
+            <string>$TexturePacker:SmartUpdate:0496c3eaf45ade64d38203a5bc295752:3caa80d0736846bfd3ba6dea807934e8:094aa52a34d86634dc8389f93806d3df$</string>
+            <key>textureFileName</key>
+            <string>backlight_effect.png</string>
+        </dict>
+    </dict>
+</plist>

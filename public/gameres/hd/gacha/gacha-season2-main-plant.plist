@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>frames</key>
+        <dict>
+            <key>gacha-season2-main-plant_214x260.png</key>
+            <dict>
+                <key>aliases</key>
+                <array/>
+                <key>spriteOffset</key>
+                <string>{0,0}</string>
+                <key>spriteSize</key>
+                <string>{214,260}</string>
+                <key>spriteSourceSize</key>
+                <string>{214,260}</string>
+                <key>textureRect</key>
+                <string>{{2,2},{214,260}}</string>
+                <key>textureRotated</key>
+                <false/>
+            </dict>
+        </dict>
+        <key>metadata</key>
+        <dict>
+            <key>format</key>
+            <integer>3</integer>
+            <key>pixelFormat</key>
+            <string>RGBA8888</string>
+            <key>premultiplyAlpha</key>
+            <false/>
+            <key>realTextureFileName</key>
+            <string>gacha-season2-main-plant.png</string>
+            <key>size</key>
+            <string>{218,264}</string>
+            <key>smartupdate</key>
+            <string>$TexturePacker:SmartUpdate:27b97ee0d81e080d4183d535b7cc0c6a:e7137d1312f61eb61f7debf829e2b4e9:67251e3c31eec63d12d09dc59151ada2$</string>
+            <key>textureFileName</key>
+            <string>gacha-season2-main-plant.png</string>
+        </dict>
+    </dict>
+</plist>

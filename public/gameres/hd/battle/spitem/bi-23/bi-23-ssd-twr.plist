@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>frames</key>
+	<dict>
+		
+		<key>bi-23-ssd-twr_124x123.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{1, 1}, {122, 121}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{124, 123}</string>
+			<key>spriteSourceSize</key>
+			<string>{124, 123}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{164, 820}, {124, 123}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>bi-23-ssd-twr_162x173.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{1, 1}, {160, 171}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{162, 173}</string>
+			<key>spriteSourceSize</key>
+			<string>{162, 173}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{0, 820}, {162, 173}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>bi-23-ssd-twr_162x173_2.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{1, 1}, {160, 171}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{162, 173}</string>
+			<key>spriteSourceSize</key>
+			<string>{162, 173}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{395, 364}, {162, 173}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>bi-23-ssd-twr_162x173_3.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{1, 1}, {160, 171}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{162, 173}</string>
+			<key>spriteSourceSize</key>
+			<string>{162, 173}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{559, 364}, {162, 173}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>bi-23-ssd-twr_180x178.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{1, 1}, {178, 176}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{180, 178}</string>
+			<key>spriteSourceSize</key>
+			<string>{180, 178}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{0, 640}, {180, 178}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>bi-23-ssd-twr_285x257.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{1, 1}, {283, 255}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{285, 257}</string>
+			<key>spriteSourceSize</key>
+			<string>{285, 257}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{724, 0}, {285, 257}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>bi-23-ssd-twr_305x274.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{1, 1}, {303, 272}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{305, 274}</string>
+			<key>spriteSourceSize</key>
+			<string>{305, 274}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{0, 364}, {305, 274}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>bi-23-ssd-twr_325x292.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{1, 1}, {323, 290}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{325, 292}</string>
+			<key>spriteSourceSize</key>
+			<string>{325, 292}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{397, 0}, {325, 292}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>bi-23-ssd-twr_35x35.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{1, 1}, {33, 33}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{35, 35}</string>
+			<key>spriteSourceSize</key>
+			<string>{35, 35}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{397, 294}, {35, 35}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>bi-23-ssd-twr_395x362.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{1, 1}, {393, 360}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{395, 362}</string>
+			<key>spriteSourceSize</key>
+			<string>{395, 362}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{0, 0}, {395, 362}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>bi-23-ssd-twr_85x173.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{1, 1}, {83, 171}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{85, 173}</string>
+			<key>spriteSourceSize</key>
+			<string>{85, 173}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{307, 714}, {85, 173}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>bi-23-ssd-twr_85x173_2.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{1, 1}, {83, 171}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{85, 173}</string>
+			<key>spriteSourceSize</key>
+			<string>{85, 173}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{307, 539}, {85, 173}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>bi-23-ssd-twr_86x173.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{1, 1}, {84, 171}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{86, 173}</string>
+			<key>spriteSourceSize</key>
+			<string>{86, 173}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{182, 640}, {86, 173}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>bi-23-ssd-twr_86x173_2.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{1, 1}, {84, 171}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{86, 173}</string>
+			<key>spriteSourceSize</key>
+			<string>{86, 173}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{307, 364}, {86, 173}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>bi-23-ssd-twr_90x131.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{1, 1}, {88, 129}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{90, 131}</string>
+			<key>spriteSourceSize</key>
+			<string>{90, 131}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{723, 364}, {90, 131}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>bi-23-ssd-twr_97x105.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{1, 1}, {95, 103}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{97, 105}</string>
+			<key>spriteSourceSize</key>
+			<string>{97, 105}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{815, 364}, {97, 105}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+	</dict>
+	<key>metadata</key>
+	<dict>
+		<key>version</key>
+		<string>1.6.0</string>
+		<key>format</key>
+		<integer>3</integer>
+		<key>size</key>
+		<string>{1024, 1024}</string>
+		<key>name</key>
+		<string>sp_planet_1.zwd</string>
+		<key>textureFileName</key>
+		<string>bi-23-ssd-twr.png</string>
+		<key>premultipliedAlpha</key>
+		<false/>
+	</dict>
+</dict>
+</plist>

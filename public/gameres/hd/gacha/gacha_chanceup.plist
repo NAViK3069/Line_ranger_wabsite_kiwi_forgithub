@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>frames</key>
+        <dict>
+            <key>gacha_chanceup_61x56.png</key>
+            <dict>
+                <key>aliases</key>
+                <array/>
+                <key>spriteOffset</key>
+                <string>{0,0}</string>
+                <key>spriteSize</key>
+                <string>{61,56}</string>
+                <key>spriteSourceSize</key>
+                <string>{61,56}</string>
+                <key>textureRect</key>
+                <string>{{2,2},{61,56}}</string>
+                <key>textureRotated</key>
+                <false/>
+            </dict>
+        </dict>
+        <key>metadata</key>
+        <dict>
+            <key>format</key>
+            <integer>3</integer>
+            <key>pixelFormat</key>
+            <string>RGBA8888</string>
+            <key>premultiplyAlpha</key>
+            <false/>
+            <key>realTextureFileName</key>
+            <string>gacha_chanceup.png</string>
+            <key>size</key>
+            <string>{65,60}</string>
+            <key>smartupdate</key>
+            <string>$TexturePacker:SmartUpdate:3d702bc4a3bcc1b1080e1a61a1da4a77:28f8cbbc663c79dcd96137936a0f6c1a:4348c0a437cf15131df3bb93d442230a$</string>
+            <key>textureFileName</key>
+            <string>gacha_chanceup.png</string>
+        </dict>
+    </dict>
+</plist>

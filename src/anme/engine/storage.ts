@@ -23,6 +23,7 @@ export const api = (path: string) => path
 
 /** แปลง path ภายในแอพเป็น URL จริง: /api/res/… → Worker · /maps/… → /anme/maps/… */
 export function appUrl(url: string): string {
+  if (url.startsWith('/api/res/hd/')) return `/gameres/${url.slice('/api/res/'.length)}`   // ไฟล์ APK ล่าสุดที่เว็บเก็บเอง
   if (url.startsWith('/api/res/')) return `${WORKER_URL}/lerico/res/${url.slice('/api/res/'.length)}`
   if (url.startsWith('/maps/')) return '/anme' + url
   return url

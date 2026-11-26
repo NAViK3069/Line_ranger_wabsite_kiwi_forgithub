@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>frames</key>
+	<dict>
+		
+		<key>fx33-gacha-fire_220x220.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{15, 16}, {194, 188}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{220, 220}</string>
+			<key>spriteSourceSize</key>
+			<string>{220, 220}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{222, 0}, {220, 220}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>fx33-gacha-fire_220x220_2.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{15, 21}, {196, 182}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{220, 220}</string>
+			<key>spriteSourceSize</key>
+			<string>{220, 220}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{444, 0}, {220, 220}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>fx33-gacha-fire_220x220_3.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{17, 16}, {192, 188}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{220, 220}</string>
+			<key>spriteSourceSize</key>
+			<string>{220, 220}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{0, 0}, {220, 220}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>fx33-gacha-fire_220x220_4.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{18, 21}, {190, 182}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{220, 220}</string>
+			<key>spriteSourceSize</key>
+			<string>{220, 220}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{0, 222}, {220, 220}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+		<key>fx33-gacha-fire_220x220_5.png</key>
+		<dict>
+			<key>aliases</key>
+			<array>
+			
+			</array>
+			<key>spriteColorRect</key>
+			<string>{{12, 16}, {202, 188}}</string>
+			<key>spriteOffset</key>
+			<string>{0, 0}</string>
+			<key>spriteSize</key>
+			<string>{220, 220}</string>
+			<key>spriteSourceSize</key>
+			<string>{220, 220}</string>
+			<key>spriteTrimmed</key>
+			<false/>
+			<key>textureRect</key>
+			<string>{{222, 222}, {220, 220}}</string>
+			<key>textureRotated</key>
+			<false/>
+		</dict>
+		
+	</dict>
+	<key>metadata</key>
+	<dict>
+		<key>version</key>
+		<string>1.6.0</string>
+		<key>format</key>
+		<integer>3</integer>
+		<key>size</key>
+		<string>{1024, 512}</string>
+		<key>name</key>
+		<string>hd-fx-gacha-fire</string>
+		<key>textureFileName</key>
+		<string>fx33-gacha-fire.png</string>
+		<key>premultipliedAlpha</key>
+		<false/>
+	</dict>
+</dict>
+</plist>

@@ -221,6 +221,9 @@ export async function loadResDir(rawPath: string, advanced = false): Promise<imp
   type Entry = import('./resIndex').DirEntry
   const path = safeResPath(rawPath)
   if (path === null) throw new Error('Invalid path')
+  // hd/... = ไฟล์ APK เวอร์ชันล่าสุดที่เว็บเก็บไว้เอง (public/gameres/hd) — ไม่อ่านจาก lerico
+  const { isLocalRes, loadLocalResDir } = await import('./gameRes')
+  if (isLocalRes(path)) return loadLocalResDir(path)
   const list = async (p: string) => {
     const res = await fetch(lericoProxy(`${LERICO_ORIGIN}/res/${p ? `${p}/` : ''}`))
     if (!res.ok) throw new Error(`Origin ${res.status}`)

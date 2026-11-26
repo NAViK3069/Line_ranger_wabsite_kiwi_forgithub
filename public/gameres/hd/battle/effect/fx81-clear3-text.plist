@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>frames</key>
+        <dict>
+            <key>fx81-clear3-text_125x126.png</key>
+            <dict>
+                <key>aliases</key>
+                <array/>
+                <key>spriteOffset</key>
+                <string>{0,0}</string>
+                <key>spriteSize</key>
+                <string>{125,126}</string>
+                <key>spriteSourceSize</key>
+                <string>{125,126}</string>
+                <key>textureRect</key>
+                <string>{{4,4},{125,126}}</string>
+                <key>textureRotated</key>
+                <false/>
+            </dict>
+        </dict>
+        <key>metadata</key>
+        <dict>
+            <key>format</key>
+            <integer>3</integer>
+            <key>pixelFormat</key>
+            <string>RGBA8888</string>
+            <key>premultiplyAlpha</key>
+            <false/>
+            <key>realTextureFileName</key>
+            <string>fx81-clear3-text.png</string>
+            <key>size</key>
+            <string>{133,134}</string>
+            <key>smartupdate</key>
+            <string>$TexturePacker:SmartUpdate:5a1579e38b283e5ea70bb9f6df5bd29f:f235765ac91d6be22ff0ea6aecdcb3d9:83e104abd6f60f401dbf7325d822e1fc$</string>
+            <key>textureFileName</key>
+            <string>fx81-clear3-text.png</string>
+        </dict>
+    </dict>
+</plist>

@@ -189,6 +189,7 @@ export default function MoveSpeedTutorial({ autoPlay }: { autoPlay: boolean }) {
             ))}
             {fast && (
               <div className="flex items-center justify-end gap-2 pt-1">
+                <span className="text-[18px] font-bold text-gray-300">{T('เร่งความเร็ว', 'Speed up')}</span>
                 <span className="px-2.5 py-0.5 rounded-lg bg-amber-400 text-[20px] font-black text-[#1a1200]">▶▶ ×{FAST_RATE}</span>
               </div>
             )}

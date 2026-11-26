@@ -45,11 +45,15 @@ function loadSam(base: string): Promise<SamData> {
   return p
 }
 
+/** ค่าที่โหลดเสร็จแล้ว → ชิ้นที่เพิ่งโผล่ใช้ได้ทันทีในเฟรมแรก (ไม่ต้องรอ promise — สำคัญตอนส่งออกวิดีโอทีละเฟรม) */
+const resolved = new Map<string, unknown>()
 function useLoaded<T>(load: () => Promise<T>, key: string): T | null {
-  const [v, setV] = useState<T | null>(null)
+  const [v, setV] = useState<T | null>(() => (resolved.get(key) as T | undefined) ?? null)
   useEffect(() => {
     let alive = true
-    load().then(x => { if (alive) setV(x) }).catch(() => {})
+    const hit = resolved.get(key) as T | undefined
+    if (hit !== undefined) { setV(hit); return }
+    load().then(x => { resolved.set(key, x); if (alive) setV(x) }).catch(() => {})
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
@@ -72,16 +76,20 @@ const RES = 2   // ความละเอียด canvas (ชั้นซ้�
  *            anchorFrame = ใช้กรอบของเฟรมนั้นเฟรมเดียว (ภาพที่ส่ายไปมาในท่า เช่น วิญญาณ — เฟรมแรกตรงจุดที่ต้องการ)
  *   ขนาด: size = ความกว้างที่ต้องการของ anchorClip (พิกเซลชั้นซ้อน) · ไม่ใส่ = ใช้ scale ตรงๆ
  */
-export function SamSprite({ base, clip, frame, loop = false, x, y, scale: scaleIn = 1, size, alpha = 1, fitClip = '_all', anchorClip, anchorFrame }: {
+export function SamSprite({ base, clip, frame, loop = false, x, y, scale: scaleIn = 1, size, alpha = 1, fitClip = '_all', anchorClip, anchorFrame, anchorStage = false }: {
   base: string; clip: string; frame: number; loop?: boolean; x: number; y: number; scale?: number; size?: number; alpha?: number
   fitClip?: string; anchorClip?: string; anchorFrame?: number
+  /** true = ให้กลางกรอบเวทีของไฟล์ .sam ตกที่ x, y (แบบ SuperAnimNode anchor 0.5, 0.5 ในเกม) */
+  anchorStage?: boolean
 }) {
-  const data = useLoaded(() => loadSam(base), base)
+  const data = useLoaded(() => loadSam(base), `sam:${base}`)
   const ref = useRef<HTMLCanvasElement>(null)
   const pick = (name: string) => (data && data.sam.animations[name] ? name : clip)
   const box = data ? animBBox(data.sam, data.sprites, pick(fitClip)) : null
+  const cv0 = data?.sam.canvas
   const anchor = data
-    ? anchorFrame != null ? frameBBox(data.sam, data.sprites, pick(anchorClip ?? clip), anchorFrame) : animBBox(data.sam, data.sprites, pick(anchorClip ?? clip))
+    ? anchorStage && cv0?.w ? { x0: cv0.x, x1: cv0.x + cv0.w, y0: cv0.y, y1: cv0.y + cv0.h }
+    : anchorFrame != null ? frameBBox(data.sam, data.sprites, pick(anchorClip ?? clip), anchorFrame) : animBBox(data.sam, data.sprites, pick(anchorClip ?? clip))
     : null
   const scale = size && anchor ? size / Math.max(1, anchor.x1 - anchor.x0) : scaleIn
   const w = box ? Math.ceil((box.x1 - box.x0) * scale) : 0
@@ -114,7 +122,7 @@ export function SamSprite({ base, clip, frame, loop = false, x, y, scale: scaleI
 export function AtlasSprite({ atlas, name, x, y, scale = 1, alpha = 1, style }: {
   atlas: string; name: string; x: number; y: number; scale?: number; alpha?: number; style?: React.CSSProperties
 }) {
-  const sprites = useLoaded(() => loadAtlas(atlas), atlas)
+  const sprites = useLoaded(() => loadAtlas(atlas), `atlas:${atlas}`)
   const ref = useRef<HTMLCanvasElement>(null)
   const spr = sprites?.[name]
   useLayoutEffect(() => {

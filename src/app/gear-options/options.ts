@@ -28,12 +28,18 @@ export const GEAR_OPTIONS: GearOption[] = [
   { id: 'def',             th: 'พลังป้องกัน',                    en: 'DEF', scene: 'def' },   // tutorials/def.tsx
   { id: 'atk-speed',       th: 'ความเร็วในการโจมตี',             en: 'Attack Speed', scene: 'atk-speed' },   // tutorials/atk-speed.tsx
   { id: 'move-speed',      th: 'ความเร็วการเคลื่อนที่',          en: 'Move Speed', scene: 'move-speed' },   // tutorials/move-speed.tsx
+  { id: 'crit-rate',  th: 'อัตราติดคริทิคอล',                en: 'Critical Rate', scene: 'crit-rate' },   // tutorials/crit.tsx
+  { id: 'crit-damage', th: 'แรงโจมตีคริทิคอล',                en: 'Critical Damage', scene: 'crit-damage' },   // tutorials/crit.tsx
+  { id: 'crit-resist', th: 'ลดความเสียหายคริติคอล',           en: 'Critical Resistance' },
+  { id: 'evade',      th: 'อัตราการหลบหลีก',                 en: 'Evade Rate' },
+  { id: 'hit-rate',   th: 'อัตราความแม่นยำ',                 en: 'Hit Rate' },
   { id: 'skill-use',       th: 'อัตราการใช้ทักษะ',               en: 'Skill Use Rate', scene: 'skill-use' },   // tutorials/skill-rates.tsx
   { id: 'skill-evade',     th: 'อัตราการหลบทักษะ',               en: 'Skill Evade Rate', scene: 'skill-evade' },   // tutorials/skill-rates.tsx
   { id: 'skill-hit',       th: 'อัตราความแม่นยำของทักษะ',        en: 'Skill Hit Rate', scene: 'skill-hit' },   // tutorials/skill-rates.tsx
   { id: 'skill-resist',    th: 'การต้านทักษะ',                   en: 'Skill Resistance', scene: 'skill-resist' },   // tutorials/skill-resist.tsx
   { id: 'dmg-reduction',   th: 'ลดความเสียหาย',                  en: 'Damage Reduction', scene: 'dmg-reduction' },   // tutorials/dmg-reduction.tsx
   { id: 'element',         th: 'อัพเกรดธาตุ',                    en: 'Elemental Prowess', scene: 'element' },   // tutorials/element.tsx
+  { id: 'elemental-hit', th: 'ความแม่นยำธาตุ',                  en: 'Elemental Hit' },
   { id: 'blitz-rush',      th: 'โอกาสโจมตีต่อเนื่อง',            en: 'Blitz Rush Odds', scene: 'blitz-rush' },   // tutorials/blitz-rush.tsx
   { id: 'skill-reactivate',th: 'อัตราการใช้ทักษะอีกครั้ง',       en: 'Skill Reactivation Rate', scene: 'skill-reactivate' },   // tutorials/skill-reactivate.tsx
   { id: 'surehit',         th: 'อัตราโจมตีโดนแน่นอน',            en: 'Surehit Rate', scene: 'surehit' },   // tutorials/surehit.tsx
@@ -43,4 +49,12 @@ export const GEAR_OPTIONS: GearOption[] = [
   { id: 'blood-veil',      th: 'ม่านโลหิต',                      en: 'Blood Veil' },
   { id: 'atk-cancel',      th: 'อัตราต้านการโจมตีปกติ',          en: 'Normal Attack Cancel Rate' },
   { id: 'skill-cancel',    th: 'อัตราต้านการโจมตีด้วยทักษะ',     en: 'Skill Attack Cancel Rate', scene: 'skill-cancel' },   // tutorials/skill-cancel.tsx
+  { id: 'phys-reflect', th: 'อัตราสะท้อนการโจมตีกายภาพ',       en: 'Physical ATK Reflect' },
+  { id: 'mag-reflect', th: 'อัตราสะท้อนการโจมตีเวทมนตร์',     en: 'Magical ATK Reflect' },
+  { id: 'atk-range',  th: 'ระยะโจมตี',                       en: 'Attack Range' },
+  { id: 'stun-resist', th: 'การต้านความมึนงง',                en: 'Stun Resistance' },
+  { id: 'knockback-resist', th: 'การต้านการถอยกลับ',               en: 'Knockback Resistance' },
+  { id: 'silence-resist', th: 'การต้านการปิดกั้นเสียง',          en: 'Silence Resistance' },
+  { id: 'regen-time', th: 'ระยะเวลาที่สร้างเรนเจอร์ใหม่',    en: 'Ranger Regeneration Time' },
+  { id: 'mineral-cost', th: 'ค่าใช้จ่ายการผลิตแร่',            en: 'Mineral Production cost' },
 ]

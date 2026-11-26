@@ -347,8 +347,13 @@ const GLOW_FPS = 16
  *   เกียร์ในช่อง = ป้ายเลเวลมุมบนขวา (เลเวลที่ใช้คิดค่าในวิดีโอ = GEAR_LEVEL) + ดาวใต้ไอคอน — แบบช่องเกียร์บนเว็บ
  */
 export interface SlotGear { icon: string; grade: number; /** เลเวลของเกียร์ (ไม่ใส่ = GEAR_LEVEL) */ level?: number }
+export type EquipSlot = SlotGear & { at: number; kind?: GearKind }
+/** ชุดเกียร์ → ใส่ทีละช่องพร้อมอนิเมชัน (ห่างกัน stagger วินาที เรียง อาวุธ → เกราะ → เครื่องประดับ) */
+export function equipSlots(slots: Partial<Record<GearKind, SlotGear>>, at: number, stagger = 0.15): EquipSlot[] {
+  return (['weapon', 'armor', 'acc'] as GearKind[]).filter(k => slots[k]).map((k, i) => ({ ...slots[k]!, kind: k, at: at + i * stagger }))
+}
 export function GearSlots({ t, equip, filled }: {
-  t: number; equip?: SlotGear & { at: number; kind?: GearKind }
+  t: number; equip?: EquipSlot | EquipSlot[]
   /** ช่องที่ใส่ของอยู่แล้วตั้งแต่ต้น (ไม่มีแสงวาบ) เช่น เกียร์ของศัตรู */
   filled?: Partial<Record<GearKind, SlotGear>>
 }) {
@@ -356,7 +361,7 @@ export function GearSlots({ t, equip, filled }: {
     <div className="relative mx-auto" style={{ width: SLOT_W * 3, height: 140 }}>
       {SLOT_KINDS.map((key, i) => {
         const cx = SLOT_W * i + SLOT_W / 2
-        const eq = equip && i === GEAR_KIND[equip.kind ?? 'weapon'].slot && t >= equip.at ? equip : null
+        const eq = (Array.isArray(equip) ? equip : equip ? [equip] : []).find(e => i === GEAR_KIND[e.kind ?? 'weapon'].slot && t >= e.at) ?? null
         const pre = filled?.[(Object.keys(GEAR_KIND) as GearKind[]).find(k => GEAR_KIND[k].slot === i)!]
         // แสงช่องเล่นครั้งเดียว (ไม่วน) แล้วจางลงเหลือกรอบช่องปกติ
         const gi = eq ? Math.floor((t - eq.at) * GLOW_FPS) : -1
@@ -495,8 +500,9 @@ export function Opening({ t, lang, T, title }: { t: number; lang: string; T: (th
  * การ์ดเกียร์ (หน้าตาเดียวกับหน้าต่างเกียร์บนเว็บ) — ไฮไลท์ Basic ช่องแรก (ค่าที่ทดสอบ) ตอน 3.8 วิ
  *   แถวอื่นค่อยๆ มืด · แถวที่ทดสอบค่อยๆ ขยาย + เปลี่ยนสี (ไม่เด้งทีเดียว) · ลูกศร "ทดสอบค่านี้" ผูกกับแถวนั้น
  */
-export function GearCard({ t, T, gear, icon, name, effName, switchable, kind = 'weapon', grade = 7, tested = [0], testSwitchable = false, level = GEAR_LEVEL }: {
+export function GearCard({ t, T, gear, icon, name, effName, switchable: switchableIn, kind = 'weapon', grade = 7, tested = [0], testSwitchable = false, level = GEAR_LEVEL }: {
   t: number; T: (th: string, en: string) => string; gear: GearEffects; icon: string; name: string
+  /** ค่า Switchable ที่แสดง · null กับเกียร์ 7★+ = ใช้ค่าหลักของเกียร์ (แสดงจางๆ — วิดีโอทดสอบที่เลเวล 5 ไม่ได้ใช้ค่านี้) */
   effName: (e: GearEffect) => string; switchable: GearEffect | null
   kind?: GearKind; grade?: number
   /** ลำดับค่า Basic ที่วิดีโอนี้ทดสอบ (ไฮไลท์ทุกตัว · ลูกศรชี้กึ่งกลางกลุ่ม) */
@@ -508,6 +514,7 @@ export function GearCard({ t, T, gear, icon, name, effName, switchable, kind = '
 }) {
   const s = span(t, 2.1, 7.4, 0.55, 0.4)
   if (!s.on) return null
+  const switchable = switchableIn ?? (grade >= 7 ? gear.switchable?.effect ?? null : null)
   const hl = t >= 3.8
   const hlK = easeInOut(prog(t, 3.8, 4.4))
   return (

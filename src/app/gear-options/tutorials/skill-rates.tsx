@@ -26,7 +26,7 @@ import { MissPop } from './battleui'
 import {
   Fit1, FitCard, GEAR_LEVEL, GearCard, GearSlots, LoadBox, Opening, RangerCard, StatRow, SummaryShell,
   gearIconUrl, loadGear, loadStats, step, switchableFor, useTutorialData,
-  type GearKind, type RangerStats, type SlotGear,
+  type GearKind, type RangerStats, type SlotGear, equipSlots,
 } from './kit'
 
 export type RateMode = 'skill-use' | 'skill-evade' | 'skill-hit'
@@ -322,7 +322,7 @@ function EquipSetCard({ t, T, m, names, per, totalTxt, slots, optName, before, a
         {goodLabel} {before}% → <span className="text-amber-300 font-black">{after}%</span>
       </div>
       <div className="mt-3 pt-3 border-t-2 border-white/10" style={{ opacity: t >= at ? easeOutBack(prog(t, at, at + 0.4)) : 0.35 }}>
-        <GearSlots t={t} filled={t >= at ? slots : undefined} />
+        <GearSlots t={t} equip={equipSlots(slots, at)} />
       </div>
     </FitCard>
   )
@@ -445,7 +445,7 @@ function RollUi({ c, T, mode, r, chance, labels, lang }: { c: OverlayCtx; T: Tr;
           )}
         </div>
       )}
-      {mode !== 'skill-use' && !r.ok && tpos && <MissPop t={t} at={r.hitAt} x={tpos.x + (mode === 'skill-evade' ? 30 : -30)} y={tpos.y - 210} lang={lang} />}
+      {mode !== 'skill-use' && !r.ok && <MissPop c={c} actorId={targetId} at={r.hitAt} lang={lang} />}
     </>
   )
 }

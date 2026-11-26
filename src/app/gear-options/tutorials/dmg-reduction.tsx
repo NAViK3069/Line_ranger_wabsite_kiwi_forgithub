@@ -19,7 +19,7 @@ import { clamp01, easeOut, easeOutBack, fmtInt, popStyle, prog, span } from './a
 import {
   BANNER_COLOR, Banner, Fit1, FitCard, GEAR_LEVEL, GearCard, healRingLayers, GearSlots, HpBar, Heals, ICON, LoadBox, NormalFormulaCard, Opening,
   RangerCard, SkillFormulaCard, Souls, StatRow, SummaryShell, TL, firstSkill, gearIconUrl, loadGear, loadStats, step,
-  defParts, makeRounds, normalHit, pct, pctAuto, skillMultiplier, totalAtk, useTutorialData, type GearKind, type SlotGear,
+  defParts, makeRounds, normalHit, pct, pctAuto, skillMultiplier, totalAtk, useTutorialData, type GearKind, type SlotGear, equipSlots,
 } from './kit'
 
 const SCENE = '/gear-options/scenes/dmg-reduction.anme.json'
@@ -154,7 +154,7 @@ export default function DmgReductionTutorial({ autoPlay }: { autoPlay: boolean }
               <div className="mt-1 text-right text-[19px] font-bold text-rose-200">{T(`ไม่ใช่ −${pctAuto(naive)} (คูณกัน ไม่ใช่บวกกัน)`, `Not −${pctAuto(naive)} (they multiply, not add)`)}</div>
             </div>
             <div className="mt-3 pt-3 border-t-2 border-white/10" style={{ opacity: t >= at ? easeOutBack(prog(t, at, at + 0.4)) : 0.35 }}>
-              <GearSlots t={t} filled={t >= at ? slots : undefined} />
+              <GearSlots t={t} equip={equipSlots(slots, at)} />
             </div>
           </FitCard>
         )}

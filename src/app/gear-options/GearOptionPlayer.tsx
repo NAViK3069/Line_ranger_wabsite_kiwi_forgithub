@@ -23,6 +23,7 @@ import { BlitzRushTutorial } from './tutorials/blitz-rush'
 import { SkillReactivateTutorial } from './tutorials/skill-reactivate'
 import { SurehitRateTutorial, SkillSurehitTutorial } from './tutorials/surehit'
 import { SkillCancelTutorial } from './tutorials/skill-cancel'
+import { CritRateTutorial, CritDamageTutorial } from './tutorials/crit'
 
 /** id ของออพชั่น (options.ts) → วิดีโอสอน · เพิ่มออพชั่นใหม่ = เพิ่มบรรทัดที่นี่ */
 export const TUTORIALS: Record<string, ComponentType<{ autoPlay: boolean }>> = {
@@ -43,6 +44,8 @@ export const TUTORIALS: Record<string, ComponentType<{ autoPlay: boolean }>> = {
   'skill-surehit': SkillSurehitTutorial,
   'skill-pierce': SkillPierceTutorial,
   'skill-cancel': SkillCancelTutorial,
+  'crit-rate': CritRateTutorial,
+  'crit-damage': CritDamageTutorial,
 }
 
 export default function GearOptionPlayer({ optionId, src, autoPlay }: { optionId: string; src: string; autoPlay: boolean }) {

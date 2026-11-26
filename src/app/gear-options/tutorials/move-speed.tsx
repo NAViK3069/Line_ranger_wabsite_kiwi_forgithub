@@ -18,7 +18,7 @@ import { easeOut, easeOutBack, popStyle, prog, span } from './anim'
 import {
   Banner, BANNER_COLOR, Fit1, FitCard, GEAR_LEVEL, GearCard, GearSlots, LoadBox, Opening, RangerCard, StatRow, SummaryShell,
   gearIconUrl, loadGear, loadStats, step, useTutorialData,
-  type GearKind, type RangerStats, type SlotGear,
+  type GearKind, type RangerStats, type SlotGear, equipSlots,
 } from './kit'
 import { spaceTrainLayers } from './spaceTrain'
 
@@ -323,7 +323,7 @@ function EquipSetCard({ t, T, names, perGear, add, slots, speed, speedGear }: {
         {T('ความเร็วเดิน', 'Move speed')} {speed} → <span className="text-amber-300 font-black">{speedGear}</span>
       </div>
       <div className="mt-3 pt-3 border-t-2 border-white/10" style={{ opacity: t >= at ? easeOutBack(prog(t, at, at + 0.4)) : 0.35 }}>
-        <GearSlots t={t} filled={t >= at ? slots : undefined} />
+        <GearSlots t={t} equip={equipSlots(slots, at)} />
       </div>
     </FitCard>
   )

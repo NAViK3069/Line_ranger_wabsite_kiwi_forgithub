@@ -48,7 +48,7 @@ export function rowTimes(st: number, rows: number): [number, number][] {
   return out
 }
 
-export function RollStack({ c, header, st, rows, end }: { c: OverlayCtx; header: string; st: number; rows: RowSpec[]; end: number }) {
+export function RollStack({ c, header, st, rows, end, x = 640 }: { c: OverlayCtx; header: string; st: number; rows: RowSpec[]; end: number; /** กึ่งกลางแนวนอน (พิกเซลชั้นซ้อน) */ x?: number }) {
   const t = c.t
   const vis = span(t, st, end, 0.25, 0.3)
   if (!vis.on) return null
@@ -68,7 +68,7 @@ export function RollStack({ c, header, st, rows, end }: { c: OverlayCtx; header:
     </div>
   )
   return (
-    <div className="absolute left-1/2 top-[10px] -translate-x-1/2 flex flex-col items-center" style={{ opacity: vis.alpha }}>
+    <div className="absolute top-[10px] -translate-x-1/2 flex flex-col items-center" style={{ left: x, opacity: vis.alpha }}>
       <div className="px-3 py-0.5 rounded-lg bg-black/70 text-[16px] font-bold text-gray-200 whitespace-nowrap">{header}</div>
       {shown.map((row, i) => {
         const [a, b] = times[i]

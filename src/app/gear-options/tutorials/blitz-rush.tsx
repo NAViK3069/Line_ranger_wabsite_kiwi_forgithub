@@ -160,7 +160,7 @@ function EquipCard({ t, T, gearName, optName, totalTxt }: { t: number; T: Tr; ge
         {T('มีแค่อาวุธ · Basic 7% × 6 ระดับ', 'Weapons only · Basic 7% × 6 levels')}
       </div>
       <div className="mt-3 pt-3 border-t-2 border-white/10" style={{ opacity: t >= at ? easeOutBack(prog(t, at, at + 0.4)) : 0.35 }}>
-        <GearSlots t={t} filled={t >= at ? { weapon: { icon: gearIconUrl(GEAR.code), grade: GEAR.grade } } : undefined} />
+        <GearSlots t={t} equip={{ at, kind: 'weapon', icon: gearIconUrl(GEAR.code), grade: GEAR.grade }} />
       </div>
     </FitCard>
   )

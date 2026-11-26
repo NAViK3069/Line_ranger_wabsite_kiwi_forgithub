@@ -18,7 +18,7 @@ import type { GearEffect } from '@/lib/pvpScraper'
 import { easeOut, fmtInt, popStyle, prog, span } from './anim'
 import {
   BANNER_COLOR, Banner, EquipCard, Fit1, GearCard, healRingLayers, GearSlots, HpBar, Heals, ICON, LoadBox, NormalFormulaCard, Opening,
-  RangerCard, SkillFormulaCard, Souls, StatRow, SummaryShell, TL, firstSkill, gearIconUrl, loadGear, loadStats,
+  RangerCard, SkillFormulaCard, elementOf, Souls, StatRow, SummaryShell, TL, firstSkill, gearIconUrl, loadGear, loadStats,
   defParts, gearStat, makeRounds, normalHit, pct, skillMultiplier, switchableFor, switchableOf, totalAtk, useTutorialData,
   type GearKind, type SlotGear,
 } from './kit'
@@ -138,7 +138,7 @@ export default function ElementTutorial({ autoPlay }: { autoPlay: boolean }) {
         <RangerCard T={T} r={d.ally} name={allyName} s={span(t, 8.2, 11.9)} x={680} y={24}
           tag={T('เรนเจอร์ของเรา', 'Our ranger')} tagColor="bg-cyan-500/25 text-cyan-200"
           rows={<>
-            <StatRow t={t} label={T('ธาตุ', 'Element')} value={T('แสง', 'Light')} hlAt={8.75} note={T('แสงชนะทางมืด ×3', 'Light beats Dark ×3')} />
+            <StatRow t={t} icon={elementOf(d.ally)?.icon} label={T('ธาตุ', 'Element')} value={T('แสง', 'Light')} hlAt={8.75} note={T('แสงชนะทางมืด ×3', 'Light beats Dark ×3')} />
             <StatRow t={t} icon={ICON.atk} label={T('พลังโจมตี', 'ATK')} value={fmtInt(d.atkBefore)} dim />
             <StatRow t={t} icon={ICON.hp} label={T('พลังชีวิต', 'HP')} value={fmtInt(d.ally.baseStats.hp)} dim />
             <StatRow t={t} icon={ICON.def} label={T('พลังป้องกัน', 'DEF')} parts={defParts(d.ally, T)} dim />
@@ -149,7 +149,7 @@ export default function ElementTutorial({ autoPlay }: { autoPlay: boolean }) {
         <RangerCard T={T} r={d.enemy} name={enemyName} s={span(t, 12.5, 15.9)} x={40} y={24}
           tag={T('เป้าหมาย · ใส่เกียร์ HP เต็มที่', 'Target · full HP gear')} tagColor="bg-rose-500/25 text-rose-200"
           rows={<>
-            <StatRow t={t} label={T('ธาตุ', 'Element')} value={T('มืด', 'Dark')} hlAt={12.8} note={T('แพ้ทางแสง', 'Weak to Light')} />
+            <StatRow t={t} icon={elementOf(d.enemy)?.icon} label={T('ธาตุ', 'Element')} value={T('มืด', 'Dark')} hlAt={12.8} note={T('แพ้ทางแสง', 'Weak to Light')} />
             <StatRow t={t} icon={ICON.hp} label={T('พลังชีวิต', 'HP')} value={fmtInt(enemyHp)} hlAt={13.3}
               note={T(`ฐาน ${fmtInt(d.enemyBaseHp)} · เกียร์ ${d.targetHpPct.map(p => '+' + pct(p, 0)).join(' ')}`,
                 `Base ${fmtInt(d.enemyBaseHp)} · gear ${d.targetHpPct.map(p => '+' + pct(p, 0)).join(' ')}`)} />

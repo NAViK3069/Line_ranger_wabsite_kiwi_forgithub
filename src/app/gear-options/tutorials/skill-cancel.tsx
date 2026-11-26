@@ -164,7 +164,7 @@ function EquipCard({ t, T, gearName, optName, totalTxt }: { t: number; T: Tr; ge
       </div>
       <div className="mt-1 text-right text-[19px] font-bold text-gray-400">{T('มีแค่เกราะ · Basic 4% × 6 ระดับ', 'Armor only · Basic 4% × 6 levels')}</div>
       <div className="mt-3 pt-3 border-t-2 border-white/10" style={{ opacity: t >= at ? easeOutBack(prog(t, at, at + 0.4)) : 0.35 }}>
-        <GearSlots t={t} filled={t >= at ? { armor: { icon: gearIconUrl(GEAR.code), grade: GEAR.grade } } : undefined} />
+        <GearSlots t={t} equip={{ at, kind: 'armor', icon: gearIconUrl(GEAR.code), grade: GEAR.grade }} />
       </div>
     </FitCard>
   )
@@ -189,7 +189,7 @@ function SureEquipCard({ t, T, gearName, optName, sure, shooterName }: { t: numb
       </div>
       <div className="mt-1 text-right text-[19px] font-bold text-gray-400">{T('ติดพร้อมกับต้าน = หักล้างกัน', 'Succeeding together with Cancel = they cancel out')}</div>
       <div className="mt-3 pt-3 border-t-2 border-white/10" style={{ opacity: t >= at ? easeOutBack(prog(t, at, at + 0.4)) : 0.35 }}>
-        <GearSlots t={t} filled={t >= at ? { weapon: { icon: gearIconUrl(SURE_GEAR.code), grade: SURE_GEAR.grade } } : undefined} />
+        <GearSlots t={t} equip={{ at, kind: 'weapon', icon: gearIconUrl(SURE_GEAR.code), grade: SURE_GEAR.grade }} />
       </div>
     </FitCard>
   )
@@ -228,7 +228,7 @@ function RollUi({ c, T, r, d, lang }: { c: OverlayCtx; T: Tr; r: Roll; d: Data; 
   return (
     <>
       <RollStack c={c} header={header} st={r.start} rows={rows} end={Math.max(r.start + 4.2, r.hitAt + 1.1)} />
-      {!r.ok && tpos && <MissPop t={t} at={r.hitAt} x={tpos.x - 60} y={tpos.y - 210} lang={lang} />}
+      {!r.ok && <MissPop c={c} actorId={ALLY} at={r.hitAt} lang={lang} />}
     </>
   )
 }

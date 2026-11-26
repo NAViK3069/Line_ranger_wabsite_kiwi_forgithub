@@ -195,7 +195,7 @@ function EquipCard({ t, T, gear, gearName, optName, totalTxt }: { t: number; T: 
       </div>
       <div className="mt-1 text-right text-[19px] font-bold text-gray-400">{T('มีแค่อาวุธ · ค่าสูงสุดในเกม', 'Weapons only · the highest in the game')}</div>
       <div className="mt-3 pt-3 border-t-2 border-white/10" style={{ opacity: t >= at ? easeOutBack(prog(t, at, at + 0.4)) : 0.35 }}>
-        <GearSlots t={t} filled={t >= at ? { weapon: { icon: gearIconUrl(gear.code), grade: gear.grade } } : undefined} />
+        <GearSlots t={t} equip={{ at, kind: 'weapon', icon: gearIconUrl(gear.code), grade: gear.grade }} />
       </div>
     </FitCard>
   )
@@ -230,7 +230,7 @@ function RollUi({ c, T, r, d, lang }: { c: OverlayCtx; T: Tr; r: Roll; d: Data; 
   return (
     <>
       <RollStack c={c} header={header} st={st} rows={rows} end={Math.max(st + 4.2, r.hitAt + 1.1)} />
-      {!r.ok && tpos && <MissPop t={t} at={r.hitAt} x={tpos.x + 60} y={tpos.y - 210} lang={lang} />}
+      {!r.ok && <MissPop c={c} actorId={ENEMY} at={r.hitAt} lang={lang} />}
     </>
   )
 }

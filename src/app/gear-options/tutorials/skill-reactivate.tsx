@@ -158,7 +158,7 @@ function EquipCard({ t, T, gearName, optName, totalTxt }: { t: number; T: Tr; ge
       </div>
       <div className="mt-1 text-right text-[19px] font-bold text-gray-400">{T('มีแค่อาวุธ · Basic 6.7% × 6 ระดับ', 'Weapons only · Basic 6.7% × 6 levels')}</div>
       <div className="mt-3 pt-3 border-t-2 border-white/10" style={{ opacity: t >= at ? easeOutBack(prog(t, at, at + 0.4)) : 0.35 }}>
-        <GearSlots t={t} filled={t >= at ? { weapon: { icon: gearIconUrl(GEAR.code), grade: GEAR.grade } } : undefined} />
+        <GearSlots t={t} equip={{ at, kind: 'weapon', icon: gearIconUrl(GEAR.code), grade: GEAR.grade }} />
       </div>
     </FitCard>
   )
@@ -233,7 +233,7 @@ function RoundUi({ c, T, r, chance, skillName, cd }: { c: OverlayCtx; T: Tr; r: 
           )}
         </div>
       )}
-      {r.ok && apos && <DoubleSkillPop t={t} at={next} x={apos.x} y={apos.y - 220} />}
+      {r.ok && <DoubleSkillPop c={c} actorId={ALLY} at={next} />}
     </>
   )
 }

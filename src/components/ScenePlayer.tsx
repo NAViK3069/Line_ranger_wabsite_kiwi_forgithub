@@ -9,9 +9,15 @@
 //   • การ์ดคำอธิบายสกิล (ที่ไม่ได้แก้ข้อความเอง) แปลตามภาษาของเว็บ เหมือนในสตูดิโอ
 //   • ระดับเสียง = ปุ่มเสียงของทั้งเว็บ (SoundContext)
 //   • หยุดแล้วไม่วาดซ้ำทุกเฟรม — วาดใหม่เฉพาะตอนเล่น / ลากแถบเวลา / ภาพเพิ่งโหลดเสร็จ / ขนาดจอเปลี่ยน
+//   • ปุ่มเต็มจอขวาสุดของแถบเวลา (แบบ YouTube · ดับเบิลคลิกวิดีโอก็ได้) — ตอนเต็มจอ ปุ่มเสียงย้ายลงมาอยู่ในแถบนี้
+//   • ดาวน์โหลดภาพ/วิดีโอ: ลงทะเบียนไว้ที่ playerBus → ปุ่มนอกตัวเล่นเรียกได้ (วาดชั้นซ้อนในชั้นที่ซ่อนไว้ ไม่กวนจอที่ดูอยู่)
 // ====================================================
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { flushSync } from 'react-dom'
+import SoundToggle from '@/components/SoundToggle'
+import { canExportVideo, capturePng, captureVideo, type CaptureSource } from '@/components/sceneCapture'
+import { clearPlayerApi, setPlayerApi, type PlayerApi } from '@/components/playerBus'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useSound } from '@/contexts/SoundContext'
 import { assets } from '@/anme/engine/assets'
@@ -151,6 +157,15 @@ export default function ScenePlayer({ src, autoPlay = false, loop = true, overla
   const [shownTime, setShownTime] = useState(0)
   const [boxW, setBoxW] = useState(0)
   const clock = useMemo(createClock, [])
+  /** นาฬิกาของชั้นซ้อนที่ซ่อนไว้สำหรับดาวน์โหลด (เดินแยกจากจอที่ดูอยู่) */
+  const capClock = useMemo(createClock, [])
+  const [capturing, setCapturing] = useState(false)
+  const capRef = useRef<HTMLDivElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  /** เต็มจอจริง (Fullscreen API) · pseudo = เบราว์เซอร์ที่ไม่มี API (iPhone) → ขยายเต็มหน้าต่างแทน */
+  const [realFs, setRealFs] = useState(false)
+  const [pseudoFs, setPseudoFs] = useState(false)
+  const isFs = realFs || pseudoFs
 
   const wrapRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -332,9 +347,120 @@ export default function ScenePlayer({ src, autoPlay = false, loop = true, overla
   useEffect(() => () => window.clearTimeout(hoverTimer.current), [])
   const showPlay = ready && !error && !playing && (!started || ended || hover)
 
+  // ── เต็มจอ ──
+  useEffect(() => {
+    const on = () => setRealFs(!!document.fullscreenElement && document.fullscreenElement === rootRef.current)
+    document.addEventListener('fullscreenchange', on)
+    document.addEventListener('webkitfullscreenchange', on)
+    return () => { document.removeEventListener('fullscreenchange', on); document.removeEventListener('webkitfullscreenchange', on) }
+  }, [])
+  useEffect(() => {
+    if (!pseudoFs) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPseudoFs(false) }
+    window.addEventListener('keydown', onKey)
+    // position: fixed ถูกขังในกล่องแม่ที่มี backdrop-filter / transform / filter (เช่น card-glass)
+    // → ปิดของพวกนี้ที่กล่องแม่ชั่วคราว + ล็อกการเลื่อนหน้า แล้วคืนค่าเดิมตอนออก
+    const saved: [HTMLElement, string][] = []
+    for (let p = rootRef.current?.parentElement; p && p !== document.body; p = p.parentElement) {
+      saved.push([p, p.style.cssText])
+      p.style.backdropFilter = 'none'
+      p.style.setProperty('-webkit-backdrop-filter', 'none')
+      p.style.filter = 'none'
+      p.style.transform = 'none'
+      p.style.contain = 'none'
+    }
+    const bodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      for (const [el, css] of saved) el.style.cssText = css
+      document.body.style.overflow = bodyOverflow
+    }
+  }, [pseudoFs])
+  // ออกจากเต็มจอแล้วกลับไปตำแหน่งเลื่อนหน้าเดิม
+  const scrollBeforeFs = useRef(0)
+  const wasFs = useRef(false)
+  useEffect(() => {
+    if (wasFs.current && !isFs) { const y = scrollBeforeFs.current; requestAnimationFrame(() => window.scrollTo(0, y)) }
+    wasFs.current = isFs
+  }, [isFs])
+  const toggleFs = async () => {
+    const el = rootRef.current as (HTMLDivElement & { webkitRequestFullscreen?: () => Promise<void> | void }) | null
+    if (!el) return
+    if (isFs) {
+      if (document.fullscreenElement) await document.exitFullscreen().catch(() => {})
+      setPseudoFs(false)
+      return
+    }
+    scrollBeforeFs.current = window.scrollY
+    // บางที่ (เว็บวิวในแอป) คำขอเต็มจอค้างไม่ตอบ → รอไม่เกิน 1 วิ แล้วใช้แบบเต็มหน้าต่างแทน
+    const req = el.requestFullscreen?.bind(el) ?? el.webkitRequestFullscreen?.bind(el)
+    if (req) {
+      let started: Promise<unknown>
+      try { started = Promise.resolve(req()) } catch (e) { started = Promise.reject(e) }
+      const ok = await Promise.race([
+        started.then(() => true, () => false),
+        new Promise<boolean>(r => setTimeout(() => r(false), 1000)),
+      ])
+      if (ok || document.fullscreenElement) return
+    }
+    setPseudoFs(true)
+  }
+
+  // ── ดาวน์โหลดภาพ/วิดีโอ (ปุ่มอยู่นอกตัวเล่น — เรียกผ่าน playerBus) ──
+  const capLive = useRef({ scene, tl, end, overlay, canvasLayers, rateAt })
+  capLive.current = { scene, tl, end, overlay, canvasLayers, rateAt }
+  useEffect(() => {
+    if (!ready || !scene || !tl) return
+    /** เปิดชั้นซ้อนที่ซ่อนไว้ แล้วรอให้วาดเสร็จ */
+    const mount = async () => {
+      setCapturing(true)
+      for (let i = 0; i < 200 && !capRef.current; i++) await new Promise(r => setTimeout(r, 10))
+    }
+    const source = (): CaptureSource => {
+      const L = capLive.current
+      return {
+        scene: L.scene!, tl: L.tl!, end: L.end, layers: L.canvasLayers, rateAt: L.rateAt,
+        overlayAt: async t => {
+          if (!L.overlay) return null
+          flushSync(() => capClock.set(t))
+          return (capRef.current?.firstElementChild as HTMLElement | null) ?? null
+        },
+      }
+    }
+    const api: PlayerApi = {
+      canVideo: canExportVideo(),
+      png: async () => {
+        await mount()
+        try { return await capturePng(source(), timeRef.current) } finally { setCapturing(false) }
+      },
+      video: async (onProgress, signal) => {
+        await mount()
+        try {
+          const src = source()
+          // อุ่นเครื่อง: ไล่ชั้นซ้อนทั้งคลิปหนึ่งรอบ ให้สไปรต์ทุกตัวโหลดเสร็จก่อนเริ่มเฟรมจริง
+          for (let t = 0; t < src.end && !signal.cancel; t += 0.25) {
+            await src.overlayAt(t)
+            await new Promise(r => setTimeout(r, 8))
+            onProgress(0.05 * (t / src.end))
+          }
+          await new Promise(r => setTimeout(r, 300))
+          if (signal.cancel) return null
+          return await captureVideo(src, { fps: 30, scale: 1, bitrate: 5_000_000 }, k => onProgress(0.05 + 0.95 * k), signal)
+        } finally { setCapturing(false) }
+      },
+    }
+    setPlayerApi(api)
+    return () => clearPlayerApi(api)
+  }, [ready, scene, tl, capClock])
+
+  const fsWidth = isFs && scene ? { width: `min(100vw, calc((100vh - 56px) * ${scene.width / scene.height}))` } : undefined
+
   return (
-    <div className="w-full select-none">
-      <div ref={wrapRef} className="relative w-full aspect-video bg-black rounded-xl overflow-hidden" onClick={toggle}
+    <div ref={rootRef}
+      className={`select-none ${isFs ? 'bg-black flex flex-col items-center justify-center' : 'w-full'} ${pseudoFs ? 'fixed inset-0 z-[100]' : ''} ${realFs ? 'w-screen h-screen' : ''}`}>
+      <div ref={wrapRef} className={`relative aspect-video bg-black overflow-hidden ${isFs ? '' : 'w-full rounded-xl'}`}
+        onClick={toggle} onDoubleClick={toggleFs} style={fsWidth}
         onPointerMove={onPointerMove} onPointerLeave={onPointerLeave}>
         <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
         {overlay && scene && tl && ready && boxW > 0 && (
@@ -363,8 +489,15 @@ export default function ScenePlayer({ src, autoPlay = false, loop = true, overla
         )}
       </div>
 
+      {/* ชั้นซ้อนที่ซ่อนไว้ — ใช้ตอนดาวน์โหลดภาพ/วิดีโอเท่านั้น (ขนาดเวทีเต็ม ไม่ย่อ) */}
+      {capturing && overlay && scene && tl && (
+        <div ref={capRef} aria-hidden className="fixed top-0 pointer-events-none" style={{ left: -40000, width: scene.width, height: scene.height }}>
+          <OverlayLayer clock={capClock} scene={scene} tl={tl} render={overlay} boxW={scene.width} />
+        </div>
+      )}
+
       {/* แถบควบคุม */}
-      <div className="flex items-center gap-2 sm:gap-3 mt-2 px-1">
+      <div className={`flex items-center gap-2 sm:gap-3 mt-2 px-1 ${isFs ? 'pb-2' : ''}`} style={fsWidth}>
         <button onClick={toggle} disabled={!ready} aria-label={playing ? 'Pause' : 'Play'}
           className="w-9 h-9 shrink-0 rounded-lg bg-white/10 hover:bg-white/15 disabled:opacity-40 flex items-center justify-center text-white">
           <span className="material-icons-round">{playing ? 'pause' : 'play_arrow'}</span>
@@ -381,6 +514,12 @@ export default function ScenePlayer({ src, autoPlay = false, loop = true, overla
           aria-label="Seek"
         />
         <span className="text-xs text-gray-400 tabular-nums shrink-0">{fmt(shownTime)} / {fmt(end)}</span>
+        {/* เต็มจอ: ปุ่มเสียงย้ายลงมา (ปกติอยู่บนแถบบนของหน้า) */}
+        {isFs && <SoundToggle dropUp />}
+        <button onClick={toggleFs} aria-label={isFs ? 'Exit full screen' : 'Full screen'} title={isFs ? 'Exit full screen' : 'Full screen'}
+          className="w-9 h-9 shrink-0 rounded-lg bg-white/10 hover:bg-white/15 flex items-center justify-center text-white">
+          <span className="material-icons-round">{isFs ? 'fullscreen_exit' : 'fullscreen'}</span>
+        </button>
       </div>
     </div>
   )

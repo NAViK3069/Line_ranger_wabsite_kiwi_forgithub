@@ -37,7 +37,7 @@ async function drawAt(ctx: CanvasRenderingContext2D, scene: Scene, tl: Timeline,
   if (await assets.settleVideos()) paint()
 }
 
-async function pickCodec(w: number, h: number, fps: number, bitrate: number): Promise<string | null> {
+export async function pickCodec(w: number, h: number, fps: number, bitrate: number): Promise<string | null> {
   if (typeof VideoEncoder === 'undefined') return null
   for (const codec of ['avc1.640034', 'avc1.64002a', 'avc1.4d0034', 'avc1.42003e', 'avc1.42001f']) {
     try {
@@ -151,7 +151,7 @@ export async function exportPng(scene: Scene, t: number, scale = 1): Promise<Blo
 }
 
 /** เข้ารหัส AudioBuffer เป็น AAC แล้วส่งเข้า muxer */
-async function encodeAudio(buf: AudioBuffer, muxer: Muxer<ArrayBufferTarget>) {
+export async function encodeAudio(buf: AudioBuffer, muxer: Muxer<ArrayBufferTarget>) {
   let failure: unknown = null
   const enc = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: e => { failure = e } })
   enc.configure({ codec: 'mp4a.40.2', sampleRate: buf.sampleRate, numberOfChannels: 2, bitrate: 192000 })

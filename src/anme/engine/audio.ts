@@ -152,6 +152,22 @@ export async function renderMix(tl: Timeline, from: number, to: number, volume: 
   return any ? oc.startRendering() : null
 }
 
+/**
+ * มิกซ์เสียงออฟไลน์แบบเวลาวิดีโอไม่เท่าเวลาฉาก (ช่วงเร่ง ×2 ของ ScenePlayer rateAt)
+ *   wallOf(t) = เวลาในวิดีโอของเวลาฉาก t · เสียงเริ่มตรงจังหวะภาพ และเล่นความเร็วปกติ (keepPitch แบบตอนเล่นสด)
+ */
+export async function renderMixMapped(tl: Timeline, sceneEnd: number, wallOf: (t: number) => number, wallLen: number, volume: number, sampleRate = 48000): Promise<AudioBuffer | null> {
+  const evs = tl.sounds.filter(ev => assets.get(ev.assetId)?.kind === 'audio' && ev.at < sceneEnd && ev.at >= 0)
+  if (!evs.length) return null
+  const oc = new OfflineAudioContext(2, Math.max(1, Math.ceil(wallLen * sampleRate)), sampleRate)
+  const master = oc.createGain()
+  master.gain.value = volume
+  master.connect(oc.destination)
+  let any = false
+  for (const ev of evs) if (schedule(oc, master, ev, ev.at, 1, wallOf(ev.at), true)) any = true
+  return any ? oc.startRendering() : null
+}
+
 /** ฟังตัวอย่างไฟล์เสียง (ในคลังสื่อ) — เรียกซ้ำไฟล์เดิม = หยุด */
 let previewEl: HTMLAudioElement | null = null
 export function previewSound(url: string | null): boolean {

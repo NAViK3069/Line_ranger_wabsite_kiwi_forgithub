@@ -10,9 +10,11 @@ import { useLanguage } from '@/contexts/LanguageContext'
 
 interface SoundToggleProps {
   className?: string
+  /** เปิดแถบปรับเสียงขึ้นด้านบน ชิดขวา (ใช้ในแถบควบคุมล่างของวิดีโอตอนเต็มจอ) */
+  dropUp?: boolean
 }
 
-export default function SoundToggle({ className = '' }: SoundToggleProps) {
+export default function SoundToggle({ className = '', dropUp = false }: SoundToggleProps) {
   const { volume, setVolume, play } = useSound()
   const { lang } = useLanguage()
   const [open, setOpen] = useState(false)
@@ -52,7 +54,7 @@ export default function SoundToggle({ className = '' }: SoundToggleProps) {
         <div
           role="dialog"
           aria-label="Sound volume"
-          className="absolute left-1/2 -translate-x-1/2 mt-1.5 w-56 rounded-xl bg-gray-900/95 backdrop-blur border border-white/10 shadow-xl z-50 p-3.5"
+          className={`absolute ${dropUp ? 'right-0 bottom-full mb-1.5' : 'left-1/2 -translate-x-1/2 mt-1.5'} w-56 rounded-xl bg-gray-900/95 backdrop-blur border border-white/10 shadow-xl z-50 p-3.5`}
         >
           <div className="flex items-center justify-between mb-2.5">
             <span className="flex items-center gap-1.5 text-xs font-semibold text-gray-300">

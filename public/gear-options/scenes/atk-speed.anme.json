@@ -1,0 +1,2728 @@
+{
+ "version": 1,
+ "name": "Attack Speed — MEGA MAN",
+ "width": 1280,
+ "height": 720,
+ "duration": 46,
+ "fps": 30,
+ "groundY": 560,
+ "background": {
+  "kind": "color",
+  "color": "#0a0d1c",
+  "gradient": [
+   "#1b2550",
+   "#06070d"
+  ],
+  "stage": "battle24",
+  "assetId": null,
+  "fit": "height",
+  "scale": 1,
+  "offsetX": 0,
+  "offsetY": 0,
+  "scrollX": 0,
+  "dim": 0,
+  "blur": 0
+ },
+ "assets": [
+  {
+   "id": "r3pxbnl134",
+   "type": "ranger",
+   "source": "lerico",
+   "rangerId": "u1353e-brown",
+   "form": "body",
+   "name": "Brown ตัวแทนยมโลก"
+  },
+  {
+   "id": "r_u1010e-rockman",
+   "type": "ranger",
+   "source": "lerico",
+   "rangerId": "u1010e-rockman",
+   "form": "body",
+   "name": "MEGA MAN"
+  },
+  {
+   "id": "snd_normal_prep",
+   "type": "audio",
+   "name": "attrd_charge",
+   "url": "/api/res/_raw/sounds/attrd_charge_20140603152635073.ogg"
+  },
+  {
+   "id": "snd_normal_rel",
+   "type": "audio",
+   "name": "att_dist_shot_laser_strai_c",
+   "url": "/api/res/_raw/sounds/att_dist_shot_laser_strai_c_20151130160419679.ogg"
+  },
+  {
+   "id": "fx_light_b",
+   "type": "ranger",
+   "source": "upload",
+   "name": "icon_ab_light_eff2_b",
+   "body": "body",
+   "sets": {
+    "body": {
+     "sam": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.sam",
+     "plist": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.plist",
+     "png": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.png"
+    }
+   }
+  },
+  {
+   "id": "snd_bgm",
+   "type": "audio",
+   "name": "bgm_lobby2",
+   "url": "/api/res/_raw/sounds/bgm_lobby2_20151123104811121.ogg"
+  },
+  {
+   "id": "snd_equip",
+   "type": "audio",
+   "name": "gear_equip",
+   "url": "/api/res/_raw/sounds/gear_equip_20151123104728600.ogg"
+  }
+ ],
+ "actors": [
+  {
+   "id": "a_light_b",
+   "name": "fx_light_b",
+   "assetId": "fx_light_b",
+   "tag": "prop",
+   "x": 410,
+   "y": 665.6875,
+   "scale": 2.2,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "start",
+   "hiddenParts": [],
+   "loop": false,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "mm_base",
+   "name": "MEGA MAN (base)",
+   "assetId": "r_u1010e-rockman",
+   "tag": "ally_base",
+   "x": 410,
+   "y": 362,
+   "scale": 1,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "tg_base",
+   "name": "target (base)",
+   "assetId": "r3pxbnl134",
+   "tag": "enemy_base",
+   "x": 830,
+   "y": 362,
+   "scale": 1,
+   "flip": true,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "mm_gear",
+   "name": "MEGA MAN (gear)",
+   "assetId": "r_u1010e-rockman",
+   "tag": "ally_gear",
+   "x": 410,
+   "y": 511,
+   "scale": 1,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "tg_gear",
+   "name": "target (gear)",
+   "assetId": "r3pxbnl134",
+   "tag": "enemy_gear",
+   "x": 830,
+   "y": 511,
+   "scale": 1,
+   "flip": true,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  }
+ ],
+ "cues": [
+  {
+   "id": "base_0",
+   "type": "skill",
+   "actorId": "mm_base",
+   "start": 21,
+   "label": "base #1",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_base",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "base_1",
+   "type": "skill",
+   "actorId": "mm_base",
+   "start": 23.6667,
+   "label": "base #2",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_base",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "base_2",
+   "type": "skill",
+   "actorId": "mm_base",
+   "start": 26.3333,
+   "label": "base #3",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_base",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "base_3",
+   "type": "skill",
+   "actorId": "mm_base",
+   "start": 29,
+   "label": "base #4",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_base",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "base_4",
+   "type": "skill",
+   "actorId": "mm_base",
+   "start": 31.6667,
+   "label": "base #5",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_base",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "base_5",
+   "type": "skill",
+   "actorId": "mm_base",
+   "start": 34.3333,
+   "label": "base #6",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_base",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_0",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 21,
+   "label": "gear #1",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_1",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 21.8,
+   "label": "gear #2",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_2",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 22.6,
+   "label": "gear #3",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_3",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 23.4,
+   "label": "gear #4",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_4",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 24.2,
+   "label": "gear #5",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_5",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 25,
+   "label": "gear #6",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_6",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 25.8,
+   "label": "gear #7",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_7",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 26.6,
+   "label": "gear #8",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_8",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 27.4,
+   "label": "gear #9",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_9",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 28.2,
+   "label": "gear #10",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_10",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 29,
+   "label": "gear #11",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_11",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 29.8,
+   "label": "gear #12",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_12",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 30.6,
+   "label": "gear #13",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_13",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 31.4,
+   "label": "gear #14",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_14",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 32.2,
+   "label": "gear #15",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_15",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 33,
+   "label": "gear #16",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_16",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 33.8,
+   "label": "gear #17",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_17",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 34.6,
+   "label": "gear #18",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_18",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 35.4,
+   "label": "gear #19",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "gear_19",
+   "type": "skill",
+   "actorId": "mm_gear",
+   "start": 36.2,
+   "label": "gear #20",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 196,
+      "y": 48
+     },
+     "angle": {
+      "start": 0,
+      "end": 0
+     },
+     "moveSpeed": 30,
+     "hitRate": 100
+    }
+   },
+   "targetId": "tg_gear",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
+     "volume": 1,
+     "enabled": true
+    }
+   ],
+   "game": false
+  },
+  {
+   "id": "cam_wide0",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 0,
+   "center": {
+    "x": 620,
+    "y": 306.5
+   },
+   "zoom": 1.22,
+   "duration": 0,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_shooter",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 7.6,
+   "center": {
+    "x": 640,
+    "y": 356.5
+   },
+   "zoom": 1.45,
+   "duration": 0.9,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_wide1",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 12.2,
+   "center": {
+    "x": 620,
+    "y": 306.5
+   },
+   "zoom": 1.22,
+   "duration": 0.8,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_equip",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 18,
+   "center": {
+    "x": 660,
+    "y": 401
+   },
+   "zoom": 1.4,
+   "duration": 0.7,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_race",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 20.2,
+   "center": {
+    "x": 620,
+    "y": 326.5
+   },
+   "zoom": 1.3,
+   "duration": 0.7,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_outro",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 38.2,
+   "center": {
+    "x": 620,
+    "y": 326.5
+   },
+   "zoom": 1.38,
+   "duration": 7.8,
+   "ease": "linear"
+  },
+  {
+   "id": "light_once",
+   "type": "anim",
+   "actorId": "a_light_b",
+   "start": 19.4,
+   "clip": "start",
+   "speed": 0.8,
+   "loop": false,
+   "hold": true,
+   "duration": 0.9583333333333334
+  },
+  {
+   "id": "show_light_b",
+   "type": "show",
+   "actorId": "a_light_b",
+   "start": 19.4,
+   "duration": 0.9583333333333334,
+   "fadeIn": 0.05,
+   "fadeOut": 0.2
+  },
+  {
+   "id": "bgm",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 0,
+   "assetId": "snd_bgm",
+   "volume": 1,
+   "offset": 0,
+   "duration": 38,
+   "fadeIn": 1,
+   "fadeOut": 2
+  },
+  {
+   "id": "sfx_equip",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 19.4,
+   "assetId": "snd_equip",
+   "volume": 1,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
+  }
+ ],
+ "depthSort": false,
+ "smooth": true
+}

@@ -24,7 +24,7 @@ export default function AdminSettingsMenu({ username }: { username: string }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   // ระดับเสียงก่อนกดปิด — กดไอคอนลำโพงอีกครั้งกลับมาดังเท่าเดิม
-  const lastVol = useRef(volume > 0 ? volume : 0.2)
+  const lastVol = useRef(volume > 0 ? volume : 0.1)
   useEffect(() => { if (volume > 0) lastVol.current = volume }, [volume])
 
   const th = lang === 'th'

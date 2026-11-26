@@ -1,7 +1,7 @@
 'use client'
 // ====================================================
 // SoundContext — ระดับเสียง (volume) + helper เล่นเสียง UI
-//   • volume 0..1 เก็บใน localStorage ('sound-volume'), ค่าเริ่มต้น 0.5 (50%)
+//   • volume 0..1 เก็บใน localStorage ('sound-volume'), ค่าเริ่มต้น 0.1 (10%) — ผู้ใช้ปรับขึ้นเองได้
 //   • play(name, vol) เล่นไฟล์จาก /public/sound/<name> ที่ระดับ volume*vol
 //     (ข้ามถ้า volume = 0); สร้าง Audio ใหม่ทุกครั้ง → เล่นทับกันได้
 // ====================================================
@@ -19,7 +19,7 @@ interface SoundContextValue {
   playLoop: (name: string, vol?: number, overlapSec?: number) => (() => void) | null
 }
 
-const DEFAULT_VOLUME = 0.2
+const DEFAULT_VOLUME = 0.1
 const STORAGE_KEY = 'sound-volume'
 
 const SoundContext = createContext<SoundContextValue>({

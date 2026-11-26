@@ -23,6 +23,10 @@ export interface RenderOptions {
   forceMute?: boolean
   /** วาดกรอบแดงรอบชิ้นส่วนนี้ (แผงเลเยอร์) */
   hoverPart?: { actorId: string; name: string } | null
+  /** วาดเพิ่มก่อนตัวแสดงทั้งหมด (อยู่ใต้เรนเจอร์) — พิกัดโลก หลังคิดกล้องแล้ว (ใช้ในหน้า /gear-options) */
+  beforeActors?: (ctx: CanvasRenderingContext2D) => void
+  /** วาดเพิ่มหลังตัวแสดงทั้งหมด (ทับเรนเจอร์ แต่ใต้เอฟเฟกต์สกิล) — พิกัดโลก หลังคิดกล้องแล้ว */
+  afterActors?: (ctx: CanvasRenderingContext2D) => void
 }
 
 // Set ของชิ้นที่ซ่อน — แคชตามอาร์เรย์เดิม ไม่สร้างใหม่ทุกเฟรม
@@ -698,6 +702,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene, t: numb
     slots.forEach((slot, k) => { order[slot] = sorted[k] })
   }
 
+  if (opts.beforeActors) { ctx.save(); opts.beforeActors(ctx); ctx.restore() }
   for (const a of order) {
     const vis = visibility(scene, a, t)
     if (!vis || vis.alpha <= 0) continue
@@ -706,6 +711,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene, t: numb
     if (rt.kind === 'ranger') drawRanger(ctx, scene, tl, a, rt, t, vis.alpha, opts.hoverPart)
     else drawMedia(ctx, a, t, vis.localStart, vis.alpha, opts)
   }
+  if (opts.afterActors) { ctx.save(); opts.afterActors(ctx); ctx.restore() }
   drawSkillFx(ctx, scene, tl, t)
   drawRanges(ctx, scene, t, order)
   ctx.restore()

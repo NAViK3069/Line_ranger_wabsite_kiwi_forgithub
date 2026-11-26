@@ -12,12 +12,16 @@ import ScenePlayer from '@/components/ScenePlayer'
 import AtkTutorial from './tutorials/atk'
 import HpTutorial from './tutorials/hp'
 import DefTutorial from './tutorials/def'
+import AtkSpeedTutorial from './tutorials/atk-speed'
+import MoveSpeedTutorial from './tutorials/move-speed'
 
 /** id ของออพชั่น (options.ts) → วิดีโอสอน · เพิ่มออพชั่นใหม่ = เพิ่มบรรทัดที่นี่ */
 export const TUTORIALS: Record<string, ComponentType<{ autoPlay: boolean }>> = {
   atk: AtkTutorial,
   hp: HpTutorial,
   def: DefTutorial,
+  'atk-speed': AtkSpeedTutorial,
+  'move-speed': MoveSpeedTutorial,
 }
 
 export default function GearOptionPlayer({ optionId, src, autoPlay }: { optionId: string; src: string; autoPlay: boolean }) {

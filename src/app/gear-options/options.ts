@@ -26,8 +26,8 @@ export const GEAR_OPTIONS: GearOption[] = [
   { id: 'atk',             th: 'พลังโจมตี',                      en: 'ATK', scene: 'atk' },   // + การ์ด/ตัวเลข: tutorials/atk.tsx
   { id: 'hp',              th: 'พลังชีวิต',                      en: 'HP', scene: 'hp' },     // tutorials/hp.tsx
   { id: 'def',             th: 'พลังป้องกัน',                    en: 'DEF', scene: 'def' },   // tutorials/def.tsx
-  { id: 'atk-speed',       th: 'ความเร็วในการโจมตี',             en: 'Attack Speed' },
-  { id: 'move-speed',      th: 'ความเร็วการเคลื่อนที่',          en: 'Move Speed' },
+  { id: 'atk-speed',       th: 'ความเร็วในการโจมตี',             en: 'Attack Speed', scene: 'atk-speed' },   // tutorials/atk-speed.tsx
+  { id: 'move-speed',      th: 'ความเร็วการเคลื่อนที่',          en: 'Move Speed', scene: 'move-speed' },   // tutorials/move-speed.tsx
   { id: 'skill-use',       th: 'อัตราการใช้ทักษะ',               en: 'Skill Use Rate' },
   { id: 'skill-evade',     th: 'อัตราการหลบทักษะ',               en: 'Skill Evade Rate' },
   { id: 'skill-hit',       th: 'อัตราความแม่นยำของทักษะ',        en: 'Skill Hit Rate' },

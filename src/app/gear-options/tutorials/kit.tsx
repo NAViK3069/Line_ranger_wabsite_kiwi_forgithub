@@ -15,11 +15,11 @@
 // หน่วยทุกอย่าง = พิกเซลเวที 1280×720 (ชั้นซ้อนถูกย่อ/ขยายตามกล่องวิดีโอ) — ตัวหนังสือใหญ่ไว้ ดูบนมือถือก็ยังอ่านได้
 // ====================================================
 
-import { useEffect, useState } from 'react'
-import type { OverlayCtx } from '@/components/ScenePlayer'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import type { CanvasFxCtx, CanvasLayers, OverlayCtx } from '@/components/ScenePlayer'
 import { apiFetch, DATA_BASE, gearEffectsFile, lericoProxy } from '@/lib/staticApi'
 import { aggregateGearBonuses, type StatBonus, type StatBonusMap } from '@/lib/gearEffectParser'
-import { recalcGearEffects } from '@/lib/gearLevelCalc'
+import { gearLevelBadgeUrl, gearMaxLevel, recalcGearEffects } from '@/lib/gearLevelCalc'
 import type { GearEffect, GearEffects } from '@/lib/pvpScraper'
 import { assets, type RangerRuntime } from '@/anme/engine/assets'
 import { clamp01, countUp, easeInOut, easeOut, easeOutBack, fmtInt, popStyle, prog, pulse, span } from './anim'
@@ -30,7 +30,6 @@ import { AtlasSprite, frameBBox, SamSprite } from './sam'
 export const K = 18000                   // ค่าคงที่สูตรลดดาเมจจาก DEF
 export const FPS = 30
 export const GEAR_LEVEL = 5              // ระดับเกียร์ที่ใช้ทดสอบ (+5 = Basic เต็ม)
-export const GEAR_MAX = 10               // ระดับสูงสุด (หลอดบนการ์ด)
 
 /** เวลาในวิดีโอ — ต้องตรงกับ const T ใน scripts/gear-options/scene-lib.cjs */
 export const TL = {
@@ -54,10 +53,25 @@ export interface RangerStats {
   id: string
   imageUrl: string
   playerMaxLevel: number | null
+  /** ธาตุจากข้อมูลเกม (fire / water / wood / light / dark) */
+  element?: string | null
+  /** ชนิด STR / AGI / INT */
+  category?: string | null
   baseStats: { phyAtk: number; magAtk: number; phyDef: number; magDef: number; hp: number }
   rates: { skillResistance: number }
   skills: Skill[]
 }
+
+/** ธาตุ → ไอคอน + ชื่อ (รูปและคำเดียวกับหน้า Ranger Book) */
+const ELEMENTS: Record<string, { icon: string; th: string; en: string }> = {
+  fire: { icon: '/gacha/images/Fire.png', th: 'ไฟ', en: 'Fire' },
+  water: { icon: '/gacha/images/Water.png', th: 'น้ำ', en: 'Water' },
+  wood: { icon: '/gacha/images/Tree.png', th: 'ไม้', en: 'Wood' },
+  tree: { icon: '/gacha/images/Tree.png', th: 'ไม้', en: 'Wood' },
+  light: { icon: '/gacha/images/Light.png', th: 'แสง', en: 'Light' },
+  dark: { icon: '/gacha/images/Dark.png', th: 'มืด', en: 'Dark' },
+}
+export const elementOf = (r: RangerStats) => ELEMENTS[(r.element ?? '').trim().toLowerCase()] ?? null
 
 /** ค่าพลังเลเวลเต็ม (ไฟล์เดียวกับ Ranger Book) */
 export const loadStats = (id: string) =>
@@ -116,8 +130,33 @@ export function skillMultiplier(s: Skill): number {
   return m ? parseFloat(m[1]) / 100 : 1
 }
 export const switchableOf = (g: GearEffects, nameKey: string) => g.switchable?.allEffects.find(e => e.effect.nameKey === nameKey)?.effect ?? null
+/**
+ * Switchable (ค่าระดับสูงของเกียร์ 7★+) ที่เรนเจอร์ตัวนี้ใช้ได้จริง — ตามกฎเกม: เงื่อนไขต้องตรง (ไม่มีเงื่อนไข / ชนิด STR·AGI·INT / ธาตุ)
+ *   ไม่ตรง = เกมไม่ใช้ค่านั้น (GEAR_STAT_NOT_TRIGGERED_BY_TYPE_MISMATCH) → โยน error ให้รู้ทันที ดีกว่าแสดงตัวเลขผิดเงียบๆ
+ */
+export function switchableFor(g: GearEffects, nameKey: string, r: RangerStats): GearEffect {
+  const el = ({ wood: 'TREE', tree: 'TREE' } as Record<string, string>)[String(r.element).toLowerCase()] ?? String(r.element).toUpperCase()
+  const o = g.switchable?.allEffects.find(e => e.effect.nameKey === nameKey && (e.trigType == null || e.trigType === r.category || e.trigType === el))
+  if (!o) throw new Error(`${g.itemCode}: ${nameKey} ใช้กับ ${r.id} ไม่ได้ (เงื่อนไขไม่ตรง)`)
+  return o.effect
+}
 export const gearIconUrl = (code: string) => lericoProxy(`https://rangers.lerico.net/res/gear_icon/${code}_icon.png`)
 export const pct = (v: number, digits = 0) => `${(v * 100).toFixed(digits)}%`
+/** % ที่ไม่ปัดทิ้ง: ลงตัว = ไม่มีทศนิยม (30%) · ไม่ลงตัว = 1 ตำแหน่ง (79.8%) */
+export const pctAuto = (v: number) => pct(v, Math.abs(v * 100 - Math.round(v * 100)) < 1e-6 ? 0 : 1)
+
+/**
+ * ความเร็วโจมตีแบบเกม (ยืนยันจาก libgame.so):
+ *   attackDelay ที่ใส่เกียร์ = ตัดเศษ(attackDelay + r × (−1/(1+r)) × attackDelay) ≈ attackDelay ÷ (1 + r)   (float32)
+ *   r = Attack Speed รวม: Basic ทุกชิ้นบวกกัน + Switchable (ตรงเงื่อนไข) ที่สูงสุดตัวเดียว
+ */
+export function gearAttackDelay(delay: number, r: number): number {
+  if (!r) return delay
+  const f = Math.fround
+  return Math.trunc(f(f(delay) + f(f(f(-1) / f(r + 1)) * f(delay) * f(r))))
+}
+/** ช่วงยิงจริง (วินาที) = max(attackDelay ÷ 30, ความยาวท่ายิง attack_ready + attack ÷ 30) — ยิงเร็วกว่าท่ายิงไม่ได้ */
+export const attackInterval = (delayFrames: number, animFrames: number) => Math.max(delayFrames, animFrames) / 30
 
 /** โหลดข้อมูลของวิดีโอครั้งเดียว */
 export function useTutorialData<T>(load: () => Promise<T>) {
@@ -139,6 +178,64 @@ export const mix = (a: RGB, b: RGB, k: number) => `rgb(${a.map((v, i) => Math.ro
 export const C = { white: [255, 255, 255], amber100: [254, 243, 199], amber200: [253, 230, 138], blue100: [219, 234, 254] } as const
 
 export const CARD = 'rounded-[22px] border-2 border-white/15 bg-[#0b1122] shadow-[0_24px_70px_-10px_rgba(0,0,0,0.9)]'
+
+// ── กันล้นจอ (ข้อความภาษาอังกฤษมักยาวกว่าไทย) ──────────────
+const STAGE_W = 1280
+const STAGE_H = 720
+const STAGE_MARGIN = 14
+
+/**
+ * การ์ดซ้อนวิดีโอที่ไม่มีทางล้นเวที 1280×720 — ใช้แทน <div className={`absolute … ${CARD}`}> ทุกการ์ด
+ *   วัดขนาดจริงหลังจัดหน้า (offset* = ขนาดก่อน transform จึงไม่วนลูป) ถ้าสูง/กว้างเกินที่เหลือ → ย่อทั้งการ์ดลงพอดี
+ *   ย่อจากขอบบนตรงกลาง (ตำแหน่งบนคงเดิม) · ตอน dev เตือนใน console ให้รู้ว่าการ์ดไหนแน่นไป
+ */
+export function FitCard({ className = '', style, children }: { className?: string; style?: React.CSSProperties; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [fit, setFit] = useState(1)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el || !el.offsetHeight) return
+    const { offsetLeft: x, offsetTop: y, offsetWidth: w, offsetHeight: h } = el
+    const cx = x + w / 2
+    const fy = (STAGE_H - STAGE_MARGIN - Math.max(y, STAGE_MARGIN)) / h
+    const fx = Math.min(cx - STAGE_MARGIN, STAGE_W - STAGE_MARGIN - cx) / (w / 2)
+    const next = Math.max(0.5, Math.min(1, fy, fx))
+    if (Math.abs(next - fit) > 0.004) {
+      setFit(next)
+      if (process.env.NODE_ENV === 'development' && next < 1) {
+        console.warn(`[gear-options] การ์ดเกินจอ → ย่อเหลือ ${(next * 100).toFixed(0)}%:`, (el.textContent ?? '').slice(0, 60))
+      }
+    }
+  })
+  const tf = style?.transform ?? ''
+  return (
+    <div ref={ref} data-fit={fit.toFixed(3)} className={`absolute ${CARD} ${className}`}
+      style={{ ...style, ...(fit < 1 ? { transform: `${tf} scale(${fit})`, transformOrigin: 'top center' } : {}) }}>
+      {children}
+    </div>
+  )
+}
+
+/**
+ * ข้อความ (หรือแถว) บรรทัดเดียวที่ย่อตัวเองให้พอดีความกว้างที่มี — แทนการขึ้นบรรทัดใหม่/ตัดคำ
+ *   วัดความกว้างจริงที่ zoom 1 แล้วตั้ง CSS zoom ให้พอดี (ย่อทั้งตัวหนังสือ ไอคอน และระยะห่างพร้อมกัน) · ไม่ย่อเกิน min
+ */
+export function Fit1({ children, className = '', style, min = 0.55 }: { children: React.ReactNode; className?: string; style?: React.CSSProperties; min?: number }) {
+  const outer = useRef<HTMLDivElement>(null)
+  const inner = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const o = outer.current, i = inner.current
+    if (!o || !i) return
+    i.style.zoom = '1'
+    const need = i.offsetWidth, avail = o.clientWidth
+    if (need > avail + 0.5 && avail > 0) i.style.zoom = String(Math.max(min, avail / need))
+  })
+  return (
+    <div ref={outer} className={`min-w-0 overflow-hidden ${className}`} style={style}>
+      <div ref={inner} className="inline-flex items-center whitespace-nowrap align-top">{children}</div>
+    </div>
+  )
+}
 export const ICON = { atk: '/gacha/images/atk.png', hp: '/gacha/images/hp.png', def: '/gacha/images/def.png' }
 
 /** แถวค่อยๆ เลื่อนเข้าจากซ้าย ตอนเวลา a */
@@ -190,10 +287,10 @@ export function StatRow({ icon, label, value, parts, hlAt, dim, t, note }: {
       <div style={{ opacity: dim ? 0.55 : 1 }}>
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          {icon && <img src={icon} alt="" className="w-10 h-10 object-contain" />}
-          <span className="text-[26px] text-gray-200 font-bold">{label}</span>
+          {icon && <img src={icon} alt="" className="w-10 h-10 shrink-0 object-contain" />}
+          <Fit1 className="flex-1"><span className="text-[26px] text-gray-200 font-bold">{label}</span></Fit1>
           {parts
-            ? <span className="ml-auto flex flex-col items-end gap-1">
+            ? <span className="ml-auto shrink-0 flex flex-col items-end gap-1">
                 {parts.map(p => (
                   <span key={p.label} className="flex items-baseline gap-2 leading-none">
                     <span className="text-[19px] text-gray-400 font-bold">{p.label}</span>
@@ -201,7 +298,7 @@ export function StatRow({ icon, label, value, parts, hlAt, dim, t, note }: {
                   </span>
                 ))}
               </span>
-            : <span className="ml-auto text-[38px] font-black tabular-nums leading-none" style={{ color: mix(C.white, C.amber200, k) }}>{value}</span>}
+            : <span className="ml-auto shrink-0 whitespace-nowrap text-[38px] font-black tabular-nums leading-none" style={{ color: mix(C.white, C.amber200, k) }}>{value}</span>}
         </div>
         {note && <div className="text-[18px] text-gray-400 mt-0.5 pl-[52px]">{note}</div>}
       </div>
@@ -247,12 +344,15 @@ const GLOW_FPS = 16
  * แถวช่องเกียร์ 3 ช่อง (หน้าตาแบบในเกม) · equip = ใส่ของลงช่องอาวุธตอนเวลา at → กรอบเรืองแสงส้มวูบเดียว (เฟรมจาก fx70-gear-slot) + แสงวาบ
  *   กรอบช่อง = gear_main_slot_bg · ป้ายทองแดงทับขอบบน = gear_main_slot_plate_bg + ไอคอนชนิดช่อง (ไม่มีข้อความ)
  *   ช่องว่าง = ไอคอนมืดแบบสลัก · ช่องที่ใส่ของแล้ว = ไอคอน _on เรืองแสง
+ *   เกียร์ในช่อง = ป้ายเลเวลมุมบนขวา (เลเวลที่ใช้คิดค่าในวิดีโอ = GEAR_LEVEL) + ดาวใต้ไอคอน — แบบช่องเกียร์บนเว็บ
  */
+export interface SlotGear { icon: string; grade: number }
 export function GearSlots({ t, equip, filled }: {
-  t: number; equip?: { at: number; icon: string; kind?: GearKind }
+  t: number; equip?: SlotGear & { at: number; kind?: GearKind }
   /** ช่องที่ใส่ของอยู่แล้วตั้งแต่ต้น (ไม่มีแสงวาบ) เช่น เกียร์ของศัตรู */
-  filled?: Partial<Record<GearKind, string>>
+  filled?: Partial<Record<GearKind, SlotGear>>
 }) {
+  const badge = gearLevelBadgeUrl(GEAR_LEVEL)
   return (
     <div className="relative mx-auto" style={{ width: SLOT_W * 3, height: 140 }}>
       {SLOT_KINDS.map((key, i) => {
@@ -277,18 +377,35 @@ export function GearSlots({ t, equip, filled }: {
             )}
             {pre && !eq && (
               /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={pre} alt="" crossOrigin="anonymous" className="absolute w-[76px] h-[76px] object-contain"
-                style={{ left: cx - 38, top: SLOT_Y + 6 - 38, filter: 'drop-shadow(0 0 8px rgba(253,224,71,0.55))' }} />
+              <img src={pre.icon} alt="" crossOrigin="anonymous" className="absolute w-[76px] h-[76px] object-contain"
+                style={{ left: cx - 38, top: SLOT_Y + 6 - 38 }} />
             )}
             {eq && (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img src={eq.icon} alt="" crossOrigin="anonymous" className="absolute w-[76px] h-[76px] object-contain"
-                style={{ left: cx - 38, top: SLOT_Y + 6 - 38, transform: `scale(${pop})`, filter: 'drop-shadow(0 0 10px rgba(253,224,71,0.8))' }} />
+                style={{ left: cx - 38, top: SLOT_Y + 6 - 38, transform: `scale(${pop})` }} />
             )}
             {/* ป้ายทองแดงทับขอบบนของกรอบ + ไอคอนชนิดช่อง */}
             <AtlasSprite atlas="gear_main/gear_common" name="gear_main_slot_plate_bg.png" x={cx} y={SLOT_Y - 52} scale={1.05} />
-            <AtlasSprite atlas="gear_main/gear_common" name={`gear_main_slot_icon_${key}_on.png`} x={cx} y={SLOT_Y - 53} scale={0.42}
+            <AtlasSprite atlas="gear_main/gear_common" name={`gear_main_slot_icon_${key}_on.png`} x={cx} y={SLOT_Y - 52} scale={0.9}
               style={eq || pre ? { filter: 'drop-shadow(0 0 6px rgba(253,224,71,0.9))' } : { filter: 'brightness(0.18) contrast(1.4)', opacity: 0.85 }} />
+            {/* ป้ายเลเวลมุมบนขวา + ดาวใต้ไอคอน (โผล่ตามไอคอนตอนใส่ · วาดหลังป้ายทองแดงจะได้ไม่ถูกบัง) */}
+            {(eq || pre) && (() => {
+              const g = (eq ?? pre)!
+              const a = eq ? pop : 1
+              return (
+                <>
+                  {badge && (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={badge} alt="" className="absolute h-[32px] w-auto max-w-none"
+                      style={{ left: cx + 48, top: SLOT_Y - 44, transform: `translate(-100%, 0) scale(${a})`, transformOrigin: 'right top', opacity: Math.min(1, a) }} />
+                  )}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/gacha/images/${g.grade}star.png`} alt={`${g.grade}★`} className="absolute h-[22px] w-auto max-w-none"
+                    style={{ left: cx, top: SLOT_Y + 32, transform: `translateX(-50%) scale(${a})`, opacity: Math.min(1, a) }} />
+                </>
+              )
+            })()}
           </div>
         )
       })}
@@ -297,25 +414,37 @@ export function GearSlots({ t, equip, filled }: {
 }
 
 /** การ์ดค่าพลัง + ช่องเกียร์ของเรนเจอร์ */
-export function RangerCard({ r, name, rows, s, x, y, tag, tagColor, slots }: {
+export function RangerCard({ r, name, rows, s, x, y, tag, tagColor, slots, T }: {
   r: RangerStats; name: string; rows: React.ReactNode; s: ReturnType<typeof span>
   x: number; y: number; tag: string; tagColor: string; slots: React.ReactNode
+  T: (th: string, en: string) => string
 }) {
   if (!s.on) return null
+  const el = elementOf(r)
   return (
-    <div className={`absolute w-[560px] p-5 ${CARD}`} style={{ left: x, top: y, ...popStyle(s, 34) }}>
+    <FitCard className="w-[560px] p-5" style={{ left: x, top: y, ...popStyle(s, 34) }}>
       <div className="flex items-center gap-4 mb-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={lericoProxy(r.imageUrl)} alt="" crossOrigin="anonymous" className="w-[88px] h-[88px] rounded-2xl bg-white/5 object-contain" />
-        <div className="min-w-0">
-          <span className={`inline-block text-[18px] font-black px-3 py-0.5 rounded-lg ${tagColor}`}>{tag}</span>
-          <div className="text-[32px] font-black text-white leading-tight truncate mt-1">{name}</div>
-          <div className="text-[20px] text-cyan-300 font-black">Lv.{r.playerMaxLevel ?? 'MAX'} · MAX</div>
+        <img src={lericoProxy(r.imageUrl)} alt="" crossOrigin="anonymous" className="w-[88px] h-[88px] shrink-0 rounded-2xl bg-white/5 object-contain" />
+        <div className="min-w-0 flex-1">
+          <Fit1><span className={`text-[18px] font-black px-3 py-0.5 rounded-lg ${tagColor}`}>{tag}</span></Fit1>
+          <Fit1 className="mt-1"><span className="text-[32px] font-black text-white leading-tight">{name}</span></Fit1>
+          {/* ธาตุ (ไอคอน + ชื่อ) หน้าเลเวล */}
+          <div className="flex items-center gap-2 text-[20px] font-black">
+            {el && (
+              <span className="flex items-center gap-1.5 rounded-full bg-white/[0.07] pl-0.5 pr-2.5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={el.icon} alt="" className="w-7 h-7 object-contain" />
+                <span className="text-white">{T(el.th, el.en)}</span>
+              </span>
+            )}
+            <span className="text-cyan-300">Lv.{r.playerMaxLevel ?? 'MAX'} · MAX</span>
+          </div>
         </div>
       </div>
       <div className="space-y-2">{rows}</div>
       <div className="mt-3 pt-3 border-t-2 border-white/10">{slots}</div>
-    </div>
+    </FitCard>
   )
 }
 
@@ -376,11 +505,11 @@ export function GearCard({ t, T, gear, icon, name, effName, switchable, kind = '
   const hl = t >= 3.8
   const hlK = easeInOut(prog(t, 3.8, 4.4))
   return (
-    <div className={`absolute left-[120px] top-[34px] w-[720px] p-6 ${CARD}`} style={popStyle(s, 40)}>
+    <FitCard className="left-[120px] top-[34px] w-[720px] p-6" style={popStyle(s, 40)}>
       <div className="flex items-center gap-5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={icon} alt="" crossOrigin="anonymous" className="w-[110px] h-[110px] object-contain drop-shadow-[0_8px_20px_rgba(56,189,248,0.45)]" />
-        <div>
+        <img src={icon} alt="" crossOrigin="anonymous" className="w-[110px] h-[110px] shrink-0 object-contain drop-shadow-[0_8px_20px_rgba(56,189,248,0.45)]" />
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={GEAR_KIND[kind].icon} alt="" className="h-9" />
@@ -388,15 +517,16 @@ export function GearCard({ t, T, gear, icon, name, effName, switchable, kind = '
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={`/gacha/images/${grade}star.png`} alt="" className="h-8" />
           </div>
-          <div className="text-[46px] font-black text-white leading-tight">{name}</div>
+          <Fit1><span className="text-[46px] font-black text-white leading-tight">{name}</span></Fit1>
         </div>
       </div>
       <div className="flex items-center justify-between mt-4 text-[22px]">
         <span className="text-gray-400 font-bold">{T('ค่าเกียร์ที่ระดับ', 'Gear level')}</span>
         <span className="text-amber-300 font-black">+{GEAR_LEVEL}</span>
       </div>
+      {/* หลอดเต็ม = เลเวลสูงสุดตามดาว (≤6★ = 5 · 7★ = 10 · 8★ = 15 · 9★ = 20) */}
       <div className="h-3 rounded-full bg-white/10 mt-2 overflow-hidden">
-        <div className="h-full bg-gradient-to-r from-amber-400 to-yellow-300" style={{ width: `${(GEAR_LEVEL / GEAR_MAX) * 100 * easeOut(prog(t, 2.6, 3.4))}%` }} />
+        <div className="h-full bg-gradient-to-r from-amber-400 to-yellow-300" style={{ width: `${Math.min(1, GEAR_LEVEL / gearMaxLevel(grade)) * 100 * easeOut(prog(t, 2.6, 3.4))}%` }} />
       </div>
       <div className="mt-4 rounded-2xl border-2 border-blue-400/30 bg-[#0f1d3a] p-3.5">
         <div className="text-[20px] font-black text-blue-200 tracking-wider mb-1.5 px-2">BASIC EFFECT</div>
@@ -408,8 +538,8 @@ export function GearCard({ t, T, gear, icon, name, effName, switchable, kind = '
           return (
             <Highlight key={e.nameKey ?? e.name} t={t} at={isTested ? 3.8 : null} radius={12}>
               <div className="relative flex items-center justify-between px-3 py-1.5" style={isTested ? undefined : { opacity: 1 - 0.5 * hlK }}>
-                <span className="text-[28px] font-bold" style={{ color: isTested ? mix(C.blue100, C.amber100, hlK) : mix(C.blue100, C.blue100, 1) }}>{effName(e)}</span>
-                <span className="font-black tabular-nums"
+                <Fit1 className="flex-1"><span className="text-[28px] font-bold" style={{ color: isTested ? mix(C.blue100, C.amber100, hlK) : mix(C.blue100, C.blue100, 1) }}>{effName(e)}</span></Fit1>
+                <span className="shrink-0 ml-4 whitespace-nowrap font-black tabular-nums"
                   style={isTested ? { color: mix(C.white, C.amber200, hlK), fontSize: 28 + 8 * hlK } : { color: 'white', fontSize: 28 }}>{e.value}</span>
                 {arrowRow && hl && (
                   <div className="absolute left-full top-1/2 ml-6 flex items-center gap-2 whitespace-nowrap"
@@ -426,13 +556,13 @@ export function GearCard({ t, T, gear, icon, name, effName, switchable, kind = '
       {switchable && (
         <div className="mt-3 rounded-2xl border-2 border-orange-400/30 bg-[#2a1a10] p-3.5" style={{ opacity: 1 - 0.5 * hlK }}>
           <div className="text-[20px] font-black text-orange-200 tracking-wider mb-1 px-2">SWITCHABLE EFFECT</div>
-          <div className="flex items-center justify-between px-3">
-            <span className="text-[26px] font-bold text-orange-100">{effName(switchable)}</span>
-            <span className="text-[28px] font-black text-white tabular-nums">{switchable.value}</span>
+          <div className="flex items-center justify-between gap-4 px-3">
+            <Fit1 className="flex-1"><span className="text-[26px] font-bold text-orange-100">{effName(switchable)}</span></Fit1>
+            <span className="shrink-0 text-[28px] font-black text-white tabular-nums">{switchable.value}</span>
           </div>
         </div>
       )}
-    </div>
+    </FitCard>
   )
 }
 
@@ -463,8 +593,8 @@ export function NormalFormulaCard({ t, T, heading, defOwner, hit }: {
   if (!s.on) return null
   const kindName = (k: HitPart['kind']) => (k === 'phy' ? T('กายภาพ', 'Physical') : T('เวท', 'Magical'))
   return (
-    <div className={`absolute left-1/2 top-[30px] w-[860px] -ml-[430px] px-7 py-6 ${CARD}`} style={popStyle(s, 36)}>
-      <div className="text-[24px] font-black text-sky-300">{heading}</div>
+    <FitCard className="left-1/2 top-[30px] w-[860px] -ml-[430px] px-7 py-6" style={popStyle(s, 36)}>
+      <Fit1><span className="text-[24px] font-black text-sky-300">{heading}</span></Fit1>
       <div className="mt-2 flex items-center justify-center gap-4 text-white" style={step(t, 16.7)}>
         <span className="text-[34px] font-black">{T('ดาเมจ', 'Damage')} = ATK ×</span>
         <span className="inline-flex flex-col items-center text-[32px] font-black leading-tight">
@@ -483,12 +613,16 @@ export function NormalFormulaCard({ t, T, heading, defOwner, hit }: {
           const a = 17.3 + i * 0.35
           return (
             <div key={p.kind} className="rounded-2xl bg-white/[0.04] px-4 py-2.5" style={step(t, a)}>
-              <div className="flex items-center gap-3 text-[24px]">
-                <span className={`px-3 py-0.5 rounded-lg border-2 font-black ${st.chip}`}>{kindName(p.kind)}</span>
-                <span className="text-gray-300 font-bold">ATK</span><span className="font-black text-white tabular-nums">{fmtInt(p.atk)}</span>
-                <span className="text-gray-500">·</span>
-                <span className="text-gray-300 font-bold">DEF {defOwner}</span><span className="font-black text-rose-300 tabular-nums">{fmtInt(p.def)}</span>
-                <span className="ml-auto text-[30px] font-black text-white tabular-nums" style={step(t, 18.7 + i * 0.2)}>= {fmtInt(p.dmg)}</span>
+              <div className="flex items-center gap-4 text-[24px]">
+                <Fit1 className="flex-1">
+                  <span className="flex items-center gap-3">
+                    <span className={`px-3 py-0.5 rounded-lg border-2 font-black ${st.chip}`}>{kindName(p.kind)}</span>
+                    <span className="text-gray-300 font-bold">ATK</span><span className="font-black text-white tabular-nums">{fmtInt(p.atk)}</span>
+                    <span className="text-gray-500">·</span>
+                    <span className="text-gray-300 font-bold">DEF {defOwner}</span><span className="font-black text-rose-300 tabular-nums">{fmtInt(p.def)}</span>
+                  </span>
+                </Fit1>
+                <span className="shrink-0 whitespace-nowrap text-[30px] font-black text-white tabular-nums" style={step(t, 18.7 + i * 0.2)}>= {fmtInt(p.dmg)}</span>
               </div>
               <div className="mt-1.5">
                 <DamageBar t={t} at={17.8 + i * 0.2} keep={p.factor} keepCls={st.bar} keepText={st.text}
@@ -504,7 +638,7 @@ export function NormalFormulaCard({ t, T, heading, defOwner, hit }: {
           <span className="text-[40px] font-black text-white tabular-nums">= {fmtInt(hit.total)}</span>
         </div>
       </div>
-    </div>
+    </FitCard>
   )
 }
 
@@ -517,39 +651,39 @@ export function SkillFormulaCard({ t, T, skill, skillName, mul, atkLabel, atk, r
   if (!s.on) return null
   const sk = TL.skillCard[0]
   return (
-    <div className={`absolute left-1/2 top-[34px] w-[860px] -ml-[430px] p-7 ${CARD}`} style={popStyle(s, 36)}>
+    <FitCard className="left-1/2 top-[34px] w-[860px] -ml-[430px] p-7" style={popStyle(s, 36)}>
       <div className="flex items-center gap-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {skill.iconUrl && <img src={lericoProxy(skill.iconUrl)} alt="" crossOrigin="anonymous" className="w-[76px] h-[76px] rounded-2xl" />}
-        <div>
+        {skill.iconUrl && <img src={lericoProxy(skill.iconUrl)} alt="" crossOrigin="anonymous" className="w-[76px] h-[76px] shrink-0 rounded-2xl" />}
+        <div className="min-w-0 flex-1">
           <div className="text-[22px] font-black text-fuchsia-300">{T('สกิลโจมตี', 'Attack skill')}</div>
-          <div className="text-[40px] font-black text-white leading-tight">{skillName}</div>
+          <Fit1><span className="text-[40px] font-black text-white leading-tight">{skillName}</span></Fit1>
         </div>
-        <span className="ml-auto px-4 py-1.5 rounded-xl bg-fuchsia-950 border-2 border-fuchsia-400/60 text-[30px] font-black text-fuchsia-100">ATK × {pct(mul)}</span>
+        <span className="shrink-0 whitespace-nowrap px-4 py-1.5 rounded-xl bg-fuchsia-950 border-2 border-fuchsia-400/60 text-[30px] font-black text-fuchsia-100">ATK × {pct(mul)}</span>
       </div>
-      <div className="mt-4 rounded-2xl bg-[#2a0f1a] border-2 border-rose-400/40 px-4 py-2.5 text-[24px] font-bold text-rose-100" style={step(t, sk + 0.6)}>
+      <div className="mt-4 rounded-2xl bg-[#2a0f1a] border-2 border-rose-400/40 px-4 py-2.5 text-[24px] font-bold text-rose-100 text-balance" style={step(t, sk + 0.6)}>
         {T('สกิลไม่โดนลดด้วยพลังป้องกัน (DEF) — ใช้ "ต้านสกิล" ของฝั่งที่โดนลดแทน', "Skills ignore DEF — the defender's Skill Resistance reduces them instead")}
       </div>
-      <div className="mt-4 flex items-center justify-center text-white text-[36px] font-black" style={step(t, sk + 1.2)}>
-        {T('ดาเมจ', 'Damage')} = ATK × {pct(mul)} × (1 − {T('ต้านสกิล', 'Skill Res.')})
+      <div className="mt-4 text-center" style={step(t, sk + 1.2)}>
+        <Fit1><span className="text-white text-[36px] font-black">{T('ดาเมจ', 'Damage')} = ATK × {pct(mul)} × (1 − {T('ต้านสกิล', 'Skill Res.')})</span></Fit1>
       </div>
       <div className="mt-4 space-y-2 text-[28px]">
         <div className="flex justify-between" style={step(t, sk + 1.8)}>
-          <span className="text-gray-300 font-bold">{atkLabel}</span><span className="font-black text-white tabular-nums">{fmtInt(atk)}</span>
+          <Fit1 className="flex-1"><span className="text-gray-300 font-bold">{atkLabel}</span></Fit1><span className="shrink-0 ml-4 font-black text-white tabular-nums">{fmtInt(atk)}</span>
         </div>
         <div className="flex justify-between" style={step(t, sk + 2.3)}>
-          <span className="text-gray-300 font-bold">{resLabel}</span><span className="font-black text-rose-300 tabular-nums">{pct(res)}</span>
+          <Fit1 className="flex-1"><span className="text-gray-300 font-bold">{resLabel}</span></Fit1><span className="shrink-0 ml-4 font-black text-rose-300 tabular-nums">{pctAuto(res)}</span>
         </div>
         <div style={step(t, sk + 2.7)}>
           <DamageBar t={t} at={sk + 2.9} keep={1 - res} keepCls="from-fuchsia-600 to-pink-400" keepText="text-fuchsia-300"
             keepLabel={T('ดาเมจที่เหลือ', 'Damage left')} cutLabel={T('ต้านสกิลลดไป', 'Cut by Skill Res.')} />
         </div>
         <div className="flex justify-between items-baseline pt-3 border-t-2 border-white/10" style={step(t, sk + 3.6)}>
-          <span className="text-gray-300 font-bold tabular-nums">{fmtInt(atk)} × {pct(mul)} × {pct(1 - res)}</span>
+          <span className="text-gray-300 font-bold tabular-nums">{fmtInt(atk)} × {pct(mul)} × {pctAuto(1 - res)}</span>
           <span className="text-[40px] font-black text-fuchsia-200 tabular-nums">= {fmtInt(dmg)}</span>
         </div>
       </div>
-    </div>
+    </FitCard>
   )
 }
 
@@ -558,36 +692,32 @@ export function SkillFormulaCard({ t, T, skill, skillName, mul, atkLabel, atk, r
 const EQ_CARD = { x: 690, y: 70 }
 /** ค่าพลัง 1 แถวบนการ์ดใส่เกียร์ (ก่อน → หลัง) */
 export interface EquipStat { icon: string; label: string; before: number; after: number }
-/** ความสูงคงที่ของแต่ละแถวค่าพลัง — ไอคอนที่บินมาต้องลงช่องพอดี (slotTarget คิดจากค่านี้) */
+/** ความสูงคงที่ของแต่ละแถวค่าพลัง (แถวไม่ยืดหดตามความยาวตัวเลข) */
 const EQ_ROW_H = 84
 const EQ_ROW_GAP = 10
 
-export function EquipCard({ t, T, gearIcon, gearName, bonusPct, kind = 'weapon', stats }: {
+export function EquipCard({ t, T, gearIcon, gearName, bonusPct, kind = 'weapon', grade, stats }: {
   t: number; T: (th: string, en: string) => string; gearIcon: string; gearName: string; bonusPct: number
   kind?: GearKind
+  /** ดาวของเกียร์ (ใต้ไอคอนในช่องเกียร์) */
+  grade: number
   /** 1 แถว = ตัวเลขใหญ่ · หลายแถว (เช่น DEF กายภาพ / เวท) = เล็กลงนิดหน่อย */
   stats: EquipStat[]
 }) {
   const at = TL.equip
   const s = span(t, at - 0.9, at + 2.7, 0.4, 0.35)
   if (!s.on) return null
-  const extra = (stats.length - 1) * (EQ_ROW_H + EQ_ROW_GAP)
-  const slotTarget = {
-    x: EQ_CARD.x + 24 + (560 - 48 - SLOT_W * 3) / 2 + SLOT_W * GEAR_KIND[kind].slot + SLOT_W / 2,
-    y: EQ_CARD.y + 236 + extra + SLOT_Y,
-  }
-  const fly = prog(t, at - 0.65, at)
   const big = stats.length === 1
+  // เกียร์เด้งลงช่องเองตอน at (GearSlots) — ไม่มีไอคอนบินมาใส่
   return (
-    <>
-      <div className={`absolute w-[560px] p-6 ${CARD}`} style={{ left: EQ_CARD.x, top: EQ_CARD.y, ...popStyle(s) }}>
+    <FitCard className="w-[560px] p-6" style={{ left: EQ_CARD.x, top: EQ_CARD.y, ...popStyle(s) }}>
         <div className="flex items-center gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={gearIcon} alt="" crossOrigin="anonymous" className="w-16 h-16 object-contain" />
-          {/* ชื่อบรรทัดเดียวเสมอ — ความสูงการ์ดต้องคงที่ ไอคอนที่บินมาถึงจะลงช่องพอดี (slotTarget) */}
+          {/* ชื่อบรรทัดเดียวเสมอ (ยาวไป = ย่อตัวหนังสือ) */}
           <div className="min-w-0 flex-1">
             <div className="text-[20px] text-gray-400 font-bold">{t >= at ? T('ใส่เกียร์แล้ว', 'Equipped') : T('กำลังใส่เกียร์', 'Equipping')}</div>
-            <div className="font-black text-white leading-tight whitespace-nowrap overflow-hidden text-ellipsis" style={{ fontSize: gearName.length > 16 ? 25 : 30 }}>{gearName} +{GEAR_LEVEL}</div>
+            <Fit1><span className="text-[30px] font-black text-white leading-tight">{gearName} +{GEAR_LEVEL}</span></Fit1>
           </div>
           <span className="shrink-0 px-3.5 py-1.5 rounded-xl bg-amber-400 text-[26px] font-black text-[#1a1200]">+{(bonusPct * 100).toFixed(0)}%</span>
         </div>
@@ -596,8 +726,8 @@ export function EquipCard({ t, T, gearIcon, gearName, bonusPct, kind = 'weapon',
             <div className="flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={st.icon} alt="" className="w-11 h-11" />
-              <span className="text-[26px] text-gray-200 font-bold">{st.label}</span>
-              <span className="ml-auto font-black text-amber-200 tabular-nums leading-none"
+              <Fit1 className="flex-1"><span className="text-[26px] text-gray-200 font-bold">{st.label}</span></Fit1>
+              <span className="ml-auto shrink-0 whitespace-nowrap font-black text-amber-200 tabular-nums leading-none"
                 style={{ fontSize: big ? 50 : 42, textShadow: `0 0 ${14 + 14 * pulse(t, 3) * (t > at + 0.55 && t < at + 1.85 ? 1 : 0)}px rgba(251,191,36,0.75)` }}>
                 {fmtInt(countUp(t, at + 0.55 + i * 0.15, at + 1.85 + i * 0.15, st.before, st.after))}
               </span>
@@ -608,20 +738,9 @@ export function EquipCard({ t, T, gearIcon, gearName, bonusPct, kind = 'weapon',
           </div>
         ))}
         <div className="mt-3 pt-3 border-t-2 border-white/10">
-          <GearSlots t={t} equip={{ at, icon: gearIcon, kind }} />
+          <GearSlots t={t} equip={{ at, icon: gearIcon, kind, grade }} />
         </div>
-      </div>
-      {t >= at - 0.65 && fly < 1 && (() => {
-        const k = easeInOut(fly)
-        const x = 640 + (slotTarget.x - 640) * k
-        const y = 30 + (slotTarget.y - 30) * k - Math.sin(k * Math.PI) * 90
-        return (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={gearIcon} alt="" crossOrigin="anonymous" className="absolute w-[120px] h-[120px] object-contain"
-            style={{ left: x, top: y, transform: `translate(-50%,-50%) rotate(${k * 540}deg) scale(${1.4 - 0.7 * k})`, filter: 'drop-shadow(0 0 22px rgba(253,224,71,0.95))' }} />
-        )
-      })()}
-    </>
+    </FitCard>
   )
 }
 
@@ -630,7 +749,7 @@ export function EquipCard({ t, T, gearIcon, gearName, bonusPct, kind = 'weapon',
 /** 1 รอบการตี: รีเลือดตอน refill · โดนตอน at · ดาเมจ dmg · เลือดเต็ม max (เปลี่ยนได้ เช่น ใส่เกียร์พลังชีวิตแล้ว) */
 export type Round = { refill: number; at: number; dmg: number; max: number }
 /** สร้าง 4 รอบจากคิวในฉาก (CUE_IDS) */
-export const makeRounds = (c: OverlayCtx, dmg: number[], max: number[]): Round[] =>
+export const makeRounds = (c: Pick<OverlayCtx, 'hitsOf'>, dmg: number[], max: number[]): Round[] =>
   CUE_IDS.map((id, i) => ({ refill: TL.refill[i], at: c.hitsOf(id)[0] ?? TL.hitFallback[i], dmg: dmg[i], max: max[i] }))
 const dies = (r: Round) => r.dmg >= r.max
 
@@ -726,9 +845,10 @@ function HealFx({ c, t, at, actor }: { c: OverlayCtx; t: number; at: number; act
   const feet = c.project(p)
   if (feet.x < -150 || feet.x > 1430) return null
   const z = (c.project({ x: p.x + 100, y: p.y }).x - feet.x) / 100
-  const glow = clamp01(u / 0.15) * (1 - prog(u, 0.55, 1.05))
-  // ฐานแสง = วงรีรอบเท้า · เสาแสงกว้างเท่าวง ขอบล่างโค้งตามครึ่งหน้าของวง (เหมือนทรงกระบอกครอบตัว)
-  const ringW = 200 * z * (0.65 + 0.35 * easeOut(prog(u, 0, 0.5)))
+  const glow = healGlow(u)
+  // วงรีที่พื้น = healRingLayers (วาดลง canvas ของฉาก: ครึ่งหลังอยู่ใต้เรนเจอร์) · ตรงนี้วาดเสาแสง + แสงที่ตัว + ประกาย
+  // เสาแสงกว้างเท่าวง ขอบล่างโค้งตามครึ่งหน้าของวง (เหมือนทรงกระบอกครอบตัว)
+  const ringW = 2 * healRingRx(u) * z
   const ringH = ringW * 0.3
   const colH = 260 * z * easeOut(prog(u, 0, 0.3))
   const line = Math.max(2, 4 * z)
@@ -738,11 +858,6 @@ function HealFx({ c, t, at, actor }: { c: OverlayCtx; t: number; at: number; act
       <div className="absolute rounded-full pointer-events-none" style={{
         left: feet.x, top: feet.y - 85 * z, width: 230 * z, height: 260 * z, transform: 'translate(-50%,-50%)', opacity: glow,
         background: 'radial-gradient(ellipse, rgba(134,239,172,0.45), rgba(74,222,128,0.18) 45%, rgba(74,222,128,0) 70%)',
-      }} />
-      <div className="absolute rounded-[50%] pointer-events-none" style={{
-        left: feet.x, top: feet.y, width: ringW, height: ringH, transform: 'translate(-50%,-50%)', opacity: glow,
-        border: `${line}px solid rgba(187,247,208,0.8)`, boxShadow: '0 0 16px rgba(74,222,128,0.8)',
-        background: 'radial-gradient(ellipse, rgba(74,222,128,0.4), rgba(74,222,128,0) 70%)',
       }} />
       <div className="absolute pointer-events-none" style={{
         left: feet.x - ringW / 2, top: feet.y + ringH / 2 - colH, width: ringW, height: colH, opacity: glow * 0.6,
@@ -769,9 +884,55 @@ function HealFx({ c, t, at, actor }: { c: OverlayCtx; t: number; at: number; act
   )
 }
 /** ฮิลเฉพาะรอบที่เลือดไม่เต็ม (รอบที่แล้วโดนตีแต่ไม่ตาย) — รอบแรกและหลังเกิดใหม่เลือดเต็มอยู่แล้ว */
+const healAts = (rounds: Round[]) => rounds.filter((r, i) => i > 0 && !dies(rounds[i - 1])).map(r => r.refill)
 export const Heals = ({ c, t, actor, rounds }: { c: OverlayCtx; t: number; actor: string; rounds: Round[] }) => (
-  <>{rounds.map((r, i) => (i > 0 && !dies(rounds[i - 1]) ? <HealFx key={r.refill} c={c} t={t} at={r.refill} actor={actor} /> : null))}</>
+  <>{healAts(rounds).map(at => <HealFx key={at} c={c} t={t} at={at} actor={actor} />)}</>
 )
+const healGlow = (u: number) => clamp01(u / 0.15) * (1 - prog(u, 0.55, 1.05))
+/** รัศมีแนวนอนของวงแสงฮิล (หน่วยโลก) — ขยายออกในครึ่งวิแรก */
+const healRingRx = (u: number) => 100 * (0.65 + 0.35 * easeOut(prog(u, 0, 0.5)))
+
+/**
+ * วงแสงฮิลที่พื้นรอบเรนเจอร์ — วาดลง canvas ของฉาก (ใส่ใน ScenePlayer canvasLayers) จะได้ซ้อนกับตัวละครแบบวงล้อมตัวจริง
+ *   ครึ่งหลัง (ขอบบนของวงรี) + พื้นแสงในวง = ใต้เรนเจอร์ · ครึ่งหน้า (ขอบล่าง) = ทับเรนเจอร์
+ *   roundsOf = ฟังก์ชันเดียวกับที่ชั้นซ้อนใช้สร้างรอบ (makeRounds) → ฮิลจังหวะเดียวกับ <Heals>
+ */
+export function healRingLayers(actor: string, roundsOf: (c: Pick<OverlayCtx, 'hitsOf'>) => Round[]): CanvasLayers {
+  const draw = (half: 'back' | 'front') => (ctx: CanvasRenderingContext2D, c: CanvasFxCtx) => {
+    const p = c.actorAt(actor)
+    if (!p) return
+    for (const at of healAts(roundsOf(c))) {
+      const u = c.t - at
+      if (u < 0 || u > HEAL_DUR) continue
+      const rx = healRingRx(u), ry = rx * 0.3
+      ctx.save()
+      ctx.globalAlpha = healGlow(u)
+      if (half === 'back') {
+        // พื้นแสงในวง (ไล่จากกลางออกขอบ)
+        ctx.save()
+        ctx.translate(p.x, p.y)
+        ctx.scale(1, ry / rx)
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rx)
+        g.addColorStop(0, 'rgba(74,222,128,0.4)')
+        g.addColorStop(0.7, 'rgba(74,222,128,0)')
+        ctx.fillStyle = g
+        ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill()
+        ctx.restore()
+      }
+      // ขอบวง: ครึ่งหลัง = มุม π→2π (ด้านบนของวงรี) · ครึ่งหน้า = 0→π (ด้านล่าง)
+      ctx.beginPath()
+      ctx.ellipse(p.x, p.y, rx, ry, 0, half === 'back' ? Math.PI : 0, half === 'back' ? Math.PI * 2 : Math.PI)
+      ctx.lineWidth = 4
+      ctx.lineCap = 'round'
+      ctx.strokeStyle = 'rgba(187,247,208,0.85)'
+      ctx.shadowColor = 'rgba(74,222,128,0.9)'
+      ctx.shadowBlur = 16
+      ctx.stroke()
+      ctx.restore()
+    }
+  }
+  return { under: draw('back'), over: draw('front') }
+}
 
 /**
  * จุดที่วิญญาณออกจากร่าง = กลางร่างในเฟรมสุดท้ายของท่า knockback (ร่างล้มนอนอยู่ ไม่ใช่ท่ายืน)
@@ -792,8 +953,11 @@ function fallenCenter(c: OverlayCtx, actor: string): { x: number; y: number; sca
   return { x: p.x + (a.flip ? -off.x : off.x) * a.scale, y: p.y + off.y * a.scale, scale: a.scale }
 }
 
-/** วิญญาณ eff_die_enemy: ออกจากกลางร่างที่ล้มอยู่ ลอยขึ้นส่ายเบาๆ แล้วจางหาย (ทุกรอบที่ตาย) */
-export function Souls({ c, t, actor, rounds }: { c: OverlayCtx; t: number; actor: string; rounds: Round[] }) {
+/** ไฟล์วิญญาณของเกม (hd/unit/effect/eff_die/) — ฝั่งเราตาย = eff_die · ศัตรูตาย = eff_die_enemy (ทั้งสองไฟล์มีท่า die) */
+const SOUL_SAM = { ally: 'hd/unit/effect/eff_die/eff_die', enemy: 'hd/unit/effect/eff_die/eff_die_enemy' } as const
+
+/** วิญญาณออกจากกลางร่างที่ล้มอยู่ ลอยขึ้นส่ายเบาๆ แล้วจางหาย (ทุกรอบที่ตาย) · side = ฝั่งของตัวที่ตาย */
+export function Souls({ c, t, actor, side, rounds }: { c: OverlayCtx; t: number; actor: string; side: 'ally' | 'enemy'; rounds: Round[] }) {
   const fallen = fallenCenter(c, actor)
   if (!fallen) return null
   const zoom = (c.project({ x: 100, y: 0 }).x - c.project({ x: 0, y: 0 }).x) / 100
@@ -808,7 +972,7 @@ export function Souls({ c, t, actor, rounds }: { c: OverlayCtx; t: number; actor
         const sp = c.project({ x: fallen.x + sway, y: fallen.y - rise })
         const alpha = Math.min(easeOut(prog(t, at, at + 0.25)), 1 - easeInOut(prog(t, at + DEATH.soulDur * 0.5, at + DEATH.soulDur)))
         return (
-          <SamSprite key={r.at} base="hd/unit/effect/eff_die/eff_die_enemy" clip="die" frame={Math.floor((t - at) * FPS)} loop anchorFrame={0}
+          <SamSprite key={r.at} base={SOUL_SAM[side]} clip="die" frame={Math.floor((t - at) * FPS)} loop anchorFrame={0}
             x={sp.x} y={sp.y} scale={fallen.scale * zoom} alpha={alpha} />
         )
       })}
@@ -817,16 +981,20 @@ export function Souls({ c, t, actor, rounds }: { c: OverlayCtx; t: number; actor
 }
 
 /** กล่องสรุปท้ายคลิป (พื้นมืด + การ์ดกลางจอ) */
-export function SummaryShell({ t, T, title, children, top = -335 }: { t: number; T: (th: string, en: string) => string; title: string; children: React.ReactNode; top?: number }) {
-  const s = span(t, TL.summary, TL.end, 0.55, 0.6)
+export function SummaryShell({ t, T, title, children, top = -335, start = TL.summary, end = TL.end }: {
+  t: number; T: (th: string, en: string) => string; title: string; children: React.ReactNode; top?: number
+  /** ช่วงเวลาที่แสดง (ไม่ใส่ = ช่วงสรุปของโครงเรื่องมาตรฐาน TL) */
+  start?: number; end?: number
+}) {
+  const s = span(t, start, end, 0.55, 0.6)
   if (!s.on) return null
   return (
     <div className="absolute inset-0 bg-black/70" style={{ opacity: s.alpha }}>
-      <div className={`absolute left-1/2 top-1/2 w-[900px] -ml-[450px] p-8 ${CARD}`} style={{ marginTop: top, ...popStyle(s, 40) }}>
+      <FitCard className="left-1/2 top-1/2 w-[900px] -ml-[450px] p-8" style={{ marginTop: top, ...popStyle(s, 40) }}>
         <div className="text-[24px] font-black text-amber-300">{T('สรุป', 'Summary')}</div>
-        <div className="text-[40px] font-black text-white leading-tight">{title}</div>
+        <Fit1><span className="text-[40px] font-black text-white leading-tight">{title}</span></Fit1>
         {children}
-      </div>
+      </FitCard>
     </div>
   )
 }

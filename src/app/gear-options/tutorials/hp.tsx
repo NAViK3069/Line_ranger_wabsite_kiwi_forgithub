@@ -18,7 +18,7 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import type { GearEffect } from '@/lib/pvpScraper'
 import { clamp01, easeOut, easeOutBack, fmtInt, popStyle, prog, span } from './anim'
 import {
-  BANNER_COLOR, Banner, EquipCard, GearCard, GearSlots, HpBar, Heals, ICON, LoadBox, NormalFormulaCard, Opening,
+  BANNER_COLOR, Banner, EquipCard, Fit1, GearCard, healRingLayers, GearSlots, HpBar, Heals, ICON, LoadBox, NormalFormulaCard, Opening,
   RangerCard, SkillFormulaCard, Souls, StatRow, SummaryShell, TL, firstSkill, gearIconUrl, loadGear, loadStats,
   defParts, gearStat, makeRounds, normalHit, pct, skillMultiplier, totalAtk, useTutorialData,
 } from './kit'
@@ -27,6 +27,7 @@ const SCENE = '/gear-options/scenes/hp.anme.json'
 const ALLY = { actor: 'ak1zzx9ceu', ranger: 'u1242e-brown' }    // เรา — ใส่เกียร์ (ตรงกับ build-hp-scene.cjs)
 const ENEMY = { actor: 'a9ijjdi134', ranger: 'u1260e-brown' }   // ศัตรู — ไม่ใส่เกียร์ เป็นฝ่ายตี
 const GEAR = 'eq_2212_wpn_07'
+const GEAR_GRADE = 7
 
 async function loadData() {
   const [ally, enemy, { gear, bonus: b }] = await Promise.all([loadStats(ALLY.ranger), loadStats(ENEMY.ranger), loadGear(GEAR)])
@@ -63,10 +64,13 @@ export default function HpTutorial({ autoPlay }: { autoPlay: boolean }) {
   const hitsToDie = (hp: number, dmg: number) => Math.ceil(hp / dmg)
   const skillLeft = hpA - dmgS   // เหลือหลังโดนสกิลตอนใส่เกียร์ (< 0 = ตาย)
 
+  /** 4 รอบของวิดีโอ — ใช้ร่วมกันระหว่างชั้นซ้อน (หลอดเลือด/ฮิล/วิญญาณ) กับวงแสงฮิลบน canvas */
+  const roundsOf = (c: Pick<OverlayCtx, 'hitsOf'>) => makeRounds(c, [dmgN, dmgS, dmgN, dmgS], [hpB, hpB, hpA, hpA])
+
   const overlay = (c: OverlayCtx) => {
     const t = c.t
     // 4 รอบ: ศัตรูตีปกติ / ใช้สกิล × เรายังไม่ใส่เกียร์ / ใส่เกียร์แล้ว (หลอดเลือดยาวขึ้น)
-    const rounds = makeRounds(c, [dmgN, dmgS, dmgN, dmgS], [hpB, hpB, hpA, hpA])
+    const rounds = roundsOf(c)
 
     // ── รอด! ตอนโดนสกิลรอบ 4 (ใส่เกียร์แล้ว) ──
     const r4 = rounds[3]
@@ -93,10 +97,10 @@ export default function HpTutorial({ autoPlay }: { autoPlay: boolean }) {
     return (
       <>
         <Opening t={t} lang={lang} T={T} title={T('พลังชีวิต', 'HP')} />
-        <GearCard t={t} T={T} gear={d.gear} icon={gearIcon} name={gearName} effName={effName} switchable={d.switchable} />
+        <GearCard t={t} T={T} gear={d.gear} icon={gearIcon} name={gearName} effName={effName} switchable={d.switchable} grade={GEAR_GRADE} />
 
         {/* ค่าพลัง + ช่องเกียร์ของเรา — ฝั่งที่โดนตี: HP / DEF / ต้านสกิล ใช้หมด */}
-        <RangerCard r={d.ally} name={allyName} s={span(t, 8.2, 11.9)} x={680} y={24}
+        <RangerCard T={T} r={d.ally} name={allyName} s={span(t, 8.2, 11.9)} x={680} y={24}
           tag={T('เรนเจอร์ของเรา', 'Our ranger')} tagColor="bg-cyan-500/25 text-cyan-200"
           rows={<>
             <StatRow t={t} icon={ICON.hp} label={T('พลังชีวิต', 'HP')} value={fmtInt(hpB)} hlAt={8.75} />
@@ -107,7 +111,7 @@ export default function HpTutorial({ autoPlay }: { autoPlay: boolean }) {
           slots={<GearSlots t={t} />} />
 
         {/* ศัตรู — ไม่ใส่เกียร์ ใช้แค่ ATK */}
-        <RangerCard r={d.enemy} name={enemyName} s={span(t, 12.5, 15.9)} x={40} y={24}
+        <RangerCard T={T} r={d.enemy} name={enemyName} s={span(t, 12.5, 15.9)} x={40} y={24}
           tag={T('ศัตรู · ไม่ใส่เกียร์', 'Enemy · no gear')} tagColor="bg-rose-500/25 text-rose-200"
           rows={<>
             <StatRow t={t} icon={ICON.atk} label={T('พลังโจมตี', 'ATK')} value={fmtInt(d.enemyAtk)} hlAt={13.05} />
@@ -124,7 +128,7 @@ export default function HpTutorial({ autoPlay }: { autoPlay: boolean }) {
         <Heals c={c} t={t} actor={ALLY.actor} rounds={rounds} />
         <HpBar c={c} t={t} actor={ALLY.actor} rounds={rounds} />
 
-        <EquipCard t={t} T={T} gearIcon={gearIcon} gearName={gearName} bonusPct={d.hpPct}
+        <EquipCard t={t} T={T} gearIcon={gearIcon} gearName={gearName} bonusPct={d.hpPct} grade={GEAR_GRADE}
           stats={[{ icon: ICON.hp, label: T('พลังชีวิต', 'HP'), before: hpB, after: hpA }]} />
 
         <SkillFormulaCard t={t} T={T} skill={d.skill} skillName={skillName} mul={d.skillMul}
@@ -138,7 +142,7 @@ export default function HpTutorial({ autoPlay }: { autoPlay: boolean }) {
         <Banner t={t} start={42.4} end={47.6} title={T(`รอบที่ 4 · ใส่${gearName}`, `Round 4 · ${gearName}`)}
           sub={`${T('ศัตรูใช้สกิล', 'Enemy skill')} ${skillName} · HP ${fmtInt(hpA)}`} color={BANNER_COLOR.skillGear} />
 
-        <Souls c={c} t={t} actor={ALLY.actor} rounds={rounds} />
+        <Souls c={c} t={t} actor={ALLY.actor} side="ally" rounds={rounds} />
 
         {/* รอด! — ใส่เกียร์แล้วโดนสกิลเดียวกันไม่ตาย */}
         {surviveS.on && allyPos && skillLeft > 0 && (() => {
@@ -159,7 +163,7 @@ export default function HpTutorial({ autoPlay }: { autoPlay: boolean }) {
           {hpRows.map(r => (
             <div key={r.label} className="mt-3" style={{ opacity: easeOut(prog(t, r.at - 0.2, r.at + 0.2)) }}>
               <div className="flex justify-between text-[26px]">
-                <span className="text-gray-200 font-bold">{r.label}</span>
+                <Fit1 className="flex-1"><span className="text-gray-200 font-bold">{r.label}</span></Fit1>
                 <span className="font-black text-white tabular-nums">{fmtInt(r.v * bar(r.at))}</span>
               </div>
               <div className="h-6 rounded-full bg-white/10 mt-2 overflow-hidden">
@@ -176,9 +180,9 @@ export default function HpTutorial({ autoPlay }: { autoPlay: boolean }) {
             </div>
             {cmp.map((r, i) => (
               <div key={r.label} className="grid grid-cols-[1.5fr_1fr_1fr] border-t-2 border-white/10" style={{ opacity: easeOut(prog(t, S + 1.9 + i * 0.3, S + 2.3 + i * 0.3)) }}>
-                <span className="px-4 py-2 font-bold text-gray-200">{r.label}</span>
-                <span className={`px-4 py-2 text-center font-black tabular-nums ${r.a === T('ตาย', 'Dead') ? 'text-rose-400' : 'text-white'}`}>{r.a}</span>
-                <span className="px-4 py-2 text-center font-black tabular-nums text-emerald-300">{r.b}</span>
+                <Fit1 className="px-4 py-2 self-center"><span className="font-bold text-gray-200">{r.label}</span></Fit1>
+                <Fit1 className="px-3 py-2 text-center self-center"><span className={`font-black tabular-nums ${r.a === T('ตาย', 'Dead') ? 'text-rose-400' : 'text-white'}`}>{r.a}</span></Fit1>
+                <Fit1 className="px-3 py-2 text-center self-center"><span className="font-black tabular-nums text-emerald-300">{r.b}</span></Fit1>
               </div>
             ))}
           </div>
@@ -204,5 +208,5 @@ export default function HpTutorial({ autoPlay }: { autoPlay: boolean }) {
     )
   }
 
-  return <ScenePlayer src={SCENE} autoPlay={autoPlay} overlay={overlay} />
+  return <ScenePlayer src={SCENE} autoPlay={autoPlay} overlay={overlay} canvasLayers={healRingLayers(ALLY.actor, roundsOf)} />
 }

@@ -27,7 +27,7 @@ const T = {
 const HIT_OFFSET = 1.533   // คิวสกิลเริ่ม → กระสุนโดน (วัดจากไทม์ไลน์ของตัวเล่น)
 // นับจากจังหวะโดน: knockback (≈ 1.2–1.33 วิ) → ค้างเฟรมสุดท้าย → จางหาย 0.15 วิ · soul = วิญญาณออก + เสียงตาย (ตรงกับ DEATH ใน kit.tsx)
 const DEATH = { knock: 0.02, fadeFrom: 1.4, fadeTo: 1.55, soul: 1.4 }
-const BGM_VOLUME = 0.5
+const BGM_VOLUME = 1   // เพลงดังเท่าไฟล์ต้นฉบับ (ผู้ชมปรับเองที่ปุ่มเสียงของเว็บ)
 
 const clone = o => JSON.parse(JSON.stringify(o))
 

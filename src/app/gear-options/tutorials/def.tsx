@@ -20,9 +20,9 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import type { GearEffect, GearEffects } from '@/lib/pvpScraper'
 import { clamp01, easeOut, easeOutBack, fmtInt, popStyle, prog, span } from './anim'
 import {
-  BANNER_COLOR, Banner, EquipCard, GearCard, GearSlots, HpBar, Heals, ICON, LoadBox, NormalFormulaCard, Opening,
+  BANNER_COLOR, Banner, EquipCard, Fit1, GearCard, healRingLayers, GearSlots, HpBar, Heals, ICON, LoadBox, NormalFormulaCard, Opening,
   RangerCard, SkillFormulaCard, Souls, StatRow, SummaryShell, TL, defParts, gearIconUrl, gearStat, loadGear,
-  loadStats, makeRounds, normalHit, pct, skillMultiplier, useTutorialData, type GearKind, type RangerStats, type Round,
+  loadStats, makeRounds, normalHit, pct, skillMultiplier, useTutorialData, type GearKind, type RangerStats, type Round, type SlotGear,
 } from './kit'
 import { aggregateGearBonuses } from '@/lib/gearEffectParser'
 
@@ -32,10 +32,10 @@ const ENEMY = { actor: 'a9ijjdi134', ranger: 'u1317e-brown' }   // ศัตร�
 const GEAR = 'eq_acc_36miku'
 const GEAR_GRADE = 6
 /** เกียร์ ATK ของศัตรู — ค่า Basic ATK สูงสุดของแต่ละช่องในคลังเกียร์ (+5) */
-const ENEMY_GEARS: { code: string; kind: GearKind; en: string }[] = [
-  { code: 'eq_wpn_est_0272', kind: 'weapon', en: 'Twinkle Twinkle Fairy Wand' },   // Overall ATK +488.4%
-  { code: 'eq_2502_amr_06', kind: 'armor', en: "[DM]Senshi's Pot" },               // Physical ATK +420%
-  { code: 'eq_ss_acc_26', kind: 'acc', en: '【SS】Cygnus Head Gear' },               // Physical ATK +444%
+const ENEMY_GEARS: { code: string; kind: GearKind; grade: number; en: string }[] = [
+  { code: 'eq_wpn_est_0272', kind: 'weapon', grade: 7, en: 'Twinkle Twinkle Fairy Wand' },   // Overall ATK +488.4%
+  { code: 'eq_2502_amr_06', kind: 'armor', grade: 6, en: "[DM]Senshi's Pot" },               // Physical ATK +420%
+  { code: 'eq_ss_acc_26', kind: 'acc', grade: 6, en: '【SS】Cygnus Head Gear' },               // Physical ATK +444%
 ]
 /** สกิลโจมตีของศัตรู = สกิลแรกที่มี "ATK x …%" (ไกรทอง: เทียนเวทมนตร์ hsk1316 — สกิล 1 เป็นบัฟ) */
 const attackSkill = (r: RangerStats) => r.skills.find(k => /ATK x [\d.]+%/.test(k.description ?? '')) ?? r.skills[0]
@@ -74,7 +74,7 @@ export default function DefTutorial({ autoPlay }: { autoPlay: boolean }) {
   const gearName = tGear(GEAR, '[MIKU] Snowman')
   const allyName = tRanger(ALLY.ranger, 'Executor Anubis Brown')
   const enemyName = tRanger(ENEMY.ranger, 'Crocodile Hunter Brown')
-  const enemyGearIcons = Object.fromEntries(ENEMY_GEARS.map(g => [g.kind, gearIconUrl(g.code)])) as Partial<Record<GearKind, string>>
+  const enemyGearIcons = Object.fromEntries(ENEMY_GEARS.map(g => [g.kind, { icon: gearIconUrl(g.code), grade: g.grade }])) as Partial<Record<GearKind, SlotGear>>
   const skillName = tSkill(d.skill.code, d.skill.name)
   const effName = (e: GearEffect) => (e.nameKey ? tr('equip', e.nameKey, e.name) : e.name)
   const hp = d.ally.baseStats.hp
@@ -83,10 +83,13 @@ export default function DefTutorial({ autoPlay }: { autoPlay: boolean }) {
   const defTxt = (x: { phyDef: number; magDef: number }) => `${fmtInt(x.phyDef)} / ${fmtInt(x.magDef)}`
   const cut = 1 - dmgN2 / dmgN   // ดาเมจตีปกติลดลงกี่ %
 
+  /** 4 รอบของวิดีโอ — ใช้ร่วมกันระหว่างชั้นซ้อน (หลอดเลือด/ฮิล/วิญญาณ) กับวงแสงฮิลบน canvas */
+  const roundsOf = (c: Pick<OverlayCtx, 'hitsOf'>) => makeRounds(c, [dmgN, dmgS, dmgN2, dmgS], [hp, hp, hp, hp])
+
   const overlay = (c: OverlayCtx) => {
     const t = c.t
     // 4 รอบ: ศัตรูตีปกติ / ใช้สกิล × เรายังไม่ใส่เกียร์ / ใส่เกียร์แล้ว · เกียร์นี้ไม่เพิ่ม HP หลอดเลือดยาวเท่าเดิม
-    const rounds = makeRounds(c, [dmgN, dmgS, dmgN2, dmgS], [hp, hp, hp, hp])
+    const rounds = roundsOf(c)
     const allyPos = c.actorAt(ALLY.actor)
 
     // ป้ายข้างหลอดเลือดหลังโดนตี (รอบ 3 = ดาเมจลดลง · รอบ 4 = สกิลแรงเท่าเดิม)
@@ -115,7 +118,7 @@ export default function DefTutorial({ autoPlay }: { autoPlay: boolean }) {
     ]
     const keepTxt = (h: typeof d.hitBefore) => h.parts.map(p => pct(p.factor, 1)).join(' / ')
     const cmp = [
-      { label: T('DEF กายภาพ (ที่ใช้กันไกรทอง)', 'Physical DEF (vs this enemy)'), a: fmtInt(d.defBefore.phyDef), b: fmtInt(d.defAfter.phyDef) },
+      { label: T('DEF กายภาพ (ที่ใช้กันไกรทอง)', 'Physical DEF (used here)'), a: fmtInt(d.defBefore.phyDef), b: fmtInt(d.defAfter.phyDef) },
       { label: T('ดาเมจทะลุ DEF', 'Damage through DEF'), a: keepTxt(d.hitBefore), b: keepTxt(d.hitAfter), small: true },
       { label: T('โดนตีปกติ 1 ครั้ง เสีย HP', 'HP lost per normal hit'), a: pct(dmgN / hp, 2), b: pct(dmgN2 / hp, 2) },
       { label: T('ตีปกติกี่ครั้งถึงตาย', 'Normal hits to die'), a: fmtInt(hitsToDie(dmgN)), b: fmtInt(hitsToDie(dmgN2)) },
@@ -129,7 +132,7 @@ export default function DefTutorial({ autoPlay }: { autoPlay: boolean }) {
           kind="acc" grade={GEAR_GRADE} tested={[0, 1]} />
 
         {/* ค่าพลัง + ช่องเกียร์ของเรา — ฝั่งที่โดนตี: DEF ลดดาเมจตีปกติ · ต้านสกิลลดดาเมจสกิล */}
-        <RangerCard r={d.ally} name={allyName} s={span(t, 8.2, 11.9)} x={680} y={24}
+        <RangerCard T={T} r={d.ally} name={allyName} s={span(t, 8.2, 11.9)} x={680} y={24}
           tag={T('เรนเจอร์ของเรา', 'Our ranger')} tagColor="bg-cyan-500/25 text-cyan-200"
           rows={<>
             <StatRow t={t} icon={ICON.def} label={T('พลังป้องกัน', 'DEF')} parts={defParts(d.ally, T)} hlAt={8.75} />
@@ -140,7 +143,7 @@ export default function DefTutorial({ autoPlay }: { autoPlay: boolean }) {
           slots={<GearSlots t={t} />} />
 
         {/* ศัตรู — ไกรทอง ใส่เกียร์ ATK 3 ชิ้น · ตีกายภาพล้วน */}
-        <RangerCard r={d.enemy} name={enemyName} s={span(t, 12.5, 15.9)} x={40} y={24}
+        <RangerCard T={T} r={d.enemy} name={enemyName} s={span(t, 12.5, 15.9)} x={40} y={24}
           tag={T('ศัตรู · ใส่เกียร์ ATK เต็มที่', 'Enemy · full ATK gear')} tagColor="bg-rose-500/25 text-rose-200"
           rows={<>
             <StatRow t={t} icon={ICON.atk} label={T('พลังโจมตี', 'ATK')} value={fmtInt(d.enemyAtk)} hlAt={13.05}
@@ -160,7 +163,7 @@ export default function DefTutorial({ autoPlay }: { autoPlay: boolean }) {
         <Heals c={c} t={t} actor={ALLY.actor} rounds={rounds} />
         <HpBar c={c} t={t} actor={ALLY.actor} rounds={rounds} />
 
-        <EquipCard t={t} T={T} gearIcon={gearIcon} gearName={gearName} bonusPct={d.defPct} kind="acc"
+        <EquipCard t={t} T={T} gearIcon={gearIcon} gearName={gearName} bonusPct={d.defPct} kind="acc" grade={GEAR_GRADE}
           stats={[
             { icon: ICON.def, label: T('DEF กายภาพ', 'Physical DEF'), before: d.defBefore.phyDef, after: d.defAfter.phyDef },
             { icon: ICON.def, label: T('DEF เวท', 'Magical DEF'), before: d.defBefore.magDef, after: d.defAfter.magDef },
@@ -177,7 +180,7 @@ export default function DefTutorial({ autoPlay }: { autoPlay: boolean }) {
         <Banner t={t} start={42.4} end={47.6} title={T(`รอบที่ 4 · ใส่${gearName}`, `Round 4 · ${gearName}`)}
           sub={`${T('ศัตรูใช้สกิล', 'Enemy skill')} ${skillName} · ${T('DEF สูงแค่ไหน สกิลก็ไม่ลด', 'DEF does not reduce skills')}`} color={BANNER_COLOR.skillGear} />
 
-        <Souls c={c} t={t} actor={ALLY.actor} rounds={rounds} />
+        <Souls c={c} t={t} actor={ALLY.actor} side="ally" rounds={rounds} />
 
         {badge(rounds[2], 42.3, 'bg-gradient-to-r from-sky-600 to-cyan-500 border-sky-200/70 shadow-[0_10px_30px_rgba(14,165,233,0.55)]',
           T(`ดาเมจลด ${pct(cut)}`, `${pct(cut)} less damage`), `${fmtInt(dmgN)} → ${fmtInt(dmgN2)}`)}
@@ -188,7 +191,7 @@ export default function DefTutorial({ autoPlay }: { autoPlay: boolean }) {
           {dmgRows.map(r => (
             <div key={r.label} className="mt-2" style={{ opacity: easeOut(prog(t, r.at - 0.2, r.at + 0.2)) }}>
               <div className="flex justify-between text-[24px]">
-                <span className="text-gray-200 font-bold">{r.label}</span>
+                <Fit1 className="flex-1"><span className="text-gray-200 font-bold">{r.label}</span></Fit1>
                 <span className="font-black text-white tabular-nums">{fmtInt(r.v * bar(r.at))}</span>
               </div>
               <div className="h-5 rounded-full bg-white/10 mt-1 overflow-hidden">
@@ -199,15 +202,15 @@ export default function DefTutorial({ autoPlay }: { autoPlay: boolean }) {
           {/* ตารางเทียบ ไม่ใส่ / ใส่เกียร์ */}
           <div className="mt-3 rounded-2xl border-2 border-white/10 overflow-hidden text-[22px]" style={{ opacity: easeOut(prog(t, S + 1.7, S + 2.1)) }}>
             <div className="grid grid-cols-[1.45fr_1fr_1fr] bg-white/5 text-[20px] font-black text-gray-400">
-              <span className="px-4 py-1 text-[16px] font-bold text-gray-500 self-center">{T('เลเวลเต็ม · ไม่รวมคริ / ธาตุ', 'Max level · no crit / element')}</span>
+              <Fit1 className="px-4 py-1 self-center"><span className="text-[16px] font-bold text-gray-500">{T('เลเวลเต็ม · ไม่รวมคริ / ธาตุ', 'Max level · no crit / element')}</span></Fit1>
               <span className="px-4 py-1.5 text-center">{T('ไม่ใส่เกียร์', 'No gear')}</span>
               <span className="px-4 py-1.5 text-center text-sky-300">{T('ใส่เกียร์', 'With gear')}</span>
             </div>
             {cmp.map((r, i) => (
               <div key={r.label} className="grid grid-cols-[1.45fr_1fr_1fr] border-t-2 border-white/10 items-center" style={{ opacity: easeOut(prog(t, S + 1.9 + i * 0.25, S + 2.3 + i * 0.25)) }}>
-                <span className="px-4 py-1 font-bold text-gray-200">{r.label}</span>
-                <span className={`px-3 py-1 text-center font-black tabular-nums ${r.dead ? 'text-rose-400' : 'text-white'} ${r.small ? 'text-[19px]' : ''}`}>{r.a}</span>
-                <span className={`px-3 py-1 text-center font-black tabular-nums ${r.dead ? 'text-rose-400' : 'text-sky-300'} ${r.small ? 'text-[19px]' : ''}`}>{r.b}</span>
+                <Fit1 className="px-4 py-1"><span className="font-bold text-gray-200">{r.label}</span></Fit1>
+                <Fit1 className="px-3 py-1 text-center"><span className={`font-black tabular-nums ${r.dead ? 'text-rose-400' : 'text-white'} ${r.small ? 'text-[19px]' : ''}`}>{r.a}</span></Fit1>
+                <Fit1 className="px-3 py-1 text-center"><span className={`font-black tabular-nums ${r.dead ? 'text-rose-400' : 'text-sky-300'} ${r.small ? 'text-[19px]' : ''}`}>{r.b}</span></Fit1>
               </div>
             ))}
           </div>
@@ -229,5 +232,5 @@ export default function DefTutorial({ autoPlay }: { autoPlay: boolean }) {
     )
   }
 
-  return <ScenePlayer src={SCENE} autoPlay={autoPlay} overlay={overlay} />
+  return <ScenePlayer src={SCENE} autoPlay={autoPlay} overlay={overlay} canvasLayers={healRingLayers(ALLY.actor, roundsOf)} />
 }

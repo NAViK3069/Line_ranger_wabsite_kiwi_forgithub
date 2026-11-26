@@ -37,6 +37,25 @@ interface Props {
    * พิกัดในชั้นนี้ = พิกเซลของเวที (เช่น 1280×720) — ย่อขยายตามขนาดจอให้เอง
    */
   overlay?: (ctx: OverlayCtx) => ReactNode
+  /** วาดลง canvas ของฉากเอง: under = ใต้ตัวแสดง · over = ทับตัวแสดง (พิกัดโลก) — เช่น วงแสงที่พื้นรอบเรนเจอร์ */
+  canvasLayers?: CanvasLayers
+  /** ความเร็วการเล่น ณ เวลาฉาก t (ไม่ใส่ = 1) — เช่น เร่ง ×2 เฉพาะช่วงแข่งยิง · ภาพ/เสียง/ชั้นซ้อนยังคิดจากเวลาฉากเหมือนเดิม */
+  rateAt?: (t: number) => number
+}
+
+/** ข้อมูลที่ชั้นวาดบน canvas ใช้ — เหมือน OverlayCtx แต่พิกัดเป็นพิกัดโลก (canvas คิดกล้องให้แล้ว) */
+export interface CanvasFxCtx {
+  t: number
+  scene: Scene
+  tl: Timeline
+  /** ตำแหน่งเท้าของตัวแสดง ณ เวลานี้ (พิกัดโลก) */
+  actorAt: (actorId: string) => Vec | null
+  /** เวลาที่การโจมตีของคิวนี้โดนเป้าหมาย (วินาที) */
+  hitsOf: (cueId: string) => number[]
+}
+export interface CanvasLayers {
+  under?: (ctx: CanvasRenderingContext2D, c: CanvasFxCtx) => void
+  over?: (ctx: CanvasRenderingContext2D, c: CanvasFxCtx) => void
 }
 
 export interface OverlayCtx {
@@ -116,7 +135,11 @@ function FlashIcon({ icon }: { icon: string }) {
   )
 }
 
-export default function ScenePlayer({ src, autoPlay = false, loop = true, overlay }: Props) {
+export default function ScenePlayer({ src, autoPlay = false, loop = true, overlay, canvasLayers, rateAt }: Props) {
+  const layersRef = useRef(canvasLayers)
+  layersRef.current = canvasLayers
+  const rateRef = useRef(rateAt)
+  rateRef.current = rateAt
   const { lang, tSkill, tSkillDesc } = useLanguage()
   const { volume } = useSound()
   const version = useAssetsVersion()
@@ -212,7 +235,8 @@ export default function ScenePlayer({ src, autoPlay = false, loop = true, overla
     let last = performance.now()
     let lastShown = -1
     const audioState = (p: boolean) => ({
-      scene, time: timeRef.current, playing: p, rate: 1, busy: null,
+      // rate = ความเร็วภาพตอนนี้ (rateAt) → เสียงเริ่มตรงจังหวะภาพที่เร่ง · keepPitch ให้ตัวเสียงเล่นความเร็วปกติจนจบ
+      scene, time: timeRef.current, playing: p, rate: rateRef.current?.(timeRef.current) ?? 1, busy: null,
       muted: live.current.volume <= 0, volume: live.current.volume,
     }) as unknown as AppState
 
@@ -224,7 +248,7 @@ export default function ScenePlayer({ src, autoPlay = false, loop = true, overla
       const { loop: lp } = live.current
       const p = live.current.playing && !scrubRef.current
       if (p) {
-        let t = timeRef.current + dt
+        let t = timeRef.current + dt * (rateRef.current?.(timeRef.current) ?? 1)
         if (t >= end) {
           if (lp) t = 0
           else { t = end; setPlaying(false) }
@@ -232,7 +256,7 @@ export default function ScenePlayer({ src, autoPlay = false, loop = true, overla
         timeRef.current = t
         dirtyRef.current = true
       }
-      audioPlayer.update(audioState(p), tl)
+      audioPlayer.update(audioState(p), tl, { keepPitch: true })
       if (!dirtyRef.current) return
       dirtyRef.current = false
       const cv = canvasRef.current
@@ -242,7 +266,18 @@ export default function ScenePlayer({ src, autoPlay = false, loop = true, overla
       ctx.setTransform(1, 0, 0, 1, 0, 0)
       ctx.clearRect(0, 0, cv.width, cv.height)
       ctx.setTransform(k, 0, 0, k, 0, 0)
-      renderScene(ctx, scene, timeRef.current, { playing: p, timeline: tl })
+      const L = layersRef.current
+      const tNow = timeRef.current
+      const fx: CanvasFxCtx | null = L ? {
+        t: tNow, scene, tl,
+        actorAt: id => { const a = scene.actors.find(x => x.id === id); return a ? actorPos(scene, a, tNow) : null },
+        hitsOf: id => tl.hits.filter(h => h.cue.id === id).map(h => h.at),
+      } : null
+      renderScene(ctx, scene, tNow, {
+        playing: p, timeline: tl,
+        beforeActors: L?.under && fx ? c2 => L.under!(c2, fx) : undefined,
+        afterActors: L?.over && fx ? c2 => L.over!(c2, fx) : undefined,
+      })
       clock.set(timeRef.current)   // ชั้นซ้อน (การ์ด/ตัวเลข) ขยับตามเฟรมเดียวกับภาพ
       // ตัวเลขเวลาบนแถบ — อัปเดตทุก ~0.1 วิ ไม่ต้อง render React ทุกเฟรม
       const shown = Math.floor(timeRef.current * 10)

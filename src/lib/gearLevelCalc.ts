@@ -69,6 +69,25 @@ export function splitSliderLevel(overall: number): { basic: number; switchable: 
   }
 }
 
+// ── เลเวลเกียร์รวม 0–20 ตามเกม (game_item_equip: maxEnchant 5 + maxLimitExp 5 + maxSkillPlusUpgrade 5 + maxSpecialUpgrade 5) ──
+//   +1–5 Basic Effect (ทุกเกียร์) · +6–10 Switchable Effect (7★+) · +11–15 SKILL+ (8★+) · +16–20 Spec+ (9★)
+export const GEAR_LEVEL_STAGES = ['Basic_Effect', 'Switchable_Effect', 'SKILL+', 'Spac+'] as const
+export type GearLevelStage = typeof GEAR_LEVEL_STAGES[number]
+
+/** เลเวลสูงสุดของเกียร์ตามดาว: ≤6★ = 5 · 7★ = 10 · 8★ = 15 · 9★ = 20 */
+export const gearMaxLevel = (grade: number) => (grade >= 9 ? 20 : grade >= 8 ? 15 : grade >= 7 ? 10 : 5)
+
+/** เลเวลของช่วงนั้น (0–5) ที่เลเวลรวม level — เช่น level 7 → Basic 5 · Switchable 2 */
+export const stageLevel = (level: number, stageIndex: number) => Math.max(0, Math.min(5, level - stageIndex * 5))
+
+/** รูปป้ายเลเวลมุมไอคอนเกียร์ (/gacha/images) ของเลเวลรวม 1–20 · 0 = ไม่มีป้าย */
+export function gearLevelBadgeUrl(level: number): string | null {
+  if (level <= 0) return null
+  const i = Math.min(3, Math.floor((level - 1) / 5))
+  const n = stageLevel(level, i)
+  return `/gacha/images/${GEAR_LEVEL_STAGES[i]}_${n >= 5 ? 'max' : '+' + n}.png`
+}
+
 export interface GearEffectLike {
   name: string
   value: string

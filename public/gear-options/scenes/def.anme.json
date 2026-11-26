@@ -766,7 +766,7 @@
    "actorId": "__audio",
    "start": 0,
    "assetId": "snd_bgm",
-   "volume": 0.5,
+   "volume": 1,
    "offset": 0,
    "duration": 55,
    "fadeIn": 1,

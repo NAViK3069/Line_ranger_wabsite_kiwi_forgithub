@@ -1,0 +1,342 @@
+{
+ "version": 1,
+ "name": "Move Speed — Wooden Box Cony",
+ "width": 1280,
+ "height": 720,
+ "duration": 43.99,
+ "fps": 30,
+ "groundY": 560,
+ "background": {
+  "kind": "color",
+  "color": "#0a0d1c",
+  "gradient": [
+   "#1b2550",
+   "#06070d"
+  ],
+  "stage": "battle24",
+  "assetId": null,
+  "fit": "height",
+  "scale": 1,
+  "offsetX": 0,
+  "offsetY": 0,
+  "scrollX": 0,
+  "dim": 0,
+  "blur": 0
+ },
+ "assets": [
+  {
+   "id": "r_u1110e-cony",
+   "type": "ranger",
+   "source": "lerico",
+   "rangerId": "u1110e-cony",
+   "form": "body",
+   "name": "Wooden Box Cony"
+  },
+  {
+   "id": "fx_light_b",
+   "type": "ranger",
+   "source": "upload",
+   "name": "icon_ab_light_eff2_b",
+   "body": "body",
+   "sets": {
+    "body": {
+     "sam": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.sam",
+     "plist": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.plist",
+     "png": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.png"
+    }
+   }
+  },
+  {
+   "id": "snd_bgm",
+   "type": "audio",
+   "name": "BGM_SpaceTrain_InGame",
+   "url": "/api/res/_raw/sounds/BGM_SpaceTrain_InGame_20250214105927567.ogg"
+  },
+  {
+   "id": "snd_equip",
+   "type": "audio",
+   "name": "gear_equip",
+   "url": "/api/res/_raw/sounds/gear_equip_20151123104728600.ogg"
+  },
+  {
+   "id": "snd_speedup",
+   "type": "audio",
+   "name": "SpaceTrain_item_speedup",
+   "url": "/api/res/_raw/sounds/SpaceTrain_item_speedup_20250214105924266.ogg"
+  },
+  {
+   "id": "snd_count",
+   "type": "audio",
+   "name": "arena_startcount",
+   "url": "/api/res/_raw/sounds/arena_startcount_20151015111953983.ogg"
+  },
+  {
+   "id": "snd_finish",
+   "type": "audio",
+   "name": "SpaceTrain_buff1",
+   "url": "/api/res/_raw/sounds/SpaceTrain_buff1_20250214105925948.ogg"
+  }
+ ],
+ "actors": [
+  {
+   "id": "a_light_b",
+   "name": "fx_light_b",
+   "assetId": "fx_light_b",
+   "tag": "prop",
+   "x": 250,
+   "y": 638.6875,
+   "scale": 2.2,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "start",
+   "hiddenParts": [],
+   "loop": false,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "cony_base",
+   "name": "Wooden Box Cony (base)",
+   "assetId": "r_u1110e-cony",
+   "tag": "ally_base",
+   "x": 250,
+   "y": 359,
+   "scale": 1,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "cony_gear",
+   "name": "Wooden Box Cony (gear)",
+   "assetId": "r_u1110e-cony",
+   "tag": "ally_gear",
+   "x": 250,
+   "y": 484,
+   "scale": 1,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  }
+ ],
+ "cues": [
+  {
+   "id": "walk_base",
+   "type": "move",
+   "actorId": "cony_base",
+   "start": 22.9,
+   "to": {
+    "x": 950,
+    "y": 359
+   },
+   "duration": 10.2941,
+   "ease": "linear",
+   "clip": "walk"
+  },
+  {
+   "id": "walk_gear",
+   "type": "move",
+   "actorId": "cony_gear",
+   "start": 22.9,
+   "to": {
+    "x": 950,
+    "y": 484
+   },
+   "duration": 1.5487,
+   "ease": "linear",
+   "clip": "walk"
+  },
+  {
+   "id": "cam_wide0",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 0,
+   "center": {
+    "x": 600,
+    "y": 295.08196721311475
+   },
+   "zoom": 1.22,
+   "duration": 0,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_ranger",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 7.6,
+   "center": {
+    "x": 490,
+    "y": 341.5
+   },
+   "zoom": 1.45,
+   "duration": 0.9,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_wide1",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 12.2,
+   "center": {
+    "x": 600,
+    "y": 295.08196721311475
+   },
+   "zoom": 1.22,
+   "duration": 0.8,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_equip",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 18,
+   "center": {
+    "x": 510,
+    "y": 374
+   },
+   "zoom": 1.4,
+   "duration": 0.7,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_race",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 20.4,
+   "center": {
+    "x": 600,
+    "y": 306.5
+   },
+   "zoom": 1.24,
+   "duration": 0.7,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_outro",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 34.79,
+   "center": {
+    "x": 600,
+    "y": 306.5
+   },
+   "zoom": 1.34,
+   "duration": 9.200000000000001,
+   "ease": "linear"
+  },
+  {
+   "id": "light_once",
+   "type": "anim",
+   "actorId": "a_light_b",
+   "start": 19.4,
+   "clip": "start",
+   "speed": 0.8,
+   "loop": false,
+   "hold": true,
+   "duration": 0.9583333333333334
+  },
+  {
+   "id": "show_light_b",
+   "type": "show",
+   "actorId": "a_light_b",
+   "start": 19.4,
+   "duration": 0.9583333333333334,
+   "fadeIn": 0.05,
+   "fadeOut": 0.2
+  },
+  {
+   "id": "bgm",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 0,
+   "assetId": "snd_bgm",
+   "volume": 1,
+   "offset": 0,
+   "duration": 40.34,
+   "fadeIn": 1,
+   "fadeOut": 2
+  },
+  {
+   "id": "sfx_equip",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 19.4,
+   "assetId": "snd_equip",
+   "volume": 1,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
+  },
+  {
+   "id": "sfx_speedup",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 19.549999999999997,
+   "assetId": "snd_speedup",
+   "volume": 0.8,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
+  },
+  {
+   "id": "sfx_count",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 21,
+   "assetId": "snd_count",
+   "volume": 1,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
+  },
+  {
+   "id": "sfx_finish_base",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 33.1941,
+   "assetId": "snd_finish",
+   "volume": 0.8,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
+  },
+  {
+   "id": "sfx_finish_gear",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 24.4487,
+   "assetId": "snd_finish",
+   "volume": 0.8,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
+  }
+ ],
+ "depthSort": false,
+ "smooth": true
+}

@@ -6,8 +6,11 @@ import { resolveUrl } from './storage'
 import type { AppState } from './store'
 import type { SoundEvent, Timeline } from './timeline'
 
-/** ต่อ 1 เสียง: source → gain (เฟด/ความดัง) → ปลายทาง · t = เวลาไทม์ไลน์ตอน when0 */
-function schedule(ac: BaseAudioContext, dest: AudioNode, ev: SoundEvent, t: number, rate: number, when0: number): AudioBufferSourceNode | null {
+/**
+ * ต่อ 1 เสียง: source → gain (เฟด/ความดัง) → ปลายทาง · t = เวลาไทม์ไลน์ตอน when0
+ * keepPitch: เวลาเริ่มยังตามไทม์ไลน์ (÷ rate) แต่ตัวเสียงเล่นความเร็วปกติจนจบ (ไม่เร่ง/ไม่แหลม) — ใช้ตอนเร่งภาพบางช่วง
+ */
+function schedule(ac: BaseAudioContext, dest: AudioNode, ev: SoundEvent, t: number, rate: number, when0: number, keepPitch = false): AudioBufferSourceNode | null {
   const rt = assets.get(ev.assetId)
   if (rt?.kind !== 'audio') return null
   const full = Math.max(0, rt.duration - ev.offset)
@@ -16,17 +19,18 @@ function schedule(ac: BaseAudioContext, dest: AudioNode, ev: SoundEvent, t: numb
   if (elapsed >= len) return null
   const src = ac.createBufferSource()
   src.buffer = rt.buffer
-  src.playbackRate.value = rate
+  const pr = keepPitch ? 1 : rate          // ความเร็วของตัวเสียง
+  src.playbackRate.value = pr
   const g = ac.createGain()
   const when = when0 + Math.max(0, ev.at - t) / rate
-  const remain = (len - elapsed) / rate
+  const remain = (len - elapsed) / pr
   const vol = Math.max(0, ev.volume)
   if (ev.fadeIn > 0 && elapsed < ev.fadeIn) {
     g.gain.setValueAtTime(vol * (elapsed / ev.fadeIn), when)
-    g.gain.linearRampToValueAtTime(vol, when + (ev.fadeIn - elapsed) / rate)
+    g.gain.linearRampToValueAtTime(vol, when + (ev.fadeIn - elapsed) / pr)
   } else g.gain.setValueAtTime(vol, when)
   if (ev.fadeOut > 0) {
-    const fo = Math.min(ev.fadeOut, len - elapsed) / rate
+    const fo = Math.min(ev.fadeOut, len - elapsed) / pr
     g.gain.setValueAtTime(vol, Math.max(when, when + remain - fo))
     g.gain.linearRampToValueAtTime(0, when + remain)
   }
@@ -35,8 +39,11 @@ function schedule(ac: BaseAudioContext, dest: AudioNode, ev: SoundEvent, t: numb
   return src
 }
 
+/** เสียงที่ตั้งเวลาไว้แล้ว: ev = เหตุการณ์ต้นทาง · start = เวลานาฬิกาเสียงที่เริ่มดัง */
+interface Playing { src: AudioBufferSourceNode; ev: SoundEvent; start: number }
+
 class AudioPlayer {
-  private sources: AudioBufferSourceNode[] = []
+  private sources: Playing[] = []
   private master: GainNode | null = null
   private last: { t: number; scene: unknown; rate: number; ver: number } | null = null
   /**
@@ -58,13 +65,20 @@ class AudioPlayer {
   }
 
   private stopAll() {
-    for (const s of this.sources) { try { s.stop() } catch { /* หยุดไปแล้ว */ } s.disconnect() }
+    for (const p of this.sources) this.kill(p)
     this.sources = []
     this.anchor = null
   }
 
-  /** เรียกทุกเฟรมจากลูปเล่น — เริ่ม/หยุด/ตั้งเวลาเสียงใหม่เมื่อเวลากระโดดหรือฉากเปลี่ยน */
-  update(st: AppState, tl: Timeline) {
+  private kill(p: Playing) { try { p.src.stop() } catch { /* หยุดไปแล้ว */ } p.src.disconnect() }
+
+  /**
+   * เรียกทุกเฟรมจากลูปเล่น — เริ่ม/หยุด/ตั้งเวลาเสียงใหม่เมื่อเวลากระโดดหรือฉากเปลี่ยน
+   * opts.keepPitch: st.rate เปลี่ยนระหว่างเล่นได้ (เช่น เร่งภาพ ×2 บางช่วง) — เสียงเล่นความเร็วปกติ ·
+   *   ตอนเปลี่ยนความเร็ว/แก้ภาพให้ตรงเสียง เสียงที่ดังอยู่แล้ว (เช่น เสียงกระสุนนัดก่อน) เล่นต่อจนจบ ตั้งเวลาใหม่เฉพาะเสียงที่ยังไม่ดัง
+   */
+  update(st: AppState, tl: Timeline, opts: { keepPitch?: boolean } = {}) {
+    const keepPitch = !!opts.keepPitch
     const exporting = st.busy?.startsWith('export')
     if (!st.playing || exporting || !tl.sounds.length) {
       if (this.sources.length) this.stopAll()
@@ -78,22 +92,37 @@ class AudioPlayer {
     this.master.gain.setTargetAtTime(st.muted ? 0 : st.volume, ac.currentTime, 0.015)
     const prev = this.last
     // เวลาไม่ต่อเนื่อง (วนกลับ / กระโดด) · ฉากถูกแก้ · เปลี่ยนความเร็ว · เสียงเพิ่งโหลดเสร็จ → ตั้งเวลาใหม่หมด
-    const jump = !prev || st.time < prev.t - 1e-3 || st.time - prev.t > 0.3
+    // (เกณฑ์กระโดดคูณความเร็ว — ภาพเร่ง ×2 บนเครื่องช้า 1 เฟรมเดินได้ถึง 0.5 วิ ไม่ใช่การเลื่อนเวลา)
+    const jump = !prev || st.time < prev.t - 1e-3 || st.time - prev.t > 0.3 * Math.max(1, st.rate)
     // ภาพกับเสียงเดินคนละนาฬิกา (ภาพ = requestAnimationFrame · เสียง = AudioContext) — เคลื่อนห่างกันได้เมื่อ
     // เครื่องกระตุก / เลื่อนเวลาสั้นๆ / AudioContext เพิ่งตื่นจาก suspended (นาฬิกาเสียงหยุดเดินช่วงนั้น)
     // → ห่างกันเกิน DRIFT เมื่อไหร่ ตั้งเวลาเสียงใหม่จากเวลาภาพปัจจุบัน (เว้นอย่างน้อย 0.25 วิต่อครั้ง)
     // (ภาพไม่รอเสียง — ตอนเพิ่งกดเล่น เบราว์เซอร์อาจยังไม่เปิดลำโพง นาฬิกาเสียงค้างอยู่ครู่หนึ่ง ถ้าให้ภาพรอ ภาพจะค้าง)
     const heard = this.heardTime()
     const drift = heard != null && performance.now() - this.lastSync > 250 ? Math.abs(st.time - heard) : 0
-    if (jump || drift > DRIFT || prev.scene !== st.scene || prev.rate !== st.rate || prev.ver !== assets.version) {
-      this.stopAll()
+    const hard = jump || prev.scene !== st.scene || prev.ver !== assets.version || (!keepPitch && prev.rate !== st.rate)
+    if (hard || drift > DRIFT || prev.rate !== st.rate) {
       const now = ac.currentTime + LEAD
+      // ตั้งเวลาใหม่แบบนุ่ม: เก็บเสียงที่ดังไปแล้ว (เล่นต่อจนจบ) · หยุดเฉพาะเสียงที่ยังไม่ถึงเวลาดัง
+      const kept = new Set<SoundEvent>()
+      if (hard) this.stopAll()
+      else {
+        this.sources = this.sources.filter(p => {
+          if (p.start <= now) { kept.add(p.ev); return true }
+          this.kill(p); return false
+        })
+      }
       const lat = Math.min(0.5, Math.max(0, ac.outputLatency || ac.baseLatency || 0))
       // เวลาไทม์ไลน์ของเสียงที่ปล่อยออกตอน now — เผื่อทั้ง LEAD และเวลาถึงหู ให้ได้ยินตรงกับภาพที่ st.time
       const t0 = st.time + (LEAD + lat) * st.rate
       for (const ev of tl.sounds) {
-        const s = schedule(ac, this.master, ev, t0, st.rate, now)
-        if (s) this.sources.push(s)
+        if (kept.has(ev)) continue
+        const src = schedule(ac, this.master, ev, t0, st.rate, now, keepPitch)
+        if (src) {
+          const p: Playing = { src, ev, start: now + Math.max(0, ev.at - t0) / st.rate }
+          src.onended = () => { const i = this.sources.indexOf(p); if (i >= 0) this.sources.splice(i, 1); src.disconnect() }
+          this.sources.push(p)
+        }
       }
       this.anchor = { t0, ac0: now, rate: st.rate, lat }
       this.lastSync = performance.now()

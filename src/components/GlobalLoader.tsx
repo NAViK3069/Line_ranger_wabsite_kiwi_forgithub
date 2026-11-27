@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  beginNavigation, endNavigation, getPageLoading, getServerPageLoading, isNavigating, subscribePageLoading,
+  beginNavigation, endNavigation, getNavKind, getPageLoading, notePath, getServerPageLoading, isNavigating, subscribePageLoading,
 } from '@/lib/pageLoading'
 import { useLanguage } from '@/contexts/LanguageContext'
 
@@ -38,6 +38,8 @@ const CSS = `
 `
 
 type Mode = 'instant' | 'nav' | 'delayed'
+/** ตัวโหลดเริ่มขึ้นเพราะอะไร: กดลิงก์ = ค่อยๆ ขึ้น · ย้อนกลับ = ทันที · โหลดในหน้าเดิม = หน่วงก่อนโผล่ */
+const entryMode = (): Mode => !isNavigating() ? 'delayed' : getNavKind() === 'history' ? 'instant' : 'nav'
 
 /** ลิงก์ที่ควรให้ตัวโหลดบังก่อนเปลี่ยนหน้า → URL ปลายทาง · ไม่ใช่ → null */
 function navTarget(e: MouseEvent): URL | null {
@@ -82,19 +84,15 @@ export default function GlobalLoader() {
       if (!url) return
       e.preventDefault()
       const hidden = phaseRef.current === 'hidden'
-      if (hidden) setMode('nav')
-      beginNavigation()
+      beginNavigation('link')
       clearTimeout(navTimer)
       // ตัวโหลดยังไม่อยู่บนจอ → รอให้ขึ้นทับจนทึบก่อน · อยู่แล้ว → ไปเลย
       navTimer = setTimeout(() => router.push(url.pathname + url.search + url.hash), hidden ? NAV_FADE_IN : 0)
     }
-    // ปุ่มย้อนกลับ/ไปข้างหน้า: เบราว์เซอร์เปลี่ยนหน้าทันที → ให้ตัวโหลดทึบทันที
-    const onPop = () => { if (phaseRef.current === 'hidden') setMode('instant'); beginNavigation() }
+    // ปุ่มย้อนกลับ/ไปข้างหน้า: จับไว้ใน lib/pageLoading.ts (ต้องมาก่อน Next)
     document.addEventListener('click', onClick, true)
-    addEventListener('popstate', onPop)
     return () => {
       document.removeEventListener('click', onClick, true)
-      removeEventListener('popstate', onPop)
       clearTimeout(navTimer)
     }
   }, [router])
@@ -102,6 +100,7 @@ export default function GlobalLoader() {
   // ถึงหน้าใหม่แล้ว → ปล่อยส่วนของการนำทาง (หน้าใหม่ลงทะเบียน usePageLoading ไปแล้วตอน layout)
   const lastPath = useRef(pathname)
   useEffect(() => {
+    notePath(pathname)
     if (lastPath.current === pathname) return
     lastPath.current = pathname
     const t = setTimeout(endNavigation, 60)
@@ -120,8 +119,7 @@ export default function GlobalLoader() {
     if (busy) {
       if (phase !== 'shown') {
         shownAt.current = performance.now()
-        // เริ่มจากการกดลิงก์ / ย้อนกลับ → mode ตั้งไว้แล้ว · ไม่งั้น = โหลดในหน้าเดิม (หน่วงก่อนโผล่)
-        if (!isNavigating()) setMode('delayed')
+        setMode(entryMode())
         setPhase('shown')
       }
       return
@@ -140,9 +138,13 @@ export default function GlobalLoader() {
     return () => clearTimeout(t)
   }, [phase])
 
-  if (phase === 'hidden') return null
+  // เพิ่งเริ่มโหลด (phase ยังเป็น hidden) → วาดตัวโหลดในรอบเรนเดอร์เดียวกันเลย ไม่รอ effect
+  // (ปุ่มย้อนกลับของเบราว์เซอร์: หน้าใหม่ถูกวาดในรอบนี้ทันที ถ้ารอ effect จะเห็นหน้าใหม่แวบก่อน)
+  const starting = phase === 'hidden' && busy
+  if (phase === 'hidden' && !starting) return null
+  const shownMode = starting ? entryMode() : mode
   const th = lang === 'th'
-  const inCls = mode === 'nav' ? ' gl-in-nav' : mode === 'delayed' ? ' gl-in-delayed' : ''
+  const inCls = shownMode === 'nav' ? ' gl-in-nav' : shownMode === 'delayed' ? ' gl-in-delayed' : ''
   return (
     // ชั้นนอก = จางออก (transition) · ชั้นใน = ค่อยๆ โผล่ (animation) — แยกกัน ไม่งั้น animation ทับ opacity ตอนจาง
     <div role="status" aria-live="polite" aria-busy={busy}

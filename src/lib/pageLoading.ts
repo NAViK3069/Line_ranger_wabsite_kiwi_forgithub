@@ -13,6 +13,7 @@ import { useLayoutEffect } from 'react'
 
 let pending = 0
 let navigating = false
+let navKind: 'link' | 'history' = 'link'
 const listeners = new Set<() => void>()
 const emit = () => { for (const l of listeners) l() }
 
@@ -21,8 +22,23 @@ export const getPageLoading = () => pending + (navigating ? 1 : 0)
 /** ฝั่ง server (สร้างหน้า static) ถือว่ายังโหลด → HTML แรกมีตัวโหลดอยู่แล้ว */
 export const getServerPageLoading = () => 1
 export const isNavigating = () => navigating
+/** link = กดลิงก์ในเว็บ (ตัวโหลดค่อยๆ ขึ้นก่อนเปลี่ยนหน้า) · history = ปุ่มย้อนกลับ/ไปข้างหน้าของเบราว์เซอร์ (ขึ้นทันที) */
+export const getNavKind = () => navKind
 
-export function beginNavigation() { if (!navigating) { navigating = true; emit() } }
+export function beginNavigation(kind: 'link' | 'history' = 'link') {
+  if (navigating) return
+  navigating = true; navKind = kind; emit()
+}
+
+// ปุ่มย้อนกลับ/ไปข้างหน้าของเบราว์เซอร์: React วาดหน้าใหม่ทันทีในจังหวะ popstate
+// → ต้องนับว่ากำลังโหลด "ก่อน" ตัวรับ popstate ของ Next (ลงทะเบียนตั้งแต่โหลดไฟล์นี้ = มาก่อนเสมอ)
+//   ย้อนกลับในหน้าเดิม (แค่ ?query / #hash เปลี่ยน) ไม่นับ — ไม่มีหน้าใหม่ให้รอ
+let knownPath = typeof window !== 'undefined' ? location.pathname : ''
+/** GlobalLoader แจ้ง path ปัจจุบันทุกครั้งที่เปลี่ยน */
+export const notePath = (p: string) => { knownPath = p }
+if (typeof window !== 'undefined') {
+  addEventListener('popstate', () => { if (location.pathname !== knownPath) beginNavigation('history') })
+}
 export function endNavigation() { if (navigating) { navigating = false; emit() } }
 
 export function usePageLoading(active: boolean) {

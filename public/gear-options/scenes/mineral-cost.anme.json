@@ -3,12 +3,12 @@
  "name": "Mineral Production cost — Rock Legend Brown",
  "width": 1280,
  "height": 720,
- "duration": 55,
+ "duration": 46,
  "fps": 30,
  "groundY": 560,
  "background": {
-  "kind": "stage",
-  "color": "#0b1020",
+  "kind": "color",
+  "color": "#0a0d1c",
   "gradient": [
    "#1b2550",
    "#06070d"
@@ -33,6 +33,34 @@
    "name": "Brown ตำนานร็อค"
   },
   {
+   "id": "tw_twr10",
+   "type": "ranger",
+   "source": "upload",
+   "name": "twr10-body",
+   "body": "body",
+   "sets": {
+    "body": {
+     "sam": "/api/res/twr10/twr10-body.sam",
+     "plist": "/api/res/twr10/twr10-body.plist",
+     "png": "/api/res/twr10/twr10-body.png"
+    }
+   }
+  },
+  {
+   "id": "fx_light_b",
+   "type": "ranger",
+   "source": "upload",
+   "name": "icon_ab_light_eff2_b",
+   "body": "body",
+   "sets": {
+    "body": {
+     "sam": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.sam",
+     "plist": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.plist",
+     "png": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.png"
+    }
+   }
+  },
+  {
    "id": "snd_bgm",
    "type": "audio",
    "name": "bgm_lobby2",
@@ -43,16 +71,62 @@
    "type": "audio",
    "name": "gear_equip",
    "url": "/api/res/_raw/sounds/gear_equip_20151123104728600.ogg"
+  },
+  {
+   "id": "snd_click",
+   "type": "audio",
+   "name": "click_summon",
+   "url": "/api/res/_raw/sounds/click_summon_20140603152639436.ogg"
   }
  ],
  "actors": [
   {
-   "id": "summon_0",
-   "name": "Brown ตำนานร็อค #1",
+   "id": "a_light_b",
+   "name": "fx_light_b",
+   "assetId": "fx_light_b",
+   "tag": "prop",
+   "x": 150,
+   "y": 665.6875,
+   "scale": 2.2,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "start",
+   "hiddenParts": [],
+   "loop": false,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "tower_0",
+   "name": "twr10 (base)",
+   "assetId": "tw_twr10",
+   "tag": "prop",
+   "x": 110,
+   "y": 362,
+   "scale": 1,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "normal_idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "summon_0_0",
+   "name": "Brown ตำนานร็อค base #1",
    "assetId": "r_u1260e-brown",
-   "tag": "ally_0",
-   "x": 130,
-   "y": 560,
+   "tag": "ally_0_0",
+   "x": 236,
+   "y": 362,
    "scale": 1,
    "flip": false,
    "rotation": 0,
@@ -67,12 +141,12 @@
    "speed": 1
   },
   {
-   "id": "summon_1",
-   "name": "Brown ตำนานร็อค #2",
+   "id": "summon_0_1",
+   "name": "Brown ตำนานร็อค base #2",
    "assetId": "r_u1260e-brown",
-   "tag": "ally_1",
-   "x": 130,
-   "y": 574,
+   "tag": "ally_0_1",
+   "x": 236,
+   "y": 362,
    "scale": 1,
    "flip": false,
    "rotation": 0,
@@ -87,12 +161,12 @@
    "speed": 1
   },
   {
-   "id": "summon_2",
-   "name": "Brown ตำนานร็อค #3",
+   "id": "summon_0_2",
+   "name": "Brown ตำนานร็อค base #3",
    "assetId": "r_u1260e-brown",
-   "tag": "ally_2",
-   "x": 130,
-   "y": 588,
+   "tag": "ally_0_2",
+   "x": 236,
+   "y": 362,
    "scale": 1,
    "flip": false,
    "rotation": 0,
@@ -107,12 +181,12 @@
    "speed": 1
   },
   {
-   "id": "summon_3",
-   "name": "Brown ตำนานร็อค #4",
+   "id": "summon_0_3",
+   "name": "Brown ตำนานร็อค base #4",
    "assetId": "r_u1260e-brown",
-   "tag": "ally_3",
-   "x": 130,
-   "y": 560,
+   "tag": "ally_0_3",
+   "x": 236,
+   "y": 362,
    "scale": 1,
    "flip": false,
    "rotation": 0,
@@ -127,12 +201,92 @@
    "speed": 1
   },
   {
-   "id": "summon_4",
-   "name": "Brown ตำนานร็อค #5",
+   "id": "tower_1",
+   "name": "twr10 (gear)",
+   "assetId": "tw_twr10",
+   "tag": "prop",
+   "x": 110,
+   "y": 511,
+   "scale": 1,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "normal_idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "summon_1_0",
+   "name": "Brown ตำนานร็อค gear #1",
    "assetId": "r_u1260e-brown",
-   "tag": "ally_4",
-   "x": 130,
-   "y": 574,
+   "tag": "ally_1_0",
+   "x": 236,
+   "y": 511,
+   "scale": 1,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "summon_1_1",
+   "name": "Brown ตำนานร็อค gear #2",
+   "assetId": "r_u1260e-brown",
+   "tag": "ally_1_1",
+   "x": 236,
+   "y": 511,
+   "scale": 1,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "summon_1_2",
+   "name": "Brown ตำนานร็อค gear #3",
+   "assetId": "r_u1260e-brown",
+   "tag": "ally_1_2",
+   "x": 236,
+   "y": 511,
+   "scale": 1,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "summon_1_3",
+   "name": "Brown ตำนานร็อค gear #4",
+   "assetId": "r_u1260e-brown",
+   "tag": "ally_1_3",
+   "x": 236,
+   "y": 511,
    "scale": 1,
    "flip": false,
    "rotation": 0,
@@ -149,112 +303,178 @@
  ],
  "cues": [
   {
-   "id": "show_0",
+   "id": "show_summon_0_0",
    "type": "show",
-   "actorId": "summon_0",
-   "start": 19.5,
-   "duration": 7.411,
-   "fadeIn": 0.25,
-   "fadeOut": 0.1
+   "actorId": "summon_0_0",
+   "start": 21,
+   "duration": 6.332,
+   "fadeIn": 0.12,
+   "fadeOut": 0.05
   },
   {
-   "id": "walk_0",
+   "id": "walk_summon_0_0",
    "type": "move",
-   "actorId": "summon_0",
-   "start": 19.85,
+   "actorId": "summon_0_0",
+   "start": 21,
    "to": {
-    "x": 1500,
-    "y": 560
+    "x": 1420,
+    "y": 362
    },
-   "duration": 7.211,
+   "duration": 6.232,
    "ease": "linear",
    "clip": "walk"
   },
   {
-   "id": "show_1",
+   "id": "show_summon_0_1",
    "type": "show",
-   "actorId": "summon_1",
-   "start": 34.5,
-   "duration": 7.411,
-   "fadeIn": 0.25,
-   "fadeOut": 0.1
+   "actorId": "summon_0_1",
+   "start": 25,
+   "duration": 6.332,
+   "fadeIn": 0.12,
+   "fadeOut": 0.05
   },
   {
-   "id": "walk_1",
+   "id": "walk_summon_0_1",
    "type": "move",
-   "actorId": "summon_1",
-   "start": 34.85,
+   "actorId": "summon_0_1",
+   "start": 25,
    "to": {
-    "x": 1500,
-    "y": 574
+    "x": 1420,
+    "y": 362
    },
-   "duration": 7.211,
+   "duration": 6.232,
    "ease": "linear",
    "clip": "walk"
   },
   {
-   "id": "show_2",
+   "id": "show_summon_0_2",
    "type": "show",
-   "actorId": "summon_2",
-   "start": 38.5,
-   "duration": 7.411,
-   "fadeIn": 0.25,
-   "fadeOut": 0.1
+   "actorId": "summon_0_2",
+   "start": 29,
+   "duration": 6.332,
+   "fadeIn": 0.12,
+   "fadeOut": 0.05
   },
   {
-   "id": "walk_2",
+   "id": "walk_summon_0_2",
    "type": "move",
-   "actorId": "summon_2",
-   "start": 38.85,
+   "actorId": "summon_0_2",
+   "start": 29,
    "to": {
-    "x": 1500,
-    "y": 588
+    "x": 1420,
+    "y": 362
    },
-   "duration": 7.211,
+   "duration": 6.232,
    "ease": "linear",
    "clip": "walk"
   },
   {
-   "id": "show_3",
+   "id": "show_summon_0_3",
    "type": "show",
-   "actorId": "summon_3",
-   "start": 42.5,
-   "duration": 7.411,
-   "fadeIn": 0.25,
-   "fadeOut": 0.1
+   "actorId": "summon_0_3",
+   "start": 33,
+   "duration": 6.332,
+   "fadeIn": 0.12,
+   "fadeOut": 0.05
   },
   {
-   "id": "walk_3",
+   "id": "walk_summon_0_3",
    "type": "move",
-   "actorId": "summon_3",
-   "start": 42.85,
+   "actorId": "summon_0_3",
+   "start": 33,
    "to": {
-    "x": 1500,
-    "y": 560
+    "x": 1420,
+    "y": 362
    },
-   "duration": 7.211,
+   "duration": 6.232,
    "ease": "linear",
    "clip": "walk"
   },
   {
-   "id": "show_4",
+   "id": "show_summon_1_0",
    "type": "show",
-   "actorId": "summon_4",
-   "start": 46.5,
-   "duration": 7.411,
-   "fadeIn": 0.25,
-   "fadeOut": 0.1
+   "actorId": "summon_1_0",
+   "start": 21,
+   "duration": 6.332,
+   "fadeIn": 0.12,
+   "fadeOut": 0.05
   },
   {
-   "id": "walk_4",
+   "id": "walk_summon_1_0",
    "type": "move",
-   "actorId": "summon_4",
-   "start": 46.85,
+   "actorId": "summon_1_0",
+   "start": 21,
    "to": {
-    "x": 1500,
-    "y": 574
+    "x": 1420,
+    "y": 511
    },
-   "duration": 7.211,
+   "duration": 6.232,
+   "ease": "linear",
+   "clip": "walk"
+  },
+  {
+   "id": "show_summon_1_1",
+   "type": "show",
+   "actorId": "summon_1_1",
+   "start": 25,
+   "duration": 6.332,
+   "fadeIn": 0.12,
+   "fadeOut": 0.05
+  },
+  {
+   "id": "walk_summon_1_1",
+   "type": "move",
+   "actorId": "summon_1_1",
+   "start": 25,
+   "to": {
+    "x": 1420,
+    "y": 511
+   },
+   "duration": 6.232,
+   "ease": "linear",
+   "clip": "walk"
+  },
+  {
+   "id": "show_summon_1_2",
+   "type": "show",
+   "actorId": "summon_1_2",
+   "start": 29,
+   "duration": 6.332,
+   "fadeIn": 0.12,
+   "fadeOut": 0.05
+  },
+  {
+   "id": "walk_summon_1_2",
+   "type": "move",
+   "actorId": "summon_1_2",
+   "start": 29,
+   "to": {
+    "x": 1420,
+    "y": 511
+   },
+   "duration": 6.232,
+   "ease": "linear",
+   "clip": "walk"
+  },
+  {
+   "id": "show_summon_1_3",
+   "type": "show",
+   "actorId": "summon_1_3",
+   "start": 33,
+   "duration": 6.332,
+   "fadeIn": 0.12,
+   "fadeOut": 0.05
+  },
+  {
+   "id": "walk_summon_1_3",
+   "type": "move",
+   "actorId": "summon_1_3",
+   "start": 33,
+   "to": {
+    "x": 1420,
+    "y": 511
+   },
+   "duration": 6.232,
    "ease": "linear",
    "clip": "walk"
   },
@@ -265,24 +485,57 @@
    "start": 0,
    "center": {
     "x": 640,
-    "y": 377.14285714285717
+    "y": 360
    },
-   "zoom": 1.05,
+   "zoom": 1,
    "duration": 0,
    "ease": "easeInOut"
   },
   {
-   "id": "cam_outro",
+   "id": "cam_equip",
    "type": "camera",
    "actorId": "__camera",
-   "start": 48,
+   "start": 18.299999999999997,
+   "center": {
+    "x": 426.6666666666667,
+    "y": 361
+   },
+   "zoom": 1.5,
+   "duration": 0.7,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_race",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 20.2,
    "center": {
     "x": 640,
-    "y": 380
+    "y": 360
    },
-   "zoom": 1.1,
-   "duration": 7,
-   "ease": "linear"
+   "zoom": 1,
+   "duration": 0.7,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "light_once",
+   "type": "anim",
+   "actorId": "a_light_b",
+   "start": 19.4,
+   "clip": "start",
+   "speed": 0.8,
+   "loop": false,
+   "hold": true,
+   "duration": 0.9583333333333334
+  },
+  {
+   "id": "show_light_b",
+   "type": "show",
+   "actorId": "a_light_b",
+   "start": 19.4,
+   "duration": 0.9583333333333334,
+   "fadeIn": 0.05,
+   "fadeOut": 0.2
   },
   {
    "id": "bgm",
@@ -292,7 +545,7 @@
    "assetId": "snd_bgm",
    "volume": 1,
    "offset": 0,
-   "duration": 55,
+   "duration": 38,
    "fadeIn": 1,
    "fadeOut": 2
   },
@@ -300,15 +553,111 @@
    "id": "sfx_equip",
    "type": "sound",
    "actorId": "__audio",
-   "start": 32,
+   "start": 19.4,
    "assetId": "snd_equip",
    "volume": 1,
    "offset": 0,
    "duration": 0,
    "fadeIn": 0,
    "fadeOut": 0
+  },
+  {
+   "id": "sfx_click_0_0",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 21,
+   "assetId": "snd_click",
+   "volume": 0.7,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
+  },
+  {
+   "id": "sfx_click_0_1",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 25,
+   "assetId": "snd_click",
+   "volume": 0.7,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
+  },
+  {
+   "id": "sfx_click_0_2",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 29,
+   "assetId": "snd_click",
+   "volume": 0.7,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
+  },
+  {
+   "id": "sfx_click_0_3",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 33,
+   "assetId": "snd_click",
+   "volume": 0.7,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
+  },
+  {
+   "id": "sfx_click_1_0",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 21,
+   "assetId": "snd_click",
+   "volume": 0.7,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
+  },
+  {
+   "id": "sfx_click_1_1",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 25,
+   "assetId": "snd_click",
+   "volume": 0.7,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
+  },
+  {
+   "id": "sfx_click_1_2",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 29,
+   "assetId": "snd_click",
+   "volume": 0.7,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
+  },
+  {
+   "id": "sfx_click_1_3",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 33,
+   "assetId": "snd_click",
+   "volume": 0.7,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
   }
  ],
- "depthSort": true,
+ "depthSort": false,
  "smooth": true
 }

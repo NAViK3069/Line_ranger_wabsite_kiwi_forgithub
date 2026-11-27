@@ -2,8 +2,8 @@
 
 // ====================================================
 // วิดีโอสอน: ระยะโจมตี (Attack Range)
-//   Executor Anubis Brown (ซ้าย, ระยะ 100 pt — สายประชิด) เดินเข้าหา Rock Legend Brown (ขวา ยืนนิ่ง) แล้วตีเมื่อเข้าระยะ
-//   รอบ A ไม่ใส่เกียร์ (หยุดที่ x 730) · รอบ B ใส่ 3 ชิ้น ระยะ +108.6% → 208 pt (หยุดที่ x 514 — ตีจากไกลกว่าเดิม)
+//   Foot Soldier Crush (u2018e-crush · ซ้าย · สายว่องไว AGI · ระยะ 100 pt · ตีปกติยิงกระสุน WEAPON) เดินเข้าหา Rock Legend Brown (ขวา ยืนนิ่ง) แล้วยิงเมื่อเข้าระยะ
+//   รอบ A ไม่ใส่เกียร์ (หยุดที่ x 730) · รอบ B ใส่ 3 ชิ้น ระยะ +108.6% → 208 pt (หยุดที่ x 514 — ยิงจากไกลกว่าเดิม)
 //   ฉาก: public/gear-options/scenes/atk-range.anme.json ← scripts/gear-options/build-range-scene.cjs (ค่าคงที่ต้องตรงกัน)
 //
 // กฎของเกม (ถอดจาก libgame.so):
@@ -23,7 +23,7 @@ import {
 } from './kit'
 
 type Tr = (th: string, en: string) => string
-const WALKER = 'u1242e-brown', TARGET = 'u1260e-brown'
+const WALKER = 'u2018e-crush', TARGET = 'u1260e-brown'
 /** ตรงกับ build-range-scene.cjs */
 const TARGET_X = 1000, TARGET_HALF_W = 70
 const GO_A = 19.6, GO_B = 34.6, EQUIP_AT = 31.5, SUMMARY = 46.5, END = 54
@@ -57,7 +57,7 @@ export default function AtkRangeTutorial({ autoPlay }: { autoPlay: boolean }) {
   const optName = tr('equip', 'GEAR_ATTR_ATK_RNGE_MUL_nm', T('ระยะโจมตี', 'Attack Range'))
   const gearName = (i: number) => tGear(GEARS[i].code, GEARS[i].en)
   const effName = (e: GearEffect) => (e.nameKey ? tr('equip', e.nameKey, e.name) : e.name)
-  const wName = tRanger(WALKER, 'Executor Anubis Brown'), tName = tRanger(TARGET, 'Rock Legend Brown')
+  const wName = tRanger(WALKER, 'Foot Soldier Crush'), tName = tRanger(TARGET, 'Rock Legend Brown')
   const tested = d.gears[0].basic.map((e, i) => (e.basicGrowth?.reinforceType === TYPE ? i : -1)).filter(i => i >= 0)
   const totalTxt = `+${pc(d.total)}`
   const slots = Object.fromEntries(GEARS.map(g => [g.kind, { icon: gearIconUrl(g.code), grade: g.grade }])) as Partial<Record<GearKind, SlotGear>>
@@ -72,9 +72,9 @@ export default function AtkRangeTutorial({ autoPlay }: { autoPlay: boolean }) {
           switchable={null} kind={GEARS[0].kind} grade={GEARS[0].grade} tested={tested} />
 
         <RangerCard T={T} r={d.w} name={wName} s={span(t, 8.0, 12.2)} x={680} y={24}
-          tag={T('ตัวที่ใส่เกียร์ · สายประชิด', 'Gear wearer · melee')} tagColor="bg-cyan-500/25 text-cyan-200"
+          tag={T('ตัวที่ใส่เกียร์ · สายว่องไว ยิงกระสุน', 'Gear wearer · agility, shoots')} tagColor="bg-cyan-500/25 text-cyan-200"
           rows={<>
-            <StatRow t={t} label={T('ระยะโจมตี', 'Attack range')} value={`${d.range}`} hlAt={8.75} note={T('หน่วยในเกม (1 = 2 พิกเซล) · เดินเข้าไปจนเป้าเข้าระยะแล้วค่อยตี', 'Game units (1 = 2 px) · walks up until the target is in range, then attacks')} />
+            <StatRow t={t} label={T('ระยะโจมตี', 'Attack range')} value={`${d.range}`} hlAt={8.75} note={T('หน่วยในเกม (1 = 2 พิกเซล) · เดินเข้าไปจนเป้าเข้าระยะแล้วค่อยยิง', 'Game units (1 = 2 px) · walks up until the target is in range, then shoots')} />
             <StatRow t={t} label={T('ความเร็วเดิน', 'Move speed')} value={`${d.speed}`} dim />
           </>}
           slots={<GearSlots t={t} />} />
@@ -82,7 +82,7 @@ export default function AtkRangeTutorial({ autoPlay }: { autoPlay: boolean }) {
         <RangeFormulaCard t={t} T={T} d={d} optName={optName} totalTxt={totalTxt} />
 
         <Banner t={t} start={GO_A - 0.8} end={GO_A + 3.4} title={T('ยังไม่ใส่เกียร์', 'No gear')} sub={T(`ระยะ ${d.range} → เดินเข้าไปใกล้`, `Range ${d.range} → walks in close`)} color={BANNER_COLOR.normalNoGear} />
-        <Banner t={t} start={GO_B - 0.8} end={GO_B + 3.4} title={T(`ใส่เกียร์ · ${optName} ${totalTxt}`, `With gear · ${optName} ${totalTxt}`)} sub={T(`ระยะ ${d.range} + ${d.bonus} = ${d.rangeAfter} → ตีจากไกลขึ้น`, `Range ${d.range} + ${d.bonus} = ${d.rangeAfter} → attacks from farther`)} color={BANNER_COLOR.normalGear} />
+        <Banner t={t} start={GO_B - 0.8} end={GO_B + 3.4} title={T(`ใส่เกียร์ · ${optName} ${totalTxt}`, `With gear · ${optName} ${totalTxt}`)} sub={T(`ระยะ ${d.range} + ${d.bonus} = ${d.rangeAfter} → ยิงจากไกลขึ้น`, `Range ${d.range} + ${d.bonus} = ${d.rangeAfter} → shoots from farther`)} color={BANNER_COLOR.normalGear} />
 
         <RangeBand c={c} t={t} T={T} actor={after ? 'walker_b' : 'walker_a'} rangePt={after ? d.rangeAfter : d.range}
           from={after ? GO_B - 1.2 : GO_A - 1.2} to={after ? SUMMARY - 0.3 : EQUIP_AT - 1.6} />
@@ -95,7 +95,7 @@ export default function AtkRangeTutorial({ autoPlay }: { autoPlay: boolean }) {
               <div key={String(g)} className={`rounded-2xl border-2 p-3 text-center ${g ? 'bg-[#2a1f08] border-amber-400/50' : 'bg-white/[0.05] border-white/10'}`}>
                 <div className="text-[20px] text-gray-300 font-bold">{g ? `${optName} ${totalTxt}` : T('ไม่ใส่เกียร์', 'No gear')}</div>
                 <div className={`text-[40px] font-black tabular-nums leading-tight ${g ? 'text-amber-300' : 'text-white'}`}>{g ? d.rangeAfter : d.range}</div>
-                <div className="text-[19px] font-bold text-gray-400">{T(`หยุดตีห่างเป้า ${g ? d.rangeAfter : d.range} หน่วย`, `Stops ${g ? d.rangeAfter : d.range} units from the target`)}</div>
+                <div className="text-[19px] font-bold text-gray-400">{T(`หยุดยิงห่างเป้า ${g ? d.rangeAfter : d.range} หน่วย`, `Stops ${g ? d.rangeAfter : d.range} units from the target`)}</div>
               </div>
             ))}
           </div>
@@ -128,7 +128,7 @@ function RangeBand({ c, t, T, actor, rangePt, from, to }: { c: OverlayCtx; t: nu
         background: inRange ? 'linear-gradient(90deg, rgba(251,191,36,0.15), rgba(251,191,36,0.7))' : 'linear-gradient(90deg, rgba(56,189,248,0.12), rgba(56,189,248,0.6))',
         border: `3px solid ${inRange ? '#fde68a' : '#7dd3fc'}` }} />
       <div className="absolute px-3 py-1 rounded-lg bg-black/75 text-[20px] font-black whitespace-nowrap tabular-nums" style={{ left: (a.x + b.x) / 2, top: a.y + 18, transform: 'translateX(-50%)', color: inRange ? '#fde68a' : '#bae6fd' }}>
-        {T('ระยะ', 'Range')} {rangePt}{inRange ? ` · ${T('เข้าระยะ! ตี', 'in range! attack')}` : ''}
+        {T('ระยะ', 'Range')} {rangePt}{inRange ? ` · ${T('เข้าระยะ! ยิง', 'in range! shoot')}` : ''}
       </div>
       <div className="absolute border-l-[3px] border-dashed border-rose-300/90" style={{ left: e.x, top: top.y, height: e.y - top.y + 14 }} />
       <div className="absolute px-2 py-0.5 rounded bg-rose-900/80 text-[16px] font-bold text-rose-100 whitespace-nowrap" style={{ left: e.x, top: top.y - 30, transform: 'translateX(-50%)' }}>{T('ขอบตัวเป้า', "Target's edge")}</div>
@@ -145,7 +145,7 @@ function RangeFormulaCard({ t, T, d, optName, totalTxt }: { t: number; T: Tr; d:
       <Fit1><span className="text-[26px] font-black text-sky-300">{T('เกมคิดระยะโจมตีแบบนี้', 'How the game handles attack range')}</span></Fit1>
       <div className="mt-3 rounded-2xl bg-white/[0.05] px-5 py-3 text-center" style={step(t, a + 0.3)}>
         <Fit1 className="text-center"><span className="text-[30px] font-black text-amber-200">{T('ระยะใหม่', 'New range')} = {T('ระยะ', 'range')} + {T('ตัดเศษ', 'floor')}({T('ระยะ', 'range')} × {optName})</span></Fit1>
-        <div className="mt-1 text-[20px] font-bold text-gray-300 text-balance">{T('เดินจนช่องตรวจจับข้างหน้า (ยาวเท่าระยะ) แตะขอบตัวเป้า แล้วหยุดตี · ระยะไกลขึ้น = หยุดตีได้ไกลกว่า', 'Walks until the detection band in front (as long as the range) touches the target, then stops to attack · longer range = attacks from farther')}</div>
+        <div className="mt-1 text-[20px] font-bold text-gray-300 text-balance">{T('เดินจนช่องตรวจจับข้างหน้า (ยาวเท่าระยะ) แตะขอบตัวเป้า แล้วหยุดยิง · ระยะไกลขึ้น = หยุดยิงได้ไกลกว่า', 'Walks until the detection band in front (as long as the range) touches the target, then stops to attack · longer range = attacks from farther')}</div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-4" style={step(t, a + 1.6)}>
         <div className="rounded-2xl bg-white/[0.05] border-2 border-white/10 px-4 py-3"><div className="text-[20px] font-bold text-gray-400">{T('ไม่ใส่เกียร์', 'No gear')}</div>

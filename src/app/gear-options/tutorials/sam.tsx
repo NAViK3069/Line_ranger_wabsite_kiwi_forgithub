@@ -121,6 +121,34 @@ export function SamSprite({ base, clip, frame, loop = false, x, y, scale: scaleI
 }
 
 /** ชิ้นเดียวจาก atlas — วาดลง canvas ตามขนาดจริงของชิ้น × scale · x, y = จุดกึ่งกลาง */
+/**
+ * ชิ้น atlas แบบยืดแนวนอน (CCScale9Sprite ที่ขอบบน/ล่างเต็มความสูง) — หัว `capL` + กลางยืด + ท้าย `capR` พิกเซล
+ * วางมุมซ้ายบนที่ (left, top) กว้าง width (พิกเซลไฟล์ เท่ากับหน่วยของ AtlasSprite)
+ */
+export function AtlasNineH({ atlas, name, left, top, width, capL, capR }: {
+  atlas: string; name: string; left: number; top: number; width: number; capL: number; capR: number
+}) {
+  const sprites = useLoaded(() => loadAtlas(atlas), `atlas:${atlas}`)
+  const ref = useRef<HTMLCanvasElement>(null)
+  const spr = sprites?.[name]
+  const w = Math.max(capL + capR, width)
+  useLayoutEffect(() => {
+    const cv = ref.current
+    if (!spr || !cv) return
+    const ctx = cv.getContext('2d')!
+    ctx.clearRect(0, 0, cv.width, cv.height)
+    const h = spr.h, mid = spr.w - capL - capR
+    ctx.drawImage(spr.bitmap, 0, 0, capL, h, 0, 0, capL * RES, h * RES)
+    ctx.drawImage(spr.bitmap, capL, 0, mid, h, capL * RES, 0, (w - capL - capR) * RES, h * RES)
+    ctx.drawImage(spr.bitmap, spr.w - capR, 0, capR, h, (w - capR) * RES, 0, capR * RES, h * RES)
+  }, [spr, w, capL, capR])
+  if (!spr) return null
+  return (
+    <canvas ref={ref} width={Math.ceil(w * RES)} height={Math.ceil(spr.h * RES)} className="absolute pointer-events-none"
+      style={{ left, top, width: w, height: spr.h }} />
+  )
+}
+
 export function AtlasSprite({ atlas, name, x, y, scale = 1, alpha = 1, style }: {
   atlas: string; name: string; x: number; y: number; scale?: number; alpha?: number; style?: React.CSSProperties
 }) {

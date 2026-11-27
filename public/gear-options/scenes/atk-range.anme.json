@@ -25,12 +25,12 @@
  },
  "assets": [
   {
-   "id": "r_u1242e-brown",
+   "id": "r_u2018e-crush",
    "type": "ranger",
    "source": "lerico",
-   "rangerId": "u1242e-brown",
+   "rangerId": "u2018e-crush",
    "form": "body",
-   "name": "Brown อนูบิสเพชฌฆาต"
+   "name": "พลทหารครัช"
   },
   {
    "id": "r_u1260e-brown",
@@ -111,14 +111,20 @@
   {
    "id": "snd_normal_prep",
    "type": "audio",
-   "name": "attrd_u1241ebrown",
-   "url": "/api/res/_raw/sounds/attrd_u1241ebrown_20220629102750596.ogg"
+   "name": "attrd_u50021",
+   "url": "/api/res/_raw/sounds/attrd_u50021_20150416185050739.ogg"
+  },
+  {
+   "id": "snd_normal_rel",
+   "type": "audio",
+   "name": "att_swish_a",
+   "url": "/api/res/_raw/sounds/att_swish_a_20140603152634276.ogg"
   },
   {
    "id": "snd_normal_hit",
    "type": "audio",
-   "name": "hit_body_punch",
-   "url": "/api/res/_raw/sounds/hit_body_punch_20140603152640882.ogg"
+   "name": "hit_weap_dir_sol_mt_sp",
+   "url": "/api/res/_raw/sounds/hit_weap_dir_sol_mt_sp_20140603152643232.ogg"
   }
  ],
  "actors": [
@@ -164,8 +170,8 @@
   },
   {
    "id": "walker_a",
-   "name": "Brown อนูบิสเพชฌฆาต A",
-   "assetId": "r_u1242e-brown",
+   "name": "พลทหารครัช A",
+   "assetId": "r_u2018e-crush",
    "tag": "ally",
    "x": 150,
    "y": 560,
@@ -184,8 +190,8 @@
   },
   {
    "id": "walker_b",
-   "name": "Brown อนูบิสเพชฌฆาต B",
-   "assetId": "r_u1242e-brown",
+   "name": "พลทหารครัช B",
+   "assetId": "r_u2018e-crush",
    "tag": "ally_b",
    "x": 150,
    "y": 560,
@@ -247,7 +253,56 @@
     "speed": 600,
     "returnHome": true
    },
-   "fx": null,
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 96,
+      "y": 174
+     },
+     "angle": {
+      "start": -75,
+      "end": 0
+     },
+     "moveSpeed": 24,
+     "hitRate": 100
+    }
+   },
    "targetId": "target",
    "hitReact": true,
    "hitClip": "target",
@@ -258,6 +313,12 @@
     {
      "assetId": "snd_normal_prep",
      "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
      "volume": 1,
      "enabled": true
     },
@@ -273,7 +334,7 @@
    "id": "hit2_walker_a",
    "type": "skill",
    "actorId": "walker_a",
-   "start": 23.836,
+   "start": 24.62,
    "label": "ตี walker_a",
    "cast": [
     "attack_ready"
@@ -290,7 +351,56 @@
     "speed": 600,
     "returnHome": true
    },
-   "fx": null,
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 96,
+      "y": 174
+     },
+     "angle": {
+      "start": -75,
+      "end": 0
+     },
+     "moveSpeed": 24,
+     "hitRate": 100
+    }
+   },
    "targetId": "target",
    "hitReact": true,
    "hitClip": "target",
@@ -301,6 +411,12 @@
     {
      "assetId": "snd_normal_prep",
      "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
      "volume": 1,
      "enabled": true
     },
@@ -355,7 +471,56 @@
     "speed": 600,
     "returnHome": true
    },
-   "fx": null,
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 96,
+      "y": 174
+     },
+     "angle": {
+      "start": -75,
+      "end": 0
+     },
+     "moveSpeed": 24,
+     "hitRate": 100
+    }
+   },
    "targetId": "target",
    "hitReact": true,
    "hitClip": "target",
@@ -366,6 +531,12 @@
     {
      "assetId": "snd_normal_prep",
      "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
      "volume": 1,
      "enabled": true
     },
@@ -381,7 +552,7 @@
    "id": "hit2_walker_b",
    "type": "skill",
    "actorId": "walker_b",
-   "start": 37.855,
+   "start": 38.638,
    "label": "ตี walker_b",
    "cast": [
     "attack_ready"
@@ -398,7 +569,56 @@
     "speed": 600,
     "returnHome": true
    },
-   "fx": null,
+   "fx": {
+    "set": "bul",
+    "mode": "projectile",
+    "flight": "normal",
+    "finish": "finish",
+    "launch": {
+     "x": 95,
+     "y": -110
+    },
+    "impact": {
+     "x": 0,
+     "y": 0
+    },
+    "point": {
+     "x": 900,
+     "y": 500
+    },
+    "releaseFrame": null,
+    "delay": 0,
+    "speed": 1796,
+    "arc": null,
+    "fitFlight": false,
+    "rotate": false,
+    "rotOffset": 0,
+    "rotateFinish": false,
+    "finishSplit": false,
+    "finishOffset": {
+     "x": 0,
+     "y": 0
+    },
+    "scale": 1,
+    "blend": "source-over",
+    "repeat": 1,
+    "interval": 0.12,
+    "aim": "center",
+    "anchor": "center",
+    "game": {
+     "motion": "LINEAR",
+     "start": {
+      "x": 96,
+      "y": 174
+     },
+     "angle": {
+      "start": -75,
+      "end": 0
+     },
+     "moveSpeed": 24,
+     "hitRate": 100
+    }
+   },
    "targetId": "target",
    "hitReact": true,
    "hitClip": "target",
@@ -409,6 +629,12 @@
     {
      "assetId": "snd_normal_prep",
      "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_rel",
+     "at": "release",
      "volume": 1,
      "enabled": true
     },

@@ -1,4 +1,4 @@
-// วิดีโอ ระยะโจมตี (Attack Range): Executor Anubis Brown (ซ้าย, ระยะ 100 pt) เดินเข้าหา Rock Legend Brown (ขวา ยืนนิ่ง) แล้วตีเมื่อเข้าระยะ
+// วิดีโอ ระยะโจมตี (Attack Range): Foot Soldier Crush (u2018e-crush · ซ้าย · สายว่องไว · ระยะ 100 pt · ตีปกติยิงกระสุน WEAPON) เดินเข้าหา Rock Legend Brown (ขวา ยืนนิ่ง) แล้วยิงเมื่อเข้าระยะ
 //   รอบ A ไม่ใส่เกียร์ · รอบ B ใส่เกียร์ระยะ +108.6% → ระยะ 100 + ตัดเศษ(100 × 1.086) = 208 pt → หยุดตีไกลกว่าเดิม
 //   กฎของเกม:
 //     เกียร์ ATK_RNGE_MUL (0x16) → โบนัส = ตัดเศษ(ระยะ × ค่ารวม) บวกเข้า attackRange (UnitData 0x160 — 0x1124fb4 + 0xd5dd24)
@@ -10,11 +10,13 @@ const fs = require('fs')
 const { gameAttack } = require('./scene-lib.cjs')
 const [inPath, outPath] = process.argv.slice(2)
 
-const WALKER = { id: 'u1242e-brown', name: 'Brown อนูบิสเพชฌฆาต' }
+const WALKER = { id: 'u2018e-crush', name: 'พลทหารครัช' }
 const TARGET = { id: 'u1260e-brown', name: 'Brown ตำนานร็อค' }
 const START_X = 150, TARGET_X = 1000, Y = 560
 const TARGET_HALF_W = 70          // กรอบเวที u1260e-brown กว้าง 140 px
 const SPEED_PX = 110 * 2
+// ยิงทุก = max(attackDelay 67, attack_ready 22 + attack 24) เฟรม ÷ 30 (u2018e-crush)
+const SHOT_GAP = Math.max(67, 22 + 24) / 30
 const RANGE_A = 100, RANGE_B = 100 + Math.trunc(100 * 1.086)   // 208
 const stopX = r => TARGET_X - TARGET_HALF_W - r * 2
 // ── เวลา (ตรงกับ atk-range.tsx) ──
@@ -42,7 +44,7 @@ const round = (actor, go, range, showFrom, showTo) => {
   )
   const hit = { ...clone(baseAtk), ...clone(atk.cue), id: `hit_${actor}`, actorId: actor, targetId: 'target', start: +(go + walk + 0.15).toFixed(3), label: `ตี ${actor}` }
   hit.fx = atk.cue.fx === null ? null : { ...clone(baseAtk.fx ?? {}), ...clone(atk.cue.fx ?? {}) }
-  cues.push(hit, { ...clone(hit), id: `hit2_${actor}`, start: +(go + walk + 1.6).toFixed(3) })
+  cues.push(hit, { ...clone(hit), id: `hit2_${actor}`, start: +(go + walk + 0.15 + SHOT_GAP).toFixed(3) })
   return { stop: sx, walk }
 }
 const A = round('walker_a', GO_A, RANGE_A, 0, EQUIP_AT - 1.5)

@@ -21,7 +21,7 @@ import { apiFetch } from '@/lib/staticApi'
 import type { TBattle, TEnemy, TFloor, TIcon, TowerIndex, TText, TReward } from '@/lib/infinityTower'
 import { GameIcon, useIconUrl } from './atlas'
 import TowerEnemyPopup from './TowerEnemyPopup'
-import { EnemySkeleton, TowerLoader } from './TowerLoading'
+import { EnemySkeleton, FloorsLoader, preloadLoaderAnim } from './TowerLoading'
 
 // canvas + โหลดไฟล์ .sam → ฝั่ง browser เท่านั้น
 const TowerGate = dynamic(() => import('./TowerGate'), { ssr: false })
@@ -63,6 +63,11 @@ const thumbOf = (code: string): TIcon => ({ url: `https://rangers.lerico.net/res
 
 type Tfn = (th: string, en: string) => string
 
+/** การ์ดที่ต้องมีก่อนแสดงรายการ (เต็มหน้าจอแรก) · จำนวนการ์ดที่วาดต่อรอบ (ระหว่างโหลด / หลังแสดงแล้ว) */
+const FIRST_SCREEN = 8
+const CHUNK_LOADING = 6
+const CHUNK_IDLE = 12
+
 export default function InfinityTowerPage() {
   const { lang: siteLang, tStat } = useLanguage()
   const lang = siteLang as L
@@ -78,9 +83,37 @@ export default function InfinityTowerPage() {
   const [jumpOpen, setJumpOpen] = useState(false)
   const [enemy, setEnemy] = useState<TEnemy | null>(null)
 
+  // ── ตัวโหลดในพื้นที่รายการชั้น (เปิดหน้า / เปลี่ยนประเภทด่าน / สลับลำดับ / ไปชั้น) ──
+  //   การ์ดถูกวาดทีละชุด (CHUNK ใบ) ระหว่างเฟรม → อนิเมชันตัวโหลดไม่ค้าง
+  //   ครบจำนวนที่ต้องใช้ (หน้าจอแรก หรือถึงชั้นที่จะไป) → ซ่อนตัวโหลด แสดงการ์ด (ไล่โผล่ลงมา) · ที่เหลือวาดต่อเบื้องหลัง
+  const [loading, setLoading] = useState<{ label: string } | null>({ label: '' })
+  const [shown, setShown] = useState(0)
+  const needRef = useRef(FIRST_SCREEN)
+  const loadT0 = useRef(0)
+  /** รายการการ์ดชุดใหม่ (เปลี่ยน key = เล่นอนิเมชันไล่ลงมาใหม่) + การ์ดที่ไล่ออกก่อน (ชั้นที่ไป) */
+  const [listKey, setListKey] = useState(0)
+  const [staggerFrom, setStaggerFrom] = useState(0)
+  /** ชั้นที่จะกระพริบแสงหลังแสดงรายการ (ไปชั้น) */
+  const flashNext = useRef<string | null>(null)
+  const [flash, setFlash] = useState<string | null>(null)
+
+  /**
+   * โชว์ตัวโหลด + เปลี่ยนรายการใน render เดียวกัน — ถูก เพราะยังไม่วาดการ์ดสักใบ (shown = 0)
+   * การ์ดค่อยๆ ตามมาทีละชุด (ไม่รอเฟรมอนิเมชัน — เครื่องช้า/จอที่ถูกหน่วงก็ไม่ค้าง)
+   */
+  const runLoading = (label: string, action: () => void) => {
+    loadT0.current = performance.now()
+    needRef.current = FIRST_SCREEN
+    setLoading({ label })
+    setShown(0)
+    action()
+  }
+
   useEffect(() => {
+    loadT0.current = performance.now()
+    preloadLoaderAnim()   // อนิเมชันตัวโหลดพร้อมใช้ตั้งแต่เปิดหน้า
     apiFetch('/api/infinity-tower').then(r => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then((d: TowerIndex) => setData(d)).catch(() => setFailed(true))
+      .then((d: TowerIndex) => setData(d)).catch(() => { setFailed(true); setLoading(null) })
   }, [])
 
   // ไม่ให้ Google เก็บหน้านี้ระหว่างที่ยังทำไม่เสร็จ (static export ตั้ง metadata ในหน้า client ไม่ได้)
@@ -134,26 +167,40 @@ export default function InfinityTowerPage() {
     requestAnimationFrame(tick)
   }, [])
 
-  const goTo = (no: number, smooth = true) => {
-    if (!data) return
+  /** ไปชั้น (ไม่มีป๊อปอัป) — รายการชุดใหม่ ไล่อนิเมชันออกจากชั้นนั้น แล้วเลื่อนไปหาแบบทันที */
+  const showFloor = (no: number) => {
+    if (!data) return false
     const f = data.floors.find(x => x.no === no)
-    if (!f) return
+    if (!f) return false
     setJumpOpen(false)
     setJump('')
     setFilter('ALL')
     setOpen(new Set([f.code]))
-    // เลื่อนทันทีหลัง React วาดรายการ (ตัวกรอง 'ทั้งหมด') + การ์ดที่กางเสร็จ — ดู useLayoutEffect ด้านล่าง
-    pendingAlign.current = { code: f.code, smooth }
+    const list = desc ? [...data.floors].reverse() : data.floors
+    const idx = Math.max(0, list.findIndex(x => x.code === f.code))
+    setStaggerFrom(idx)
+    needRef.current = idx + 5          // ต้องมีการ์ดถึงชั้นนั้น (+ ข้างใต้อีกนิดให้เต็มจอ) ก่อนแสดง
+    setShown(0)
+    setListKey(k => k + 1)
+    flashNext.current = f.code
+    // เลื่อนทันทีที่รายการแสดง — ดู useLayoutEffect ด้านล่าง (ยังซ่อนอยู่หลังตัวโหลด จึงไม่ต้อง smooth)
+    pendingAlign.current = { code: f.code, smooth: false }
     const url = new URL(location.href)
     url.searchParams.set('f', String(no))
     history.replaceState(null, '', url)
+    return true
   }
+  const goTo = (no: number) => {
+    if (!data?.floors.some(x => x.no === no)) return
+    runLoading(T(`กำลังขึ้นไปชั้น ${no}`, `Climbing to floor ${no}`), () => { showFloor(no) })
+  }
+  // เปิดหน้าครั้งแรก: ข้อมูลมาแล้ว → (?f=) ไปชั้นนั้น
   const first = useRef(true)
   useEffect(() => {
     if (!data || !first.current) return
     first.current = false
     const f = Number(new URL(location.href).searchParams.get('f'))
-    if (f) goTo(f, false)
+    if (f) showFloor(f)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
@@ -162,6 +209,38 @@ export default function InfinityTowerPage() {
     const list = filter === 'ALL' ? data.floors : data.floors.filter(f => f.battle === filter)
     return desc ? [...list].reverse() : list
   }, [data, filter, desc])
+
+  // วาดการ์ดเพิ่มทีละชุด — ระหว่างโหลด: ทุกเฟรม · หลังแสดงแล้ว: ตอนเครื่องว่าง (ไม่กวนการเลื่อนจอ)
+  useEffect(() => {
+    if (!data || shown >= floors.length) return
+    // ระหว่างโหลด: วาดแค่เท่าที่ต้องใช้ แล้วรอแสดงก่อน (ที่เหลือค่อยวาดตอนเครื่องว่าง)
+    if (loading && shown >= Math.min(floors.length, needRef.current)) return
+    const step = loading ? CHUNK_LOADING : CHUNK_IDLE
+    const add = () => setShown(n => Math.min(floors.length, n + step))
+    if (loading || typeof requestIdleCallback === 'undefined') {
+      // ระหว่างโหลด: งานถัดไปทันที (MessageChannel ไม่โดนหน่วงแบบ setTimeout/เฟรม) — เบราว์เซอร์วาดจอคั่นระหว่างชุดได้
+      let live = true
+      const ch = new MessageChannel()
+      ch.port1.onmessage = () => { if (live) add() }
+      ch.port2.postMessage(0)
+      return () => { live = false; ch.port1.close() }
+    }
+    const id = requestIdleCallback(add, { timeout: 300 })
+    return () => cancelIdleCallback(id)
+  }, [data, shown, floors.length, loading, listKey])
+
+  // ครบจำนวนที่ต้องใช้ → ซ่อนตัวโหลด แสดงการ์ด (อยู่บนจออย่างน้อย ~0.45 วิ ไม่งั้นวาบเดียวดูกระตุก)
+  useEffect(() => {
+    if (!loading || !data) return
+    if (shown < Math.min(floors.length, needRef.current)) return
+    const id = setTimeout(() => {
+      setLoading(null)
+      const code = flashNext.current
+      flashNext.current = null
+      if (code) { setFlash(code); setTimeout(() => setFlash(c => (c === code ? null : c)), 1700) }
+    }, Math.max(0, 450 - (performance.now() - loadT0.current)))
+    return () => clearTimeout(id)
+  }, [loading, data, shown, floors.length, listKey])
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {}
@@ -181,16 +260,30 @@ export default function InfinityTowerPage() {
   // หลัง DOM อัปเดต (ก่อนจอวาด) — เลื่อนไปชั้นที่รอไว้ ไม่ต้องรอเฟรมอนิเมชัน (เครื่องช้า/แท็บที่ถูกหน่วงก็ไม่ค้าง)
   useLayoutEffect(() => {
     const p = pendingAlign.current
-    if (!p) return
+    if (!p || loading) return   // ยังซ่อนอยู่หลังตัวโหลด — รอจนรายการแสดง
     pendingAlign.current = null
     alignFloor(p.code, p.smooth)
-  }, [open, filter, alignFloor])
+  }, [open, filter, loading, alignFloor])
 
 
   const towerName = T('หอคอยอนันต์', 'Infinity Tower')
   /** ชื่อสั้นสำหรับแถบล่างมือถือ — ชื่อทางการของเกมตัดคำว่า "สเตจ/Stage" ออก */
   const shortLabel = (b: TBattle) => data ? tx(data.battles[b].title, lang).replace(/สเตจ|\s*Stage\s*/g, '').trim() : ''
-  const pickFilter = (v: TBattle | 'ALL') => { setFilter(v); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const reorder = (label: string, change: () => void) => runLoading(label, () => {
+    change()
+    setStaggerFrom(0)
+    setListKey(k => k + 1)
+    window.scrollTo({ top: 0, behavior: 'auto' })
+  })
+  const pickFilter = (v: TBattle | 'ALL') => {
+    if (v === filter) { window.scrollTo({ top: 0, behavior: 'smooth' }); return }
+    const name = v === 'ALL' ? T('ทุกชั้น', 'all floors') : (data ? floorName(data.battles[v].title, lang) : '')
+    reorder(T(`กำลังเปิด${name}`, `Opening ${name}`), () => setFilter(v))
+  }
+  const pickDesc = (v: boolean) => {
+    if (v === desc) return
+    reorder(T('กำลังเรียงชั้นใหม่', 'Re-ordering the floors'), () => setDesc(v))
+  }
   const titleLogo: TIcon = { atlas: 'main16', frame: `ml_endless_main_title_${lang === 'th' ? 'th' : 'en'}.png` }
 
   return (
@@ -218,7 +311,7 @@ export default function InfinityTowerPage() {
               ))}
             </div>
             <div className="ml-auto flex shrink-0 items-center gap-2">
-              <button onClick={() => setDesc(v => !v)} title={desc ? T('บนลงล่าง', 'Top down') : T('ล่างขึ้นบน', 'Bottom up')}
+              <button onClick={() => pickDesc(!desc)} title={desc ? T('บนลงล่าง', 'Top down') : T('ล่างขึ้นบน', 'Bottom up')}
                 aria-label={T('สลับลำดับชั้น', 'Reverse floor order')}
                 className="flex items-center gap-1.5 h-10 rounded-xl bg-black/35 px-3 text-sm text-gray-200 ring-1 ring-white/10 hover:bg-white/10 hover:text-white transition-colors">
                 <span className="material-icons-round text-[18px]">{desc ? 'south' : 'north'}</span>
@@ -249,12 +342,17 @@ export default function InfinityTowerPage() {
         </section>
 
         {failed && <p className="mt-10 text-center text-rose-300">{T('โหลดข้อมูลหอคอยไม่ได้', 'Could not load the tower data')}</p>}
-        {!data && !failed && <TowerLoader text={T('กำลังเปิดประตูหอคอย', 'Opening the tower gate')} />}
+        {/* ตัวโหลด (วางไว้ตลอด อนิเมชันพร้อมเล่น) — แสดงตรงพื้นที่รายการชั้นระหว่างเตรียมการ์ด */}
+        <FloorsLoader show={!!loading && !failed}
+          label={loading?.label || T('กำลังเปิดประตูหอคอย', 'Opening the tower gate')}
+          progress={floors.length ? shown / Math.min(floors.length, needRef.current) : 0} />
 
+        {/* การ์ดซ่อนอยู่จนพร้อม แล้วไล่โผล่ลงมาทีละชั้น (globals.css: .it-stagger) */}
         {data && (
-          <ol className="mt-3 space-y-2.5 sm:space-y-3">
-            {floors.map(f => (
-              <FloorCard key={f.code} f={f} data={data} lang={lang} T={T} open={open.has(f.code)} onToggle={toggle} onEnemy={setEnemy} />
+          <ol key={listKey} hidden={!!loading} className="it-stagger mt-3 space-y-2.5 sm:space-y-3">
+            {floors.slice(0, shown).map((f, i) => (
+              <FloorCard key={f.code} f={f} data={data} lang={lang} T={T} open={open.has(f.code)} onToggle={toggle} onEnemy={setEnemy}
+                order={Math.min(Math.abs(i - staggerFrom), 14)} flash={flash === f.code} />
             ))}
           </ol>
         )}
@@ -265,7 +363,7 @@ export default function InfinityTowerPage() {
           onFilter={pickFilter} onJump={() => setJumpOpen(true)} />
       )}
       {jumpOpen && data && (
-        <JumpSheet T={T} max={data.floors.length} value={jump} onChange={setJump} desc={desc} onDesc={setDesc}
+        <JumpSheet T={T} max={data.floors.length} value={jump} onChange={setJump} desc={desc} onDesc={v => { setJumpOpen(false); pickDesc(v) }}
           onGo={n => goTo(n)} onTop={() => { setJumpOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }} onClose={() => setJumpOpen(false)} />
       )}
       {enemy && data && (
@@ -368,14 +466,18 @@ function Amount({ r, data }: { r: TReward; data: TowerIndex }) {
   return <>{it?.type === 'COIN' ? fmt(r.amount) : `×${fmt(r.amount)}`}</>
 }
 
-const FloorCard = memo(function FloorCard({ f, data, lang, T, open, onToggle, onEnemy }: {
+const FloorCard = memo(function FloorCard({ f, data, lang, T, open, onToggle, onEnemy, order, flash }: {
   f: TFloor; data: TowerIndex; lang: L; T: Tfn; open: boolean; onToggle: (code: string) => void; onEnemy: (e: TEnemy) => void
+  /** ลำดับการโผล่ (0 = ก่อนสุด) */
+  order: number
+  /** แสงกระพริบรอบการ์ด (ชั้นที่เพิ่งไปถึง) */
+  flash: boolean
 }) {
   const b = data.battles[f.battle]
   const clear = f.reward.item ? data.items[f.reward.item.item] : null
   return (
-    <li id={f.code}>
-      <article className={`rounded-2xl border bg-[#181026]/95 overflow-hidden transition-colors ${open ? 'border-fuchsia-400/45 shadow-[0_0_0_1px_rgba(217,70,239,0.15),0_10px_30px_rgba(0,0,0,0.35)]' : TONE[f.battle].ring}`}>
+    <li id={f.code} style={{ ['--i' as string]: order }}>
+      <article className={`${flash ? 'it-flash ' : ''}rounded-2xl border bg-[#181026]/95 overflow-hidden transition-colors ${open ? 'border-fuchsia-400/45 shadow-[0_0_0_1px_rgba(217,70,239,0.15),0_10px_30px_rgba(0,0,0,0.35)]' : TONE[f.battle].ring}`}>
         <button onClick={() => onToggle(f.code)} aria-expanded={open} className="block w-full text-left active:bg-white/[0.03] sm:hover:bg-white/[0.02]">
           <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,176px))]">
             {/* ── ส่วนหัว: ประตู + ประเภทด่าน + รางวัลผ่านชั้น ── */}

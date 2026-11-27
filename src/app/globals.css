@@ -645,3 +645,15 @@ button,
   border-radius: 8px;
 }
 @media (prefers-reduced-motion: reduce) { .it-skel { animation: none } }
+
+/* หอคอยอนันต์: การ์ดชั้นไล่โผล่ลงมาทีละใบ (--i = ลำดับ) */
+@keyframes it-rise { from { opacity: 0; transform: translateY(22px) scale(.98) } to { opacity: 1; transform: none } }
+.it-stagger > li { animation: it-rise .42s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 45ms); }
+/* ชั้นที่เพิ่งไปถึง: แสงม่วงวาบรอบการ์ด */
+@keyframes it-flash {
+  0% { box-shadow: 0 0 0 0 rgba(232,121,249,0) }
+  25% { box-shadow: 0 0 0 3px rgba(232,121,249,.85), 0 0 46px rgba(217,70,239,.6) }
+  100% { box-shadow: 0 0 0 1px rgba(217,70,239,.15), 0 10px 30px rgba(0,0,0,.35) }
+}
+.it-flash { animation: it-flash 1.6s ease-out 1; }
+@media (prefers-reduced-motion: reduce) { .it-stagger > li, .it-flash { animation: none } }

@@ -88,6 +88,97 @@ function PieceThumb({ atlas, piece }: { atlas: HTMLImageElement; piece: Piece })
   return <canvas ref={ref} className="max-w-full max-h-full" />
 }
 
+type Zoom = 'fit' | 1 | 2
+
+/**
+ * ดูชิ้นส่วนขนาดเต็ม (ป๊อปอัป): พื้นตาราง (เห็นส่วนโปร่งใส) · ขนาดพอดีจอ / 1× / 2× · ดาวน์โหลด
+ * ← → หรือปุ่มลูกศร = ชิ้นก่อน/ถัดไป · Esc หรือแตะข้างนอก = ปิด
+ */
+function PieceViewer({ atlas, pieces, index, onIndex, onClose, onSave, T }: {
+  atlas: HTMLImageElement; pieces: Piece[]; index: number; onIndex: (i: number) => void; onClose: () => void
+  onSave: (p: Piece) => void; T: (th: string, en: string) => string
+}) {
+  const p = pieces[index]
+  const [url, setUrl] = useState<string | null>(null)
+  const [zoom, setZoom] = useState<Zoom>('fit')
+  useEffect(() => {
+    let live = true, made: string | null = null
+    setUrl(null)
+    drawPiece(atlas, p).toBlob(b => {
+      if (!b || !live) return
+      made = URL.createObjectURL(b)
+      setUrl(made)
+    }, 'image/png')
+    return () => { live = false; if (made) URL.revokeObjectURL(made) }
+  }, [atlas, p])
+  const go = (d: number) => onIndex((index + d + pieces.length) % pieces.length)
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      else if (e.key === 'ArrowRight') go(1)
+      else if (e.key === 'ArrowLeft') go(-1)
+    }
+    addEventListener('keydown', k)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { removeEventListener('keydown', k); document.body.style.overflow = prev }
+  })
+  // พอดีจอ = ย่อชิ้นใหญ่ให้พอดี แต่ไม่ขยายชิ้นเล็ก (ชิ้นเล็กกด 2× เอง)
+  const imgStyle: React.CSSProperties = zoom === 'fit'
+    ? { maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto' }
+    : { width: p.w * zoom, height: p.h * zoom, maxWidth: 'none', maxHeight: 'none' }
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-6" onClick={onClose} role="dialog" aria-modal="true" aria-label={p.name}>
+      <div className="relative flex h-full max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#141420] shadow-2xl" onClick={e => e.stopPropagation()}>
+        {/* หัว: ชื่อ ขนาด ลำดับ + ปุ่ม */}
+        <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-white" title={p.name}>{p.name}</p>
+            <p className="text-[11px] text-gray-400">{p.w}×{p.h}px{p.rotated ? T(' · หมุนใน atlas', ' · rotated in atlas') : ''} · {index + 1}/{pieces.length}</p>
+          </div>
+          <div className="flex items-center rounded-lg bg-black/30 p-0.5 ring-1 ring-white/10 text-xs">
+            {(['fit', 1, 2] as Zoom[]).map(z => (
+              <button key={String(z)} type="button" onClick={() => setZoom(z)} aria-pressed={zoom === z}
+                className={`h-7 rounded-md px-2 ${zoom === z ? 'bg-cyan-500/30 text-white' : 'text-gray-400 hover:text-white'}`}>
+                {z === 'fit' ? T('พอดี', 'Fit') : `${z}×`}
+              </button>
+            ))}
+          </div>
+          <button type="button" onClick={() => onSave(p)} title={T('ดาวน์โหลดชิ้นนี้', 'Download this piece')} aria-label={T('ดาวน์โหลด', 'Download')}
+            className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-300 hover:text-cyan-300 hover:bg-white/10">
+            <span className="material-icons-round text-[20px]">download</span>
+          </button>
+          <button type="button" onClick={onClose} aria-label={T('ปิด', 'Close')}
+            className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10">
+            <span className="material-icons-round text-[20px]">close</span>
+          </button>
+        </div>
+        {/* รูป */}
+        <div className={`relative flex-1 overflow-auto ${zoom === 'fit' ? 'flex items-center justify-center' : ''}`} style={CHECKER}>
+          <div className={zoom === 'fit' ? 'flex h-full w-full items-center justify-center p-4' : 'inline-block p-4'}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {url ? <img src={url} alt={p.name} style={{ ...imgStyle, imageRendering: zoom === 2 ? 'pixelated' : 'auto' }} className="block object-contain" draggable={false} />
+              : <span className="material-icons-round animate-spin text-gray-400">autorenew</span>}
+          </div>
+        </div>
+        {/* ก่อน / ถัดไป */}
+        {pieces.length > 1 && (
+          <>
+            <button type="button" onClick={() => go(-1)} aria-label={T('ชิ้นก่อนหน้า', 'Previous piece')}
+              className="absolute left-2 top-1/2 h-10 w-10 -translate-y-1/2 rounded-full bg-black/55 text-white ring-1 ring-white/15 hover:bg-black/75 flex items-center justify-center">
+              <span className="material-icons-round">chevron_left</span>
+            </button>
+            <button type="button" onClick={() => go(1)} aria-label={T('ชิ้นถัดไป', 'Next piece')}
+              className="absolute right-2 top-1/2 h-10 w-10 -translate-y-1/2 rounded-full bg-black/55 text-white ring-1 ring-white/15 hover:bg-black/75 flex items-center justify-center">
+              <span className="material-icons-round">chevron_right</span>
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function PlistPieces({ pngUrl, plistUrl, baseName }: { pngUrl: string; plistUrl: string; baseName: string }) {
   const { lang } = useLanguage()
   const T = (th: string, en: string) => (lang === 'th' ? th : en)
@@ -95,6 +186,8 @@ export default function PlistPieces({ pngUrl, plistUrl, baseName }: { pngUrl: st
   const [pieces, setPieces] = useState<Piece[] | null>(null)
   const [error, setError] = useState('')
   const [q, setQ] = useState('')
+  /** ชิ้นที่เปิดดูขนาดเต็ม (ลำดับใน shown) */
+  const [viewing, setViewing] = useState<number | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -150,9 +243,11 @@ export default function PlistPieces({ pngUrl, plistUrl, baseName }: { pngUrl: st
       <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
         {shown.map(p => (
           <li key={p.name} className="rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden flex flex-col">
-            <div className="h-28 flex items-center justify-center p-1.5" style={CHECKER}>
+            <button type="button" onClick={() => setViewing(shown.indexOf(p))} title={T('ดูขนาดเต็ม', 'View full size')}
+              aria-label={T(`ดูขนาดเต็ม ${p.name}`, `View ${p.name} full size`)}
+              className="h-28 flex items-center justify-center p-1.5 cursor-zoom-in transition-opacity hover:opacity-90" style={CHECKER}>
               <PieceThumb atlas={atlas} piece={p} />
-            </div>
+            </button>
             <div className="flex items-center gap-1 px-2 py-1.5 border-t border-white/5">
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] text-gray-200 truncate" title={p.name}>{p.name}</p>
@@ -169,6 +264,9 @@ export default function PlistPieces({ pngUrl, plistUrl, baseName }: { pngUrl: st
           </li>
         ))}
       </ul>
+      {viewing != null && shown[viewing] && (
+        <PieceViewer atlas={atlas} pieces={shown} index={viewing} onIndex={setViewing} onClose={() => setViewing(null)} onSave={savePiece} T={T} />
+      )}
     </div>
   )
 }

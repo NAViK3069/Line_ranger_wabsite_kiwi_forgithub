@@ -79,11 +79,6 @@ export default function HomePage() {
 
       </div>
 
-      {/* Footer disclaimer — อยู่ใน flow ปกติ ไม่ absolute เพื่อไม่ทับปุ่มบนมือถือ
-          mt-2 (เดิม mt-10) ลดระยะห่างด้านบนลงมากๆ / max-w กว้างขึ้นบน desktop */}
-      <p className="mt-6 text-center text-xs text-gray-600 px-6 leading-relaxed max-w-2xl md:max-w-3xl">
-        This is a non-official fan project. Game assets and data are copyrighted by their original creators, with reference information provided by the LINE Rangers Handbook and Warmycat. This site is for community use only, generates no revenue, and is not affiliated with the official LINE Rangers team.
-      </p>
     </main>
   )
 }

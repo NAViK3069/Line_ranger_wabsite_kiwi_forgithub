@@ -1,8 +1,10 @@
 'use client'
 
 // ====================================================
-// HomeMenu — ปุ่มเมนูหน้าแรก (8 ช่องขนาดเท่ากัน)
-// มือถือ/แท็บเล็ต 2 คอลัมน์ (4 แถว) · จอ ≥ 768px 4 คอลัมน์ (2 แถว) → เต็มแถวพอดีทุกขนาดจอ
+// HomeMenu — ปุ่มเมนูหน้าแรก (ช่องขนาดเท่ากัน)
+// มือถือ: 2 คอลัมน์ ไอคอนบน-ชื่อล่าง (เลื่อนลงยาวได้สบาย)
+// แท็บเล็ต/คอม: ไทล์แนวนอน (ไอคอนซ้าย + ชื่อ/คำอธิบาย + ลูกศร) สูงเท่ากันทุกช่อง
+//   768px 2 คอลัมน์ · ≥1024px 4 คอลัมน์ → เมนูเพิ่มเมื่อไหร่ก็ต่อแถวใหม่ทีละ 4 เรียบร้อย
 // ทุกช่องหน้าตาเดียวกัน: ไอคอนในกรอบสีประจำเมนู + ชื่อ + คำอธิบายสั้น
 // สีของแต่ละเมนูเขียนเป็นคลาสเต็มๆ (Tailwind ต้องเห็นชื่อคลาสตรงๆ ตอน build)
 // เพิ่ม/สลับเมนูได้ที่ ITEMS ที่เดียว — จำนวนช่องควรเป็นเลขคู่ที่หาร 4 ลงตัว (8 / 12) ให้ตารางเต็มพอดี
@@ -75,21 +77,23 @@ const ITEMS: Item[] = [
 export default function HomeMenu() {
   const { lang } = useLanguage()
   return (
-    <nav aria-label="Main menu" className="w-full max-w-3xl md:max-w-4xl text-left grid grid-cols-2 md:grid-cols-4 auto-rows-fr gap-3 sm:gap-4">
+    <nav aria-label="Main menu" className="w-full max-w-3xl lg:max-w-6xl text-left grid grid-cols-2 lg:grid-cols-4 auto-rows-fr gap-3 sm:gap-3.5">
       {ITEMS.map(it => (
         <Link
           key={it.href}
           href={it.href}
           className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-sm
-            p-3.5 sm:p-4 flex flex-col sm:flex-row md:flex-col items-start sm:items-center md:items-start gap-3
+            p-3.5 sm:px-4 sm:py-3.5 lg:px-3.5 xl:px-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-3.5 lg:gap-3 xl:gap-3.5
             transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/[0.07] active:scale-[0.98] ${it.hover}`}
         >
           {/* แสงจางมุมขวาบน (ตอนชี้) */}
           <span aria-hidden className={`pointer-events-none absolute -top-8 -right-8 w-24 h-24 rounded-full blur-2xl opacity-0 group-hover:opacity-25 transition-opacity ${it.glow}`} />
           {it.img ? (
             // รูปไอคอนภารกิจของเกม (กรอบสี่เหลี่ยมในตัว) — มุมมนนิดๆ · ขยายนิดตอนชี้
-            <span className="relative shrink-0 w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center">
-              <span className={`flex items-center justify-center w-full h-full ${it.imgScale ?? ''}`}>
+            <span className="relative shrink-0 w-12 h-12 sm:w-14 sm:h-14 lg:w-12 lg:h-12 xl:w-14 xl:h-14 flex items-center justify-center">
+              {/* แสงสีประจำเมนูหลังไอคอน (แท็บเล็ต/คอม) — ให้ไทล์ไม่โล่ง */}
+              <span aria-hidden className={`hidden sm:block absolute inset-1 rounded-2xl blur-xl opacity-25 group-hover:opacity-45 transition-opacity ${it.glow}`} />
+              <span className={`relative flex items-center justify-center w-full h-full ${it.imgScale ?? ''}`}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={it.img} alt="" width={56} height={56} decoding="async"
                   className="max-w-full max-h-full object-contain rounded-xl ring-1 ring-white/15 shadow-[0_4px_12px_rgba(0,0,0,0.5)] transition-transform duration-200 group-hover:scale-110" />
@@ -101,9 +105,11 @@ export default function HomeMenu() {
             </span>
           )}
           <span className="relative min-w-0 flex-1">
-            <span className="block font-bold text-white text-[15px] sm:text-base leading-tight whitespace-nowrap truncate">{it.title}</span>
-            <span className="block text-xs text-gray-400 mt-1 leading-snug line-clamp-2">{lang === 'th' ? it.th : it.en}</span>
+            <span className="block font-bold text-white text-[15px] sm:text-base lg:text-[15px] xl:text-base leading-tight whitespace-nowrap truncate">{it.title}</span>
+            <span className="block text-xs text-gray-400 mt-1 leading-snug line-clamp-2 sm:line-clamp-1">{lang === 'th' ? it.th : it.en}</span>
           </span>
+          {/* ลูกศร (จอ ≥1280px — จอแคบกว่านั้นที่ให้ชื่อแทน) — ขยับตอนชี้ */}
+          <span aria-hidden className="hidden xl:flex shrink-0">{/* ซ่อน/แสดงที่กล่องนอก — ฟอนต์ Material ตั้ง display ทับคลาส hidden ของไอคอนเอง */}<span className="material-icons-round text-[20px] text-white/25 transition-all duration-200 group-hover:text-white/70 group-hover:translate-x-0.5">chevron_right</span></span>
         </Link>
       ))}
     </nav>

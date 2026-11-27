@@ -48,7 +48,7 @@ export default function HomePage() {
       </div>
 
       {/* sm:pt-12 (= padding-top: 3rem): เดิม sm:pt-0 ชนเมนู, sm:pt-24 (6rem) ดันลงมาเยอะไป ลดเหลือ 3rem */}
-      <div className="relative z-10 text-center max-w-3xl mx-auto pt-28 sm:pt-12">
+      <div className="relative z-10 w-full text-center max-w-3xl lg:max-w-6xl mx-auto pt-28 sm:pt-12">
         {/* Title (โลโก้ Kiwi ย้ายไปอยู่หน้าคำว่า "Kiwi" ข้างในแล้ว — ดู ProTitle.tsx) */}
         <ProTitle />
 

@@ -14,7 +14,7 @@
 
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { apiFetch } from '@/lib/staticApi'
@@ -65,7 +65,8 @@ type Tfn = (th: string, en: string) => string
 export default function InfinityTowerPage() {
   const { lang: siteLang, tStat } = useLanguage()
   const lang = siteLang as L
-  const T: Tfn = (th, en) => (lang === 'th' ? th : en)
+  // ค่าคงที่ระหว่าง render (เปลี่ยนตามภาษาเท่านั้น) — FloorCard เป็น memo ไม่ต้อง render ใหม่ทั้ง 330 ใบ
+  const T: Tfn = useCallback((th, en) => (lang === 'th' ? th : en), [lang])
 
   const [data, setData] = useState<TowerIndex | null>(null)
   const [failed, setFailed] = useState(false)
@@ -89,17 +90,59 @@ export default function InfinityTowerPage() {
     return () => { m.remove() }
   }, [])
 
+  const headerRef = useRef<HTMLElement>(null)
+  /** ชั้นที่รอเลื่อนไปหา หลัง render รอบหน้า (goTo / เปิดชั้น) */
+  const pendingAlign = useRef<{ code: string; smooth: boolean } | null>(null)
+  const alignStop = useRef<(() => void) | null>(null)
+  /**
+   * เลื่อนให้ขอบบนการ์ดชั้นนั้นอยู่ใต้แถบเมนูพอดี (ไม่โดนบัง)
+   * ระยะ = ขอบล่างจริงของแถบเมนู (มือถือแถบเดียว · คอมมีแถวตัวกรองด้วย) + 8px
+   * หลังเลื่อน: ชั้นเดิมที่หุบลง / รูปที่โหลดตามมา ทำให้หน้าขยับ → คอยปรับซ้ำ ~1.8 วิ
+   * ผู้ใช้เลื่อนเอง (ล้อเมาส์/แตะ/ปุ่ม) = หยุดปรับทันที · ระยะไกลมาก = กระโดดทันที (ไม่ smooth ยาวๆ)
+   */
+  const alignFloor = useCallback((code: string, smooth = true) => {
+    alignStop.current?.()
+    const el = document.getElementById(code)
+    if (!el) return
+    const target = () => {
+      const bar = headerRef.current?.getBoundingClientRect().bottom ?? 0
+      return Math.max(0, el.getBoundingClientRect().top + window.scrollY - bar - 8)
+    }
+    const far = Math.abs(target() - window.scrollY) > window.innerHeight * 2.5
+    window.scrollTo({ top: target(), behavior: smooth && !far ? 'smooth' : 'auto' })
+    let done = false
+    const stop = () => {
+      done = true
+      removeEventListener('wheel', stop); removeEventListener('touchstart', stop); removeEventListener('keydown', stop)
+      if (alignStop.current === stop) alignStop.current = null
+    }
+    alignStop.current = stop
+    addEventListener('wheel', stop, { passive: true }); addEventListener('touchstart', stop, { passive: true }); addEventListener('keydown', stop)
+    const t0 = performance.now()
+    const tick = () => {
+      if (done) return
+      const t = performance.now() - t0
+      if (t > 1800) { stop(); return }
+      // ระหว่าง smooth scroll ปล่อยให้เลื่อนไปก่อน แล้วค่อยแก้ส่วนที่คลาด
+      if (t > (smooth && !far ? 650 : 0)) {
+        const want = target()
+        if (Math.abs(want - window.scrollY) > 2) window.scrollTo({ top: want, behavior: 'auto' })
+      }
+      requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  }, [])
+
   const goTo = (no: number, smooth = true) => {
     if (!data) return
     const f = data.floors.find(x => x.no === no)
     if (!f) return
     setJumpOpen(false)
+    setJump('')
     setFilter('ALL')
     setOpen(new Set([f.code]))
-    const go = (behavior: ScrollBehavior) => document.getElementById(f.code)?.scrollIntoView({ behavior, block: 'start' })
-    requestAnimationFrame(() => requestAnimationFrame(() => go(smooth ? 'smooth' : 'auto')))
-    // รูปไอคอนโหลดตามมาทีหลังแล้วดันหน้าเลื่อน → เลื่อนซ้ำอีกครั้งตอนรูปนิ่งแล้ว
-    setTimeout(() => go('auto'), smooth ? 900 : 700)
+    // เลื่อนทันทีหลัง React วาดรายการ (ตัวกรอง 'ทั้งหมด') + การ์ดที่กางเสร็จ — ดู useLayoutEffect ด้านล่าง
+    pendingAlign.current = { code: f.code, smooth }
     const url = new URL(location.href)
     url.searchParams.set('f', String(no))
     history.replaceState(null, '', url)
@@ -125,12 +168,25 @@ export default function InfinityTowerPage() {
     return c
   }, [data])
 
-  // เปิดได้ทีละชั้น — เปิดชั้นใหม่ = ปิดชั้นเดิม
-  const toggle = (code: string) => setOpen(s => (s.has(code) ? new Set() : new Set([code])))
+  // เปิดได้ทีละชั้น — เปิดชั้นใหม่ = ปิดชั้นเดิม แล้วเลื่อนชั้นที่เปิดมาไว้ใต้แถบเมนู
+  const openRef = useRef(open)
+  openRef.current = open
+  const toggle = useCallback((code: string) => {
+    const opening = !openRef.current.has(code)
+    setOpen(opening ? new Set([code]) : new Set())
+    if (opening) pendingAlign.current = { code, smooth: true }
+  }, [])
+
+  // หลัง DOM อัปเดต (ก่อนจอวาด) — เลื่อนไปชั้นที่รอไว้ ไม่ต้องรอเฟรมอนิเมชัน (เครื่องช้า/แท็บที่ถูกหน่วงก็ไม่ค้าง)
+  useLayoutEffect(() => {
+    const p = pendingAlign.current
+    if (!p) return
+    pendingAlign.current = null
+    alignFloor(p.code, p.smooth)
+  }, [open, filter, alignFloor])
 
 
   const towerName = T('หอคอยอนันต์', 'Infinity Tower')
-  const battleLabel = (b: TBattle) => data ? `${tx(data.battles[b].title, lang)}${b === 'TIMEATTACK' ? ' ⏱' : ''}` : ''
   /** ชื่อสั้นสำหรับแถบล่างมือถือ — ชื่อทางการของเกมตัดคำว่า "สเตจ/Stage" ออก */
   const shortLabel = (b: TBattle) => data ? tx(data.battles[b].title, lang).replace(/สเตจ|\s*Stage\s*/g, '').trim() : ''
   const pickFilter = (v: TBattle | 'ALL') => { setFilter(v); window.scrollTo({ top: 0, behavior: 'smooth' }) }
@@ -138,7 +194,7 @@ export default function InfinityTowerPage() {
 
   return (
     <div className="min-h-screen pb-[calc(96px+env(safe-area-inset-bottom))] sm:pb-16 bg-[radial-gradient(120%_60%_at_50%_0%,#2a0d4d_0%,#12061f_55%,#0b0414_100%)]">
-      <header className="sticky top-0 z-40 bg-[#14071f]/95 backdrop-blur-md border-b border-white/10">
+      <header ref={headerRef} className="sticky top-0 z-40 bg-[#14071f]/95 backdrop-blur-md border-b border-white/10">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 h-12 flex items-center gap-2.5">
           <Link href="/" className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm transition-colors" aria-label={tStat('Back')}>
             <span className="material-icons-round text-base">arrow_back</span>
@@ -148,28 +204,26 @@ export default function InfinityTowerPage() {
           <div className="ml-auto"><LanguageSwitcher /></div>
         </div>
 
-        {/* ตัวกรอง (แท็บเล็ต/คอม) — มือถือใช้แถบล่าง MobileBar แทน */}
+        {/* แถบเมนูคอม/แท็บเล็ต — มือถือใช้แถบล่าง MobileBar แทน */}
         {data && (
-          <div className="hidden sm:block max-w-6xl mx-auto px-3 sm:px-4 pb-2">
-            <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mx-3 px-3 sm:mx-0 sm:px-0">
-              <Chip on={filter === 'ALL'} onClick={() => setFilter('ALL')}>{T('ทั้งหมด', 'All')} <b className="opacity-60 font-normal">{data.floors.length}</b></Chip>
+          <div className="hidden sm:flex max-w-6xl mx-auto px-4 pb-2.5 items-center gap-3">
+            {/* ประเภทด่าน (แท็บแบบกลุ่ม) */}
+            <div role="tablist" aria-label={T('ประเภทด่าน', 'Stage types')}
+              className="flex min-w-0 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden rounded-2xl bg-black/35 p-1 ring-1 ring-white/10">
+              <BarTab on={filter === 'ALL'} onClick={() => pickFilter('ALL')} icon={IC.star} label={T('ทั้งหมด', 'All')} n={data.floors.length} />
               {(Object.keys(data.battles) as TBattle[]).map(b => (
-                <Chip key={b} on={filter === b} onClick={() => setFilter(b)}>
-                  <GameIcon icon={data.battles[b].icon} size={18} />{battleLabel(b)} <b className="opacity-60 font-normal">{counts[b] ?? 0}</b>
-                </Chip>
+                <BarTab key={b} on={filter === b} onClick={() => pickFilter(b)} icon={data.battles[b].icon}
+                  label={shortLabel(b)} n={counts[b] ?? 0} badge={b === 'TIMEATTACK' ? IC.timer : undefined} />
               ))}
-              <span className="w-px h-5 bg-white/10 shrink-0 mx-0.5" />
-              <button onClick={() => setDesc(v => !v)} aria-label={T('สลับลำดับชั้น', 'Reverse floor order')}
-                className="shrink-0 flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 h-8 text-xs text-gray-200 active:bg-white/15">
-                <span className="material-icons-round text-[16px]">{desc ? 'south' : 'north'}</span>
-                <span className="whitespace-nowrap">{desc ? T('บนลงล่าง', 'Top down') : T('ล่างขึ้นบน', 'Bottom up')}</span>
+            </div>
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <button onClick={() => setDesc(v => !v)} title={desc ? T('บนลงล่าง', 'Top down') : T('ล่างขึ้นบน', 'Bottom up')}
+                aria-label={T('สลับลำดับชั้น', 'Reverse floor order')}
+                className="flex items-center gap-1.5 h-10 rounded-xl bg-black/35 px-3 text-sm text-gray-200 ring-1 ring-white/10 hover:bg-white/10 hover:text-white transition-colors">
+                <span className="material-icons-round text-[18px]">{desc ? 'south' : 'north'}</span>
+                <span className="hidden lg:inline whitespace-nowrap">{desc ? T('บนลงล่าง', 'Top down') : T('ล่างขึ้นบน', 'Bottom up')}</span>
               </button>
-              <form className="shrink-0 flex items-center" onSubmit={e => { e.preventDefault(); const n = parseInt(jump, 10); if (n) goTo(n) }}>
-                <input value={jump} onChange={e => setJump(e.target.value.replace(/\D/g, '').slice(0, 3))} inputMode="numeric" enterKeyHint="go"
-                  placeholder={T('ชั้น', 'Floor')} aria-label={T('ไปชั้น', 'Go to floor')}
-                  className="w-16 h-8 rounded-l-full border border-white/10 bg-white/5 pl-3 pr-1 text-xs text-white placeholder:text-gray-500 focus:border-fuchsia-400/60 focus:outline-none" />
-                <button type="submit" className="h-8 rounded-r-full bg-fuchsia-500 active:bg-fuchsia-600 px-3 text-xs font-semibold text-white">{T('ไป', 'Go')}</button>
-              </form>
+              <DesktopJump T={T} max={data.floors.length} value={jump} onChange={setJump} onGo={n => goTo(n)} />
             </div>
           </div>
         )}
@@ -201,7 +255,7 @@ export default function InfinityTowerPage() {
         {data && (
           <ol className="mt-3 space-y-2.5 sm:space-y-3">
             {floors.map(f => (
-              <FloorCard key={f.code} f={f} data={data} lang={lang} T={T} open={open.has(f.code)} onToggle={() => toggle(f.code)} onEnemy={setEnemy} />
+              <FloorCard key={f.code} f={f} data={data} lang={lang} T={T} open={open.has(f.code)} onToggle={toggle} onEnemy={setEnemy} />
             ))}
           </ol>
         )}
@@ -222,12 +276,71 @@ export default function InfinityTowerPage() {
   )
 }
 
-function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+/** แท็บประเภทด่านของแถบเมนูคอม */
+function BarTab({ on, onClick, icon, label, n, badge }: { on: boolean; onClick: () => void; icon: TIcon; label: string; n: number; badge?: TIcon }) {
   return (
-    <button onClick={onClick} aria-pressed={on}
-      className={`shrink-0 flex items-center gap-1 whitespace-nowrap rounded-full border px-3 h-8 text-xs sm:text-sm transition-colors ${on ? 'border-fuchsia-400/70 bg-fuchsia-500/25 text-white' : 'border-white/10 bg-white/5 text-gray-300 active:bg-white/15 sm:hover:bg-white/10'}`}>
-      {children}
+    <button role="tab" aria-selected={on} onClick={onClick}
+      className={`relative shrink-0 flex items-center gap-2 h-10 rounded-xl pl-1.5 pr-3 text-sm whitespace-nowrap transition-all ${on
+        ? 'bg-gradient-to-b from-fuchsia-500/45 to-purple-700/35 text-white ring-1 ring-fuchsia-300/40 shadow-[0_4px_14px_rgba(168,85,247,0.35)]'
+        : 'text-gray-300 hover:bg-white/[0.07] hover:text-white'}`}>
+      <span className="relative flex items-center justify-center w-8 h-8">
+        <GameIcon icon={icon} size={28} />
+        {badge && <span className="absolute -right-1 -top-1"><GameIcon icon={badge} size={14} /></span>}
+      </span>
+      <span className="font-semibold">{label}</span>
+      <span className={`rounded-full px-1.5 text-[11px] leading-5 tabular-nums ${on ? 'bg-white/20 text-white' : 'bg-white/10 text-gray-400'}`}>{n}</span>
     </button>
+  )
+}
+
+/** ไปชั้น (คอม): ช่องพิมพ์เลขชั้น + ปุ่มไป + เมนูลัด (ชั้น 1/50/…/330 · กลับบนสุด) */
+function DesktopJump({ T, max, value, onChange, onGo }: {
+  T: Tfn; max: number; value: string; onChange: (v: string) => void; onGo: (n: number) => void
+}) {
+  const [menu, setMenu] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!menu) return
+    const off = (ev: MouseEvent) => { if (box.current && !box.current.contains(ev.target as Node)) setMenu(false) }
+    const esc = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setMenu(false) }
+    addEventListener('mousedown', off); addEventListener('keydown', esc)
+    return () => { removeEventListener('mousedown', off); removeEventListener('keydown', esc) }
+  }, [menu])
+  const n = parseInt(value, 10)
+  const ok = n >= 1 && n <= max
+  const go = (x: number) => { setMenu(false); onGo(x) }
+  return (
+    <div ref={box} className="relative">
+      <form onSubmit={e => { e.preventDefault(); if (ok) go(n) }}
+        className="flex items-center h-10 rounded-xl bg-black/35 ring-1 ring-white/10 focus-within:ring-fuchsia-400/60 transition-shadow">
+        <span className="pl-1.5"><GameIcon icon={IC.base} size={26} /></span>
+        <input value={value} onChange={e => onChange(e.target.value.replace(/\D/g, '').slice(0, 3))} inputMode="numeric" enterKeyHint="go"
+          onFocus={() => setMenu(true)} placeholder={T(`ไปชั้น 1–${max}`, `Go to floor 1–${max}`)} aria-label={T('ไปชั้น', 'Go to floor')}
+          className="w-32 lg:w-36 bg-transparent px-2 text-sm text-white placeholder:text-gray-500 focus:outline-none" />
+        <button type="submit" disabled={!ok}
+          className="h-8 mr-1 rounded-lg bg-fuchsia-500 px-3 text-sm font-semibold text-white disabled:opacity-40 hover:bg-fuchsia-400 transition-colors">{T('ไป', 'Go')}</button>
+        <button type="button" onClick={() => setMenu(v => !v)} aria-expanded={menu} aria-label={T('ชั้นลัด', 'Quick floors')}
+          className="h-8 w-8 mr-1 flex items-center justify-center rounded-lg text-gray-300 hover:bg-white/10">
+          <span className={`material-icons-round text-[20px] transition-transform ${menu ? 'rotate-180' : ''}`}>expand_more</span>
+        </button>
+      </form>
+      {menu && (
+        <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl border border-fuchsia-400/25 bg-[#1b1030]/98 p-3 shadow-2xl backdrop-blur">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fuchsia-200/80">{T('ชั้นลัด', 'Quick floors')}</p>
+          <div className="grid grid-cols-4 gap-1.5">
+            {[1, 50, 100, 150, 200, 250, 300, max].map(q => (
+              <button key={q} onClick={() => go(q)} className="h-9 rounded-lg bg-white/5 text-sm text-gray-100 ring-1 ring-white/10 hover:bg-fuchsia-500/25 hover:text-white">
+                {q}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => { setMenu(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+            className="mt-2 w-full h-9 rounded-lg text-sm text-gray-300 hover:bg-white/10 flex items-center justify-center gap-1">
+            <span className="material-icons-round text-[18px]">vertical_align_top</span>{T('กลับบนสุด', 'Back to top')}
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -256,15 +369,15 @@ function Amount({ r, data }: { r: TReward; data: TowerIndex }) {
   return <>{it?.type === 'COIN' ? fmt(r.amount) : `×${fmt(r.amount)}`}</>
 }
 
-function FloorCard({ f, data, lang, T, open, onToggle, onEnemy }: {
-  f: TFloor; data: TowerIndex; lang: L; T: Tfn; open: boolean; onToggle: () => void; onEnemy: (e: TEnemy) => void
+const FloorCard = memo(function FloorCard({ f, data, lang, T, open, onToggle, onEnemy }: {
+  f: TFloor; data: TowerIndex; lang: L; T: Tfn; open: boolean; onToggle: (code: string) => void; onEnemy: (e: TEnemy) => void
 }) {
   const b = data.battles[f.battle]
   const clear = f.reward.item ? data.items[f.reward.item.item] : null
   return (
-    <li id={f.code} className="scroll-mt-28">
+    <li id={f.code}>
       <article className={`rounded-2xl border bg-[#181026]/95 overflow-hidden transition-colors ${open ? 'border-fuchsia-400/45 shadow-[0_0_0_1px_rgba(217,70,239,0.15),0_10px_30px_rgba(0,0,0,0.35)]' : TONE[f.battle].ring}`}>
-        <button onClick={onToggle} aria-expanded={open} className="block w-full text-left active:bg-white/[0.03] sm:hover:bg-white/[0.02]">
+        <button onClick={() => onToggle(f.code)} aria-expanded={open} className="block w-full text-left active:bg-white/[0.03] sm:hover:bg-white/[0.02]">
           <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,176px))]">
             {/* ── ส่วนหัว: ประตู + ประเภทด่าน + รางวัลผ่านชั้น ── */}
             <div className="flex gap-3 p-3">
@@ -328,7 +441,7 @@ function FloorCard({ f, data, lang, T, open, onToggle, onEnemy }: {
       </article>
     </li>
   )
-}
+})
 
 function Meta({ icon, label, children, tone = 'text-gray-200' }: { icon: TIcon; label: string; children: React.ReactNode; tone?: string }) {
   return (

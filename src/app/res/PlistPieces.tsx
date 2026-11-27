@@ -88,11 +88,9 @@ function PieceThumb({ atlas, piece }: { atlas: HTMLImageElement; piece: Piece })
   return <canvas ref={ref} className="max-w-full max-h-full" />
 }
 
-type Zoom = 'fit' | 1 | 2
-
 /**
- * ดูชิ้นส่วนขนาดเต็ม (ป๊อปอัป): พื้นตาราง (เห็นส่วนโปร่งใส) · ขนาดพอดีจอ / 1× / 2× · ดาวน์โหลด
- * ← → หรือปุ่มลูกศร = ชิ้นก่อน/ถัดไป · Esc หรือแตะข้างนอก = ปิด
+ * ดูชิ้นส่วนขนาดเต็ม — หน้าตาเดียวกับป๊อปอัปดูรูปเดิมของหน้า /res (รูปใหญ่กลางจอ + แถบชื่อ/ปุ่มด้านล่าง)
+ * ชิ้นเล็กขยายให้ใหญ่ (สูงสุด 5 เท่า ไม่เกิน 80% ของความสูงจอ) · ← → หรือปุ่มลูกศร = ชิ้นก่อน/ถัดไป · Esc / แตะข้างนอก = ปิด
  */
 function PieceViewer({ atlas, pieces, index, onIndex, onClose, onSave, T }: {
   atlas: HTMLImageElement; pieces: Piece[]; index: number; onIndex: (i: number) => void; onClose: () => void
@@ -100,10 +98,8 @@ function PieceViewer({ atlas, pieces, index, onIndex, onClose, onSave, T }: {
 }) {
   const p = pieces[index]
   const [url, setUrl] = useState<string | null>(null)
-  const [zoom, setZoom] = useState<Zoom>('fit')
   useEffect(() => {
     let live = true, made: string | null = null
-    setUrl(null)
     drawPiece(atlas, p).toBlob(b => {
       if (!b || !live) return
       made = URL.createObjectURL(b)
@@ -119,61 +115,43 @@ function PieceViewer({ atlas, pieces, index, onIndex, onClose, onSave, T }: {
       else if (e.key === 'ArrowLeft') go(-1)
     }
     addEventListener('keydown', k)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { removeEventListener('keydown', k); document.body.style.overflow = prev }
+    return () => removeEventListener('keydown', k)
   })
-  // พอดีจอ = ย่อชิ้นใหญ่ให้พอดี แต่ไม่ขยายชิ้นเล็ก (ชิ้นเล็กกด 2× เอง)
-  const imgStyle: React.CSSProperties = zoom === 'fit'
-    ? { maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto' }
-    : { width: p.w * zoom, height: p.h * zoom, maxWidth: 'none', maxHeight: 'none' }
+  // ขยายชิ้นเล็กให้เห็นชัด (ไม่เกิน 5 เท่า) — ความกว้าง/สูงถูกจำกัดด้วย max-w/max-h อีกชั้น
+  const scale = Math.max(1, Math.min(5, 640 / Math.max(p.w, p.h)))
+  const btn = 'h-7 px-2 rounded border border-slate-700 bg-slate-800 text-gray-200 text-xs inline-flex items-center gap-1 hover:bg-slate-700'
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-6" onClick={onClose} role="dialog" aria-modal="true" aria-label={p.name}>
-      <div className="relative flex h-full max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#141420] shadow-2xl" onClick={e => e.stopPropagation()}>
-        {/* หัว: ชื่อ ขนาด ลำดับ + ปุ่ม */}
-        <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-white" title={p.name}>{p.name}</p>
-            <p className="text-[11px] text-gray-400">{p.w}×{p.h}px{p.rotated ? T(' · หมุนใน atlas', ' · rotated in atlas') : ''} · {index + 1}/{pieces.length}</p>
-          </div>
-          <div className="flex items-center rounded-lg bg-black/30 p-0.5 ring-1 ring-white/10 text-xs">
-            {(['fit', 1, 2] as Zoom[]).map(z => (
-              <button key={String(z)} type="button" onClick={() => setZoom(z)} aria-pressed={zoom === z}
-                className={`h-7 rounded-md px-2 ${zoom === z ? 'bg-cyan-500/30 text-white' : 'text-gray-400 hover:text-white'}`}>
-                {z === 'fit' ? T('พอดี', 'Fit') : `${z}×`}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+      onClick={e => { if (e.target === e.currentTarget) onClose() }} role="dialog" aria-modal="true" aria-label={p.name}>
+      <div className="max-w-full max-h-full flex flex-col items-center gap-3">
+        <div className="relative flex items-center justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {url && <img src={url} alt={p.name} draggable={false}
+            className="max-w-[90vw] max-h-[80vh] object-contain rounded-lg"
+            style={{ width: p.w * scale, aspectRatio: `${p.w} / ${p.h}`, imageRendering: scale >= 3 ? 'pixelated' : 'auto',
+              background: 'repeating-conic-gradient(#2a2a3a 0% 25%, #1e1e2c 0% 50%) 50% / 20px 20px' }} />}
+          {pieces.length > 1 && (
+            <>
+              <button type="button" onClick={() => go(-1)} aria-label={T('ชิ้นก่อนหน้า', 'Previous piece')}
+                className="absolute -left-3 sm:-left-14 top-1/2 h-10 w-10 -translate-y-1/2 rounded-full bg-black/60 text-white ring-1 ring-white/15 hover:bg-black/80 flex items-center justify-center">
+                <span className="material-icons-round">chevron_left</span>
               </button>
-            ))}
-          </div>
-          <button type="button" onClick={() => onSave(p)} title={T('ดาวน์โหลดชิ้นนี้', 'Download this piece')} aria-label={T('ดาวน์โหลด', 'Download')}
-            className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-300 hover:text-cyan-300 hover:bg-white/10">
-            <span className="material-icons-round text-[20px]">download</span>
-          </button>
-          <button type="button" onClick={onClose} aria-label={T('ปิด', 'Close')}
-            className="h-8 w-8 rounded-lg flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10">
-            <span className="material-icons-round text-[20px]">close</span>
-          </button>
+              <button type="button" onClick={() => go(1)} aria-label={T('ชิ้นถัดไป', 'Next piece')}
+                className="absolute -right-3 sm:-right-14 top-1/2 h-10 w-10 -translate-y-1/2 rounded-full bg-black/60 text-white ring-1 ring-white/15 hover:bg-black/80 flex items-center justify-center">
+                <span className="material-icons-round">chevron_right</span>
+              </button>
+            </>
+          )}
         </div>
-        {/* รูป */}
-        <div className={`relative flex-1 overflow-auto ${zoom === 'fit' ? 'flex items-center justify-center' : ''}`} style={CHECKER}>
-          <div className={zoom === 'fit' ? 'flex h-full w-full items-center justify-center p-4' : 'inline-block p-4'}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {url ? <img src={url} alt={p.name} style={{ ...imgStyle, imageRendering: zoom === 2 ? 'pixelated' : 'auto' }} className="block object-contain" draggable={false} />
-              : <span className="material-icons-round animate-spin text-gray-400">autorenew</span>}
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-300 truncate max-w-[60vw]" title={p.name}>
+            {p.name} <span className="text-gray-500">· {p.w}×{p.h} · {index + 1}/{pieces.length}</span>
+          </span>
+          <button type="button" onClick={() => onSave(p)} className={btn}>
+            <span className="material-icons-round text-[14px]">download</span>{T('ดาวน์โหลด', 'Download')}
+          </button>
+          <button type="button" onClick={onClose} className={btn}>{T('ปิด', 'Close')}</button>
         </div>
-        {/* ก่อน / ถัดไป */}
-        {pieces.length > 1 && (
-          <>
-            <button type="button" onClick={() => go(-1)} aria-label={T('ชิ้นก่อนหน้า', 'Previous piece')}
-              className="absolute left-2 top-1/2 h-10 w-10 -translate-y-1/2 rounded-full bg-black/55 text-white ring-1 ring-white/15 hover:bg-black/75 flex items-center justify-center">
-              <span className="material-icons-round">chevron_left</span>
-            </button>
-            <button type="button" onClick={() => go(1)} aria-label={T('ชิ้นถัดไป', 'Next piece')}
-              className="absolute right-2 top-1/2 h-10 w-10 -translate-y-1/2 rounded-full bg-black/55 text-white ring-1 ring-white/15 hover:bg-black/75 flex items-center justify-center">
-              <span className="material-icons-round">chevron_right</span>
-            </button>
-          </>
-        )}
       </div>
     </div>
   )

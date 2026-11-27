@@ -285,23 +285,23 @@ function FloorCard({ f, data, lang, T, open, onToggle, onEnemy }: {
                 </div>
 
                 {/* ข้อมูลย่อ (ไอคอนเกม) — จอใหญ่: ชิดล่างให้เต็มความสูงการ์ด */}
-                <div className="mt-2 lg:mt-auto lg:pt-2 flex flex-wrap items-center gap-1.5 lg:gap-2">
+                <div className="mt-2 lg:mt-auto lg:pt-1.5 flex flex-wrap items-center gap-1.5">
                   <Meta icon={IC.feather} label={T('ใช้ขนนก', 'Feathers')}>×{f.needHeart}</Meta>
                   {f.timeLimit != null && <Meta icon={IC.timer} label={T('เวลาจำกัด', 'Time limit')}>{f.timeLimit}{T(' วิ', 's')}</Meta>}
                   {f.saveCount != null && <Meta icon={IC.sally} label={T('ชาวเมืองที่ต้องช่วย', 'Citizens to rescue')}>{f.saveCount}</Meta>}
                   {f.boss && <Meta icon={IC.boss} label={T('บอส', 'Boss')} tone="text-rose-200">{tx(f.boss.name, lang)}</Meta>}
                   {f.gimmicks.map(g => (
-                    <GameIcon key={g.key} icon={data.gimmicks[g.key]?.icon} alt={tx(data.gimmicks[g.key]?.title, lang)} className="rounded w-[22px] h-[22px] lg:w-7 lg:h-7" />
+                    <GameIcon key={g.key} icon={data.gimmicks[g.key]?.icon} alt={tx(data.gimmicks[g.key]?.title, lang)} className="rounded w-[22px] h-[22px] lg:w-6 lg:h-6" />
                   ))}
                 </div>
 
                 {/* รางวัลผ่านชั้น */}
                 {f.reward.item && (
-                  <div className="mt-2 flex items-center gap-2 lg:gap-2.5 rounded-xl bg-gradient-to-r from-amber-400/15 via-amber-400/5 to-transparent ring-1 ring-amber-300/10 px-2 py-1 lg:px-3 lg:py-2">
-                    <GameIcon icon={IC.trophy} className="w-5 h-5 lg:w-7 lg:h-7" />
-                    <GameIcon icon={clear?.icon} className="w-[30px] h-[30px] lg:w-10 lg:h-10" alt={tx(clear?.name, lang)} />
-                    <span className="min-w-0 truncate text-[12px] lg:text-[14px] text-amber-100">{tx(clear?.name, lang)}</span>
-                    <span className="ml-auto font-[family-name:var(--font-line)] text-[13px] lg:text-[17px] text-white"><Amount r={f.reward.item} data={data} /></span>
+                  <div className="mt-2 flex items-center gap-2 lg:gap-2.5 rounded-xl bg-gradient-to-r from-amber-400/15 via-amber-400/5 to-transparent ring-1 ring-amber-300/10 px-2 py-1 lg:px-2.5 lg:py-1">
+                    <GameIcon icon={IC.trophy} className="w-5 h-5 lg:w-6 lg:h-6" />
+                    <GameIcon icon={clear?.icon} className="w-[30px] h-[30px] lg:w-8 lg:h-8" alt={tx(clear?.name, lang)} />
+                    <span className="min-w-0 truncate text-[12px] lg:text-[13px] text-amber-100">{tx(clear?.name, lang)}</span>
+                    <span className="ml-auto font-[family-name:var(--font-line)] text-[13px] lg:text-[15px] text-white"><Amount r={f.reward.item} data={data} /></span>
                   </div>
                 )}
               </div>
@@ -311,12 +311,12 @@ function FloorCard({ f, data, lang, T, open, onToggle, onEnemy }: {
             {f.missions.map(m => {
               const md = data.missions[m.code], it = data.items[m.reward.item]
               return (
-                <div key={m.no} className="flex lg:flex-col items-center lg:items-stretch lg:justify-center gap-2.5 lg:gap-2 border-t lg:border-t-0 lg:border-l border-white/[0.07] px-3 py-2 lg:p-3">
-                  <GameIcon icon={md?.icon} alt={m.code} className="w-9 h-9 lg:w-12 lg:h-12 lg:self-center" />
-                  <p className="flex-1 lg:flex-none min-w-0 text-[12.5px] lg:text-[13.5px] leading-snug text-gray-200 lg:text-center lg:order-last">{fillD(tx(md?.text, lang), m.value)}</p>
+                <div key={m.no} className="flex lg:flex-col items-center lg:items-stretch lg:justify-center gap-2.5 lg:gap-1 border-t lg:border-t-0 lg:border-l border-white/[0.07] px-3 py-2 lg:px-2.5 lg:py-2">
+                  <GameIcon icon={md?.icon} alt={m.code} className="w-9 h-9 lg:w-10 lg:h-10 lg:self-center" />
+                  <p className="flex-1 lg:flex-none min-w-0 text-[12.5px] lg:text-[12px] leading-snug text-gray-200 lg:text-center lg:order-last">{fillD(tx(md?.text, lang), m.value)}</p>
                   <span className="shrink-0 flex items-center gap-1 lg:justify-center" title={tx(it?.name, lang)}>
-                    <GameIcon icon={it?.icon} alt={tx(it?.name, lang)} className="w-7 h-7 lg:w-9 lg:h-9" />
-                    <span className="font-[family-name:var(--font-line)] text-[13px] lg:text-[16px] text-white"><Amount r={m.reward} data={data} /></span>
+                    <GameIcon icon={it?.icon} alt={tx(it?.name, lang)} className="w-7 h-7" />
+                    <span className="font-[family-name:var(--font-line)] text-[13px] lg:text-[14px] text-white"><Amount r={m.reward} data={data} /></span>
                   </span>
                 </div>
               )
@@ -332,8 +332,8 @@ function FloorCard({ f, data, lang, T, open, onToggle, onEnemy }: {
 
 function Meta({ icon, label, children, tone = 'text-gray-200' }: { icon: TIcon; label: string; children: React.ReactNode; tone?: string }) {
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full bg-black/30 pl-0.5 pr-2 lg:pr-2.5 h-6 lg:h-8 text-[11.5px] lg:text-[13.5px] ${tone}`} title={label} aria-label={label}>
-      <GameIcon icon={icon} className="w-5 h-5 lg:w-7 lg:h-7" />{children}
+    <span className={`inline-flex items-center gap-1 rounded-full bg-black/30 pl-0.5 pr-2 lg:pr-2.5 h-6 lg:h-7 text-[11.5px] lg:text-[12.5px] ${tone}`} title={label} aria-label={label}>
+      <GameIcon icon={icon} className="w-5 h-5 lg:w-6 lg:h-6" />{children}
     </span>
   )
 }

@@ -311,10 +311,10 @@ function FloorCard({ f, data, lang, T, open, onToggle, onEnemy }: {
             {f.missions.map(m => {
               const md = data.missions[m.code], it = data.items[m.reward.item]
               return (
-                <div key={m.no} className="flex lg:flex-col items-center lg:items-stretch lg:justify-center gap-2.5 lg:gap-1 border-t lg:border-t-0 lg:border-l border-white/[0.07] px-3 py-2 lg:px-2.5 lg:py-2">
-                  <GameIcon icon={md?.icon} alt={m.code} className="w-9 h-9 lg:w-10 lg:h-10 lg:self-center" />
-                  <p className="flex-1 lg:flex-none min-w-0 text-[12.5px] lg:text-[12px] leading-snug text-gray-200 lg:text-center lg:order-last">{fillD(tx(md?.text, lang), m.value)}</p>
-                  <span className="shrink-0 flex items-center gap-1 lg:justify-center" title={tx(it?.name, lang)}>
+                <div key={m.no} className="flex lg:flex-col items-center lg:items-stretch lg:justify-start gap-2.5 lg:gap-1.5 border-t lg:border-t-0 lg:border-l border-white/[0.07] px-3 py-2 lg:px-2.5 lg:py-2">
+                  <GameIcon icon={md?.icon} alt={m.code} className="w-10 h-10 lg:w-14 lg:h-14 lg:self-center" />
+                  <p className="flex-1 lg:flex-none min-w-0 text-[12.5px] lg:text-[12px] leading-snug text-gray-200 lg:text-center">{fillD(tx(md?.text, lang), m.value)}</p>
+                  <span className="shrink-0 flex items-center gap-1 lg:justify-center lg:mt-auto" title={tx(it?.name, lang)}>
                     <GameIcon icon={it?.icon} alt={tx(it?.name, lang)} className="w-7 h-7" />
                     <span className="font-[family-name:var(--font-line)] text-[13px] lg:text-[14px] text-white"><Amount r={m.reward} data={data} /></span>
                   </span>

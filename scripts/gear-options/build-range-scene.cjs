@@ -20,7 +20,7 @@ const SHOT_GAP = Math.max(67, 22 + 24) / 30
 const RANGE_A = 100, RANGE_B = 100 + Math.trunc(100 * 1.086)   // 208
 const stopX = r => TARGET_X - TARGET_HALF_W - r * 2
 // ── เวลา (ตรงกับ atk-range.tsx) ──
-const GO_A = 19.6, GO_B = 34.6, EQUIP_AT = 31.5, SUMMARY = 46.5, END = 54
+const GO_A = 19.6, GO_B = 30.9, EQUIP_AT = 27.8, SUMMARY = 37.4, END = 45   // ไม่มีช่วงยืนเปล่า: ใส่เกียร์ทันทีหลังนัดที่ 2 ท่าจบ · สรุปทันทีหลังรอบ B
 
 const clone = o => JSON.parse(JSON.stringify(o))
 const src = JSON.parse(fs.readFileSync(inPath, 'utf8'))

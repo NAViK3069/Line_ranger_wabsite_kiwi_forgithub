@@ -33,16 +33,16 @@
    "name": "Brown ตำนานร็อค"
   },
   {
-   "id": "tw_twr10",
+   "id": "tw_twr09",
    "type": "ranger",
    "source": "upload",
-   "name": "twr10-body",
+   "name": "twr09-body",
    "body": "body",
    "sets": {
     "body": {
-     "sam": "/api/res/twr10/twr10-body.sam",
-     "plist": "/api/res/twr10/twr10-body.plist",
-     "png": "/api/res/twr10/twr10-body.png"
+     "sam": "/api/res/twr09/twr09-body.sam",
+     "plist": "/api/res/twr09/twr09-body.plist",
+     "png": "/api/res/twr09/twr09-body.png"
     }
    }
   },
@@ -102,8 +102,8 @@
   },
   {
    "id": "tower_0",
-   "name": "twr10 (base)",
-   "assetId": "tw_twr10",
+   "name": "twr09 (base)",
+   "assetId": "tw_twr09",
    "tag": "prop",
    "x": 110,
    "y": 362,
@@ -202,8 +202,8 @@
   },
   {
    "id": "tower_1",
-   "name": "twr10 (gear)",
-   "assetId": "tw_twr10",
+   "name": "twr09 (gear)",
+   "assetId": "tw_twr09",
    "tag": "prop",
    "x": 110,
    "y": 511,

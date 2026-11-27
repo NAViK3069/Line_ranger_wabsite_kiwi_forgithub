@@ -3,7 +3,7 @@
  "name": "Attack Range — Executor Anubis Brown",
  "width": 1280,
  "height": 720,
- "duration": 54,
+ "duration": 45,
  "fps": 30,
  "groundY": 560,
  "background": {
@@ -215,7 +215,7 @@
    "type": "show",
    "actorId": "walker_a",
    "start": 0,
-   "duration": 30,
+   "duration": 26.3,
    "fadeIn": 0.3,
    "fadeOut": 0.3
   },
@@ -432,8 +432,8 @@
    "id": "show_walker_b",
    "type": "show",
    "actorId": "walker_b",
-   "start": 30.3,
-   "duration": 23.7,
+   "start": 26.6,
+   "duration": 18.4,
    "fadeIn": 0.3,
    "fadeOut": 0.3
   },
@@ -441,7 +441,7 @@
    "id": "walk_walker_b",
    "type": "move",
    "actorId": "walker_b",
-   "start": 34.6,
+   "start": 30.9,
    "to": {
     "x": 514,
     "y": 560
@@ -454,7 +454,7 @@
    "id": "hit_walker_b",
    "type": "skill",
    "actorId": "walker_b",
-   "start": 36.405,
+   "start": 32.705,
    "label": "ตี walker_b",
    "cast": [
     "attack_ready"
@@ -552,7 +552,7 @@
    "id": "hit2_walker_b",
    "type": "skill",
    "actorId": "walker_b",
-   "start": 38.638,
+   "start": 34.938,
    "label": "ตี walker_b",
    "cast": [
     "attack_ready"
@@ -663,20 +663,20 @@
    "id": "cam_outro",
    "type": "camera",
    "actorId": "__camera",
-   "start": 46.5,
+   "start": 37.4,
    "center": {
     "x": 640,
     "y": 377.14285714285717
    },
    "zoom": 1.05,
-   "duration": 7.5,
+   "duration": 7.600000000000001,
    "ease": "linear"
   },
   {
    "id": "light_once",
    "type": "anim",
    "actorId": "a_light_b",
-   "start": 31.5,
+   "start": 27.8,
    "clip": "start",
    "speed": 0.8,
    "loop": false,
@@ -687,7 +687,7 @@
    "id": "show_light_b",
    "type": "show",
    "actorId": "a_light_b",
-   "start": 31.5,
+   "start": 27.8,
    "duration": 0.9583333333333334,
    "fadeIn": 0.05,
    "fadeOut": 0.2
@@ -700,7 +700,7 @@
    "assetId": "snd_bgm",
    "volume": 1,
    "offset": 0,
-   "duration": 54,
+   "duration": 45,
    "fadeIn": 1,
    "fadeOut": 2
   },
@@ -708,7 +708,7 @@
    "id": "sfx_equip",
    "type": "sound",
    "actorId": "__audio",
-   "start": 31.5,
+   "start": 27.8,
    "assetId": "snd_equip",
    "volume": 1,
    "offset": 0,

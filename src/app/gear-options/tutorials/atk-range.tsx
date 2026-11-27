@@ -26,7 +26,7 @@ type Tr = (th: string, en: string) => string
 const WALKER = 'u2018e-crush', TARGET = 'u1260e-brown'
 /** ตรงกับ build-range-scene.cjs */
 const TARGET_X = 1000, TARGET_HALF_W = 70
-const GO_A = 19.6, GO_B = 34.6, EQUIP_AT = 31.5, SUMMARY = 46.5, END = 54
+const GO_A = 19.6, GO_B = 30.9, EQUIP_AT = 27.8, SUMMARY = 37.4, END = 45
 interface GearDef { code: string; kind: GearKind; grade: number; en: string }
 const GEARS: GearDef[] = [
   { code: 'eq_wpn_evt_046', kind: 'weapon', grade: 6, en: "Thunder Brown's Glove" },

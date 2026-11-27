@@ -1,6 +1,7 @@
 // ====================================================
 // วิดีโอ ค่าใช้จ่ายการผลิตแร่ (mineral-cost) / ระยะเวลาที่สร้างเรนเจอร์ใหม่ (regen-time)
-//   ตู้รถไฟอวกาศ 2 เลน (แบบ atk-speed): บน = ไม่ใส่เกียร์ · ล่าง = ใส่เกียร์ · แต่ละเลนมีป้อม (twr10 — ป้อมเริ่มต้นของเกม tower_skin_resource)
+//   ตู้รถไฟอวกาศ 2 เลน (แบบ atk-speed): บน = ไม่ใส่เกียร์ · ล่าง = ใส่เกียร์ · แต่ละเลนมีป้อม twr09 = ป้อมพื้นฐาน (ไม่มีสกิน) ของ HQ ระดับอัลตร้ามาสเตอร์
+//     (0xcc525c เลือกป้อมพื้นฐานตามเลเวล HQ: 1–10 twr01 · 11–20 twr02 · 21–40 twr03 · 41–60 twr04 · 61–80 twr05 · 81–98 twr06 · 99–197 twr07 · 198–296 twr08 · 297–396 twr09)
 //   แข่งกดเรียก Rock Legend Brown 16 วินาที (หน้าเว็บเล่น ×2) — กดทันทีที่ปุ่มพร้อม (แร่พอเสมอ) → ตัวใหม่โผล่หน้าป้อมแล้วเดินออกขวา
 //     regen-time: บนทุก 4 วิ · ล่างทุก 1.732 วิ → นับจำนวนตัวที่ปล่อย
 //     mineral-cost: เวลาเกิดใหม่เท่ากัน (4 วิ) → ปล่อยเท่ากัน แต่นับแร่ที่ใช้ (บนตัวละ 1,800 · ล่างตัวละค่าแร่หลังลด)
@@ -44,14 +45,14 @@ const clone = o => JSON.parse(JSON.stringify(o))
 const src = JSON.parse(fs.readFileSync(inPath, 'utf8'))
 const tpl = src.actors.find(a => a.tag === 'ally')
 const asset = { ...clone(src.assets.find(a => a.id === tpl.assetId)), id: `r_${RANGER.id}`, rangerId: RANGER.id, name: RANGER.name }
-const towerAsset = { id: 'tw_twr10', type: 'ranger', source: 'upload', name: 'twr10-body', body: 'body',
-  sets: { body: { sam: '/api/res/twr10/twr10-body.sam', plist: '/api/res/twr10/twr10-body.plist', png: '/api/res/twr10/twr10-body.png' } } }
+const towerAsset = { id: 'tw_twr09', type: 'ranger', source: 'upload', name: 'twr09-body', body: 'body',
+  sets: { body: { sam: '/api/res/twr09/twr09-body.sam', plist: '/api/res/twr09/twr09-body.plist', png: '/api/res/twr09/twr09-body.png' } } }
 const walkDur = (OUT_X - SPAWN_X) / MOVE_PX
 
 // ลำดับวาด: เลนบน (ป้อม → ตัวที่เรียก) แล้วเลนล่าง — เลนล่างอยู่หน้า
 const actors = [], cues = []
 LANE_Y.forEach((y, lane) => {
-  actors.push({ ...clone(tpl), id: `tower_${lane}`, name: `twr10 (${lane ? 'gear' : 'base'})`, assetId: towerAsset.id, tag: 'prop', x: TOWER_X, y, flip: false, idleClip: 'normal_idle', loop: true, muted: true, scale: TOWER_SCALE })
+  actors.push({ ...clone(tpl), id: `tower_${lane}`, name: `twr09 (${lane ? 'gear' : 'base'})`, assetId: towerAsset.id, tag: 'prop', x: TOWER_X, y, flip: false, idleClip: 'normal_idle', loop: true, muted: true, scale: TOWER_SCALE })
   SPAWNS[lane].forEach((at, i) => {
     const id = `summon_${lane}_${i}`
     actors.push({ ...clone(tpl), id, name: `${RANGER.name} ${lane ? 'gear' : 'base'} #${i + 1}`, assetId: asset.id, tag: `ally_${lane}_${i}`, x: SPAWN_X, y, flip: false })

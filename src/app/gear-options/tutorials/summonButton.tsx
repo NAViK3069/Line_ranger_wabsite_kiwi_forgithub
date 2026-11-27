@@ -10,7 +10,7 @@
 //     ตัดด้วย battle_btn_bottom_cha_frame_mask.png (100×104 กลางปุ่ม — มุมโค้ง)
 //   ดาว (0x18c4568 → star_layer.plist): 9★ = com_level01_star09 สเกล 0.44 · 6–8★ = star06–08 สเกล 0.48 · กลางที่ (30, 55) pt — อยู่เหนือกรอบ (z 1)
 //     สีดาว: ทอง level01 ปกติ · ฟ้า level02 / ชมพู level04 ตามระดับพิเศษของยูนิต (0xd5d3f8 / 0xd5d444) — เรนเจอร์ในคลิปเป็นแบบปกติ (ทอง)
-//   ค่าแร่ = CCLabelTTF "%d" (ไม่มีจุลภาค) ขนาด 9 pt สีขาว · มุมซ้ายล่างที่ x = 29 − กว้าง/5, y = 11.5 pt
+//   ค่าแร่ = CCLabelTTF "%d" (ไม่มีจุลภาค) ฟอนต์ LINEBold 9 pt สีขาว · มุมซ้ายล่างที่ x = 29 − กว้าง/5, y = 11.5 pt (ตัวเลขกลางที่ y 17 pt เท่าไอคอนแร่)
 //     ไอคอนแร่ battle_img_rubi01 กลางที่ (x ของตัวเลข − 7, 17) pt
 //   เวลารอ (0xc87ecc): แถบ battle_img_cooltime_bg (scale9 43×10 pt กลาง (31, 17)) + แถบเติม battle_img_cooltime
 //     กว้าง = 10 + 33 × (เวลาที่ผ่านไป ÷ productionTime) pt เริ่มที่ x 7 · แสดงเฉพาะตอนยังไม่พร้อม (แถบทับตัวเลขค่าแร่)
@@ -41,16 +41,9 @@ const elementKey = (e?: string | null) => {
   return k === 'wood' ? 'tree' : k
 }
 
-/** วัดความกว้างตัวเลข (px) ด้วยฟอนต์เดียวกับที่วาด */
-let measureCtx: CanvasRenderingContext2D | null = null
-const LABEL_FONT = '900 18px system-ui, sans-serif'
-function textWidth(s: string): number {
-  if (typeof document === 'undefined') return s.length * 10.5
-  if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d')
-  if (!measureCtx) return s.length * 10.5
-  measureCtx.font = LABEL_FONT
-  return measureCtx.measureText(s).width
-}
+/** ฟอนต์ตัวเลขของเกม = LINEBold (assets/font/LINEBold.ttf ใน APK — เว็บเก็บไว้ที่ public/fonts/linebold.ttf) · 9 pt = 18 px */
+const LABEL_FONT = "18px 'LineBold', 'Kanit', sans-serif"
+const FONT_FACE = "@font-face{font-family:'LineBold';src:url('/fonts/linebold.ttf') format('truetype');font-display:block}"
 
 export interface SummonUnit {
   grade: number
@@ -73,9 +66,6 @@ export function SummonButton({ unit, cost, cool, noMineral = false, gear, x, y, 
   const [fx, fy] = unit.face ?? [0.5, 0.5]
   const s = 0.7 * (unit.sizeRatio ?? 1)
   const label = String(Math.trunc(cost))
-  const lw = textWidth(label)
-  const labelLeft = px(29) - lw / 5            // x = 29 − กว้าง/5 (pt) → px
-  const labelBottom = py(11.5)
   const dim = cool != null || noMineral
   const el = elementKey(unit.element)
   const starW = unit.grade >= 6 ? `com_level01_star0${Math.min(9, unit.grade)}.png` : null
@@ -92,11 +82,16 @@ export function SummonButton({ unit, cost, cool, noMineral = false, gear, x, y, 
         </div>
         <AtlasSprite atlas={UI} name={frame} x={W / 2} y={H / 2} />
         {starW && <AtlasSprite atlas="hd/common/star_layer" name={starW} x={px(30)} y={py(55)} scale={unit.grade === 9 ? 0.44 : 0.48} />}
-        {/* ค่าแร่ */}
-        <div className="absolute whitespace-nowrap text-white leading-none tabular-nums"
-          style={{ left: labelLeft, top: labelBottom - 18, font: LABEL_FONT, WebkitTextStroke: '4px #2b170a', paintOrder: 'stroke fill' }}>{label}</div>
-        <AtlasSprite atlas={UI16} name="battle_img_rubi01.png" x={labelLeft - px(7)} y={py(17)} />
-        {/* แถบเวลารอ — ทับตัวเลขค่าแร่ */}
+        {/* ค่าแร่: มุมซ้ายล่างที่ x = 29 − กว้าง/5 pt (เลื่อนซ้าย 20% ของความกว้างตัวเอง) · ไอคอนแร่กลางที่ x ตัวเลข − 7 pt, y 17 pt
+            ตอนรอเกิดใหม่ แถบเวลารอ (วาดทีหลัง) ทับทั้งไอคอนแร่และตัวเลข → ไม่แสดง */}
+        <style>{FONT_FACE}</style>
+        {cool == null && (
+          <div className="absolute whitespace-nowrap" style={{ left: px(29), top: py(17) - 9, height: 18, transform: 'translateX(-20%)' }}>
+            <AtlasSprite atlas={UI16} name="battle_img_rubi01.png" x={-px(7)} y={9} />
+            <span className="block text-white tabular-nums" style={{ font: LABEL_FONT, lineHeight: '18px', WebkitTextStroke: '3.5px #24140a', paintOrder: 'stroke fill' }}>{label}</span>
+          </div>
+        )}
+        {/* แถบเวลารอ */}
         {cool != null && (
           <>
             <AtlasNineH atlas={UI} name="battle_img_cooltime_bg.png" left={px(31) - px(43) / 2} top={py(17) - 10} width={px(43)} capL={12} capR={10} />

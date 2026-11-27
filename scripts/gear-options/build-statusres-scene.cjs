@@ -82,7 +82,9 @@ scene.assets.push(
   sound('snd_lose', 'slot_result_fail', 'labyrinth_revivalstage_slot_result_fail_20240220133014809.ogg'),
 )
 const sfx = (id, assetId, start, volume = 1, extra = {}) => ({ id, type: 'sound', actorId: '__audio', start, assetId, volume, offset: 0, duration: 0, fadeIn: 0, fadeOut: 0, ...extra })
-cues.push(sfx('bgm', 'snd_bgm', 0, 1, { duration: END, fadeIn: 1, fadeOut: 2 }), sfx('sfx_equip', 'snd_equip', EQUIP_AT))
+// stun: ช่วงมึนงง 23–31 วิ หน้าเว็บเล่น ×3 (status-resist.tsx STUN_FAST) แต่เสียงเล่นความเร็วปกติ → เพลงยาวเท่าเวลาจริงของวิดีโอ
+const FAST_SAVED = STUN ? (31.0 - 23.0) * (1 - 1 / 3) : 0
+cues.push(sfx('bgm', 'snd_bgm', 0, 1, { duration: END - FAST_SAVED, fadeIn: 1, fadeOut: 2 }), sfx('sfx_equip', 'snd_equip', EQUIP_AT))
 // วงล้อสุ่มต้านมีเฉพาะหลังใส่เกียร์ (ต้าน 0% → เกมไม่สุ่ม)
 ROLLS.slice(FIRST_AFTER).forEach((r, i) => {
   const k = i + FIRST_AFTER

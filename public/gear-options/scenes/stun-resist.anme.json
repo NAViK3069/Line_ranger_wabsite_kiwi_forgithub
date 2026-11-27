@@ -505,7 +505,7 @@
    "assetId": "snd_bgm",
    "volume": 1,
    "offset": 0,
-   "duration": 48,
+   "duration": 42.666666666666664,
    "fadeIn": 1,
    "fadeOut": 2
   },

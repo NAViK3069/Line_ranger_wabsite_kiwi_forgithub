@@ -145,7 +145,9 @@ export default function StatusResistTutorial({ autoPlay, mode }: { autoPlay: boo
       </>
     )
   }
-  return <ScenePlayer src={`/gear-options/scenes/${mode}-resist.anme.json`} autoPlay={autoPlay} overlay={overlay} />
+  // มึนงงนาน 10 วิ (ตามเกม) → ช่วงกลางเล่นเร็ว ×3 ไม่ให้ยืนค้างนาน (นับถอยหลังยังเป็นเวลาในเกม)
+  return <ScenePlayer src={`/gear-options/scenes/${mode}-resist.anme.json`} autoPlay={autoPlay} overlay={overlay}
+    rateAt={stun ? (t => (t >= STUN_FAST.from && t < STUN_FAST.to ? STUN_FAST.rate : 1)) : undefined} />
 }
 
 type Roll = { start: number; k: number; after: boolean; landed: boolean; hitAt: number }
@@ -153,6 +155,9 @@ type Words = { status: string; landed: string; effect: string }
 const LAND = [0.5, 0.55, 0.55, 0.7]
 
 /** เอฟเฟกต์มึนงง unit22-stun (ท่า loop) เหนือหัว — anchor ล่างกลาง ที่ความสูงยูนิต + 5 pt · นับถอยหลังเวลามึน */
+/** ช่วงมึนงงที่เล่นเร็ว (เวลาในฉาก) — ตรงกับ STUN_FAST ใน build-statusres-scene.cjs */
+const STUN_FAST = { from: 23.0, to: 31.0, rate: 3 }
+
 function StunFx({ c, T, at, dur }: { c: OverlayCtx; T: Tr; at: number; dur: number }) {
   const t = c.t
   if (t < at || t >= at + dur) return null
@@ -166,6 +171,7 @@ function StunFx({ c, T, at, dur }: { c: OverlayCtx; T: Tr; at: number; dur: numb
       <div className="absolute px-3 py-1 rounded-lg bg-black/75 border-2 border-yellow-300/60 text-[20px] font-black text-yellow-200 tabular-nums whitespace-nowrap"
         style={{ left: sp.x, top: sp.y - 70, transform: 'translateX(-50%)' }}>
         {T('มึนงง', 'Stunned')} {left.toFixed(1)}{T(' วิ', ' s')}
+        {t >= STUN_FAST.from && t < STUN_FAST.to && <span className="ml-2 px-2 py-0.5 rounded-md bg-amber-400 text-[16px] text-[#1a1200]">▶▶ ×{STUN_FAST.rate}</span>}
       </div>
     </>
   )

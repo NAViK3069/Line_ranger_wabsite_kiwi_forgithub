@@ -19,7 +19,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { apiFetch } from '@/lib/staticApi'
 import type { TBattle, TEnemy, TFloor, TIcon, TowerIndex, TText, TReward } from '@/lib/infinityTower'
-import { GameIcon } from './atlas'
+import { GameIcon, useIconUrl } from './atlas'
 
 // canvas + โหลดไฟล์ .sam → ฝั่ง browser เท่านั้น
 const TowerGate = dynamic(() => import('./TowerGate'), { ssr: false })
@@ -47,11 +47,11 @@ const IC: Record<string, TIcon> = {
 }
 
 /** สีตามประเภทด่าน */
-const TONE: Record<TBattle, { chip: string; ring: string; num: string }> = {
-  OFFENCE: { chip: 'bg-sky-500/15 border-sky-400/40 text-sky-200', ring: 'border-sky-400/25', num: 'from-sky-300 to-indigo-500' },
-  TIMEATTACK: { chip: 'bg-emerald-500/15 border-emerald-400/40 text-emerald-200', ring: 'border-emerald-400/25', num: 'from-emerald-300 to-teal-600' },
-  SIEGE: { chip: 'bg-amber-500/15 border-amber-400/40 text-amber-200', ring: 'border-amber-400/25', num: 'from-amber-300 to-orange-600' },
-  BOSS: { chip: 'bg-rose-500/15 border-rose-400/50 text-rose-200', ring: 'border-rose-400/35', num: 'from-rose-300 to-red-700' },
+const TONE: Record<TBattle, { chip: string; ring: string }> = {
+  OFFENCE: { chip: 'bg-sky-500/15 border-sky-400/40 text-sky-200', ring: 'border-sky-400/25' },
+  TIMEATTACK: { chip: 'bg-emerald-500/15 border-emerald-400/40 text-emerald-200', ring: 'border-emerald-400/25' },
+  SIEGE: { chip: 'bg-amber-500/15 border-amber-400/40 text-amber-200', ring: 'border-amber-400/25' },
+  BOSS: { chip: 'bg-rose-500/15 border-rose-400/50 text-rose-200', ring: 'border-rose-400/35' },
 }
 const ELEMENT_ICON: Record<string, string> = { fire: 'fire', water: 'water', tree: 'wood', wood: 'wood', light: 'light', dark: 'dark' }
 const TYPE_ICON: Record<string, string> = { STR: '/gacha/images/Str.png', AGI: '/gacha/images/Agi.png', INT: '/gacha/images/Int.png' }
@@ -70,6 +70,7 @@ export default function InfinityTowerPage() {
   const [desc, setDesc] = useState(false)
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [jump, setJump] = useState('')
+  const [jumpOpen, setJumpOpen] = useState(false)
   const [enemy, setEnemy] = useState<TEnemy | null>(null)
 
   useEffect(() => {
@@ -89,6 +90,7 @@ export default function InfinityTowerPage() {
     if (!data) return
     const f = data.floors.find(x => x.no === no)
     if (!f) return
+    setJumpOpen(false)
     setFilter('ALL')
     setOpen(s => new Set(s).add(f.code))
     const go = (behavior: ScrollBehavior) => document.getElementById(f.code)?.scrollIntoView({ behavior, block: 'start' })
@@ -128,23 +130,26 @@ export default function InfinityTowerPage() {
 
   const towerName = T('หอคอยอนันต์', 'Infinity Tower')
   const battleLabel = (b: TBattle) => data ? `${tx(data.battles[b].title, lang)}${b === 'TIMEATTACK' ? ' ⏱' : ''}` : ''
+  /** ชื่อสั้นสำหรับแถบล่างมือถือ — ชื่อทางการของเกมตัดคำว่า "สเตจ/Stage" ออก */
+  const shortLabel = (b: TBattle) => data ? tx(data.battles[b].title, lang).replace(/สเตจ|\s*Stage\s*/g, '').trim() : ''
+  const pickFilter = (v: TBattle | 'ALL') => { setFilter(v); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const titleLogo: TIcon = { atlas: 'main16', frame: `ml_endless_main_title_${lang === 'th' ? 'th' : 'en'}.png` }
 
   return (
-    <div className="min-h-screen pb-16 bg-[radial-gradient(120%_60%_at_50%_0%,#2a0d4d_0%,#12061f_55%,#0b0414_100%)]">
+    <div className="min-h-screen pb-[calc(96px+env(safe-area-inset-bottom))] sm:pb-16 bg-[radial-gradient(120%_60%_at_50%_0%,#2a0d4d_0%,#12061f_55%,#0b0414_100%)]">
       <header className="sticky top-0 z-40 bg-[#14071f]/95 backdrop-blur-md border-b border-white/10">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 h-12 flex items-center gap-2.5">
           <Link href="/" className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm transition-colors" aria-label={tStat('Back')}>
             <span className="material-icons-round text-base">arrow_back</span>
             <span className="hidden sm:inline">{tStat('Back')}</span>
           </Link>
-          <GameIcon icon={IC.star} size={20} />
-          <span className="font-[family-name:var(--font-line)] text-[15px] text-white truncate">{towerName}</span>
+          <GameIcon icon={titleLogo} className="h-8 w-[132px] justify-start" alt={towerName} />
           <div className="ml-auto"><LanguageSwitcher /></div>
         </div>
 
-        {/* ตัวกรอง — มือถือ: แถวเดียวเลื่อนข้าง · จอใหญ่: ตัดบรรทัด */}
+        {/* ตัวกรอง (แท็บเล็ต/คอม) — มือถือใช้แถบล่าง MobileBar แทน */}
         {data && (
-          <div className="max-w-6xl mx-auto px-3 sm:px-4 pb-2">
+          <div className="hidden sm:block max-w-6xl mx-auto px-3 sm:px-4 pb-2">
             <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden -mx-3 px-3 sm:mx-0 sm:px-0">
               <Chip on={filter === 'ALL'} onClick={() => setFilter('ALL')}>{T('ทั้งหมด', 'All')} <b className="opacity-60 font-normal">{data.floors.length}</b></Chip>
               {(Object.keys(data.battles) as TBattle[]).map(b => (
@@ -175,7 +180,8 @@ export default function InfinityTowerPage() {
           <div className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full bg-fuchsia-600/25 blur-3xl" />
           <div className="relative flex items-center gap-3 sm:gap-6">
             <div className="min-w-0 flex-1">
-              <h1 className="font-[family-name:var(--font-line)] text-[22px] sm:text-3xl text-white leading-tight">{towerName}</h1>
+              <h1 className="sr-only">{towerName}</h1>
+              <GameIcon icon={titleLogo} className="h-12 sm:h-16 w-full max-w-[300px] justify-start" alt="" />
               {data && (
                 <p className="mt-1.5 text-[13px] sm:text-[15px] leading-relaxed text-fuchsia-100/80">
                   {tx(data.ui.INFINITY_TOWER_STORY_01, lang)} {tx(data.ui.INFINITY_TOWER_STORY_02, lang)}
@@ -200,6 +206,14 @@ export default function InfinityTowerPage() {
         )}
       </main>
 
+      {data && (
+        <MobileBar data={data} T={T} filter={filter} counts={counts} shortLabel={shortLabel}
+          onFilter={pickFilter} onJump={() => setJumpOpen(true)} />
+      )}
+      {jumpOpen && data && (
+        <JumpSheet T={T} max={data.floors.length} value={jump} onChange={setJump} desc={desc} onDesc={setDesc}
+          onGo={n => goTo(n)} onTop={() => { setJumpOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }} onClose={() => setJumpOpen(false)} />
+      )}
       {enemy && <EnemySheet e={enemy} lang={lang} T={T} onClose={() => setEnemy(null)} />}
     </div>
   )
@@ -214,17 +228,24 @@ function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; chi
   )
 }
 
-/** ประตูชั้น (อนิเมชันเกม) + เลขชั้น */
-function Gate({ f, open }: { f: TFloor; open: boolean }) {
+/** ประตูชั้น (อนิเมชันเกม เปิดค้าง) + เลขชั้นตัวเลขของเกมกลางพอร์ทัล (endless_main_tower_num_0N) */
+function Gate({ f }: { f: TFloor }) {
   return (
     <div className="relative aspect-[328/197] w-full">
-      <TowerGate battle={f.battle} open={open} />
-      <span className={`absolute left-1/2 -bottom-[8%] -translate-x-1/2 rounded-full bg-gradient-to-b ${TONE[f.battle].num} px-2 min-w-[2.4em] text-center
-        font-[family-name:var(--font-line)] text-white text-[13px] sm:text-[15px] leading-[1.45] shadow-[0_2px_8px_rgba(0,0,0,0.6)] ring-1 ring-white/30`}>
-        {f.no}
+      <TowerGate battle={f.battle} />
+      {/* กลางพอร์ทัล · สูง ~28% ของกรอบประตู (แบบหน้าหอคอยในเกม) — ตั้งด้วย style ตรงๆ ให้คำนวณจากกรอบเสมอ */}
+      <span className="absolute flex items-center justify-center" aria-label={String(f.no)}
+        style={{ left: '50%', top: '57%', height: '28%', transform: 'translate(-50%, -50%)', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.55))' }}>
+        {String(f.no).split('').map((d, i) => <Digit key={i} d={d} />)}
       </span>
     </div>
   )
+}
+
+function Digit({ d }: { d: string }) {
+  const url = useIconUrl({ atlas: 'main16', frame: `endless_main_tower_num_0${d}.png` })
+  // eslint-disable-next-line @next/next/no-img-element
+  return url ? <img src={url} alt="" draggable={false} style={{ height: '100%', width: 'auto', maxWidth: 'none', margin: '0 -0.5px' }} /> : null
 }
 
 function Amount({ r, data }: { r: TReward; data: TowerIndex }) {
@@ -244,7 +265,7 @@ function FloorCard({ f, data, lang, T, open, onToggle, onEnemy }: {
           <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,176px))]">
             {/* ── ส่วนหัว: ประตู + ประเภทด่าน + รางวัลผ่านชั้น ── */}
             <div className="flex gap-3 p-3">
-              <div className="w-[104px] sm:w-[140px] shrink-0 pt-1 pb-3"><Gate f={f} open={open} /></div>
+              <div className="w-[112px] sm:w-[150px] shrink-0 self-start"><Gate f={f} /></div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
                   <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] leading-none ${TONE[f.battle].chip}`}>
@@ -546,6 +567,97 @@ function EnemySheet({ e, lang, T, onClose }: { e: TEnemy; lang: L; T: Tfn; onClo
           ))}
           <p className="text-[11px] text-gray-500">{T('ค่าจากตาราง endless_product_line ของเกม', 'Values from the game table endless_product_line')}</p>
         </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * แถบล่างของมือถือ (นิ้วโป้งเอื้อมถึง) — แท็บประเภทด่าน 5 แท็บ + ปุ่มไปชั้นลอยเหนือแถบ
+ * แท็บเล็ต/คอมใช้แถบกรองด้านบนแทน
+ */
+function MobileBar({ data, T, filter, counts, shortLabel, onFilter, onJump }: {
+  data: TowerIndex; T: Tfn; filter: TBattle | 'ALL'; counts: Record<string, number>
+  shortLabel: (b: TBattle) => string; onFilter: (v: TBattle | 'ALL') => void; onJump: () => void
+}) {
+  const tabs: { v: TBattle | 'ALL'; icon: TIcon; label: string; n: number; time?: boolean }[] = [
+    { v: 'ALL', icon: IC.star, label: T('ทั้งหมด', 'All'), n: data.floors.length },
+    ...(Object.keys(data.battles) as TBattle[]).map(b => ({ v: b, icon: data.battles[b].icon, label: shortLabel(b), n: counts[b] ?? 0, time: b === 'TIMEATTACK' })),
+  ]
+  return (
+    <>
+      <button onClick={onJump} aria-label={T('ไปชั้น', 'Go to floor')}
+        className="sm:hidden fixed right-3 z-40 bottom-[calc(76px+env(safe-area-inset-bottom))] flex items-center gap-1.5 rounded-full
+          bg-gradient-to-b from-fuchsia-500 to-purple-700 pl-2 pr-3.5 h-12 text-white shadow-[0_8px_24px_rgba(168,85,247,0.45)] ring-1 ring-white/20 active:scale-95 transition-transform">
+        <GameIcon icon={IC.base} size={30} />
+        <span className="font-[family-name:var(--font-line)] text-[14px]">{T('ไปชั้น', 'Floor')}</span>
+      </button>
+      <nav aria-label={T('ประเภทด่าน', 'Stage types')}
+        className="sm:hidden fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#140a22]/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
+        <div className="grid grid-cols-5">
+          {tabs.map(t => {
+            const on = filter === t.v
+            return (
+              <button key={t.v} onClick={() => onFilter(t.v)} aria-pressed={on}
+                className={`relative flex flex-col items-center justify-center gap-0.5 h-[64px] px-0.5 transition-colors ${on ? 'text-white' : 'text-gray-400 active:bg-white/5'}`}>
+                {on && <span className="absolute top-0 left-1/2 -translate-x-1/2 h-[3px] w-8 rounded-b-full bg-fuchsia-400" />}
+                <span className={`relative flex items-center justify-center h-8 w-11 rounded-2xl transition-colors ${on ? 'bg-fuchsia-500/25' : ''}`}>
+                  <GameIcon icon={t.icon} size={26} />
+                  {t.time && <span className="absolute -right-0.5 -top-0.5"><GameIcon icon={IC.timer} size={14} /></span>}
+                </span>
+                <span className="max-w-full truncate text-[10.5px] leading-tight">{t.label}</span>
+                <span className={`text-[9.5px] leading-none ${on ? 'text-fuchsia-200' : 'text-gray-500'}`}>{t.n}</span>
+              </button>
+            )
+          })}
+        </div>
+      </nav>
+    </>
+  )
+}
+
+/** แผ่นไปชั้น (มือถือ): พิมพ์เลขชั้น · ปุ่มลัด · ลำดับชั้น · กลับบนสุด */
+function JumpSheet({ T, max, value, onChange, desc, onDesc, onGo, onTop, onClose }: {
+  T: Tfn; max: number; value: string; onChange: (v: string) => void; desc: boolean; onDesc: (v: boolean) => void
+  onGo: (n: number) => void; onTop: () => void; onClose: () => void
+}) {
+  useEffect(() => {
+    const k = (ev: KeyboardEvent) => { if (ev.key === 'Escape') onClose() }
+    addEventListener('keydown', k)
+    return () => removeEventListener('keydown', k)
+  }, [onClose])
+  const n = parseInt(value, 10)
+  const ok = n >= 1 && n <= max
+  const quick = [1, 50, 100, 150, 200, 250, 300, max]
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={onClose} role="dialog" aria-modal="true" aria-label={T('ไปชั้น', 'Go to floor')}>
+      <div className="w-full rounded-t-3xl border-t border-fuchsia-400/30 bg-[#1b1030] p-4 pb-[calc(16px+env(safe-area-inset-bottom))]" onClick={e => e.stopPropagation()}>
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" />
+        <form className="flex gap-2" onSubmit={e => { e.preventDefault(); if (ok) onGo(n) }}>
+          <input value={value} onChange={e => onChange(e.target.value.replace(/\D/g, '').slice(0, 3))} inputMode="numeric" enterKeyHint="go"
+            placeholder={`1 – ${max}`} aria-label={T('เลขชั้น', 'Floor number')}
+            className="min-w-0 flex-1 h-12 rounded-2xl border border-white/15 bg-white/5 px-4 text-lg text-white placeholder:text-gray-500 focus:border-fuchsia-400/70 focus:outline-none" />
+          <button type="submit" disabled={!ok} className="h-12 rounded-2xl bg-fuchsia-500 px-5 font-semibold text-white disabled:opacity-40 active:bg-fuchsia-600">{T('ไป', 'Go')}</button>
+        </form>
+        <div className="mt-3 grid grid-cols-4 gap-2">
+          {quick.map(q => (
+            <button key={q} onClick={() => onGo(q)} className="h-10 rounded-xl border border-white/10 bg-white/5 text-sm text-gray-100 active:bg-white/15">
+              {T(`ชั้น ${q}`, `${q}F`)}
+            </button>
+          ))}
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-black/30 p-1 text-sm">
+          {[false, true].map(v => (
+            <button key={String(v)} onClick={() => onDesc(v)} aria-pressed={desc === v}
+              className={`flex items-center justify-center gap-1 h-9 rounded-lg ${desc === v ? 'bg-fuchsia-500/30 text-white' : 'text-gray-400'}`}>
+              <span className="material-icons-round text-[16px]">{v ? 'south' : 'north'}</span>
+              {v ? T('บนลงล่าง', 'Top down') : T('ล่างขึ้นบน', 'Bottom up')}
+            </button>
+          ))}
+        </div>
+        <button onClick={onTop} className="mt-3 w-full h-10 rounded-xl text-sm text-gray-300 active:bg-white/10 flex items-center justify-center gap-1">
+          <span className="material-icons-round text-[18px]">vertical_align_top</span>{T('กลับบนสุด', 'Back to top')}
+        </button>
       </div>
     </div>
   )

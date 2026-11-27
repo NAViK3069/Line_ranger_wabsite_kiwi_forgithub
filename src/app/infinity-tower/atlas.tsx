@@ -17,6 +17,8 @@ import type { AtlasKey, TIcon } from '@/lib/infinityTower'
 /** ไฟล์ของแต่ละ atlas (ไม่ใส่นามสกุล) */
 const ATLAS: Record<AtlasKey, string> = {
   main: lericoProxy(`${LERICO_ORIGIN}/res/endless_main/endless_main`),
+  // ตัวเลขชั้น endless_main_tower_num_00–09 + โลโก้ชื่อโหมด ml_endless_main_title_<ภาษา>
+  main16: lericoProxy(`${LERICO_ORIGIN}/res/endless_main/endless_main.16`),
   mission: lericoProxy(`${LERICO_ORIGIN}/res/endless_battle_mission_icon/endless_battle_mission_icon`),
   ui: lericoProxy(`${LERICO_ORIGIN}/res/endless_battle_ui/endless_battle_ui`),
   minigacha: lericoProxy(`${LERICO_ORIGIN}/res/mini_gacha/mini_gacha_icon`),

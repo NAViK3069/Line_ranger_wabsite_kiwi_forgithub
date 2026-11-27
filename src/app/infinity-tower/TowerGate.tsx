@@ -4,7 +4,7 @@
 // ประตูชั้นของหอคอย — อนิเมชันจริงของเกม endless_main_effect/endless_maintop_<ประเภท>.sam
 //   boss = ด่านบอส · normal = ช่วยเหลือ · time = ช่วยเหลือ (จับเวลา) · siege = ล้อมโจมตี
 //   ท่าในไฟล์: lock, open_start → open_idle, close_start → close_idle (30 เฟรม/วิ)
-//   ชั้นที่ปิดอยู่ = วน close_idle · กางชั้น = เล่น open_start แล้ววน open_idle (เหมือนประตูเปิดในเกม)
+//   หน้านี้วน open_idle ตลอด (ประตูเปิดค้าง พอร์ทัลเรืองแสง — แบบหน้าหอคอยในเกม)
 //
 // ประตูหลายร้อยบานบนหน้าเดียว → ใช้นาฬิกาตัวเดียว (requestAnimationFrame) วาดเฉพาะบานที่อยู่บนจอ
 // ผู้ใช้ตั้ง "ลดการเคลื่อนไหว" → วาดเฟรมเดียว ไม่เล่น
@@ -41,28 +41,19 @@ function subscribe(d: (tick: number) => void) {
 
 interface Data { sam: SAMParser; sprites: SpriteMap }
 
-export default function TowerGate({ battle, open, className = '' }: { battle: TBattle; open: boolean; className?: string }) {
+export default function TowerGate({ battle, className = '' }: { battle: TBattle; className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null)
   const [data, setData] = useState<Data | null>(null)
   const [visible, setVisible] = useState(false)
-  // ท่าที่กำลังเล่น + เฟรมของนาฬิกาตอนเริ่มท่า
-  const clip = useRef<{ name: string; start: number; next?: string }>({ name: 'close_idle', start: 0 })
+  // ท่าที่กำลังเล่น + เฟรมของนาฬิกาตอนเริ่มท่า (next = ท่าต่อไปเมื่อจบ — เผื่อใช้ open_start → open_idle)
+  const clip = useRef<{ name: string; start: number; next?: string }>({ name: 'open_idle', start: 0 })
   const lastTick = useRef(0)
-  const first = useRef(true)
 
   useEffect(() => {
     let live = true
     loadSam(`endless_main_effect/endless_maintop_${SAM_OF[battle]}`).then(d => { if (live) setData(d) }).catch(() => {})
     return () => { live = false }
   }, [battle])
-
-  // เปิด/ปิดประตู (ครั้งแรกที่ mount ไม่เล่นท่าเปลี่ยน — ข้ามไปท่า idle ตรงๆ)
-  useEffect(() => {
-    if (first.current) { first.current = false; clip.current = { name: open ? 'open_idle' : 'close_idle', start: 0 }; return }
-    clip.current = open
-      ? { name: 'open_start', start: lastTick.current, next: 'open_idle' }
-      : { name: 'close_start', start: lastTick.current, next: 'close_idle' }
-  }, [open])
 
   useEffect(() => {
     const el = ref.current

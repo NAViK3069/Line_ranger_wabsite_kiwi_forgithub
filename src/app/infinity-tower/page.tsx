@@ -21,6 +21,7 @@ import { apiFetch } from '@/lib/staticApi'
 import type { TBattle, TEnemy, TFloor, TIcon, TowerIndex, TText, TReward } from '@/lib/infinityTower'
 import { GameIcon, useIconUrl } from './atlas'
 import TowerEnemyPopup from './TowerEnemyPopup'
+import { EnemySkeleton, TowerLoader } from './TowerLoading'
 
 // canvas + โหลดไฟล์ .sam → ฝั่ง browser เท่านั้น
 const TowerGate = dynamic(() => import('./TowerGate'), { ssr: false })
@@ -248,9 +249,7 @@ export default function InfinityTowerPage() {
         </section>
 
         {failed && <p className="mt-10 text-center text-rose-300">{T('โหลดข้อมูลหอคอยไม่ได้', 'Could not load the tower data')}</p>}
-        {!data && !failed && (
-          <div className="mt-10 flex justify-center text-gray-400"><span className="material-icons-round animate-spin">autorenew</span></div>
-        )}
+        {!data && !failed && <TowerLoader text={T('กำลังเปิดประตูหอคอย', 'Opening the tower gate')} />}
 
         {data && (
           <ol className="mt-3 space-y-2.5 sm:space-y-3">
@@ -410,7 +409,7 @@ const FloorCard = memo(function FloorCard({ f, data, lang, T, open, onToggle, on
 
                 {/* รางวัลผ่านชั้น */}
                 {f.reward.item && (
-                  <div className="mt-2 flex items-center gap-2 lg:gap-2.5 rounded-xl bg-gradient-to-r from-amber-400/15 via-amber-400/5 to-transparent ring-1 ring-amber-300/10 px-2 py-1 lg:px-2.5 lg:py-1">
+                  <div className="mt-2 hidden lg:flex items-center gap-2 lg:gap-2.5 rounded-xl bg-gradient-to-r from-amber-400/15 via-amber-400/5 to-transparent ring-1 ring-amber-300/10 px-2 py-1 lg:px-2.5 lg:py-1">
                     <GameIcon icon={IC.trophy} className="w-5 h-5 lg:w-6 lg:h-6" />
                     <GameIcon icon={clear?.icon} className="w-[30px] h-[30px] lg:w-8 lg:h-8" alt={tx(clear?.name, lang)} />
                     <span className="min-w-0 truncate text-[12px] lg:text-[13px] text-amber-100">{tx(clear?.name, lang)}</span>
@@ -419,6 +418,25 @@ const FloorCard = memo(function FloorCard({ f, data, lang, T, open, onToggle, on
                 )}
               </div>
             </div>
+
+            {/* ── รางวัลผ่านชั้น (มือถือ/แท็บเล็ต): แถวเต็มความกว้างแบบเดียวกับภารกิจ แต่เด่นกว่า ── */}
+            {f.reward.item && (
+              <div className="lg:hidden relative overflow-hidden flex items-center gap-2.5 border-t border-amber-300/15 px-3 py-2.5
+                bg-gradient-to-r from-amber-400/[0.16] via-amber-400/[0.06] to-transparent">
+                <span className="pointer-events-none absolute -left-6 top-1/2 -translate-y-1/2 h-16 w-24 rounded-full bg-amber-400/20 blur-2xl" />
+                <span className="relative shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-black/30 ring-1 ring-amber-300/25">
+                  <GameIcon icon={IC.trophy} className="w-8 h-8" />
+                </span>
+                <span className="relative min-w-0 flex-1">
+                  <span className="block text-[10.5px] font-semibold uppercase tracking-wider text-amber-200/80">{tx(data.ui.ENDLESS_ENTRY_ACQUIRABLE_REWARD, lang)}</span>
+                  <span className="block truncate text-[13px] text-amber-50">{tx(clear?.name, lang)}</span>
+                </span>
+                <span className="relative shrink-0 flex items-center gap-1.5">
+                  <GameIcon icon={clear?.icon} className="w-9 h-9" alt={tx(clear?.name, lang)} />
+                  <span className="font-[family-name:var(--font-line)] text-[15px] text-white drop-shadow-[0_1px_0_rgba(0,0,0,0.7)]"><Amount r={f.reward.item} data={data} /></span>
+                </span>
+              </div>
+            )}
 
             {/* ── ภารกิจ 3 ข้อ — มือถือ: แถวละข้อ · จอใหญ่: 3 คอลัมน์แบบในเกม ── */}
             {f.missions.map(m => {
@@ -527,7 +545,7 @@ function FloorDetail({ f, data, lang, T, onEnemy }: { f: TFloor; data: TowerInde
       <section>
         <H>{T('ศัตรู', 'Enemies')} · {f.enemyCount}</H>
         {err && <p className="text-sm text-rose-300">{T('โหลดศัตรูไม่ได้', 'Could not load enemies')}</p>}
-        {!enemies && !err && <div className="py-4 flex justify-center text-gray-500"><span className="material-icons-round animate-spin">autorenew</span></div>}
+        {!enemies && !err && <EnemySkeleton />}
         {enemies && (
           <>
             <ul className="sm:hidden space-y-1.5">

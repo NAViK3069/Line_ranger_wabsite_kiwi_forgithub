@@ -87,6 +87,10 @@ export function GameIcon({ icon, size, className = '', alt = '', fit = 'contain'
     <span className={`inline-flex items-center justify-center shrink-0 ${className}`} style={size ? { width: size, height: size } : undefined}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {url && <img src={url} alt={alt} draggable={false} loading="lazy" decoding="async"
+        // ค่อยๆ โผล่เมื่อรูปพร้อม (ไม่กระพริบ/เด้งขึ้นมา) — รูปที่แคชไว้แล้ว complete ทันที ไม่ต้องรอ
+        ref={el => { if (el?.complete) el.style.opacity = '1' }}
+        onLoad={e => { e.currentTarget.style.opacity = '1' }}
+        style={{ opacity: 0, transition: 'opacity .25s ease-out' }}
         className={`max-w-full max-h-full ${fit === 'cover' ? 'w-full h-full object-cover' : 'object-contain'}`} />}
     </span>
   )

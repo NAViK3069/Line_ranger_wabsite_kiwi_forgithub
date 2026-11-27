@@ -324,7 +324,7 @@ function DesktopJump({ T, max, value, onChange, onGo }: {
         </button>
       </form>
       {menu && (
-        <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl border border-fuchsia-400/25 bg-[#1b1030]/98 p-3 shadow-2xl backdrop-blur">
+        <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl border border-fuchsia-400/25 bg-[#1b1030] p-3 shadow-[0_16px_40px_rgba(0,0,0,0.6)]">
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-fuchsia-200/80">{T('ชั้นลัด', 'Quick floors')}</p>
           <div className="grid grid-cols-4 gap-1.5">
             {[1, 50, 100, 150, 200, 250, 300, max].map(q => (

@@ -99,5 +99,12 @@ export default function TowerGate({ battle, className = '' }: { battle: TBattle;
     return subscribe(draw)
   }, [data, visible])
 
-  return <canvas ref={ref} className={`block w-full h-full ${className}`} aria-hidden="true" />
+  return (
+    <div className="relative w-full h-full">
+      <canvas ref={ref} className={`block w-full h-full ${className}`} aria-hidden="true"
+        style={{ opacity: data ? 1 : 0, transition: 'opacity .3s ease-out' }} />
+      {/* โครงรูปประตูระหว่างโหลดไฟล์ .sam (.it-skel ใน globals.css) */}
+      {!data && <span className="absolute inset-x-[6%] inset-y-[8%] rounded-2xl it-skel" aria-hidden="true" />}
+    </div>
+  )
 }

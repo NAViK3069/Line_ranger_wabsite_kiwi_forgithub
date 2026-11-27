@@ -635,3 +635,13 @@ button,
    ดันปุ่มให้กว้างแล้วหดตอนฟอนต์มา (หน้าขยับตอน F5) · ตัวไอคอนจริงกว้าง 1em อยู่แล้ว หน้าตาจึงไม่เปลี่ยน */
 /* อยู่ใน @layer base → คลาส Tailwind (hidden, w-*, text-*) ยังชนะเสมอ · display มาจากสไตล์ของ Google อยู่แล้ว */
 @layer base { .material-icons-round { width: 1em; flex-shrink: 0; overflow-x: clip; overflow-y: visible; } }
+
+/* โครงรอรูป (skeleton) ของหน้าหอคอยอนันต์ — แสงวิ่งผ่านจนกว่ารูป/อนิเมชันจะโหลดเสร็จ */
+@keyframes it-skel { 0% { background-position: 150% 0 } 100% { background-position: -50% 0 } }
+.it-skel {
+  background: linear-gradient(100deg, rgba(255,255,255,0.05) 30%, rgba(255,255,255,0.14) 50%, rgba(255,255,255,0.05) 70%);
+  background-size: 200% 100%;
+  animation: it-skel 1.3s ease-in-out infinite;
+  border-radius: 8px;
+}
+@media (prefers-reduced-motion: reduce) { .it-skel { animation: none } }

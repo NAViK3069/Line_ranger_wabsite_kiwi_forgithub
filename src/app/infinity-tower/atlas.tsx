@@ -83,14 +83,18 @@ export function GameIcon({ icon, size, className = '', alt = '', fit = 'contain'
   icon: TIcon | null | undefined; size?: number; className?: string; alt?: string; fit?: 'contain' | 'cover'
 }) {
   const url = useIconUrl(icon)
+  // โครงรอรูป (.it-skel ใน globals.css) จนกว่ารูปจะโหลดเสร็จ — แล้วรูปค่อยๆ โผล่ (ไม่เด้งขึ้นมา)
+  const [ready, setReady] = useState<string | null>(null)
+  const shown = !!url && ready === url
   return (
-    <span className={`inline-flex items-center justify-center shrink-0 ${className}`} style={size ? { width: size, height: size } : undefined}>
+    <span className={`inline-flex items-center justify-center shrink-0 ${icon && !shown ? 'it-skel' : ''} ${className}`} style={size ? { width: size, height: size } : undefined}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {url && <img src={url} alt={alt} draggable={false} loading="lazy" decoding="async"
-        // ค่อยๆ โผล่เมื่อรูปพร้อม (ไม่กระพริบ/เด้งขึ้นมา) — รูปที่แคชไว้แล้ว complete ทันที ไม่ต้องรอ
-        ref={el => { if (el?.complete) el.style.opacity = '1' }}
-        onLoad={e => { e.currentTarget.style.opacity = '1' }}
-        style={{ opacity: 0, transition: 'opacity .25s ease-out' }}
+        // รูปที่แคชไว้แล้ว complete ทันที ไม่ต้องรอ onLoad
+        ref={el => { if (el?.complete && el.naturalWidth && ready !== url) setReady(url) }}
+        onLoad={() => setReady(url)}
+        onError={() => setReady(url)}
+        style={{ opacity: shown ? 1 : 0, transition: 'opacity .25s ease-out' }}
         className={`max-w-full max-h-full ${fit === 'cover' ? 'w-full h-full object-cover' : 'object-contain'}`} />}
     </span>
   )

@@ -12,7 +12,10 @@
 //     ตีปกติ (kind 3 — 0xced4d8) → ดาเมจสะท้อน = ตัดเศษ(ดาเมจที่โดน × (สะท้อนกายภาพ + บัฟ)) + ตัดเศษ(ดาเมจที่โดน × สะท้อนเวท)
 //       ส่งเข้าผู้ตีเป็นดาเมจตรง (vfunc 0x3f8 — ไม่ผ่าน DEF ของผู้ตี) · ผู้ตีเป็นปราสาท/บอสประเภท 3 → ไม่สะท้อน
 //     ทักษะ (kind 1) ไปอีกทาง (0xd07278) ที่ไม่อ่านค่าสะท้อนของเกียร์ → ทักษะไม่สะท้อน
-//     สองค่านี้คูณ "ดาเมจที่โดนทั้งก้อน" เหมือนกัน (ไม่ได้แยกส่วนกายภาพ/เวท) → ใช้แทนกันได้ บวกกันได้
+//     สองค่านี้คูณ "ดาเมจที่โดนทั้งก้อน" ตัวเดียวกัน (ไม่ได้แยกส่วนกายภาพ/เวท) → ใช้แทนกันได้ บวกกันได้
+//       ดาเมจก้อนนี้ = ส่วนกายภาพ (0x448 · DEF กายภาพ) + ส่วนเวท (0x450 · DEF เวท) รวมกันก่อน (0xccb7e4) แล้วส่งเข้า onDamaged ครั้งเดียว
+//       → สะท้อนเวทไม่ได้สะท้อนเฉพาะดาเมจเวท: โดนกายภาพล้วนก็สะท้อนได้ (ศัตรูในคลิปตีกายภาพล้วน ATK เวท 0)
+//     ดาเมจที่สะท้อน = ดาเมจตรง (0x3f8 → 0xccbac8 ชนิด 0) ไม่ใช่กายภาพ/เวท ไม่ผ่าน DEF ของผู้ตี
 //   เกียร์ +5 = นับเฉพาะ Basic (Switchable ปลดล็อกที่ +6)
 // ====================================================
 
@@ -70,7 +73,7 @@ async function loadData(mode: ReflectMode) {
   const skill = attackSkill(enemy)
   const ourRes = ally.rates.skillResistance ?? 0
   const dmgSkill = Math.round((enemyPhy + enemyMag) * skillMultiplier(skill) * (1 - ourRes))
-  return { ally, enemy, gears: mine, per, rate, hit, taken, reflected, skill, dmgSkill, enemyAtk: enemyPhy + enemyMag }
+  return { ally, enemy, gears: mine, per, rate, hit, taken, reflected, skill, dmgSkill, enemyAtk: enemyPhy + enemyMag, enemyPhy, enemyMag }
 }
 
 export default function ReflectTutorial({ autoPlay, mode }: { autoPlay: boolean; mode: ReflectMode }) {
@@ -108,15 +111,19 @@ export default function ReflectTutorial({ autoPlay, mode }: { autoPlay: boolean;
           rows={<>
             <StatRow t={t} label={optName} value="0%" hlAt={8.75} note={T('เรนเจอร์ไม่มีค่านี้ติดตัว — ได้จากเกียร์', 'Rangers have none by default — it comes from gear')} />
             <StatRow t={t} icon={ICON.hp} label={T('พลังชีวิต', 'HP')} value={fmtInt(hp)} dim />
-            <StatRow t={t} icon={ICON.def} label={T('DEF กายภาพ', 'Physical DEF')} value={fmtInt(d.ally.baseStats.phyDef)} dim />
+            <StatRow t={t} icon={ICON.def} label={T('พลังป้องกัน', 'DEF')} dim
+              parts={[{ label: T('กายภาพ', 'Physical'), value: fmtInt(d.ally.baseStats.phyDef) }, { label: T('เวท', 'Magic'), value: fmtInt(d.ally.baseStats.magDef) }]} />
           </>}
           slots={<GearSlots t={t} />} />
 
         <RangerCard T={T} r={d.enemy} name={enemyName} s={span(t, 12.5, 15.9)} x={40} y={24}
           tag={T('ศัตรู · ผู้ตี · ใส่เกียร์ ATK เต็มที่', 'Enemy · attacker · full ATK gear')} tagColor="bg-rose-500/25 text-rose-200"
           rows={<>
-            <StatRow t={t} icon={ICON.atk} label={T('พลังโจมตี', 'ATK')} value={fmtInt(d.enemyAtk)} hlAt={13.05} />
-            <StatRow t={t} label={T('ตีปกติโดนเรา', 'Normal hit on us')} value={fmtInt(d.taken)} hlAt={13.6} note={T('หลัง DEF ของเรา', 'After our DEF')} />
+            <StatRow t={t} icon={ICON.atk} label={T('พลังโจมตี', 'ATK')} hlAt={13.05}
+              parts={[{ label: T('กายภาพ', 'Physical'), value: fmtInt(d.enemyPhy) }, { label: T('เวท', 'Magic'), value: fmtInt(d.enemyMag) }]} />
+            <StatRow t={t} label={T('ตีปกติโดนเรา', 'Normal hit on us')} value={fmtInt(d.taken)} hlAt={13.6}
+              note={T(`กายภาพ ${fmtInt(d.hit.parts.find(p => p.kind === 'phy')?.dmg ?? 0)} (หัก DEF กายภาพ) + เวท ${fmtInt(d.hit.parts.find(p => p.kind === 'mag')?.dmg ?? 0)} (หัก DEF เวท)`,
+                `Physical ${fmtInt(d.hit.parts.find(p => p.kind === 'phy')?.dmg ?? 0)} (after physical DEF) + magic ${fmtInt(d.hit.parts.find(p => p.kind === 'mag')?.dmg ?? 0)} (after magic DEF)`)} />
           </>}
           slots={<GearSlots t={t} filled={enemyGearIcons} />} />
 
@@ -166,8 +173,11 @@ export default function ReflectTutorial({ autoPlay, mode }: { autoPlay: boolean;
             </div>
           </div>
           <div className="mt-4 rounded-2xl bg-white/[0.05] border-2 border-white/10 px-5 py-3 text-[20px] font-bold text-gray-200 text-balance" style={{ opacity: easeOut(prog(t, S + 2.4, S + 2.8)) }}>
-            {T(`สะท้อน = ดาเมจตีปกติที่เราโดน (หลัง DEF) × ${optName} — ส่งกลับเป็นดาเมจตรง ไม่ผ่าน DEF ของผู้ตี · ${optName} กับ ${otherName} คูณดาเมจก้อนเดียวกันทั้งคู่ จึงใส่รวมกันได้ · ไม่สะท้อนสกิล`,
-              `Reflect = normal-hit damage we take (after DEF) × ${optName} — sent back as direct damage, ignoring the attacker's DEF · ${optName} and ${otherName} both multiply the same total, so they stack · skills are never reflected`)}
+            {mode === 'mag-reflect'
+              ? T(`สะท้อน = ดาเมจตีปกติที่เราโดนทั้งก้อน (กายภาพ + เวท หลัง DEF) × ${optName} — ไม่ได้สะท้อนเฉพาะดาเมจเวท: ศัตรูตัวนี้ตีกายภาพล้วน (ATK เวท 0) ก็ยังสะท้อน · ${optName} กับ ${otherName} คูณก้อนเดียวกันจึงใส่รวมกันได้ · ที่สะท้อนกลับเป็นดาเมจตรง ไม่ผ่าน DEF · ไม่สะท้อนสกิล`,
+                `Reflect = the whole normal hit we take (physical + magic, after DEF) × ${optName} — not just magic damage: this enemy deals physical only (magic ATK 0) and it still reflects · ${optName} and ${otherName} multiply the same total, so they stack · the reflected hit is direct damage, ignoring DEF · skills are never reflected`)
+              : T(`สะท้อน = ดาเมจตีปกติที่เราโดนทั้งก้อน (กายภาพ + เวท หลัง DEF) × ${optName} — โดนดาเมจเวทก็สะท้อนด้วย ไม่ได้ดูชนิดดาเมจ · ${optName} กับ ${otherName} คูณก้อนเดียวกันจึงใส่รวมกันได้ · ที่สะท้อนกลับเป็นดาเมจตรง ไม่ผ่าน DEF · ไม่สะท้อนสกิล`,
+                `Reflect = the whole normal hit we take (physical + magic, after DEF) × ${optName} — magic damage counts too, the type doesn't matter · ${optName} and ${otherName} multiply the same total, so they stack · the reflected hit is direct damage, ignoring DEF · skills are never reflected`)}
           </div>
           <div className="mt-2 text-center text-[18px] text-gray-500">{T(`เกียร์ +${GEAR_LEVEL} (นับเฉพาะ Basic) · ชุด ${optName} สูงสุดที่ใส่ได้จริง`, `Gear +${GEAR_LEVEL} (Basic only) · the highest real ${optName} set`)}</div>
         </SummaryShell>
@@ -190,7 +200,8 @@ function ReflectFormulaCard({ t, T, d, optName, otherName, totalTxt }: { t: numb
       <Fit1><span className="text-[26px] font-black text-sky-300">{T('เกมสะท้อนดาเมจแบบนี้', 'How the game reflects damage')}</span></Fit1>
       <div className="mt-3 rounded-2xl bg-white/[0.05] px-5 py-3 text-center" style={step(t, a + 0.3)}>
         <Fit1 className="text-center"><span className="text-[30px] font-black text-amber-200">{T('ดาเมจสะท้อน', 'Reflected damage')} = {T('ดาเมจตีปกติที่โดน', 'normal-hit damage taken')} × {optName}</span></Fit1>
-        <div className="mt-1 text-[20px] font-bold text-gray-300 text-balance">{T(`ส่งกลับใส่ผู้ตีทันทีเป็นดาเมจตรง (ไม่ผ่าน DEF) · ${otherName} คิดแบบเดียวกันแล้วบวกกัน`, `Sent straight back to the attacker as direct damage (no DEF) · ${otherName} works the same way and adds on`)}</div>
+        <div className="mt-1 text-[20px] font-bold text-gray-300 text-balance">{T(`"ดาเมจที่โดน" = ดาเมจตีปกติทั้งก้อน (กายภาพ + เวท รวมกัน) — ไม่ดูว่าโดนดาเมจชนิดไหน · ${otherName} ก็คูณก้อนเดียวกันแล้วบวกกัน`, `"Damage taken" = the whole normal hit (physical + magic together) — the damage type doesn't matter · ${otherName} multiplies the same total and adds on`)}</div>
+        <div className="mt-1 text-[20px] font-bold text-sky-200 text-balance">{T('ที่สะท้อนกลับเป็นดาเมจตรง ไม่ใช่กายภาพหรือเวท — ไม่ผ่าน DEF ของผู้ตี', "What comes back is direct damage — neither physical nor magic, and the attacker's DEF doesn't apply")}</div>
       </div>
       <div className="mt-3 rounded-2xl bg-rose-900/30 border-2 border-rose-400/50 px-5 py-2 text-center" style={step(t, a + 1.2)}>
         <Fit1 className="text-center"><span className="text-[26px] font-black text-rose-200">{T('สะท้อนแค่ตีปกติ — โดนสกิลไม่สะท้อน', 'Only normal attacks are reflected — skills are not')}</span></Fit1>

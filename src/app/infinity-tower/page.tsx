@@ -20,6 +20,7 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import { apiFetch } from '@/lib/staticApi'
 import type { TBattle, TEnemy, TFloor, TIcon, TowerIndex, TText, TReward } from '@/lib/infinityTower'
 import { GameIcon, useIconUrl } from './atlas'
+import TowerEnemyPopup from './TowerEnemyPopup'
 
 // canvas + โหลดไฟล์ .sam → ฝั่ง browser เท่านั้น
 const TowerGate = dynamic(() => import('./TowerGate'), { ssr: false })
@@ -214,7 +215,9 @@ export default function InfinityTowerPage() {
         <JumpSheet T={T} max={data.floors.length} value={jump} onChange={setJump} desc={desc} onDesc={setDesc}
           onGo={n => goTo(n)} onTop={() => { setJumpOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }} onClose={() => setJumpOpen(false)} />
       )}
-      {enemy && <EnemySheet e={enemy} lang={lang} T={T} onClose={() => setEnemy(null)} />}
+      {enemy && data && (
+        <TowerEnemyPopup enemy={enemy} name={tx(enemy.name, lang)} bossLabel={tx(data.ui.ENDLESS_TIP_BOSS_ICON, lang)} T={T} onClose={() => setEnemy(null)} />
+      )}
     </div>
   )
 }
@@ -235,7 +238,7 @@ function Gate({ f }: { f: TFloor }) {
       <TowerGate battle={f.battle} />
       {/* กลางพอร์ทัล · สูง ~28% ของกรอบประตู (แบบหน้าหอคอยในเกม) — ตั้งด้วย style ตรงๆ ให้คำนวณจากกรอบเสมอ */}
       <span className="absolute flex items-center justify-center" aria-label={String(f.no)}
-        style={{ left: '50%', top: '57%', height: '28%', transform: 'translate(-50%, -50%)', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.55))' }}>
+        style={{ left: '50%', top: '50%', height: '21%', transform: 'translate(-50%, -50%)', filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.55))' }}>
         {String(f.no).split('').map((d, i) => <Digit key={i} d={d} />)}
       </span>
     </div>
@@ -265,15 +268,21 @@ function FloorCard({ f, data, lang, T, open, onToggle, onEnemy }: {
           <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,176px))]">
             {/* ── ส่วนหัว: ประตู + ประเภทด่าน + รางวัลผ่านชั้น ── */}
             <div className="flex gap-3 p-3">
-              <div className="w-[112px] sm:w-[150px] shrink-0 self-start"><Gate f={f} /></div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] leading-none ${TONE[f.battle].chip}`}>
-                    <GameIcon icon={b.icon} size={14} />{tx(data.names[f.name], lang)}
+              <div className="w-[112px] sm:w-[150px] shrink-0 self-start">
+                <Gate f={f} />
+                {/* ประเภทด่าน: ไอคอนชัยชนะของเกม (endless_battle_victory_icon_*) + ชื่อชั้น */}
+                <div className={`mt-1.5 flex items-center gap-1.5 rounded-xl border px-1.5 py-1 ${TONE[f.battle].chip}`}>
+                  <span className="relative shrink-0 flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-black/35 ring-1 ring-white/10">
+                    <GameIcon icon={b.icon} className="w-8 h-8 sm:w-9 sm:h-9 drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]" alt="" />
                   </span>
-                  <span className={`material-icons-round ml-auto text-gray-500 text-xl transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
+                  <span className="min-w-0 text-[11px] sm:text-[12px] font-semibold leading-tight">{tx(data.names[f.name], lang)}</span>
                 </div>
-                <p className="mt-1.5 font-[family-name:var(--font-line)] text-[15px] sm:text-[17px] leading-snug text-white">{tx(b.desc, lang)}</p>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start gap-1.5">
+                  <p className="flex-1 font-[family-name:var(--font-line)] text-[15px] sm:text-[17px] leading-snug text-white">{tx(b.desc, lang)}</p>
+                  <span className={`material-icons-round shrink-0 text-gray-500 text-xl transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
+                </div>
 
                 {/* ข้อมูลย่อ (ไอคอนเกม) */}
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -434,12 +443,13 @@ function FloorDetail({ f, data, lang, T, onEnemy }: { f: TFloor; data: TowerInde
                     <th className="px-3 py-2 text-left font-medium">{T('ออกครั้งแรก', 'First spawn')}</th>
                     <th className="px-3 py-2 text-left font-medium">{T('เกิดใหม่ทุก', 'Respawn every')}</th>
                     <th className="px-3 py-2 text-left font-medium">{T('จำนวนสูงสุด', 'Max count')}</th>
-                    <th className="px-3 py-2 text-right font-medium">{T('รายละเอียด', 'Details')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {enemies.map(e => (
-                    <tr key={e.slot} className={`border-t border-white/5 ${e.boss ? 'bg-rose-500/[0.07]' : ''}`}>
+                    <tr key={e.slot} onClick={() => onEnemy(e)} tabIndex={0} role="button" aria-label={tx(e.name, lang)}
+                      onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onEnemy(e) } }}
+                      className={`border-t border-white/5 cursor-pointer transition-colors hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-fuchsia-400 ${e.boss ? 'bg-rose-500/[0.07]' : ''}`}>
                       <td className="px-3 py-1.5">
                         <span className="flex items-center gap-2">
                           <GameIcon icon={thumbOf(e.unitCode)} className="w-10 h-10" />
@@ -449,9 +459,6 @@ function FloorDetail({ f, data, lang, T, onEnemy }: { f: TFloor; data: TowerInde
                       <td className="px-3 py-1.5 text-gray-200">{e.initDelay}{T(' วิ', 's')}</td>
                       <td className="px-3 py-1.5 text-gray-200">{respawn(e)}{T(' วิ', 's')}</td>
                       <td className="px-3 py-1.5 text-gray-200">{fmt(e.maxCount)}</td>
-                      <td className="px-3 py-1.5 text-right">
-                        <button onClick={() => onEnemy(e)} className="rounded-lg bg-indigo-500/80 hover:bg-indigo-500 px-3 py-1 text-xs font-semibold text-white">{T('ดู', 'View')}</button>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -495,79 +502,6 @@ function Info({ icon, k, v }: { icon?: TIcon; k: string; v: string }) {
       {icon ? <GameIcon icon={icon} size={22} className="mx-[5px]" /> : <span className="w-8" />}
       <dt className="flex-1 text-gray-400">{k}</dt>
       <dd className="font-semibold text-white">{v}</dd>
-    </div>
-  )
-}
-
-/** ค่าพลังศัตรู — มือถือ: แผ่นเลื่อนขึ้นจากล่าง · จอใหญ่: กล่องกลางจอ */
-function EnemySheet({ e, lang, T, onClose }: { e: TEnemy; lang: L; T: Tfn; onClose: () => void }) {
-  useEffect(() => {
-    const k = (ev: KeyboardEvent) => { if (ev.key === 'Escape') onClose() }
-    addEventListener('keydown', k)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { removeEventListener('keydown', k); document.body.style.overflow = prev }
-  }, [onClose])
-  const groups: [string, [string, string][]][] = [
-    [T('สเตตัส', 'Stats'), [
-      ['HP', fmt(e.hp)],
-      [T('พลังโจมตีกายภาพ', 'Physical ATK'), fmt(e.attack)],
-      [T('พลังโจมตีเวท', 'Magic ATK'), fmt(e.specialAttack)],
-      [T('ป้องกันกายภาพ', 'Physical DEF'), fmt(e.defence)],
-      [T('ป้องกันเวท', 'Magic DEF'), fmt(e.specialDefence)],
-      [T('ระยะโจมตี', 'Attack range'), fmt(e.range)],
-      [T('ระยะกระจาย', 'Splash range'), fmt(e.splash)],
-    ]],
-    [T('โอกาส', 'Rates'), [
-      [T('โอกาสคริติคอล', 'Crit rate'), pct(e.critRate)],
-      [T('ตัวคูณคริติคอล', 'Crit multiplier'), `×${e.critRatio}`],
-      [T('หลบการโจมตี', 'Evade'), pct(e.avoid)],
-      [T('ต้านทานสกิล', 'Skill resistance'), pct(e.skillResist)],
-      // ค่าที่ไม่ใช่สัดส่วน 0–1 เสมอ (เช่น antiAvoid 19, skillAvoid 2) แสดงตามตารางเกมตรงๆ ไม่แปลงเป็น %
-      [T('หลบสกิล', 'Skill evade'), String(e.skillAvoid)],
-      [T('ความแม่นยำ', 'Accuracy'), String(e.antiAvoid)],
-      [T('ความแม่นยำสกิล', 'Skill accuracy'), String(e.antiSkillAvoid)],
-    ]],
-    [T('การเกิด', 'Spawning'), [
-      [T('เลเวลศัตรู', 'Enemy level'), String(e.level)],
-      [T('ออกครั้งแรก', 'First spawn'), `${e.initDelay} ${T('วินาที', 'sec')}`],
-      [T('เกิดใหม่ทุก', 'Respawn every'), `${respawn(e)} ${T('วินาที', 'sec')}`],
-      [T('จำนวนสูงสุด', 'Max count'), fmt(e.maxCount)],
-    ]],
-  ]
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 sm:p-4" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="w-full sm:max-w-md max-h-[88vh] overflow-y-auto rounded-t-3xl sm:rounded-2xl border border-fuchsia-400/30 bg-[#1b1030] shadow-2xl pb-[env(safe-area-inset-bottom)]" onClick={ev => ev.stopPropagation()}>
-        <div className="sticky top-0 bg-[#1b1030]/95 backdrop-blur border-b border-white/10">
-          <div className="sm:hidden mx-auto mt-2 h-1 w-10 rounded-full bg-white/20" />
-          <div className="flex items-center gap-3 p-4 pt-3 sm:pt-4">
-            <GameIcon icon={thumbOf(e.unitCode)} className="w-14 h-14" />
-            <div className="min-w-0">
-              <p className="font-[family-name:var(--font-line)] text-lg text-white truncate">{tx(e.name, lang)}</p>
-              <p className="text-[11px] text-gray-500">{e.unitCode}</p>
-            </div>
-            <button onClick={onClose} className="ml-auto rounded-full p-1.5 text-gray-400 active:bg-white/10 sm:hover:bg-white/10 hover:text-white" aria-label={T('ปิด', 'Close')}>
-              <span className="material-icons-round">close</span>
-            </button>
-          </div>
-        </div>
-        <div className="p-4 space-y-4">
-          {groups.map(([title, rows]) => (
-            <section key={title}>
-              <H>{title}</H>
-              <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 text-sm">
-                {rows.map(([k, v]) => (
-                  <div key={k} className="contents">
-                    <dt className="text-gray-400">{k}</dt>
-                    <dd className="text-right font-medium text-white tabular-nums">{v}</dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          ))}
-          <p className="text-[11px] text-gray-500">{T('ค่าจากตาราง endless_product_line ของเกม', 'Values from the game table endless_product_line')}</p>
-        </div>
-      </div>
     </div>
   )
 }

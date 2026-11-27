@@ -368,7 +368,42 @@ async function fetchGearEffectsBatch(
 }
 
 // ── Component ───────────────────────────────────────
-export type RangerPanelMode = 'meta' | 'gacha' | 'book'
+export type RangerPanelMode = 'meta' | 'gacha' | 'book' | 'tower'
+
+/**
+ * ค่าของศัตรูในหอคอยอนันต์ (endless_product_line ของเกม) — mode='tower' ใช้แทนค่าพลังของยูนิต
+ * คอลัมน์ตรงกับที่ buildRangerStats อ่านจากตาราง unit: attackScope ↔ unit.attackRange · attackSplash ↔ unit.attackScope
+ */
+export interface TowerUnitStats {
+  level: number
+  hp: number; attack: number; specialAttack: number; defence: number; specialDefence: number
+  range: number; splash: number
+  critRate: number; critRatio: number; avoid: number; skillAvoid: number; skillResist: number
+  antiAvoid: number; antiSkillAvoid: number
+}
+
+/** ค่าพลังของยูนิต (ตาราง unit) → ค่าของหอคอย (ทับเฉพาะที่หอคอยกำหนด — สกิล/ความสามารถ/ความเร็วคงเดิม) */
+function applyTowerStats(s: RangerStatsResponse, t: TowerUnitStats): RangerStatsResponse {
+  return {
+    ...s,
+    attackRange: t.range,
+    attackScope: t.splash,
+    baseStats: {
+      ...s.baseStats,
+      phyAtk: t.attack, magAtk: t.specialAttack, phyDef: t.defence, magDef: t.specialDefence, hp: t.hp,
+      phyDps: s.baseStats.attackDelaySec > 0 ? t.attack / s.baseStats.attackDelaySec : 0,
+    },
+    rates: {
+      critRate: t.critRate,
+      critDamage: Math.max(0, t.critRatio - 1),   // แบบเดียวกับ buildRangerStats (criticalRatio − 1)
+      evadeRate: t.avoid,
+      skillEvadeRate: t.skillAvoid,
+      skillResistance: t.skillResist,
+      hitRate: t.antiAvoid,
+      skillHitRate: t.antiSkillAvoid,
+    },
+  }
+}
 
 interface Props {
   rangerId: string
@@ -379,6 +414,7 @@ interface Props {
   mode?: RangerPanelMode    // 'meta' (default) = ใช้ MAX level + เกียร์จริง / 'gacha' = level 1, ไม่ปลดลิมิต, ไม่มีเกียร์
   league?: number           // league สำหรับแสดง ranger usage ใน GearDetailPopup (default = 0 = Legend)
   talentLevel?: number      // ระดับพรสวรรค์ 0-4 จาก slider ใน TalentSection (mode='book' เท่านั้น) — เพิ่มค่าพลังเหมือนเกียร์
+  tower?: TowerUnitStats    // mode='tower': ค่าของศัตรูในหอคอย (ล็อก ไม่มีเกียร์/เลเวล/พรสวรรค์ให้ปรับ)
 }
 
 const EMPTY_GEAR: GearRanking = { WPN: [], AMR: [], ACC: [] }
@@ -390,14 +426,18 @@ export default function RangerStatPanel({
   mode = 'meta',
   league = 0,
   talentLevel = 0,
+  tower,
 }: Props) {
   const { tRanger, tGear, tStat, lang } = useLanguage()
   const { play } = useSound()
   const { isPro } = usePro()
   const isGacha = mode === 'gacha'
   const isBook  = mode === 'book'
+  const isTower = mode === 'tower' && !!tower
 
-  const [stats, setStats] = useState<RangerStatsResponse | null>(null)
+  const [rawStats, setStats] = useState<RangerStatsResponse | null>(null)
+  // หอคอย: ทับค่าพลังด้วยค่าของชั้นนั้น — ส่วนอื่นของแผง (สกิล, ความสามารถ, ความเร็ว) ใช้ข้อมูลยูนิตเดิม
+  const stats = useMemo(() => (rawStats && isTower ? applyTowerStats(rawStats, tower!) : rawStats), [rawStats, isTower, tower])
   const [statsLoading, setStatsLoading] = useState(true)
   const [statsError, setStatsError] = useState('')
 
@@ -1035,8 +1075,8 @@ export default function RangerStatPanel({
             </div>
           </button>
 
-          {/* 3 gear slots — ล็อคที่ 200px (match LEFT column desktop) ไม่ยืดตามคอลัมน์/จอ */}
-          <div className="grid grid-cols-3 gap-2 mx-auto" style={{ maxWidth: '200px' }}>
+          {/* 3 gear slots — ล็อคที่ 200px (match LEFT column desktop) ไม่ยืดตามคอลัมน์/จอ · หอคอย: ศัตรูไม่มีเกียร์ */}
+          {!isTower && <div className="grid grid-cols-3 gap-2 mx-auto" style={{ maxWidth: '200px' }}>
             {(['WPN', 'AMR', 'ACC'] as SlotKey[]).map((slot) => {
               const item = selected[slot]
               const handleClick = isBook
@@ -1099,7 +1139,7 @@ export default function RangerStatPanel({
                 </div>
               )
             })}
-          </div>
+          </div>}
         </div>
 
         {/* ─── TOP RIGHT: 6 quick-info boxes (full width) ─── */}
@@ -1109,17 +1149,17 @@ export default function RangerStatPanel({
           <div className="order-1">
             <InfoBox iconUrl={categoryIcon} value={stats.categoryLabel ?? '—'} />
           </div>
-          <div className="order-4 sm:order-2">
+          {!isTower && <div className="order-4 sm:order-2">
             <InfoBox
               iconUrl="/gacha/images/mineral.png"
               value={stats.mineral != null ? fmtRaw(applyBonus(stats.mineral, bonuses.mineralCost)) : '—'}
               // ตัวเลขในเมนูกับตอนลงสนามรบไม่เท่ากัน (สมบัติลดแร่ + เกียร์รวมกันคนละแบบ)
               extra={stats.mineral != null ? `(${inGameMineral(stats.mineral, bonuses.mineralCost)})` : null}
             />
-          </div>
-          <div className="order-2 sm:order-3">
+          </div>}
+          {!isTower && <div className="order-2 sm:order-3">
             <InfoBox iconUrl="/gacha/images/leonardpoint.png" value={stats.leonardMax != null ? `Max: ${stats.leonardMax}` : '—'} />
-          </div>
+          </div>}
           <div className="order-3 sm:order-4">
             <InfoBox iconUrl="/gacha/images/atk.png" value={fmtCompact(totalDps)} />
           </div>
@@ -1197,7 +1237,9 @@ export default function RangerStatPanel({
                 })()}
               </div>
             ) : (() => {
-              const info = levelDisplayInfo(stats, isGacha ? 1 : stats.playerMaxLevel)
+              const info = isTower
+                ? { label: `Level : ${tower!.level}`, showIcon: false, iconUrl: '', iconAlt: '' }   // เลเวลศัตรูของหอคอย (enemyLevel)
+                : levelDisplayInfo(stats, isGacha ? 1 : stats.playerMaxLevel)
               // โครงสร้างเดียวกับปุ่ม Ranger Book เป๊ะๆ (outer px-3 py-2 + inner h-8) แต่เป็น div เฉยๆ ไม่ใช่ button — กดไม่ได้
               return (
                 <div className="bg-white/5 rounded-lg px-3 py-2 flex items-center">

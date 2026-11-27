@@ -39,6 +39,28 @@ const MODES = {
     // true = ทักษะโดน · ก่อนใส่ โดน 96% (MISS, โดน) · หลังใส่ ≥ 100% (โดน, โดน — พลาดไม่ได้)
     rolls: [false, true, true, true],
   },
+  // ── ตีปกติ (overlay: normal-rates.tsx) — สุ่มหลบ/โดนแบบเดียวกับทักษะ แต่ใช้ค่าของตีปกติ (UnitNode 0xced0e0) ──
+  evade: {
+    name: 'Evade Rate — Ares Cony', normal: true,
+    rangers: { [ALLY]: { id: 'u1002e-cony', name: 'Ares Cony' }, [ENEMY]: { id: 'u1260e-brown', name: 'Brown ตำนานร็อค' } },
+    attacker: ENEMY, target: ALLY,
+    // true = โดน · ก่อนใส่ โดน 96% (โดน, MISS) · หลังใส่ หลบ 99% → โดน 6% (MISS, โดน)
+    rolls: [true, false, false, true],
+  },
+  'hit-rate': {
+    name: 'Hit Rate — Brown', normal: true,
+    rangers: { [ALLY]: { id: 'u1260e-brown', name: 'Brown ตำนานร็อค' }, [ENEMY]: { id: 'u1002e-cony', name: 'Ares Cony' } },
+    attacker: ALLY, target: ENEMY,
+    // true = โดน · ก่อนใส่ โดน 96% (MISS, โดน) · หลังใส่ 125% → พลาดไม่ได้ (โดน, โดน)
+    rolls: [false, true, true, true],
+  },
+  'elem-hit': {
+    name: 'Elemental Hit — Brown vs Elephant Soldier Brown', normal: true,
+    rangers: { [ALLY]: { id: 'u1260e-brown', name: 'Brown ตำนานร็อค' }, [ENEMY]: { id: 'u1483e-brown', name: 'Brown นักรบช้าง' } },
+    attacker: ALLY, target: ENEMY,
+    // เป้า (มืด) ใส่เกียร์หลบเต็ม → หลบ 99% · true = โดน · ก่อนใส่ โดน 31% (MISS, โดน) · หลังใส่ 55% (โดน, โดน)
+    rolls: [false, true, true, true],
+  },
 }
 const cfg = MODES[MODE]
 if (!cfg) throw new Error(`mode: ${Object.keys(MODES).join(' | ')}`)
@@ -78,8 +100,8 @@ function buildScene(src) {
     const start = ROLLS[k] + ACT
     const base = { actorId: cfg.attacker, targetId: cfg.target, start, id: `roll_${k}` }
     if (MODE === 'skill-use') return { ...clone(outcome ? skill : normal), ...base, label: outcome ? `ใช้ทักษะ #${k + 1}` : `ตีปกติ #${k + 1}` }
-    // หลบ / แม่นยำ: ทุกรอบร่ายทักษะ · MISS = ไม่สะดุ้ง ไม่แฟลช ไม่มีเสียงโดน (ชั้นซ้อนแสดงป้าย MISS)
-    const c = { ...clone(skill), ...base, label: outcome ? `ทักษะโดน #${k + 1}` : `MISS #${k + 1}` }
+    // หลบ / แม่นยำ: ทุกรอบร่ายทักษะ (โหมดตีปกติ = ตีปกติ) · MISS = ไม่สะดุ้ง ไม่แฟลช ไม่มีเสียงโดน (ชั้นซ้อนแสดงป้าย MISS)
+    const c = { ...clone(cfg.normal ? normal : skill), ...base, label: outcome ? `โดน #${k + 1}` : `MISS #${k + 1}` }
     if (!outcome) {
       c.hitReact = false; c.flash = false
       c.gameSounds = (c.gameSounds ?? []).map(s => (s.at === 'impact' ? { ...s, enabled: false } : s))
@@ -134,7 +156,7 @@ function buildScene(src) {
   const sfx = (id, assetId, start, volume = 1, extra = {}) =>
     ({ id, type: 'sound', actorId: '__audio', start, assetId, volume, offset: 0, duration: 0, fadeIn: 0, fadeOut: 0, ...extra })
   // ผลดีของตัวใส่เกียร์: ใช้ทักษะ / แม่นยำ = โดน · หลบ = MISS
-  const good = o => (MODE === 'skill-evade' ? !o : o)
+  const good = o => (MODE === 'skill-evade' || MODE === 'evade' ? !o : o)
   cues.push(
     sfx('bgm', 'snd_bgm', 0, 1, { duration: END, fadeIn: 1, fadeOut: 2 }),
     sfx('sfx_equip', 'snd_equip', EQUIP_AT),

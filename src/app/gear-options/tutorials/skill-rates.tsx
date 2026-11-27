@@ -47,7 +47,7 @@ interface ModeCfg {
   nameKey: string     // ชื่อออพชั่น (ใช้หา Switchable ที่ตรงเงื่อนไข)
   wearer: string      // ตัวใส่เกียร์ (ซ้าย)
   other: string       // อีกตัว (ขวา)
-  gears: GearDef[]    // ชุด +5 ที่ค่ารวมสูงสุดตามกฎเกม (ค้นทุกเกียร์ในเกม · ตัดไอเทมทดสอบ [TST])
+  gears: GearDef[]    // ชุด +5 ที่ค่า Basic รวมสูงสุด (ค้นทุกเกียร์ในเกม · ตัดไอเทมทดสอบ [TST]) — Switchable เปิดที่ +6 ขึ้นไป จึงไม่นับ
   shown: number       // การ์ดเกียร์ตอนต้น
   title: [string, string]
   /** โบนัสความแม่นยำของคู่ธาตุ ผู้ยิง → เป้า (unit_elmt_cntrry.ski_atk_acc × (1 + ความแม่นยำธาตุ) — UnitNode 0x4a0) · บวก ×100 เข้าโอกาสโดน */
@@ -59,7 +59,7 @@ const MODES: Record<RateMode, ModeCfg> = {
     gears: [
       { code: 'eq_wpn_26metal', kind: 'weapon', grade: 6, en: "[FA] Edward's Spear" },
       { code: 'eq_amr_06sf', kind: 'armor', grade: 6, en: "[SF]Ryu's Wear" },
-      { code: 'eq_acc_est_0072', kind: 'acc', grade: 7, en: 'Brown Keychain of Light', sw: true },
+      { code: 'eq_acc_06sf', kind: 'acc', grade: 6, en: "[SF]Ryu's Headband" },
     ],
     shown: 0, title: ['อัตราการใช้ทักษะ', 'Skill Use Rate'],
   },
@@ -67,14 +67,14 @@ const MODES: Record<RateMode, ModeCfg> = {
     scene: 'skill-evade', type: 'SKLAVD_PROB_MUL', nameKey: 'GEAR_ATTR_SKLAVD_PROB_MUL_nm', wearer: 'u1002e-cony', other: 'u1260e-brown',
     gears: [
       { code: 'eq_wpn_sleg_008', kind: 'weapon', grade: 8, en: 'Awakening Axe' },
-      { code: 'eq_2204_amr_17', kind: 'armor', grade: 7, en: "[RoR] Thor's Gloves", sw: true },
+      { code: 'eq_ace_amr_06', kind: 'armor', grade: 6, en: "[AA]Phoenix's Suit" },
       { code: 'eq_acc_06sf', kind: 'acc', grade: 6, en: "[SF]Ryu's Headband" },
     ],
     shown: 2, title: ['อัตราการหลบทักษะ', 'Skill Evade Rate'], pair: 0.05,   // แสง → น้ำ
   },
   'skill-hit': {
     scene: 'skill-hit', type: 'ANTI_SKLAVD_PROB_MUL', nameKey: 'GEAR_ATTR_ANTI_SKLAVD_PROB_MUL_nm', wearer: 'u1260e-brown', other: 'u1002e-cony',
-    // ไม่ใช้เกียร์ที่มี "อัตราโจมตีโดนแน่นอนของทักษะ" (CLN_SKLAVD) ใน Basic — กันสับสน (ค่ารวมเท่ากับชุดที่มี: 88.4%)
+    // ไม่ใช้เกียร์ที่มี "อัตราโจมตีโดนแน่นอนของทักษะ" (CLN_SKLAVD) ใน Basic — กันสับสน (ค่ารวม Basic เท่ากับชุดที่มี: 68.4%)
     gears: [
       { code: 'eq_2609_wpn_39', kind: 'weapon', grade: 9, en: '12.5th Anniv Star Harp' },
       { code: 'eq_amr_0087', kind: 'armor', grade: 7, en: 'Azure Sky Wing Gloves', sw: true },
@@ -114,8 +114,8 @@ async function loadData(mode: RateMode) {
     const swEff = m.gears[i].sw ? switchableFor(g.gear, m.nameKey, wearer) : null
     return { basic, sw: swEff?.switchableGrowth?.baseMax ?? 0, swEff }
   })
-  // Basic ทุกชิ้นบวกกัน + Switchable ตรงเงื่อนไขนับตัวสูงสุดตัวเดียว
-  const total = per.reduce((s, p) => s + p.basic, 0) + Math.max(0, ...per.map(p => p.sw))
+  // ที่ +5: นับเฉพาะ Basic (บวกกันทุกชิ้น) — Switchable ปลดล็อกที่ +6 ขึ้นไป (แสดงจางๆ บนการ์ดเกียร์ แต่ไม่นับ)
+  const total = per.reduce((s, p) => s + p.basic, 0)
   const skill = wearer.skills[0]
   return { wearer, other, gears: gs.map(g => g.gear), per, total, skill }
 }
@@ -309,7 +309,7 @@ function EquipSetCard({ t, T, m, names, per, totalTxt, slots, optName, before, a
             <img src={gearIconUrl(m.gears[i].code)} alt="" crossOrigin="anonymous" className="w-12 h-12 shrink-0 object-contain" />
             <Fit1 className="flex-1"><span className="text-[23px] font-bold text-white">{n}</span></Fit1>
             <span className="shrink-0 text-[22px] font-black text-amber-300 tabular-nums">
-              +{pc(per[i].basic)}{per[i].sw ? <span className="text-fuchsia-300"> +{pc(per[i].sw)}</span> : null}
+              +{pc(per[i].basic)}
             </span>
           </div>
         ))}

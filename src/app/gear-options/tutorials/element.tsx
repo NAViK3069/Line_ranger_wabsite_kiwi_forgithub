@@ -58,7 +58,8 @@ async function loadData() {
     loadStats(ALLY.ranger), loadStats(ENEMY.ranger), loadGear(GEAR, GEAR_LV), ...TARGET_GEARS.map(g => loadGear(g.code)),
   ])
   // เกียร์ของเป้าหมาย: Basic ทุกชิ้น + Switchable ที่เลือก (ตรวจเงื่อนไขกับเป้าหมายแล้ว)
-  const tSw = TARGET_GEARS.map((g, i) => (g.switchable ? switchableFor(tg[i].gear, g.switchable, enemy) : null))
+  // เกียร์ของเป้าอยู่ที่ +5 → Switchable ยังไม่ปลดล็อก (+6 ขึ้นไป) — นับเฉพาะ Basic
+  const tSw = TARGET_GEARS.map(() => null)
   const tBonus = aggregateGearBonuses(tg.map(x => x.gear), tSw)
   const enemyHp = gearStat(enemy.baseStats.hp, tBonus.hp)
   // ต้านสกิลจากเกียร์บวกเข้ากับค่าเดิมตรงๆ (แบบเดียวกับหน้า Ranger Book)

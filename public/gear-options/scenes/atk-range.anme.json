@@ -1,0 +1,496 @@
+{
+ "version": 1,
+ "name": "Attack Range — Executor Anubis Brown",
+ "width": 1280,
+ "height": 720,
+ "duration": 54,
+ "fps": 30,
+ "groundY": 560,
+ "background": {
+  "kind": "stage",
+  "color": "#0b1020",
+  "gradient": [
+   "#1b2550",
+   "#06070d"
+  ],
+  "stage": "battle24",
+  "assetId": null,
+  "fit": "height",
+  "scale": 1,
+  "offsetX": 0,
+  "offsetY": 0,
+  "scrollX": 0,
+  "dim": 0,
+  "blur": 0
+ },
+ "assets": [
+  {
+   "id": "r_u1242e-brown",
+   "type": "ranger",
+   "source": "lerico",
+   "rangerId": "u1242e-brown",
+   "form": "body",
+   "name": "Brown อนูบิสเพชฌฆาต"
+  },
+  {
+   "id": "r_u1260e-brown",
+   "type": "ranger",
+   "source": "lerico",
+   "rangerId": "u1260e-brown",
+   "form": "body",
+   "name": "Brown ตำนานร็อค"
+  },
+  {
+   "id": "fx_light_b",
+   "type": "ranger",
+   "source": "upload",
+   "name": "icon_ab_light_eff2_b",
+   "body": "body",
+   "sets": {
+    "body": {
+     "sam": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.sam",
+     "plist": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.plist",
+     "png": "/api/res/icon_ab_light_eff2/icon_ab_light_eff2_b.png"
+    }
+   }
+  },
+  {
+   "id": "s25gar6eew",
+   "type": "audio",
+   "name": "skattrd_u1353ebrown",
+   "url": "/api/res/_raw/sounds/skattrd_u1353ebrown_20231030114435184.ogg"
+  },
+  {
+   "id": "shr988jeew",
+   "type": "audio",
+   "name": "skhit_buff",
+   "url": "/api/res/_raw/sounds/skhit_buff_20151231103544387.ogg"
+  },
+  {
+   "id": "s5fbjb2lds",
+   "type": "audio",
+   "name": "attrd_u1224ebrown",
+   "url": "/api/res/_raw/sounds/attrd_u1224ebrown_20220222194105566.ogg"
+  },
+  {
+   "id": "szzsq2clds",
+   "type": "audio",
+   "name": "hit_body_punch",
+   "url": "/api/res/_raw/sounds/hit_body_punch_20140603152640882.ogg"
+  },
+  {
+   "id": "ssdmeq74ih",
+   "type": "audio",
+   "name": "skattrd_u1224ebrown",
+   "url": "/api/res/_raw/sounds/skattrd_u1224ebrown_20220222194109814.ogg"
+  },
+  {
+   "id": "sthwrz2its",
+   "type": "audio",
+   "name": "sk2attrd_u1224ebrown",
+   "url": "/api/res/_raw/sounds/sk2attrd_u1224ebrown_20220222194107518.ogg"
+  },
+  {
+   "id": "sjd9qgkits",
+   "type": "audio",
+   "name": "hit_u467eryu",
+   "url": "/api/res/_raw/sounds/hit_u467eryu_20170530153107600.ogg"
+  },
+  {
+   "id": "snd_bgm",
+   "type": "audio",
+   "name": "bgm_lobby2",
+   "url": "/api/res/_raw/sounds/bgm_lobby2_20151123104811121.ogg"
+  },
+  {
+   "id": "snd_equip",
+   "type": "audio",
+   "name": "gear_equip",
+   "url": "/api/res/_raw/sounds/gear_equip_20151123104728600.ogg"
+  },
+  {
+   "id": "snd_normal_prep",
+   "type": "audio",
+   "name": "attrd_u1241ebrown",
+   "url": "/api/res/_raw/sounds/attrd_u1241ebrown_20220629102750596.ogg"
+  },
+  {
+   "id": "snd_normal_hit",
+   "type": "audio",
+   "name": "hit_body_punch",
+   "url": "/api/res/_raw/sounds/hit_body_punch_20140603152640882.ogg"
+  }
+ ],
+ "actors": [
+  {
+   "id": "a_light_b",
+   "name": "fx_light_b",
+   "assetId": "fx_light_b",
+   "tag": "prop",
+   "x": 150,
+   "y": 714.6875,
+   "scale": 2.2,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "start",
+   "hiddenParts": [],
+   "loop": false,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "target",
+   "name": "Brown ตำนานร็อค",
+   "assetId": "r_u1260e-brown",
+   "tag": "enemy",
+   "x": 1000,
+   "y": 560,
+   "scale": 1,
+   "flip": true,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "walker_a",
+   "name": "Brown อนูบิสเพชฌฆาต A",
+   "assetId": "r_u1242e-brown",
+   "tag": "ally",
+   "x": 150,
+   "y": 560,
+   "scale": 1,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "walker_b",
+   "name": "Brown อนูบิสเพชฌฆาต B",
+   "assetId": "r_u1242e-brown",
+   "tag": "ally_b",
+   "x": 150,
+   "y": 560,
+   "scale": 1,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  }
+ ],
+ "cues": [
+  {
+   "id": "show_walker_a",
+   "type": "show",
+   "actorId": "walker_a",
+   "start": 0,
+   "duration": 30,
+   "fadeIn": 0.3,
+   "fadeOut": 0.3
+  },
+  {
+   "id": "walk_walker_a",
+   "type": "move",
+   "actorId": "walker_a",
+   "start": 19.6,
+   "to": {
+    "x": 730,
+    "y": 560
+   },
+   "duration": 2.636,
+   "ease": "linear",
+   "clip": "walk"
+  },
+  {
+   "id": "hit_walker_a",
+   "type": "skill",
+   "actorId": "walker_a",
+   "start": 22.386,
+   "label": "ตี walker_a",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": null,
+   "targetId": "target",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_hit",
+     "at": "impact",
+     "volume": 1,
+     "enabled": true
+    }
+   ]
+  },
+  {
+   "id": "hit2_walker_a",
+   "type": "skill",
+   "actorId": "walker_a",
+   "start": 23.836,
+   "label": "ตี walker_a",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": null,
+   "targetId": "target",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_hit",
+     "at": "impact",
+     "volume": 1,
+     "enabled": true
+    }
+   ]
+  },
+  {
+   "id": "show_walker_b",
+   "type": "show",
+   "actorId": "walker_b",
+   "start": 30.3,
+   "duration": 23.7,
+   "fadeIn": 0.3,
+   "fadeOut": 0.3
+  },
+  {
+   "id": "walk_walker_b",
+   "type": "move",
+   "actorId": "walker_b",
+   "start": 34.6,
+   "to": {
+    "x": 514,
+    "y": 560
+   },
+   "duration": 1.655,
+   "ease": "linear",
+   "clip": "walk"
+  },
+  {
+   "id": "hit_walker_b",
+   "type": "skill",
+   "actorId": "walker_b",
+   "start": 36.405,
+   "label": "ตี walker_b",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": null,
+   "targetId": "target",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_hit",
+     "at": "impact",
+     "volume": 1,
+     "enabled": true
+    }
+   ]
+  },
+  {
+   "id": "hit2_walker_b",
+   "type": "skill",
+   "actorId": "walker_b",
+   "start": 37.855,
+   "label": "ตี walker_b",
+   "cast": [
+    "attack_ready"
+   ],
+   "release": "attack",
+   "speed": 1,
+   "castSpeedCap": null,
+   "approach": {
+    "enabled": false,
+    "stopOffset": {
+     "x": -140,
+     "y": 0
+    },
+    "speed": 600,
+    "returnHome": true
+   },
+   "fx": null,
+   "targetId": "target",
+   "hitReact": true,
+   "hitClip": "target",
+   "flash": true,
+   "banner": "",
+   "sound": null,
+   "gameSounds": [
+    {
+     "assetId": "snd_normal_prep",
+     "at": "cast",
+     "volume": 1,
+     "enabled": true
+    },
+    {
+     "assetId": "snd_normal_hit",
+     "at": "impact",
+     "volume": 1,
+     "enabled": true
+    }
+   ]
+  },
+  {
+   "id": "cam0",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 0,
+   "center": {
+    "x": 640,
+    "y": 360
+   },
+   "zoom": 1,
+   "duration": 0,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_outro",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 46.5,
+   "center": {
+    "x": 640,
+    "y": 377.14285714285717
+   },
+   "zoom": 1.05,
+   "duration": 7.5,
+   "ease": "linear"
+  },
+  {
+   "id": "light_once",
+   "type": "anim",
+   "actorId": "a_light_b",
+   "start": 31.5,
+   "clip": "start",
+   "speed": 0.8,
+   "loop": false,
+   "hold": true,
+   "duration": 0.9583333333333334
+  },
+  {
+   "id": "show_light_b",
+   "type": "show",
+   "actorId": "a_light_b",
+   "start": 31.5,
+   "duration": 0.9583333333333334,
+   "fadeIn": 0.05,
+   "fadeOut": 0.2
+  },
+  {
+   "id": "bgm",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 0,
+   "assetId": "snd_bgm",
+   "volume": 1,
+   "offset": 0,
+   "duration": 54,
+   "fadeIn": 1,
+   "fadeOut": 2
+  },
+  {
+   "id": "sfx_equip",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 31.5,
+   "assetId": "snd_equip",
+   "volume": 1,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
+  }
+ ],
+ "depthSort": false,
+ "smooth": true
+}

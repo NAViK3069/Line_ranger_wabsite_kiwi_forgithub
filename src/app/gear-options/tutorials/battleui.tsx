@@ -47,8 +47,8 @@ function unitFrame(c: OverlayCtx, actorId: string) {
 const popPoint = (u: NonNullable<ReturnType<typeof unitFrame>>) =>
   ({ x: u.origin.x + u.front * u.w / 4, y: u.origin.y - (u.h / 2 - 15 * PT * u.scale) })
 
-/** ป้าย MISS ของเป้า actorId — at = จังหวะที่พลาด */
-export function MissPop({ c, actorId, at, lang }: { c: OverlayCtx; actorId: string; at: number; lang: string }) {
+/** ป้าย MISS ของเป้า actorId — at = จังหวะที่พลาด · purple = ป้ายม่วง miss02 (vfunc 0x440(1) — ต้านสถานะ มึนงง/ถอยกลับ/ปิดเสียงได้) */
+export function MissPop({ c, actorId, at, lang, purple = false }: { c: OverlayCtx; actorId: string; at: number; lang: string; purple?: boolean }) {
   const t = c.t
   if (t < at || t >= at + MISS_DUR) return null
   const u = unitFrame(c, actorId)
@@ -57,12 +57,19 @@ export function MissPop({ c, actorId, at, lang }: { c: OverlayCtx; actorId: stri
   const alpha = 1 - prog(t, at + 0.53, at + MISS_DUR)
   const p = c.project(popPoint(u))
   return (
-    <AtlasSprite atlas={battleUiAtlas(lang)} name={`ml_guild_raid_miss_${uiLang(lang)}.png`} x={p.x} y={p.y} scale={u.scale * u.zoom} alpha={alpha}
+    <AtlasSprite atlas={battleUiAtlas(lang)} name={`ml_guild_raid_miss${purple ? '02' : ''}_${uiLang(lang)}.png`} x={p.x} y={p.y} scale={u.scale * u.zoom} alpha={alpha}
       style={{ transform: `scale(1, ${1.8 - 0.8 * k})` }} />
   )
 }
 
 export const DOUBLE_SKILL_DUR = 0.6
+
+/** จุดเหนือหัวแบบเกม: กลางกรอบเวที + (0, H + extraPt) · H = ความสูงยูนิต (0x7b8 → contentSize.h) — ใช้วางเอฟเฟกต์สถานะ (0xcdd05c: H + 5 pt) */
+export function unitTopPoint(c: OverlayCtx, actorId: string, extraPt: number) {
+  const u = unitFrame(c, actorId)
+  if (!u) return null
+  return { x: u.origin.x, y: u.origin.y - (u.h + extraPt * PT * u.scale), scale: u.scale, zoom: u.zoom }
+}
 
 /** ไอคอนใช้ทักษะอีกครั้งเหนือหัว actorId — at = จังหวะร่ายทักษะซ้ำ */
 export function DoubleSkillPop({ c, actorId, at }: { c: OverlayCtx; actorId: string; at: number }) {

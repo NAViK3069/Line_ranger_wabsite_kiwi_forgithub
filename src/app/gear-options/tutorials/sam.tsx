@@ -76,11 +76,13 @@ const RES = 2   // ความละเอียด canvas (ชั้นซ้�
  *            anchorFrame = ใช้กรอบของเฟรมนั้นเฟรมเดียว (ภาพที่ส่ายไปมาในท่า เช่น วิญญาณ — เฟรมแรกตรงจุดที่ต้องการ)
  *   ขนาด: size = ความกว้างที่ต้องการของ anchorClip (พิกเซลชั้นซ้อน) · ไม่ใส่ = ใช้ scale ตรงๆ
  */
-export function SamSprite({ base, clip, frame, loop = false, x, y, scale: scaleIn = 1, size, alpha = 1, fitClip = '_all', anchorClip, anchorFrame, anchorStage = false }: {
+export function SamSprite({ base, clip, frame, loop = false, x, y, scale: scaleIn = 1, size, alpha = 1, fitClip = '_all', anchorClip, anchorFrame, anchorStage = false, stageAnchorY = 0.5 }: {
   base: string; clip: string; frame: number; loop?: boolean; x: number; y: number; scale?: number; size?: number; alpha?: number
   fitClip?: string; anchorClip?: string; anchorFrame?: number
   /** true = ให้กลางกรอบเวทีของไฟล์ .sam ตกที่ x, y (แบบ SuperAnimNode anchor 0.5, 0.5 ในเกม) */
   anchorStage?: boolean
+  /** anchor แนวตั้งของกรอบเวที (แบบ cocos: 0 = ขอบล่าง · 0.5 = กลาง · 1 = ขอบบน) */
+  stageAnchorY?: number
 }) {
   const data = useLoaded(() => loadSam(base), `sam:${base}`)
   const ref = useRef<HTMLCanvasElement>(null)
@@ -88,7 +90,7 @@ export function SamSprite({ base, clip, frame, loop = false, x, y, scale: scaleI
   const box = data ? animBBox(data.sam, data.sprites, pick(fitClip)) : null
   const cv0 = data?.sam.canvas
   const anchor = data
-    ? anchorStage && cv0?.w ? { x0: cv0.x, x1: cv0.x + cv0.w, y0: cv0.y, y1: cv0.y + cv0.h }
+    ? anchorStage && cv0?.w ? { x0: cv0.x, x1: cv0.x + cv0.w, y0: cv0.y + cv0.h * (1 - stageAnchorY), y1: cv0.y + cv0.h * (1 - stageAnchorY) }
     : anchorFrame != null ? frameBBox(data.sam, data.sprites, pick(anchorClip ?? clip), anchorFrame) : animBBox(data.sam, data.sprites, pick(anchorClip ?? clip))
     : null
   const scale = size && anchor ? size / Math.max(1, anchor.x1 - anchor.x0) : scaleIn

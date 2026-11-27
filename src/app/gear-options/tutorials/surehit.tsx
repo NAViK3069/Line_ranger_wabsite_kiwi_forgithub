@@ -20,7 +20,7 @@ import type { GearEffect } from '@/lib/pvpScraper'
 import { easeOut, easeOutBack, popStyle, prog, span } from './anim'
 import {
   Fit1, FitCard, GEAR_LEVEL, GearCard, GearSlots, LoadBox, Opening, RangerCard, StatRow, SummaryShell,
-  gearIconUrl, loadGear, loadStats, step, switchableFor, useTutorialData, type GearKind, type RangerStats, type SlotGear,
+  gearIconUrl, loadGear, loadStats, step, useTutorialData, type GearKind, type RangerStats, type SlotGear,
 } from './kit'
 import { skillHitChance } from './skill-rates'
 import { RollStack, type RowSpec } from './rollstack'
@@ -53,7 +53,7 @@ const CFG: Record<SurehitMode, Cfg> = {
     gear: { code: 'eq_2208_wpn_07', grade: 7, en: "[HB]Kaioh's Shuriken" },
     evType: 'AVD_PROB_MUL', evKey: 'GEAR_ATTR_AVD_PROB_MUL_nm', evRate: 'evadeRate', hitRate: 'hitRate',
     targetGears: [
-      { code: 'eq_ace_wpn_26', kind: 'weapon', grade: 6 }, { code: 'eq_amr_16metal', kind: 'armor', grade: 6 }, { code: 'eq_um_acc_17', kind: 'acc', grade: 7, sw: true },
+      { code: 'eq_ace_wpn_26', kind: 'weapon', grade: 6 }, { code: 'eq_amr_16metal', kind: 'armor', grade: 6 }, { code: 'eq_acc_0106', kind: 'acc', grade: 6 },
     ],
   },
   'skill-surehit': {
@@ -61,7 +61,7 @@ const CFG: Record<SurehitMode, Cfg> = {
     gear: { code: 'eq_2202_wpn_07', grade: 7, en: '[YSH] Kikujumonji' },
     evType: 'SKLAVD_PROB_MUL', evKey: 'GEAR_ATTR_SKLAVD_PROB_MUL_nm', evRate: 'skillEvadeRate', hitRate: 'skillHitRate',
     targetGears: [
-      { code: 'eq_wpn_sleg_008', kind: 'weapon', grade: 8 }, { code: 'eq_2204_amr_17', kind: 'armor', grade: 7, sw: true }, { code: 'eq_acc_06sf', kind: 'acc', grade: 6 },
+      { code: 'eq_wpn_sleg_008', kind: 'weapon', grade: 8 }, { code: 'eq_ace_amr_06', kind: 'armor', grade: 6 }, { code: 'eq_acc_06sf', kind: 'acc', grade: 6 },
     ],
   },
 }
@@ -73,9 +73,8 @@ async function loadData(mode: SurehitMode) {
   const [atk, tgt, g, ...tg] = await Promise.all([loadStats(ATTACKER), loadStats(TARGET), loadGear(m.gear.code), ...m.targetGears.map(x => loadGear(x.code))])
   const basicOf = (gear: typeof g.gear, type: string) => gear.basic.reduce((s, e) => s + (e.basicGrowth?.reinforceType === type ? e.basicGrowth.maxValue * (GEAR_LEVEL + 1) : 0), 0)
   const sure = basicOf(g.gear, m.type)
-  // หลบของเป้า: ค่าเดิม + Basic ทุกชิ้น + Switchable ที่ตรงเงื่อนไข (ตัวสูงสุดตัวเดียว)
+  // หลบของเป้า: ค่าเดิม + Basic ทุกชิ้น (เกียร์ +5 — Switchable ปลดล็อกที่ +6 ขึ้นไป จึงไม่นับ)
   const evGear = tg.reduce((s, x) => s + basicOf(x.gear, m.evType), 0)
-    + Math.max(0, ...m.targetGears.map((x, i) => (x.sw ? switchableFor(tg[i].gear, m.evKey, tgt).switchableGrowth?.baseMax ?? 0 : 0)))
   const evBase = (tgt.rates as Rates)[m.evRate] ?? 0
   const hit = (atk.rates as Rates)[m.hitRate] ?? 0
   const res = skillHitChance(Math.fround(evBase) + Math.fround(evGear), hit, PAIR)

@@ -10,20 +10,21 @@
 const { ALLY, ENEMY, run, gameAttack } = require('./scene-lib.cjs')
 
 const MODE = process.argv[2]
-if (!['crit-rate', 'crit-damage'].includes(MODE)) throw new Error('mode: crit-rate | crit-damage')
+if (!['crit-rate', 'crit-damage', 'crit-resist'].includes(MODE)) throw new Error('mode: crit-rate | crit-damage | crit-resist')
+// crit-resist: ตัวใส่เกียร์ (ลดความเสียหายคริติคอล) = ฝ่ายโดนตี ยืนซ้าย · Ares Cony ยืนขวาเป็นฝ่ายตี
+const RESIST = MODE === 'crit-resist'
 process.argv.splice(2, 1)   // run() อ่าน <base> <out> จาก argv[2..3]
 
 const SHOOTER = 'u1002e-cony'
 const NORMAL = gameAttack(SHOOTER, 'normal')
 
 run({
-  name: MODE === 'crit-rate' ? "Critical Rate — Thunder Brown's Cape" : 'Critical Damage — [SL] Shoulder Armor',
-  rangers: {
-    [ALLY]: { id: SHOOTER, name: 'Ares Cony' },
-    [ENEMY]: { id: 'u1242e-brown', name: 'Brown อนูบิสเพชฌฆาต' },
-  },
-  attacker: ALLY,
-  victim: ENEMY,
+  name: MODE === 'crit-rate' ? "Critical Rate — Thunder Brown's Cape" : RESIST ? 'Critical Resistance — [FT]Unique Gray' : 'Critical Damage — [SL] Shoulder Armor',
+  rangers: RESIST
+    ? { [ALLY]: { id: 'u1242e-brown', name: 'Brown อนูบิสเพชฌฆาต' }, [ENEMY]: { id: SHOOTER, name: 'Ares Cony' } }
+    : { [ALLY]: { id: SHOOTER, name: 'Ares Cony' }, [ENEMY]: { id: 'u1242e-brown', name: 'Brown อนูบิสเพชฌฆาต' } },
+  attacker: RESIST ? ENEMY : ALLY,
+  victim: RESIST ? ALLY : ENEMY,
   normal: NORMAL,
   skill: NORMAL,            // ช่อง "สกิล" ของโครงเรื่องก็เป็นตีปกติ (คริเกิดแค่ตีปกติ)
   skillHitOffset: 1.0,      // วัดจริงจากไทม์ไลน์ → แก้ใน crit.tsx ถ้าเปลี่ยน

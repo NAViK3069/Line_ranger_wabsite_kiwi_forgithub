@@ -23,7 +23,13 @@ import { BlitzRushTutorial } from './tutorials/blitz-rush'
 import { SkillReactivateTutorial } from './tutorials/skill-reactivate'
 import { SurehitRateTutorial, SkillSurehitTutorial } from './tutorials/surehit'
 import { SkillCancelTutorial } from './tutorials/skill-cancel'
-import { CritRateTutorial, CritDamageTutorial } from './tutorials/crit'
+import { CritRateTutorial, CritDamageTutorial, CritResistTutorial } from './tutorials/crit'
+import { EvadeTutorial, HitRateTutorial, ElemHitTutorial } from './tutorials/normal-rates'
+import { PhysReflectTutorial, MagReflectTutorial } from './tutorials/reflect'
+import BloodVeilTutorial from './tutorials/blood-veil'
+import { MineralCostTutorial, RegenTimeTutorial } from './tutorials/summon'
+import AtkRangeTutorial from './tutorials/atk-range'
+import { KnockbackResistTutorial, StunResistTutorial } from './tutorials/status-resist'
 
 /** id ของออพชั่น (options.ts) → วิดีโอสอน · เพิ่มออพชั่นใหม่ = เพิ่มบรรทัดที่นี่ */
 export const TUTORIALS: Record<string, ComponentType<{ autoPlay: boolean }>> = {
@@ -46,6 +52,18 @@ export const TUTORIALS: Record<string, ComponentType<{ autoPlay: boolean }>> = {
   'skill-cancel': SkillCancelTutorial,
   'crit-rate': CritRateTutorial,
   'crit-damage': CritDamageTutorial,
+  'crit-resist': CritResistTutorial,
+  evade: EvadeTutorial,
+  'hit-rate': HitRateTutorial,
+  'elemental-hit': ElemHitTutorial,
+  'phys-reflect': PhysReflectTutorial,
+  'mag-reflect': MagReflectTutorial,
+  'blood-veil': BloodVeilTutorial,
+  'mineral-cost': MineralCostTutorial,
+  'regen-time': RegenTimeTutorial,
+  'atk-range': AtkRangeTutorial,
+  'knockback-resist': KnockbackResistTutorial,
+  'stun-resist': StunResistTutorial,
 }
 
 export default function GearOptionPlayer({ optionId, src, autoPlay }: { optionId: string; src: string; autoPlay: boolean }) {

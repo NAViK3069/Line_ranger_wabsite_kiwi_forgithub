@@ -1,10 +1,12 @@
 'use client'
 
 // ====================================================
-// วิดีโอสอน: อัตราติดคริทิคอล (crit-rate) / แรงโจมตีคริทิคอล (crit-damage)
+// วิดีโอสอน: อัตราติดคริทิคอล (crit-rate) / แรงโจมตีคริทิคอล (crit-damage) / ลดความเสียหายคริติคอล (crit-resist)
 //   เรา (ซ้าย) Ares Cony — คริ 25% · ตัวคูณคริ ×3 (unit.criticalRatio) — ตีปกติใส่ Brown อนูบิสเพชฌฆาต (ขวา) 4 รอบ
 //   crit-rate:   Thunder Brown's Cape +5 (Critical Rate +57% · ค่าอื่น = พลังงานเรียก/DEF บวกตรง ไม่กระทบการตี) → 25% + 57% = 82%
 //   crit-damage: [SL] Shoulder Armor +5 (Critical Damage +408%) → ×3 + 4.08 = ×7.08
+//   crit-resist: ตัวใส่เกียร์ = ฝ่ายโดนตี (ซ้าย Brown อนูบิสเพชฌฆาต) · Ares Cony (ขวา) ตี · [FT]Unique Gray +5 (Critical Resistance +81%)
+//                → ตัวคูณคริของผู้ตี = max(1, ×3 × (1 − 0.81)) = ×1 — ติดคริก็ไม่แรงขึ้น
 //   ฉาก: public/gear-options/scenes/<mode>.anme.json ← scripts/gear-options/build-crit-scene.cjs (โครงเรื่องแบบวิดีโอ ATK)
 //
 // กฎของเกม (ถอดจาก libgame.so):
@@ -12,6 +14,8 @@
 //   สุ่มคริ (0xd02304 — มีที่เรียกจุดเดียวคือดาเมจตีปกติ 0xcec3f4 → ทักษะไม่คริ):
 //     p = criticalProbability + บัฟ · p ≥ 0.95 → 95 · p ≤ 0 → ไม่สุ่ม · ไม่งั้นตัดเศษเป็น % · สุ่ม 0–99 < p = คริ
 //   ตัวคูณคริ (0xcecfec): คริ = max(1, criticalRatio + บัฟ) · ไม่คริ = 1 → คูณดาเมจตีปกติ (หลัง DEF)
+//   Critical Resistance (CRIRE_PROB_MUL 0x25 → UnitData 0xb60 ของเป้า — 0xd5d490) ในดาเมจตีปกติ 0xcec3f4:
+//     ตัวคูณจริง = max(1, ตัวคูณคริ × (1 − Critical Resistance ของเป้า))   (0xcecb2c–0xcecb48) — ลดแค่ตัวคูณ ไม่ลดโอกาสคริ
 //   ป้าย CRITICAL = ml_guild_raid_critical_<ภาษา>.png (ml_battle_ui) · เอฟเฟกต์โดน eff_hit_normal (น้ำ → แสง ×1)
 // ====================================================
 
@@ -27,14 +31,18 @@ import {
 import { CritPop, HitFx } from './battleui'
 import { RollStack } from './rollstack'
 
-export type CritMode = 'crit-rate' | 'crit-damage'
+export type CritMode = 'crit-rate' | 'crit-damage' | 'crit-resist'
 type Tr = (th: string, en: string) => string
 
 const ALLY = { actor: 'ak1zzx9ceu', ranger: 'u1002e-cony' }
 const ENEMY = { actor: 'a9ijjdi134', ranger: 'u1242e-brown' }
 const EN_NAMES: Record<string, string> = { 'u1002e-cony': 'Ares Cony', 'u1242e-brown': 'Executor Anubis Brown' }
 
-interface Cfg { type: string; nameKey: string; title: [string, string]; gear: { code: string; kind: GearKind; grade: number; en: string }; rolls: boolean[] }
+interface Cfg {
+  type: string; nameKey: string; title: [string, string]; gear: { code: string; kind: GearKind; grade: number; en: string }; rolls: boolean[]
+  /** ตัวใส่เกียร์เป็นฝ่ายโดนตี (ยืนซ้าย) — ผู้ตี (Ares Cony) ยืนขวา */
+  victimWears?: boolean
+}
 const CFG: Record<CritMode, Cfg> = {
   // ผลสุ่มคริแต่ละรอบ (รอบ 1–2 ไม่ใส่เกียร์ · 3–4 ใส่เกียร์)
   'crit-rate': {
@@ -45,7 +53,14 @@ const CFG: Record<CritMode, Cfg> = {
     type: 'CRI_DMG_MUL', nameKey: 'GEAR_ATTR_CRI_DMG_MUL_nm', title: ['แรงโจมตีคริทิคอล', 'Critical Damage'],
     gear: { code: 'eq_sl_amr_16', kind: 'armor', grade: 6, en: '[SL] Shoulder Armor' }, rolls: [false, true, false, true],
   },
+  // ชิ้นเดียวในเกมที่มี Critical Resistance ใน Basic
+  'crit-resist': {
+    type: 'CRIRE_PROB_MUL', nameKey: 'GEAR_ATTR_CRIRE_PROB_MUL_nm', title: ['ลดความเสียหายคริติคอล', 'Critical Resistance'],
+    gear: { code: 'eq_ft_amr_17', kind: 'armor', grade: 7, en: '[FT]Unique Gray' }, rolls: [true, false, true, false], victimWears: true,
+  },
 }
+/** ตำแหน่งยืน: ปกติ ผู้ตี (Ares Cony) ซ้าย · crit-resist ตัวใส่เกียร์ (ฝ่ายโดนตี) ยืนซ้าย */
+const actors = (m: Cfg) => (m.victimWears ? { atk: ENEMY.actor, vic: ALLY.actor } : { atk: ALLY.actor, vic: ENEMY.actor })
 
 const f = Math.fround
 /** โอกาสคริ (จำนวนเต็ม %) แบบเกม — ≥ 0.95 → 95 · ตัดเศษ */
@@ -65,11 +80,13 @@ async function loadData(mode: CritMode) {
   // ranger-stats เก็บแรงคริเป็น "ส่วนเพิ่ม" (criticalRatio − 1) → ตัวคูณในเกม = 1 + critDamage
   const ratio = 1 + (rates.critDamage ?? 0)
   const pAfter = mode === 'crit-rate' ? f(p) + f(gearVal) : p
-  const ratioAfter = mode === 'crit-damage' ? f(ratio) + f(gearVal) : ratio
+  // crit-resist: ตัวคูณจริง = max(1, ตัวคูณ × (1 − ต้านคริของเป้า)) · rawAfter = ก่อนกันต่ำสุด ×1
+  const rawAfter = mode === 'crit-damage' ? f(ratio) + f(gearVal) : mode === 'crit-resist' ? f(f(ratio) * f(1 - f(gearVal))) : ratio
+  const ratioAfter = Math.max(1, rawAfter)
   const hit = normalHit(ally.baseStats.phyAtk, ally.baseStats.magAtk, enemy.baseStats)
   const mulOf = (r: number) => Math.max(1, r)
   return {
-    ally, enemy, gear: g.gear, gearVal, p, pAfter, ratio, ratioAfter, hit,
+    ally, enemy, gear: g.gear, gearVal, p, pAfter, ratio, ratioAfter, rawAfter, hit,
     chanceBefore: critChance(p), chanceAfter: critChance(pAfter),
     critBefore: Math.trunc(hit.total * mulOf(ratio)), critAfter: Math.trunc(hit.total * mulOf(ratioAfter)),
   }
@@ -87,6 +104,8 @@ function CritTutorial({ autoPlay, mode }: { autoPlay: boolean; mode: CritMode })
 
   const m = CFG[mode]
   const rateMode = mode === 'crit-rate'
+  const resist = mode === 'crit-resist'
+  const A = actors(m)
   const gearName = tGear(m.gear.code, m.gear.en)
   const effName = (e: GearEffect) => (e.nameKey ? tr('equip', e.nameKey, e.name) : e.name)
   const optName = tr('equip', m.nameKey, T(m.title[0], m.title[1]))
@@ -112,7 +131,16 @@ function CritTutorial({ autoPlay, mode }: { autoPlay: boolean; mode: CritMode })
         <GearCard t={t} T={T} gear={d.gear} icon={gearIconUrl(m.gear.code)} name={gearName} effName={effName}
           switchable={null} kind={m.gear.kind} grade={m.gear.grade} tested={tested} />
 
-        <RangerCard T={T} r={d.ally} name={allyName} s={span(t, 8.2, 11.9)} x={680} y={24}
+        {resist ? (
+          <RangerCard T={T} r={d.enemy} name={enemyName} s={span(t, 8.2, 11.9)} x={680} y={24}
+            tag={T('ตัวที่ใส่เกียร์ · โดนตี', 'Gear wearer · gets hit')} tagColor="bg-cyan-500/25 text-cyan-200"
+            rows={<>
+              <StatRow t={t} label={optName} value="0%" hlAt={8.75} note={T('เรนเจอร์ไม่มีค่านี้ติดตัว — ได้จากเกียร์', 'Rangers have none by default — it comes from gear')} />
+              <StatRow t={t} label={T(`ผู้ตี: ${rateName}`, `Attacker: ${rateName}`)} value={pc(d.p)} hlAt={9.5} note={allyName} />
+              <StatRow t={t} label={T(`ผู้ตี: ${dmgName}`, `Attacker: ${dmgName}`)} value={xTxt(d.ratio)} hlAt={10.1} note={T('ติดคริ = ดาเมจตีปกติคูณค่านี้', 'A crit multiplies the normal hit by this')} />
+            </>}
+            slots={<GearSlots t={t} />} />
+        ) : <RangerCard T={T} r={d.ally} name={allyName} s={span(t, 8.2, 11.9)} x={680} y={24}
           tag={T('เรนเจอร์ของเรา', 'Our ranger')} tagColor="bg-cyan-500/25 text-cyan-200"
           rows={<>
             <StatRow t={t} label={rateName} value={pc(d.p)} hlAt={rateMode ? 8.75 : undefined} dim={!rateMode}
@@ -121,14 +149,14 @@ function CritTutorial({ autoPlay, mode }: { autoPlay: boolean; mode: CritMode })
               note={T('ติดคริ = ดาเมจตีปกติคูณค่านี้', 'A crit multiplies the normal hit by this')} />
             <StatRow t={t} icon={ICON.atk} label={T('พลังโจมตี', 'ATK')} value={fmtInt(d.ally.baseStats.phyAtk + d.ally.baseStats.magAtk)} dim />
           </>}
-          slots={<GearSlots t={t} />} />
+          slots={<GearSlots t={t} />} />}
 
-        <CritFormulaCard t={t} T={T} d={d} rateMode={rateMode} optName={optName} />
+        <CritFormulaCard t={t} T={T} d={d} mode={mode} optName={optName} />
 
         <NormalFormulaCard t={t} T={T} heading={T('ตีปกติ: ผ่าน DEF ก่อน แล้วติดคริค่อยคูณตัวคูณคริ', 'Normal attack: DEF first, then a crit multiplies it')}
           defOwner={T('ของเป้าหมาย', '(target)')} hit={d.hit} />
 
-        <HpBar c={c} t={t} actor={ENEMY.actor} rounds={rounds} />
+        <HpBar c={c} t={t} actor={A.vic} rounds={rounds} />
 
         {/* วงล้อสุ่มคริ (หยุดตรงจังหวะโดน — เกมสุ่มตอนคำนวณดาเมจ) · อยู่ฝั่งซ้าย ไม่ทับการ์ดใส่เกียร์ทางขวา */}
         {CUE_IDS.map((_, i) => {
@@ -136,25 +164,29 @@ function CritTutorial({ autoPlay, mode }: { autoPlay: boolean; mode: CritMode })
           const crit = m.rolls[i]
           const mul = i < 2 ? d.ratio : d.ratioAfter
           return (
-            <RollStack key={`roll${i}`} c={c} x={420} st={hits[i] - 1.9} end={hits[i] + 1.4}
+            <RollStack key={`roll${i}`} c={c} x={resist ? 860 : 420} st={hits[i] - 1.9} end={hits[i] + 1.4}
               header={`${T(`รอบที่ ${i + 1}`, `Round ${i + 1}`)} · ${i < 2 ? T('ไม่ใส่เกียร์', 'No gear') : T('ใส่เกียร์แล้ว', 'With gear')} · ${T('สุ่มคริ', 'Crit roll')}`}
               rows={[{
                 wheels: [{ chance, good: crit, goodColor: ['#fca5a5', '#dc2626'], goodLabel: T('คริ', 'Crit'), badLabel: T('ไม่คริ', 'No crit'), sub: T('คริ', 'Crit'), land: [0.55, 0.45, 0.4, 0.6][i] }],
-                note: crit ? T(`คริ! ดาเมจ ${xTxt(mul)}`, `Crit! Damage ${xTxt(mul)}`) : T('ไม่คริ → ดาเมจปกติ', 'No crit → normal damage'), noteGood: crit,
+                note: crit ? (resist && i >= 2 ? T(`คริ! แต่โดนต้าน → ${xTxt(mul)}`, `Crit! But resisted → ${xTxt(mul)}`) : T(`คริ! ดาเมจ ${xTxt(mul)}`, `Crit! Damage ${xTxt(mul)}`)) : T('ไม่คริ → ดาเมจปกติ', 'No crit → normal damage'),
+                noteGood: resist ? !(crit && i < 2) : crit,
               }]} />
           )
         })}
         {CUE_IDS.map((id, i) => <HitFx key={`fx${i}`} c={c} cueId={id} kind="normal" />)}
-        {CUE_IDS.map((_, i) => (m.rolls[i] ? <CritPop key={`cr${i}`} c={c} actorId={ENEMY.actor} at={hits[i]} lang={lang} /> : null))}
+        {CUE_IDS.map((_, i) => (m.rolls[i] ? <CritPop key={`cr${i}`} c={c} actorId={A.vic} at={hits[i]} lang={lang} /> : null))}
 
         <EquipCard t={t} T={T} gearIcon={gearIconUrl(m.gear.code)} gearName={gearName} bonusPct={d.gearVal} kind={m.gear.kind} grade={m.gear.grade}
           stats={[rateMode
             ? { icon: ICON.atk, label: rateName, before: d.chanceBefore / 100, after: d.chanceAfter / 100, format: v => `${Math.round(v * 100)}%`,
                 formula: `${pc(d.p)} + ${pc(d.gearVal)} = ${pc(d.pAfter)}${d.chanceAfter === 95 ? ` → ${T('เพดาน', 'cap')} 95%` : ''}` }
-            : { icon: ICON.atk, label: dmgName, before: d.ratio, after: d.ratioAfter, format: v => xTxt(v),
+            : resist
+              ? { icon: ICON.def, label: T('ตัวคูณคริของผู้ตี', "Attacker's crit multiplier"), before: d.ratio, after: d.ratioAfter, format: v => xTxt(v),
+                  formula: `${xTxt(d.ratio)} × (1 − ${pc(d.gearVal)}) = ${xTxt(d.rawAfter)} → ${T('ต่ำสุด', 'min')} ×1` }
+              : { icon: ICON.atk, label: dmgName, before: d.ratio, after: d.ratioAfter, format: v => xTxt(v),
                 formula: `${xTxt(d.ratio)} + ${pc(d.gearVal)} = ${xTxt(d.ratioAfter)}` }]} />
 
-        <SummaryShell t={t} T={T} title={T('ดาเมจตีปกติเฉลี่ยต่อครั้ง (รวมโอกาสคริ)', 'Average normal-hit damage (with crit chance)')}>
+        <SummaryShell t={t} T={T} title={resist ? T(`ดาเมจเฉลี่ยที่ ${enemyName} โดนต่อครั้ง`, `Average damage taken per hit`) : T('ดาเมจตีปกติเฉลี่ยต่อครั้ง (รวมโอกาสคริ)', 'Average normal-hit damage (with crit chance)')}>
           {[
             { label: T('ไม่ใส่เกียร์', 'No gear'), v: avgBefore, sub: `${d.chanceBefore}% × ${xTxt(d.ratio)}`, cls: 'from-slate-500 to-slate-300', at: S + 0.6 },
             { label: `${optName} +${pc(d.gearVal)}`, v: avgAfter, sub: `${d.chanceAfter}% × ${xTxt(d.ratioAfter)}`, cls: 'from-rose-600 to-orange-300', at: S + 1.1 },
@@ -165,7 +197,7 @@ function CritTutorial({ autoPlay, mode }: { autoPlay: boolean; mode: CritMode })
                 <span className="shrink-0 ml-4 font-black text-white tabular-nums">{fmtInt(r.v * bar(r.at))}</span>
               </div>
               <div className="h-6 rounded-full bg-white/10 mt-2 overflow-hidden">
-                <div className={`h-full rounded-full bg-gradient-to-r ${r.cls}`} style={{ width: `${(r.v / avgAfter) * 100 * bar(r.at)}%` }} />
+                <div className={`h-full rounded-full bg-gradient-to-r ${r.cls}`} style={{ width: `${(r.v / Math.max(avgAfter, avgBefore)) * 100 * bar(r.at)}%` }} />
               </div>
             </div>
           ))}
@@ -182,7 +214,10 @@ function CritTutorial({ autoPlay, mode }: { autoPlay: boolean; mode: CritMode })
             ))}
           </div>
           <div className="mt-4 rounded-2xl bg-white/[0.05] border-2 border-white/10 px-5 py-3 text-[20px] font-bold text-gray-200 text-balance" style={{ opacity: easeOut(prog(t, S + 2.6, S + 3.0)) }}>
-            {rateMode
+            {resist
+              ? T(`${optName} ของเป้าคูณลดตัวคูณคริของผู้ตี: ${xTxt(d.ratio)} × (1 − ${pc(d.gearVal)}) = ${xTxt(d.rawAfter)} → ต่ำสุด ×1 · ติดคริก็แรงเท่าตีปกติ · ไม่ลดโอกาสคริ · ดาเมจเฉลี่ยที่โดน ×${(avgAfter / avgBefore).toFixed(2)}`,
+                `The target's ${optName} scales the attacker's crit multiplier down: ${xTxt(d.ratio)} × (1 − ${pc(d.gearVal)}) = ${xTxt(d.rawAfter)} → min ×1 · a crit hits no harder than a normal hit · crit chance is unchanged · average damage taken ×${(avgAfter / avgBefore).toFixed(2)}`)
+              : rateMode
               ? T(`อัตราคริบวกตรง แต่เพดานคือ 95% — ใส่เกินกว่านี้ไม่ขึ้น · ใช้กับตีปกติเท่านั้น (ทักษะไม่คริ) · ดาเมจเฉลี่ย ×${(avgAfter / avgBefore).toFixed(2)}`,
                 `Crit Rate adds straight on, but caps at 95% — anything above does nothing · normal attacks only (skills never crit) · average damage ×${(avgAfter / avgBefore).toFixed(2)}`)
               : T(`แรงคริบวกเข้าตัวคูณคริตรงๆ (${xTxt(d.ratio)} + ${pc(d.gearVal)} = ${xTxt(d.ratioAfter)}) · มีผลเฉพาะตอนติดคริ · ใช้กับตีปกติเท่านั้น · ดาเมจเฉลี่ย ×${(avgAfter / avgBefore).toFixed(2)}`,
@@ -198,7 +233,8 @@ function CritTutorial({ autoPlay, mode }: { autoPlay: boolean; mode: CritMode })
 }
 
 // ── การ์ดอธิบายคริ (ก่อนการ์ดสูตรตีปกติ) ──
-function CritFormulaCard({ t, T, d, rateMode, optName }: { t: number; T: Tr; d: Data; rateMode: boolean; optName: string }) {
+function CritFormulaCard({ t, T, d, mode, optName }: { t: number; T: Tr; d: Data; mode: CritMode; optName: string }) {
+  const rateMode = mode === 'crit-rate', resist = mode === 'crit-resist'
   const s = span(t, 12.5, 16.1, 0.5, 0.4)
   if (!s.on) return null
   const a = 12.5
@@ -208,13 +244,16 @@ function CritFormulaCard({ t, T, d, rateMode, optName }: { t: number; T: Tr; d: 
       <div className="mt-3 rounded-2xl bg-white/[0.05] px-5 py-3 text-center" style={step(t, a + 0.3)}>
         <Fit1 className="text-center"><span className="text-[28px] font-black text-white">{T('ทุกครั้งที่ตีปกติโดน สุ่ม 0–99 < โอกาสคริ', 'Every normal hit rolls 0–99 < crit chance')} <span className="text-rose-300">({T('สูงสุด 95%', 'max 95%')})</span></span></Fit1>
         <Fit1 className="text-center mt-1"><span className="text-[28px] font-black text-amber-200">{T('ติดคริ → ดาเมจตีปกติ × ตัวคูณคริ', 'Crit → normal-hit damage × crit multiplier')}</span></Fit1>
+        {resist && <Fit1 className="text-center mt-1"><span className="text-[28px] font-black text-sky-200">{T('ตัวคูณคริ = max(1, ตัวคูณของผู้ตี × (1 − ลดความเสียหายคริติคอลของเป้า))', "Crit multiplier = max(1, attacker's multiplier × (1 − target's Critical Resistance))")}</span></Fit1>}
         <div className="mt-1 text-[19px] font-bold text-gray-300 text-balance">{T('ทักษะไม่คริ — โค้ดเกมสุ่มคริแค่ในดาเมจตีปกติ', 'Skills never crit — the game rolls crits only for normal-hit damage')}</div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-4" style={step(t, a + 1.6)}>
         <div className="rounded-2xl bg-white/[0.05] border-2 border-white/10 px-4 py-3"><div className="text-[20px] font-bold text-gray-400">{T('ไม่ใส่เกียร์', 'No gear')}</div>
           <div className="text-[40px] font-black text-white leading-tight">{d.chanceBefore}% · {xTxt(d.ratio)}</div></div>
         <div className="rounded-2xl bg-[#2a1f08] border-2 border-amber-400/50 px-4 py-3"><div className="text-[20px] font-bold text-amber-200">{optName} +{pc(d.gearVal)}</div>
-          <Fit1><span className="text-[22px] font-bold text-gray-200 tabular-nums">{rateMode ? `${pc(d.p)} + ${pc(d.gearVal)} = ${pc(d.pAfter)} → 95%` : `${xTxt(d.ratio)} + ${pc(d.gearVal)} = ${xTxt(d.ratioAfter)}`}</span></Fit1>
+          <Fit1><span className="text-[22px] font-bold text-gray-200 tabular-nums">{rateMode ? `${pc(d.p)} + ${pc(d.gearVal)} = ${pc(d.pAfter)}${d.pAfter >= 0.95 ? ' → 95%' : ''}`
+            : resist ? `${xTxt(d.ratio)} × (1 − ${pc(d.gearVal)}) = ${xTxt(d.rawAfter)} → ×1`
+              : `${xTxt(d.ratio)} + ${pc(d.gearVal)} = ${xTxt(d.ratioAfter)}`}</span></Fit1>
           <div className="text-[40px] font-black text-amber-300 leading-tight">{d.chanceAfter}% · {xTxt(d.ratioAfter)}</div></div>
       </div>
     </FitCard>
@@ -223,3 +262,4 @@ function CritFormulaCard({ t, T, d, rateMode, optName }: { t: number; T: Tr; d: 
 
 export const CritRateTutorial = ({ autoPlay }: { autoPlay: boolean }) => <CritTutorial autoPlay={autoPlay} mode="crit-rate" />
 export const CritDamageTutorial = ({ autoPlay }: { autoPlay: boolean }) => <CritTutorial autoPlay={autoPlay} mode="crit-damage" />
+export const CritResistTutorial = ({ autoPlay }: { autoPlay: boolean }) => <CritTutorial autoPlay={autoPlay} mode="crit-resist" />

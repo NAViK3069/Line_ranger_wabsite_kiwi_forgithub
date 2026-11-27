@@ -1,0 +1,314 @@
+{
+ "version": 1,
+ "name": "Mineral Production cost — Rock Legend Brown",
+ "width": 1280,
+ "height": 720,
+ "duration": 55,
+ "fps": 30,
+ "groundY": 560,
+ "background": {
+  "kind": "stage",
+  "color": "#0b1020",
+  "gradient": [
+   "#1b2550",
+   "#06070d"
+  ],
+  "stage": "battle24",
+  "assetId": null,
+  "fit": "height",
+  "scale": 1,
+  "offsetX": 0,
+  "offsetY": 0,
+  "scrollX": 0,
+  "dim": 0,
+  "blur": 0
+ },
+ "assets": [
+  {
+   "id": "r_u1260e-brown",
+   "type": "ranger",
+   "source": "lerico",
+   "rangerId": "u1260e-brown",
+   "form": "body",
+   "name": "Brown ตำนานร็อค"
+  },
+  {
+   "id": "snd_bgm",
+   "type": "audio",
+   "name": "bgm_lobby2",
+   "url": "/api/res/_raw/sounds/bgm_lobby2_20151123104811121.ogg"
+  },
+  {
+   "id": "snd_equip",
+   "type": "audio",
+   "name": "gear_equip",
+   "url": "/api/res/_raw/sounds/gear_equip_20151123104728600.ogg"
+  }
+ ],
+ "actors": [
+  {
+   "id": "summon_0",
+   "name": "Brown ตำนานร็อค #1",
+   "assetId": "r_u1260e-brown",
+   "tag": "ally_0",
+   "x": 130,
+   "y": 560,
+   "scale": 1,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "summon_1",
+   "name": "Brown ตำนานร็อค #2",
+   "assetId": "r_u1260e-brown",
+   "tag": "ally_1",
+   "x": 130,
+   "y": 574,
+   "scale": 1,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "summon_2",
+   "name": "Brown ตำนานร็อค #3",
+   "assetId": "r_u1260e-brown",
+   "tag": "ally_2",
+   "x": 130,
+   "y": 588,
+   "scale": 1,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "summon_3",
+   "name": "Brown ตำนานร็อค #4",
+   "assetId": "r_u1260e-brown",
+   "tag": "ally_3",
+   "x": 130,
+   "y": 560,
+   "scale": 1,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  },
+  {
+   "id": "summon_4",
+   "name": "Brown ตำนานร็อค #5",
+   "assetId": "r_u1260e-brown",
+   "tag": "ally_4",
+   "x": 130,
+   "y": 574,
+   "scale": 1,
+   "flip": false,
+   "rotation": 0,
+   "opacity": 1,
+   "blend": "source-over",
+   "visible": true,
+   "locked": false,
+   "idleClip": "idle",
+   "hiddenParts": [],
+   "loop": true,
+   "muted": true,
+   "speed": 1
+  }
+ ],
+ "cues": [
+  {
+   "id": "show_0",
+   "type": "show",
+   "actorId": "summon_0",
+   "start": 19.5,
+   "duration": 7.411,
+   "fadeIn": 0.25,
+   "fadeOut": 0.1
+  },
+  {
+   "id": "walk_0",
+   "type": "move",
+   "actorId": "summon_0",
+   "start": 19.85,
+   "to": {
+    "x": 1500,
+    "y": 560
+   },
+   "duration": 7.211,
+   "ease": "linear",
+   "clip": "walk"
+  },
+  {
+   "id": "show_1",
+   "type": "show",
+   "actorId": "summon_1",
+   "start": 34.5,
+   "duration": 7.411,
+   "fadeIn": 0.25,
+   "fadeOut": 0.1
+  },
+  {
+   "id": "walk_1",
+   "type": "move",
+   "actorId": "summon_1",
+   "start": 34.85,
+   "to": {
+    "x": 1500,
+    "y": 574
+   },
+   "duration": 7.211,
+   "ease": "linear",
+   "clip": "walk"
+  },
+  {
+   "id": "show_2",
+   "type": "show",
+   "actorId": "summon_2",
+   "start": 38.5,
+   "duration": 7.411,
+   "fadeIn": 0.25,
+   "fadeOut": 0.1
+  },
+  {
+   "id": "walk_2",
+   "type": "move",
+   "actorId": "summon_2",
+   "start": 38.85,
+   "to": {
+    "x": 1500,
+    "y": 588
+   },
+   "duration": 7.211,
+   "ease": "linear",
+   "clip": "walk"
+  },
+  {
+   "id": "show_3",
+   "type": "show",
+   "actorId": "summon_3",
+   "start": 42.5,
+   "duration": 7.411,
+   "fadeIn": 0.25,
+   "fadeOut": 0.1
+  },
+  {
+   "id": "walk_3",
+   "type": "move",
+   "actorId": "summon_3",
+   "start": 42.85,
+   "to": {
+    "x": 1500,
+    "y": 560
+   },
+   "duration": 7.211,
+   "ease": "linear",
+   "clip": "walk"
+  },
+  {
+   "id": "show_4",
+   "type": "show",
+   "actorId": "summon_4",
+   "start": 46.5,
+   "duration": 7.411,
+   "fadeIn": 0.25,
+   "fadeOut": 0.1
+  },
+  {
+   "id": "walk_4",
+   "type": "move",
+   "actorId": "summon_4",
+   "start": 46.85,
+   "to": {
+    "x": 1500,
+    "y": 574
+   },
+   "duration": 7.211,
+   "ease": "linear",
+   "clip": "walk"
+  },
+  {
+   "id": "cam0",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 0,
+   "center": {
+    "x": 640,
+    "y": 377.14285714285717
+   },
+   "zoom": 1.05,
+   "duration": 0,
+   "ease": "easeInOut"
+  },
+  {
+   "id": "cam_outro",
+   "type": "camera",
+   "actorId": "__camera",
+   "start": 48,
+   "center": {
+    "x": 640,
+    "y": 380
+   },
+   "zoom": 1.1,
+   "duration": 7,
+   "ease": "linear"
+  },
+  {
+   "id": "bgm",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 0,
+   "assetId": "snd_bgm",
+   "volume": 1,
+   "offset": 0,
+   "duration": 55,
+   "fadeIn": 1,
+   "fadeOut": 2
+  },
+  {
+   "id": "sfx_equip",
+   "type": "sound",
+   "actorId": "__audio",
+   "start": 32,
+   "assetId": "snd_equip",
+   "volume": 1,
+   "offset": 0,
+   "duration": 0,
+   "fadeIn": 0,
+   "fadeOut": 0
+  }
+ ],
+ "depthSort": true,
+ "smooth": true
+}

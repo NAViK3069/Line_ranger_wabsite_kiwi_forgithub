@@ -7,7 +7,7 @@
 // atlas ของ lerico ไม่มีหัว CORS → โหลดผ่าน Worker (lericoProxy) แล้วทำเป็น blob ในเครื่อง (canvas ไม่ถูก taint)
 // ====================================================
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { lericoProxy, LERICO_ORIGIN } from '@/lib/staticApi'
 import { localResUrl } from '@/lib/gameRes'
 import { parsePlist } from '@/lib/animation/plistParser'
@@ -84,21 +84,30 @@ export function GameIcon({ icon, size, className = '', alt = '', fit = 'contain'
 }) {
   const url = useIconUrl(icon)
   // โครงรอรูป (.it-skel ใน globals.css) จนกว่ารูปจะโหลดเสร็จ — แล้วรูปค่อยๆ โผล่ (ไม่เด้งขึ้นมา)
-  const [ready, setReady] = useState<string | null>(null)
-  const shown = !!url && ready === url
+  // สลับด้วย DOM ตรงๆ ไม่ใช้ state: ไอคอนหลายพันตัวโหลดเสร็จพร้อมกัน → setState หลายพันครั้ง = React ฟ้อง
+  // "Maximum update depth exceeded" · React ไม่แตะ opacity/คลาสนี้เพราะไม่อยู่ใน props ที่มันจัดการ
+  const boxRef = useRef<HTMLSpanElement>(null)
   const imgRef = useRef<HTMLImageElement>(null)
-  // รูปที่แคชไว้แล้ว complete ทันที (onLoad ไม่มา) — เช็กครั้งเดียวต่อ url ใน effect (ไม่ setState ใน ref callback ทุก render)
-  useEffect(() => {
-    const el = imgRef.current
-    if (url && el?.complete && el.naturalWidth) setReady(url)
-  }, [url])
+  const reveal = () => {
+    if (imgRef.current) imgRef.current.style.opacity = '1'
+    boxRef.current?.classList.remove('it-skel')
+  }
+  useLayoutEffect(() => {
+    const box = boxRef.current, img = imgRef.current
+    if (!box || !icon) return
+    if (img?.complete && img.naturalWidth) { reveal(); return }   // แคชไว้แล้ว — onLoad ไม่มา
+    box.classList.add('it-skel')
+    if (img) img.style.opacity = '0'
+  }, [url, icon])
   return (
-    <span className={`inline-flex items-center justify-center shrink-0 ${icon && !shown ? 'it-skel' : ''} ${className}`} style={size ? { width: size, height: size } : undefined}>
+    <span ref={boxRef} className={`inline-flex items-center justify-center shrink-0 ${className}`} style={size ? { width: size, height: size } : undefined}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      {url && <img ref={imgRef} src={url} alt={alt} draggable={false} loading="lazy" decoding="async"
-        onLoad={() => setReady(url)}
-        onError={() => setReady(url)}
-        style={{ opacity: shown ? 1 : 0, transition: 'opacity .25s ease-out' }}
+      {url && <img ref={imgRef} src={url} alt={alt} draggable={false} decoding="async"
+        // ชิ้นจาก atlas = blob ในเครื่อง (รูปซ้ำกันไม่กี่สิบรูป) → โหลดเลย · รูปจากเว็บอื่น (ภาพเรนเจอร์) ค่อยโหลดเมื่อใกล้จอ
+        loading={url.startsWith("blob:") ? "eager" : "lazy"}
+        onLoad={reveal}
+        onError={reveal}
+        style={{ transition: 'opacity .25s ease-out' }}
         className={`max-w-full max-h-full ${fit === 'cover' ? 'w-full h-full object-cover' : 'object-contain'}`} />}
     </span>
   )

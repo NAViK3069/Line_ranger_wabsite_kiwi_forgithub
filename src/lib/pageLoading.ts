@@ -10,6 +10,7 @@
 // ====================================================
 
 import { useLayoutEffect } from 'react'
+import { GLOBAL_LOADER_ENABLED } from './loaderFlag'
 
 let pending = 0
 let navigating = false
@@ -46,7 +47,7 @@ export function beginNavigation(kind: NavKind = 'link') {
 let knownPath = typeof window !== 'undefined' ? location.pathname : ''
 /** GlobalLoader แจ้ง path ปัจจุบันทุกครั้งที่เปลี่ยน */
 export const notePath = (p: string) => { knownPath = p }
-if (typeof window !== 'undefined') {
+if (GLOBAL_LOADER_ENABLED && typeof window !== 'undefined') {
   addEventListener('popstate', () => {
     if (location.pathname !== knownPath) beginNavigation(isPathReady(location.pathname) ? 'revisit' : 'history')
   })

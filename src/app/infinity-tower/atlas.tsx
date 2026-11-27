@@ -1,0 +1,90 @@
+'use client'
+
+// ====================================================
+// รูปจาก atlas ของเกม (plist + png) สำหรับหน้า Infinity Tower
+//   โหลดแต่ละ atlas ครั้งเดียว → ตัดชิ้นตาม plist (piecesFromPlist / drawPiece ชุดเดียวกับหน้า /res)
+//   → เก็บเป็น blob URL ต่อชิ้น (ชิ้นเดียวกันใช้ซ้ำได้ทั้งหน้า ไม่ตัดใหม่)
+// atlas ของ lerico ไม่มีหัว CORS → โหลดผ่าน Worker (lericoProxy) แล้วทำเป็น blob ในเครื่อง (canvas ไม่ถูก taint)
+// ====================================================
+
+import { useEffect, useState } from 'react'
+import { lericoProxy, LERICO_ORIGIN } from '@/lib/staticApi'
+import { localResUrl } from '@/lib/gameRes'
+import { parsePlist } from '@/lib/animation/plistParser'
+import { drawPiece, piecesFromPlist, type Piece } from '../res/PlistPieces'
+import type { AtlasKey, TIcon } from '@/lib/infinityTower'
+
+/** ไฟล์ของแต่ละ atlas (ไม่ใส่นามสกุล) */
+const ATLAS: Record<AtlasKey, string> = {
+  main: lericoProxy(`${LERICO_ORIGIN}/res/endless_main/endless_main`),
+  mission: lericoProxy(`${LERICO_ORIGIN}/res/endless_battle_mission_icon/endless_battle_mission_icon`),
+  ui: lericoProxy(`${LERICO_ORIGIN}/res/endless_battle_ui/endless_battle_ui`),
+  minigacha: lericoProxy(`${LERICO_ORIGIN}/res/mini_gacha/mini_gacha_icon`),
+  popup: localResUrl('hd/common/popup/common_popup_ui'),
+}
+
+interface Loaded { img: HTMLImageElement; pieces: Map<string, Piece> }
+const atlasCache = new Map<AtlasKey, Promise<Loaded | null>>()
+const frameCache = new Map<string, Promise<string | null>>()
+
+function loadAtlas(key: AtlasKey): Promise<Loaded | null> {
+  let p = atlasCache.get(key)
+  if (!p) {
+    const base = ATLAS[key]
+    p = (async () => {
+      const [plist, png] = await Promise.all([
+        fetch(`${base}.plist`).then(r => (r.ok ? r.arrayBuffer() : Promise.reject(r.status))),
+        fetch(`${base}.png`).then(r => (r.ok ? r.blob() : Promise.reject(r.status))),
+      ])
+      const img = new Image()
+      img.src = URL.createObjectURL(png)
+      await img.decode()
+      return { img, pieces: new Map(piecesFromPlist(parsePlist(plist)).map(pc => [pc.name, pc])) }
+    })().catch(() => null)
+    atlasCache.set(key, p)
+  }
+  return p
+}
+
+function frameUrl(atlas: AtlasKey, frame: string): Promise<string | null> {
+  const k = `${atlas}/${frame}`
+  let p = frameCache.get(k)
+  if (!p) {
+    p = loadAtlas(atlas).then(a => {
+      const piece = a?.pieces.get(frame)
+      if (!a || !piece) return null
+      return new Promise<string | null>(res => drawPiece(a.img, piece).toBlob(b => res(b ? URL.createObjectURL(b) : null)))
+    })
+    frameCache.set(k, p)
+  }
+  return p
+}
+
+/** URL ของรูป (ชิ้นใน atlas หรือไฟล์เดี่ยว) — null ระหว่างโหลด / หาไม่เจอ */
+export function useIconUrl(icon: TIcon | null | undefined): string | null {
+  const direct = icon && 'url' in icon ? icon.url : null
+  const atlas = icon && 'atlas' in icon ? icon.atlas : null
+  const frame = icon && 'atlas' in icon ? icon.frame : null
+  const [url, setUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (!atlas || !frame) return
+    let live = true
+    frameUrl(atlas, frame).then(u => { if (live) setUrl(u) })
+    return () => { live = false }
+  }, [atlas, frame])
+  return direct ?? (atlas ? url : null)
+}
+
+/** รูปเกม — กล่องขนาดคงที่ (ไม่กระตุกตอนโหลด) · รูปถูกย่อ/ขยายให้พอดีกล่อง */
+export function GameIcon({ icon, size, className = '', alt = '', fit = 'contain' }: {
+  icon: TIcon | null | undefined; size?: number; className?: string; alt?: string; fit?: 'contain' | 'cover'
+}) {
+  const url = useIconUrl(icon)
+  return (
+    <span className={`inline-flex items-center justify-center shrink-0 ${className}`} style={size ? { width: size, height: size } : undefined}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {url && <img src={url} alt={alt} draggable={false} loading="lazy" decoding="async"
+        className={`max-w-full max-h-full ${fit === 'cover' ? 'w-full h-full object-cover' : 'object-contain'}`} />}
+    </span>
+  )
+}

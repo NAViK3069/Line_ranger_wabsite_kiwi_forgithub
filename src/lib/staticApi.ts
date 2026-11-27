@@ -61,6 +61,7 @@ export function dataFile(pathname: string, q: URLSearchParams): string | null {
     case 'gear-book': return 'gear-book.json'
     case 'ranger-abilities': return 'ranger-abilities.json'
     case 'ranger-faces': return 'ranger-faces.json'
+    case 'infinity-tower': return b ? `infinity-tower/${enc(b)}.json` : 'infinity-tower.json'
     case 'custom-assets': return 'custom-assets.json'
     case 'site-profile': return 'site-profile.json'
     case 'tierlist': return 'tierlist.json'

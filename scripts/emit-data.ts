@@ -21,6 +21,7 @@ import path from 'path'
 import { pathToFileURL } from 'url'
 import { NextRequest } from 'next/server'
 import { dataFile, emptyFallback, gearEffectsFile, gearUsersFile, itemCodeFromIconUrl, resRootFile, resRootUnitsFile } from '../src/lib/staticApi'
+import { towerFloorCodes } from '../src/lib/infinityTower'
 
 const ROOT = process.cwd()
 const OUT = path.join(ROOT, 'public', 'data')
@@ -137,6 +138,10 @@ async function emitGameData() {
   await emit(await route('gear-book'), '/api/gear-book')
   await emit(await route('ranger-abilities'), '/api/ranger-abilities')
   await emit(await route('ranger-faces'), '/api/ranger-faces')
+  // Infinity Tower: ทุกชั้น + ศัตรูรายชั้น (ข้อมูลเกม endless_*)
+  await emit(await route('infinity-tower'), '/api/infinity-tower')
+  const towerFloor = await route('infinity-tower/[floor]')
+  for (const floor of towerFloorCodes()) await emit(towerFloor, `/api/infinity-tower/${floor}`, { floor })
   await emit(await route('lerico/ranger-names'), '/api/lerico/ranger-names')
   await emit(await route('lerico/equip-names'), '/api/lerico/equip-names')
   const tr = await route('translations/[lang]')

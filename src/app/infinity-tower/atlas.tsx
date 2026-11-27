@@ -20,6 +20,7 @@ const ATLAS: Record<AtlasKey, string> = {
   mission: lericoProxy(`${LERICO_ORIGIN}/res/endless_battle_mission_icon/endless_battle_mission_icon`),
   ui: lericoProxy(`${LERICO_ORIGIN}/res/endless_battle_ui/endless_battle_ui`),
   minigacha: lericoProxy(`${LERICO_ORIGIN}/res/mini_gacha/mini_gacha_icon`),
+  endlesspopup: lericoProxy(`${LERICO_ORIGIN}/res/endless_popup/endless_popup`),
   popup: localResUrl('hd/common/popup/common_popup_ui'),
 }
 

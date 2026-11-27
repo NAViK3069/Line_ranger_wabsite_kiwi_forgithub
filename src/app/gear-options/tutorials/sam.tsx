@@ -34,7 +34,7 @@ function loadAtlas(atlas: string): Promise<SpriteMap> {
 interface SamData { sam: SAMParser; sprites: SpriteMap }
 const samCache = new Map<string, Promise<SamData>>()
 /** base = พาธใต้ res/ ไม่มีนามสกุล เช่น 'gear_main/fx70-gear-slot' (ใช้ .sam + .plist + .png ชื่อเดียวกัน) */
-function loadSam(base: string): Promise<SamData> {
+export function loadSam(base: string): Promise<SamData> {
   let p = samCache.get(base)
   if (!p) {
     p = Promise.all([fetch(resUrl(`${base}.sam`)).then(r => r.arrayBuffer()), loadAtlas(base)])

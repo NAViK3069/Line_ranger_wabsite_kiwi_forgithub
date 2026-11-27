@@ -30,7 +30,7 @@ export interface TText { en: string; th: string }
 /** รูปจาก atlas ของเกม (plist + png) หรือไฟล์รูปเดี่ยว */
 export type TIcon = { atlas: AtlasKey; frame: string } | { url: string }
 /** atlas ที่หน้าใช้ — client แปลงเป็น URL เอง (lerico ผ่าน Worker / ของเราใน /gameres) */
-export type AtlasKey = 'main' | 'mission' | 'ui' | 'popup' | 'minigacha'
+export type AtlasKey = 'main' | 'mission' | 'ui' | 'popup' | 'minigacha' | 'endlesspopup'
 
 /** ไอเทมรางวัล (เก็บครั้งเดียวใน TowerIndex.items — key = "<rewardType>:<code>") */
 export interface TItem { type: string; code: string; name: TText; icon: TIcon | null }

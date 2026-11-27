@@ -1,11 +1,11 @@
 'use client'
 
 // ====================================================
-// HomeMenu — ปุ่มเมนูหน้าแรก (6 ช่องขนาดเท่ากัน)
-// มือถือ 2 คอลัมน์ (3 แถว) · จอ ≥ 640px 3 คอลัมน์ (2 แถว) → สมดุลทุกขนาดจอ
+// HomeMenu — ปุ่มเมนูหน้าแรก (8 ช่องขนาดเท่ากัน)
+// มือถือ/แท็บเล็ต 2 คอลัมน์ (4 แถว) · จอ ≥ 768px 4 คอลัมน์ (2 แถว) → เต็มแถวพอดีทุกขนาดจอ
 // ทุกช่องหน้าตาเดียวกัน: ไอคอนในกรอบสีประจำเมนู + ชื่อ + คำอธิบายสั้น
 // สีของแต่ละเมนูเขียนเป็นคลาสเต็มๆ (Tailwind ต้องเห็นชื่อคลาสตรงๆ ตอน build)
-// เพิ่ม/สลับเมนูได้ที่ ITEMS ที่เดียว — จำนวนช่องควรเป็น 6 (หรือ 3/12) ให้ตารางเต็มพอดี
+// เพิ่ม/สลับเมนูได้ที่ ITEMS ที่เดียว — จำนวนช่องควรเป็นเลขคู่ที่หาร 4 ลงตัว (8 / 12) ให้ตารางเต็มพอดี
 // ====================================================
 
 import Link from 'next/link'
@@ -56,6 +56,16 @@ const ITEMS: Item[] = [
     iconBg: 'from-violet-400 to-purple-600', hover: 'hover:border-violet-400/60 hover:shadow-[0_10px_30px_-12px_rgba(167,139,250,0.55)]', glow: 'bg-violet-400',
   },
   {
+    href: '/gear-options', img: '/home-icons/mission-gear-options.webp', icon: 'smart_display', title: 'Gear Options',
+    th: 'วิดีโอสอนออพชั่นเกียร์', en: 'Gear option videos',
+    iconBg: 'from-orange-400 to-amber-600', hover: 'hover:border-orange-400/60 hover:shadow-[0_10px_30px_-12px_rgba(251,146,60,0.55)]', glow: 'bg-orange-400',
+  },
+  {
+    href: '/infinity-tower', img: '/home-icons/mission-infinity-tower.webp', icon: 'castle', title: 'Infinity Tower',
+    th: 'หอคอยอนันต์ทุกชั้น', en: 'Every tower floor',
+    iconBg: 'from-purple-400 to-indigo-600', hover: 'hover:border-purple-400/60 hover:shadow-[0_10px_30px_-12px_rgba(192,132,252,0.55)]', glow: 'bg-purple-400',
+  },
+  {
     href: '/custom', img: '/home-icons/mission-custom.webp', icon: 'dashboard_customize', title: 'Custom',
     th: 'Lobby · วิดีโอ · กาชาเอง', en: 'Lobby, video & more',
     iconBg: 'from-fuchsia-400 to-pink-600', hover: 'hover:border-fuchsia-400/60 hover:shadow-[0_10px_30px_-12px_rgba(232,121,249,0.55)]', glow: 'bg-fuchsia-400',
@@ -65,13 +75,13 @@ const ITEMS: Item[] = [
 export default function HomeMenu() {
   const { lang } = useLanguage()
   return (
-    <nav aria-label="Main menu" className="w-full max-w-3xl text-left grid grid-cols-2 sm:grid-cols-3 auto-rows-fr gap-3 sm:gap-4">
+    <nav aria-label="Main menu" className="w-full max-w-3xl md:max-w-4xl text-left grid grid-cols-2 md:grid-cols-4 auto-rows-fr gap-3 sm:gap-4">
       {ITEMS.map(it => (
         <Link
           key={it.href}
           href={it.href}
           className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-sm
-            p-3.5 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3
+            p-3.5 sm:p-4 flex flex-col sm:flex-row md:flex-col items-start sm:items-center md:items-start gap-3
             transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/[0.07] active:scale-[0.98] ${it.hover}`}
         >
           {/* แสงจางมุมขวาบน (ตอนชี้) */}

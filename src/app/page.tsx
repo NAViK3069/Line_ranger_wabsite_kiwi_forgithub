@@ -72,7 +72,7 @@ export default function HomePage() {
           </a>
         </div>
 
-        {/* เมนูหลัก — 6 ช่องเท่ากัน (ดู src/components/HomeMenu.tsx) */}
+        {/* เมนูหลัก — 8 ช่องเท่ากัน (ดู src/components/HomeMenu.tsx) */}
         <div className="flex justify-center">
           <HomeMenu />
         </div>

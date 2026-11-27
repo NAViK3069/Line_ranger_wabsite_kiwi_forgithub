@@ -402,10 +402,20 @@ const FloorCard = memo(function FloorCard({ f, data, lang, T, open, onToggle, on
                   {f.timeLimit != null && <Meta icon={IC.timer} label={T('เวลาจำกัด', 'Time limit')}>{f.timeLimit}{T(' วิ', 's')}</Meta>}
                   {f.saveCount != null && <Meta icon={IC.sally} label={T('ชาวเมืองที่ต้องช่วย', 'Citizens to rescue')}>{f.saveCount}</Meta>}
                   {f.boss && <Meta icon={IC.boss} label={T('บอส', 'Boss')} tone="text-rose-200">{tx(f.boss.name, lang)}</Meta>}
+                  {/* กลไก — จอใหญ่: อยู่แถวเดียวกับชิป */}
                   {f.gimmicks.map(g => (
-                    <GameIcon key={g.key} icon={data.gimmicks[g.key]?.icon} alt={tx(data.gimmicks[g.key]?.title, lang)} className="rounded w-[22px] h-[22px] lg:w-6 lg:h-6" />
+                    <GameIcon key={g.key} icon={data.gimmicks[g.key]?.icon} alt={tx(data.gimmicks[g.key]?.title, lang)} className="hidden lg:inline-flex rounded w-6 h-6" />
                   ))}
                 </div>
+                {/* กลไก — มือถือ/แท็บเล็ต: แยกลงมาอีกบรรทัด (หัวข้อ "กลไก" ของเกม) */}
+                {f.gimmicks.length > 0 && (
+                  <div className="lg:hidden mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10.5px] font-semibold text-fuchsia-200/70">{tx(data.ui.ENDLESS_GIMMICK, lang)}</span>
+                    {f.gimmicks.map(g => (
+                      <GameIcon key={g.key} icon={data.gimmicks[g.key]?.icon} alt={tx(data.gimmicks[g.key]?.title, lang)} className="rounded w-6 h-6" />
+                    ))}
+                  </div>
+                )}
 
                 {/* รางวัลผ่านชั้น */}
                 {f.reward.item && (

@@ -33,8 +33,12 @@ export default function GearOptionsPage() {
   const [interacted, setInteracted] = useState(false)
 
   useEffect(() => {
-    const o = new URLSearchParams(location.search).get('o')
-    if (o && GEAR_OPTIONS.some(g => g.id === o)) setSelected(o)
+    // ?o= เปิดได้เฉพาะออพชั่นที่มีวิดีโอแล้ว · ออพชั่นที่ยังล็อก/ไม่มีอยู่ → ลบ ?o= ออก แล้วแสดงออพชั่นแรก
+    const url = new URL(location.href)
+    const o = url.searchParams.get('o')
+    if (!o) return
+    if (GEAR_OPTIONS.some(g => g.id === o && g.scene)) setSelected(o)
+    else { url.searchParams.delete('o'); history.replaceState(null, '', url) }
   }, [])
 
   // ไม่ให้ Google เก็บหน้านี้ระหว่างที่ยังทำไม่เสร็จ (static export ตั้ง metadata ในหน้า client ไม่ได้)
@@ -46,6 +50,7 @@ export default function GearOptionsPage() {
   }, [])
 
   const choose = (id: string) => {
+    if (!GEAR_OPTIONS.some(g => g.id === id && g.scene)) return   // ยังไม่มีวิดีโอ = ล็อก
     setSelected(id)
     setInteracted(true)
     const url = new URL(location.href)
@@ -53,8 +58,7 @@ export default function GearOptionsPage() {
     history.replaceState(null, '', url)
   }
 
-  const opt = GEAR_OPTIONS.find(g => g.id === selected) ?? GEAR_OPTIONS[0]
-  const hasVideo = !!opt.scene
+  const opt = GEAR_OPTIONS.find(g => g.id === selected && g.scene) ?? GEAR_OPTIONS[0]
 
   return (
     <div className="min-h-screen pb-10">
@@ -83,11 +87,6 @@ export default function GearOptionsPage() {
           <h1 className="text-lg sm:text-xl font-bold text-white">{T(opt.th, opt.en)}</h1>
           <span className="text-sm text-gray-500">{T(opt.en, opt.th)}</span>
           <div className="flex-1" />
-          {!hasVideo && (
-            <span className="text-xs px-2 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300">
-              {T('ยังไม่มีวิดีโอ — แสดงวิดีโอตัวอย่าง', 'No video yet — showing a sample')}
-            </span>
-          )}
           {/* ดาวน์โหลดภาพ/วิดีโอของคลิปนี้ (ภาษาตามเว็บ) */}
           <DownloadMenu fileBase={`line-ranger-kiwi-${opt.id}-${lang}`} T={T} />
         </div>
@@ -97,20 +96,25 @@ export default function GearOptionsPage() {
           className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
           {GEAR_OPTIONS.map(g => {
             const on = g.id === opt.id
+            const locked = !g.scene
             return (
               <button
                 key={g.id}
                 onClick={() => choose(g.id)}
+                disabled={locked}
                 aria-pressed={on}
+                title={locked ? T('ยังไม่มีวิดีโอ — เร็วๆ นี้', 'No video yet — coming soon') : undefined}
                 className={`relative text-left rounded-xl border px-3 py-2.5 transition-colors min-h-[52px] ${
-                  on
+                  locked
+                    ? 'bg-white/[0.02] border-white/5 text-gray-500 cursor-not-allowed opacity-60'
+                    : on
                     ? 'bg-amber-500/20 border-amber-400/60 text-white'
                     : 'bg-white/[0.04] border-white/10 text-gray-300 hover:bg-white/[0.08] hover:border-white/20'
                 }`}
               >
                 <span className="block text-sm font-semibold leading-tight">{T(g.th, g.en)}</span>
                 <span className="block text-[11px] text-gray-500 leading-tight mt-0.5 truncate">{T(g.en, g.th)}</span>
-                {!g.scene && <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-gray-600" title={T('ยังไม่มีวิดีโอ', 'No video yet')} />}
+                {locked && <span className="material-icons-round absolute top-1.5 right-1.5 text-[14px] text-gray-500" aria-label={T('ล็อก — ยังไม่มีวิดีโอ', 'Locked — no video yet')}>lock</span>}
               </button>
             )
           })}

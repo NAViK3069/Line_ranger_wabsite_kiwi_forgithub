@@ -12,6 +12,7 @@ import type { AbilityOption } from '@/server/api/ranger-abilities/route'
 import type { SkillFxPayload } from '@/server/api/ranger-skill-effects/route'
 import { useLanguage } from '@/contexts/LanguageContext'
 import Pagination from '@/components/Pagination'
+import { usePageLoading } from '@/lib/pageLoading'
 
 
 interface RangerRecord {
@@ -196,6 +197,7 @@ export default function PublicRangerBookPage() {
   const { t, lang, tRanger, tStat, tAbility } = useLanguage()
   const [rangers, setRangers] = useState<RangerRecord[]>([])
   const [loading, setLoading] = useState(true)
+  usePageLoading(loading)
   const [search, setSearch] = useState('')
   const [filterOpen, setFilterOpen] = useState(false)
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)

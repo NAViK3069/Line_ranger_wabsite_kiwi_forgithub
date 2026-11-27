@@ -18,6 +18,7 @@ import { useLanguage } from '@/contexts/LanguageContext'
 import { apiFetch, proxyFile } from '@/lib/staticApi'
 import { adminFetch } from '@/lib/adminApi'
 import GachaRangerDetailPopup from '@/components/GachaRangerDetailPopup'
+import { usePageLoading } from '@/lib/pageLoading'
 
 // ── ข้อมูล ──────────────────────────────────────────────
 
@@ -191,7 +192,7 @@ function starSrc(info?: RangerInfo): string | null {
  * รูปเรนเจอร์ในการ์ด: มีตำแหน่งหน้า → ซูมเข้าหาหน้า (รูป -thum-140 ถ้ามี) · ไม่มี → เต็มตัวแบบเดิม
  * ต้องรู้ขนาดจริงของรูปก่อนถึงจะวางได้ → ซ่อนไว้จนโหลดเสร็จ (ไม่กระตุก)
  */
-function RangerImg({ id, face, alt }: { id: string; face?: Face; alt: string }) {
+function RangerImg({ id, face, alt, pending }: { id: string; face?: Face; alt: string; pending?: boolean }) {
   const [hiFailed, setHiFailed] = useState(false)
   const [size, setSize] = useState<{ w: number; h: number; hi: boolean } | null>(null)
   const hi = !!face && !hiFailed
@@ -199,6 +200,8 @@ function RangerImg({ id, face, alt }: { id: string; face?: Face; alt: string }) 
   const measure = (img: HTMLImageElement | null) => {
     if (img?.complete && img.naturalWidth && (!size || size.hi !== hi)) setSize({ w: img.naturalWidth, h: img.naturalHeight, hi })
   }
+  // ยังไม่รู้ตำแหน่งหน้า → ยังไม่ต้องโชว์ (กันภาพเต็มตัวแวบก่อนซูมหน้า)
+  if (pending) return null
   if (!face) {
     // eslint-disable-next-line @next/next/no-img-element
     return <img decoding="async" src={src} alt={alt} draggable={false} loading="lazy" />
@@ -217,14 +220,14 @@ function RangerImg({ id, face, alt }: { id: string; face?: Face; alt: string }) 
   )
 }
 
-function CardFace({ id, info, alt, face }: { id: string; info?: RangerInfo; alt: string; face?: Face }) {
+function CardFace({ id, info, alt, face, pending }: { id: string; info?: RangerInfo; alt: string; face?: Face; pending?: boolean }) {
   const el = hasElement(info?.element) ? info!.element! : null
   const stars = starSrc(info)
   return (
     <>
       <span className={'tl-card' + (el ? ' has-el' : '')} style={{ backgroundImage: el ? `url(${bgSrc(el)})` : darkCss(frameOf(info)) }}>
         {/* key = รหัส: ภาพที่กำลังลากใช้คอมโพเนนต์เดิมกับตัวอื่นได้ → เริ่มวัดขนาดใหม่ทุกครั้งที่เปลี่ยนตัว */}
-        <RangerImg key={id} id={id} face={face} alt={alt} />
+        <RangerImg key={id} id={id} face={face} alt={alt} pending={pending} />
       </span>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {el && <img loading="lazy" decoding="async" className="tl-el" src={elSrc(el)} alt="" draggable={false} />}
@@ -407,6 +410,9 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
   const [book, setBook] = useState<Record<string, RangerInfo>>({})
   /** ตำแหน่งหน้าของเรนเจอร์ (ข้อมูลเกม) — ยังไม่มี/โหลดไม่ได้ = การ์ดแสดงเต็มตัว */
   const [faces, setFaces] = useState<Record<string, Face>>({})
+  /** ข้อมูลเรนเจอร์ + ตำแหน่งหน้า มาครบแล้ว (สำเร็จหรือพลาดก็นับ) — ก่อนหน้านั้นให้ตัวโหลดกลางบังไว้ */
+  const [bookReady, setBookReady] = useState(false)
+  const [facesReady, setFacesReady] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [picking, setPicking] = useState(false)
@@ -480,6 +486,8 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
   const [toast, setToast] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [loading, setLoading] = useState(true)
+  // ตัวโหลดกลางบังไว้จนบอร์ด + ชื่อ/ธาตุ + ตำแหน่งหน้าพร้อม (ไม่งั้นการ์ดขึ้นเต็มตัวก่อนแล้วกระโดดไปซูมหน้า)
+  usePageLoading(loading || !bookReady || !facesReady)
 
   const flash = useCallback((m: string) => { setToast(m); window.setTimeout(() => setToast(t => (t === m ? null : t)), 2200) }, [])
 
@@ -548,10 +556,10 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
   useEffect(() => {
     apiFetch('/api/ranger-book').then(r => r.json()).then((d: { rangers?: ({ id: string } & RangerInfo)[] }) => {
       setBook(Object.fromEntries((d.rangers ?? []).map(r => [r.id, { name: r.name, element: r.element, grade: r.grade, evolution: r.evolution, type: r.type }])))
-    }).catch(() => {})
+    }).catch(() => {}).finally(() => setBookReady(true))
     apiFetch('/api/ranger-faces').then(r => r.json()).then((d: Record<string, Face>) => {
       if (d && typeof d === 'object' && !Array.isArray(d)) setFaces(d)
-    }).catch(() => {})
+    }).catch(() => {}).finally(() => setFacesReady(true))
   }, [])
   const nameOf = (id: string) => tRanger(id, book[id]?.name ?? id)
 
@@ -790,7 +798,7 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
       onClick={e => onItemClick(e, id)}
       onContextMenu={e => onItemContextMenu(e, id)}
     >
-      <CardFace id={id} info={book[id]} alt={nameOf(id)} face={faces[id]} />
+      <CardFace id={id} info={book[id]} alt={nameOf(id)} face={faces[id]} pending={!facesReady} />
     </button>
   )
   const marker = (zone: string, i: number) => drag?.zone === zone && drag.index === i ? <span key={`m-${zone}-${i}`} className="tl-marker" /> : null
@@ -959,7 +967,7 @@ export default function TierListStudio({ mode = 'public' }: { mode?: 'public' | 
       {/* ภาพที่กำลังลาก */}
       {drag && (
         <div className="tl-item tl-ghost" style={{ left: drag.x, top: drag.y, background: frameCss(frameOf(book[drag.id])) }}>
-          <CardFace id={drag.id} info={book[drag.id]} alt="" face={faces[drag.id]} />
+          <CardFace id={drag.id} info={book[drag.id]} alt="" face={faces[drag.id]} pending={!facesReady} />
         </div>
       )}
 

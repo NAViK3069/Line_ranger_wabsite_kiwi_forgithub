@@ -15,6 +15,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useSound } from '@/contexts/SoundContext'
 import { fireConfetti } from '@/lib/confettiCelebration'
+import { usePageLoading } from '@/lib/pageLoading'
 
 // extract unitCode จาก imgUrl เช่น
 // https://rangers.lerico.net/res/u1556e-af/u1556e-af-thum.png → "u1556e-af"
@@ -107,6 +108,7 @@ export default function GachaRollPage() {
   const [rangers, setRangers] = useState<RangerEntry[]>([])
   const [guaranteedRangers, setGuaranteedRangers] = useState<GuaranteedEntry[]>([])
   const [loading, setLoading] = useState(true)
+  usePageLoading(loading)
   const [notFound, setNotFound] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [isFrog, setIsFrog] = useState(false)

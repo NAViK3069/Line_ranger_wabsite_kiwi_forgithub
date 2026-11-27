@@ -15,6 +15,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useSound } from '@/contexts/SoundContext'
 import { fireConfetti } from '@/lib/confettiCelebration'
+import { usePageLoading } from '@/lib/pageLoading'
 
 // ─── Types ────────────────────────────────────────
 interface GearEntry {
@@ -127,6 +128,7 @@ export default function GachaGearRollPage() {
   const [isChristmas, setIsChristmas]         = useState(false)
   const [christmasTierRates, setChristmasTierRates] = useState<ChristmasTierRates>({})
   const [loading, setLoading]                 = useState(true)
+  usePageLoading(loading)
   const [notFound, setNotFound]               = useState(false)
   const [isMobile, setIsMobile]               = useState(false)
 

@@ -10,6 +10,7 @@ import GearDetailPopup from '@/components/GearDetailPopup'
 import { useLanguage } from '@/contexts/LanguageContext'
 import Pagination from '@/components/Pagination'
 
+import { usePageLoading } from '@/lib/pageLoading'
 // ── Types ─────────────────────────────────────────────
 interface GearBookItem {
   id:             string
@@ -124,6 +125,7 @@ export default function PublicGearBookPage() {
   const [fxOpen, setFxOpen]         = useState<FxGroup[]>([])
   const [fxQuery, setFxQuery]       = useState<Partial<Record<FxGroup, string>>>({})
   const [loading, setLoading]       = useState(true)
+  usePageLoading(loading)
   const [error, setError]           = useState('')
   const [search, setSearch]         = useState('')
   const [filters, setFilters]       = useState<GearFilters>(EMPTY_FILTERS)

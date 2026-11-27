@@ -2,6 +2,7 @@
 // Root Layout - โครงสร้างหลักของทุกหน้า
 // ====================================================
 
+import GlobalLoader from '@/components/GlobalLoader'
 import type { Metadata } from 'next'
 import './globals.css'
 import DevToolsEgg from '@/components/DevToolsEgg'
@@ -103,6 +104,8 @@ export default function RootLayout({
         {/* โหลดฟอนต์หัวข้อ (LineBold) ตั้งแต่ต้น — ไม่งั้นหัวข้อขึ้นเป็นฟอนต์สำรองก่อนแล้วค่อยเปลี่ยน (กระพริบตอน F5) */}
         <link rel="preload" href="/fonts/linebold.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
         <link rel="preload" href="/gacha/images/LogoKiwi-160.webp" as="image" type="image/webp" />
+        {/* รูปหน้าโหลด — โหลดก่อนอย่างอื่น ตัวโหลดจะได้ขึ้นทันที */}
+        <link rel="preload" href="/loading/sally-idle.webp" as="image" type="image/webp" fetchPriority="high" />
         {/* JSON-LD: บอก Google ชื่อเว็บที่ถูกต้อง (แทน "Vercel") */}
         <script
           type="application/ld+json"
@@ -131,6 +134,8 @@ export default function RootLayout({
         <LanguageProvider>
             <SoundProvider>
               <UiClickSound />
+              {/* หน้าโหลดกลาง (Sally) — เปิดเว็บ / เปลี่ยนหน้า / หน้าที่ยังรอข้อมูล (usePageLoading) */}
+              <GlobalLoader />
               {children}
               <DevToolsEgg />
             </SoundProvider>

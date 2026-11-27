@@ -14,6 +14,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { usePageLoading } from '@/lib/pageLoading'
 
 type Kind = 'ranger' | 'gear'
 
@@ -91,6 +92,7 @@ export default function GachaSimulator({ initial }: { initial: Kind }) {
 
   const cfg = KINDS[kind]
   const loading = pools === null
+  usePageLoading(loading)
 
   return (
     <main className="min-h-screen px-4 py-8">

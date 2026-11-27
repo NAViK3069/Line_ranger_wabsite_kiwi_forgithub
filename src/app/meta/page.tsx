@@ -11,6 +11,7 @@ import RangerDetailPopup from '@/components/RangerDetailPopup'
 import GearDetailPopup from '@/components/GearDetailPopup'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { usePageLoading } from '@/lib/pageLoading'
 
 const LEAGUES = [
   { value: 0,  label: 'Legend',     players: 200 },
@@ -132,6 +133,7 @@ export default function MetaPage() {
   const [viewMode, setViewMode]             = useState<'rangers' | 'gears'>('rangers')
   const [data, setData]                     = useState<LeagueData | null>(null)
   const [loading, setLoading]               = useState(false)
+  usePageLoading(loading)
   const [error, setError]                   = useState('')
   const [progress, setProgress]             = useState<{ done: number; total: number } | null>(null)
   const [selectedRanger, setSelectedRanger] = useState<RangerStat | null>(null)

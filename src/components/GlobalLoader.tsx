@@ -10,21 +10,25 @@
 //   2) เปลี่ยนหน้าใต้ตัวโหลด · หน้าใหม่บอกว่ายังโหลดข้อมูล (usePageLoading) → ตัวโหลดอยู่ต่อ
 //   3) ทุกอย่างพร้อม → ค่อยๆ จางออก เห็นหน้าใหม่ที่เสร็จแล้ว
 // เปิดเว็บครั้งแรก: HTML แรก (static) มีตัวโหลดอยู่แล้ว → ขึ้นก่อน JS ทำงาน
+// "พร้อม" = ไม่มีใครบอกว่ายังโหลด (usePageLoading) + ฟอนต์ + รูปที่อยู่บนจอโหลดเสร็จ (settlePage)
+// หน้าที่เคยพร้อมแล้วในรอบนี้: ไปได้เลยไม่บัง — ตัวโหลดโผล่เฉพาะถ้ายังไม่พร้อมภายใน REVISIT_DELAY
 // โหลดข้อมูลเพิ่มในหน้าเดิม (เช่นเปลี่ยน League): ถ้าเสร็จเร็วกว่า SHOW_DELAY ไม่เห็นตัวโหลดเลย
 // ====================================================
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import {
-  beginNavigation, endNavigation, getNavKind, getPageLoading, notePath, getServerPageLoading, isNavigating, subscribePageLoading,
+  beginNavigation, endNavigation, getNavKind, getPageLoading, isPathReady, markPathReady, notePath, getServerPageLoading, isNavigating, subscribePageLoading,
 } from '@/lib/pageLoading'
 import { useLanguage } from '@/contexts/LanguageContext'
 
 const SHOW_DELAY = 150    // ms — โหลดในหน้าเดิมเร็วกว่านี้ไม่ต้องเห็น
+const REVISIT_DELAY = 500 // ms — หน้าที่เคยโหลดเสร็จแล้ว: ข้อมูล/รูปอยู่ในเครื่อง ปกติพร้อมก่อนนี้ → ไม่เห็นตัวโหลด
 const NAV_FADE_IN = 200   // ms — ตัวโหลดขึ้นทับหน้าเดิมก่อนเปลี่ยนหน้า
 const MIN_VISIBLE = 450   // ms — โผล่แล้วอยู่อย่างน้อยเท่านี้ (ไม่แวบ)
 const FADE = 350          // ms — จางออก
 const NAV_TIMEOUT = 10000 // ms — กันค้าง: เปลี่ยนหน้าไม่สำเร็จก็ปล่อย
+const SETTLE_MAX = 10000  // ms — รอรูปบนจอนานสุดเท่านี้ (รูปข้างนอกช้า/เสีย ก็ไม่ค้าง)
 
 const CSS = `
 @keyframes gl-in { from { opacity: 0 } to { opacity: 1 } }
@@ -33,13 +37,58 @@ const CSS = `
 @keyframes gl-bar { 0% { transform: translateX(-100%) } 100% { transform: translateX(260%) } }
 @keyframes gl-dot { 0%,80%,100% { opacity: .25 } 40% { opacity: 1 } }
 .gl-in-delayed { animation: gl-in .3s ease-out ${SHOW_DELAY}ms both }
+.gl-in-revisit { animation: gl-in .3s ease-out ${REVISIT_DELAY}ms both }
 .gl-in-nav { animation: gl-in ${NAV_FADE_IN}ms ease-out both }
 @media (prefers-reduced-motion: reduce) { .gl-anim { animation: none !important } }
 `
 
-type Mode = 'instant' | 'nav' | 'delayed'
+type Mode = 'instant' | 'nav' | 'delayed' | 'revisit'
+/** โหมดที่หน่วงก่อนโผล่ → หน่วงกี่ ms */
+const delayOf = (m: Mode) => m === 'delayed' ? SHOW_DELAY : m === 'revisit' ? REVISIT_DELAY : 0
 /** ตัวโหลดเริ่มขึ้นเพราะอะไร: กดลิงก์ = ค่อยๆ ขึ้น · ย้อนกลับ = ทันที · โหลดในหน้าเดิม = หน่วงก่อนโผล่ */
-const entryMode = (): Mode => !isNavigating() ? 'delayed' : getNavKind() === 'history' ? 'instant' : 'nav'
+const entryMode = (): Mode => {
+  if (!isNavigating()) return 'delayed'
+  const k = getNavKind()
+  return k === 'history' ? 'instant' : k === 'revisit' ? 'revisit' : 'nav'
+}
+
+const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms))
+/** รูปที่อยู่บนจอ (หรือใกล้ๆ) แต่ยังโหลดไม่เสร็จ — ไม่นับรูปของตัวโหลดเอง / รูปที่ซ่อน (display:none) */
+function pendingImages(): HTMLImageElement[] {
+  const h = innerHeight
+  return [...document.images].filter(img => {
+    if (img.complete || !img.getAttribute('src') || img.closest('[data-global-loader]')) return false
+    const rs = img.getClientRects()
+    if (!rs.length) return false
+    const r = rs[0]
+    return r.top < h * 1.25 && r.bottom > -50
+  })
+}
+/**
+ * รอจนหน้าพร้อมโชว์จริง: ฟอนต์ + รูปบนจอโหลดเสร็จ (รูปใหม่ที่เพิ่งโผล่หลังข้อมูลมาก็รอด้วย)
+ * คืน true = พร้อมครบ · false = หมดเวลา/ยกเลิก
+ */
+async function settlePage(cancelled: () => boolean): Promise<boolean> {
+  const deadline = performance.now() + SETTLE_MAX
+  try { await Promise.race([document.fonts?.ready, sleep(3000)]) } catch { /* ไม่มี fonts API */ }
+  while (!cancelled()) {
+    await sleep(40) // ให้ React วาดผลข้อมูลล่าสุดก่อน แล้วค่อยดูรูป
+    if (cancelled()) return false
+    const imgs = pendingImages()
+    if (!imgs.length) return true
+    const left = deadline - performance.now()
+    if (left <= 0) return false
+    await Promise.race([
+      Promise.all(imgs.map(img => new Promise<void>(r => {
+        if (img.complete) return r()
+        img.addEventListener('load', () => r(), { once: true })
+        img.addEventListener('error', () => r(), { once: true })
+      }))),
+      sleep(left),
+    ])
+  }
+  return false
+}
 
 /** ลิงก์ที่ควรให้ตัวโหลดบังก่อนเปลี่ยนหน้า → URL ปลายทาง · ไม่ใช่ → null */
 function navTarget(e: MouseEvent): URL | null {
@@ -79,21 +128,31 @@ export default function GlobalLoader() {
   // กดลิงก์ในเว็บ: ตัวโหลดขึ้นก่อน แล้วค่อยเปลี่ยนหน้า (Link ของ Next ข้ามการนำทางเมื่อ defaultPrevented)
   useEffect(() => {
     let navTimer: ReturnType<typeof setTimeout> | undefined
+    let offCovered: (() => void) | undefined
     const onClick = (e: MouseEvent) => {
       const url = navTarget(e)
       if (!url) return
+      // เคยโหลดเสร็จแล้ว → ไปเลย (Link ทำงานตามปกติ) ตัวโหลดขึ้นเฉพาะถ้าช้าเกิน SHOW_DELAY
+      if (isPathReady(url.pathname)) { beginNavigation('revisit'); return }
       e.preventDefault()
       const hidden = phaseRef.current === 'hidden'
       beginNavigation('link')
       clearTimeout(navTimer)
-      // ตัวโหลดยังไม่อยู่บนจอ → รอให้ขึ้นทับจนทึบก่อน · อยู่แล้ว → ไปเลย
-      navTimer = setTimeout(() => router.push(url.pathname + url.search + url.hash), hidden ? NAV_FADE_IN : 0)
+      offCovered?.()
+      const go = () => { offCovered?.(); clearTimeout(navTimer); router.push(url.pathname + url.search + url.hash) }
+      if (!hidden) { go(); return }
+      // ตัวโหลดยังไม่อยู่บนจอ → รอให้ขึ้นทับจนทึบจริง (animation จบ) ค่อยเปลี่ยนหน้า
+      const onEnd = (ev: AnimationEvent) => { if (ev.animationName === 'gl-in') go() }
+      document.addEventListener('animationend', onEnd)
+      offCovered = () => { document.removeEventListener('animationend', onEnd); offCovered = undefined }
+      navTimer = setTimeout(go, NAV_FADE_IN + 400) // กันค้าง: เครื่องช้ามาก/ปิด animation
     }
     // ปุ่มย้อนกลับ/ไปข้างหน้า: จับไว้ใน lib/pageLoading.ts (ต้องมาก่อน Next)
     document.addEventListener('click', onClick, true)
     return () => {
       document.removeEventListener('click', onClick, true)
       clearTimeout(navTimer)
+      offCovered?.()
     }
   }, [router])
 
@@ -114,7 +173,21 @@ export default function GlobalLoader() {
     return () => clearTimeout(t)
   }, [navBusy])
 
-  const busy = !loaded || pending > 0
+  // ข้อมูลครบ (ไม่มีใครบอกว่ายังโหลด) แล้วยังต้องรอรูปบนจอ/ฟอนต์อีกชั้น
+  const dataBusy = !loaded || pending > 0
+  const [settled, setSettled] = useState(false)
+  useEffect(() => {
+    if (dataBusy) { setSettled(false); return }
+    if (settled) return
+    let stop = false
+    settlePage(() => stop).then(ok => {
+      if (stop) return
+      if (ok) markPathReady(location.pathname)
+      setSettled(true)
+    })
+    return () => { stop = true }
+  }, [dataBusy, settled])
+  const busy = dataBusy || !settled
   useEffect(() => {
     if (busy) {
       if (phase !== 'shown') {
@@ -127,8 +200,9 @@ export default function GlobalLoader() {
     if (phase !== 'shown') return
     const elapsed = performance.now() - shownAt.current
     // โหลดในหน้าเดิมเสร็จก่อนตัวโหลดทันโผล่ → ถอดเลย ผู้ใช้ไม่เห็นอะไร
-    if (mode === 'delayed' && elapsed < SHOW_DELAY) { setPhase('hidden'); return }
-    const visibleFor = mode === 'delayed' ? elapsed - SHOW_DELAY : elapsed
+    const delay = delayOf(mode)
+    if (delay && elapsed < delay) { setPhase('hidden'); return }
+    const visibleFor = elapsed - delay
     const t1 = setTimeout(() => setPhase('fading'), Math.max(0, MIN_VISIBLE - visibleFor))
     return () => clearTimeout(t1)
   }, [busy, phase, mode])
@@ -144,10 +218,10 @@ export default function GlobalLoader() {
   if (phase === 'hidden' && !starting) return null
   const shownMode = starting ? entryMode() : mode
   const th = lang === 'th'
-  const inCls = shownMode === 'nav' ? ' gl-in-nav' : shownMode === 'delayed' ? ' gl-in-delayed' : ''
+  const inCls = shownMode === 'instant' ? '' : ` gl-in-${shownMode}`
   return (
     // ชั้นนอก = จางออก (transition) · ชั้นใน = ค่อยๆ โผล่ (animation) — แยกกัน ไม่งั้น animation ทับ opacity ตอนจาง
-    <div role="status" aria-live="polite" aria-busy={busy}
+    <div role="status" aria-live="polite" aria-busy={busy} data-global-loader
       className="fixed inset-0 z-[100]"
       style={{ opacity: phase === 'fading' ? 0 : 1, transition: `opacity ${FADE}ms ease-out`, pointerEvents: phase === 'fading' ? 'none' : 'auto' }}>
       <style>{CSS}</style>

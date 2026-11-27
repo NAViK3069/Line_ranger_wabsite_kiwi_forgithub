@@ -13,7 +13,8 @@ import { useLayoutEffect } from 'react'
 
 let pending = 0
 let navigating = false
-let navKind: 'link' | 'history' = 'link'
+export type NavKind = 'link' | 'history' | 'revisit'
+let navKind: NavKind = 'link'
 const listeners = new Set<() => void>()
 const emit = () => { for (const l of listeners) l() }
 
@@ -22,10 +23,19 @@ export const getPageLoading = () => pending + (navigating ? 1 : 0)
 /** ฝั่ง server (สร้างหน้า static) ถือว่ายังโหลด → HTML แรกมีตัวโหลดอยู่แล้ว */
 export const getServerPageLoading = () => 1
 export const isNavigating = () => navigating
-/** link = กดลิงก์ในเว็บ (ตัวโหลดค่อยๆ ขึ้นก่อนเปลี่ยนหน้า) · history = ปุ่มย้อนกลับ/ไปข้างหน้าของเบราว์เซอร์ (ขึ้นทันที) */
+/**
+ * link = กดลิงก์ไปหน้าที่ยังไม่เคยโหลด (ตัวโหลดค่อยๆ ขึ้นก่อนเปลี่ยนหน้า)
+ * history = ปุ่มย้อนกลับ/ไปข้างหน้าไปหน้าที่ยังไม่เคยโหลด (ขึ้นทันที)
+ * revisit = ไปหน้าที่เคยโหลดเสร็จแล้ว (ไม่ขึ้น เว้นแต่ช้าจริง)
+ */
 export const getNavKind = () => navKind
 
-export function beginNavigation(kind: 'link' | 'history' = 'link') {
+// หน้าที่เคยโหลดเสร็จครบในรอบนี้ (ข้อมูล + รูปบนจอ) — กลับมาอีกไม่ต้องบังด้วยตัวโหลด
+const readyPaths = new Set<string>()
+export const markPathReady = (p: string) => { readyPaths.add(p) }
+export const isPathReady = (p: string) => readyPaths.has(p)
+
+export function beginNavigation(kind: NavKind = 'link') {
   if (navigating) return
   navigating = true; navKind = kind; emit()
 }
@@ -37,7 +47,9 @@ let knownPath = typeof window !== 'undefined' ? location.pathname : ''
 /** GlobalLoader แจ้ง path ปัจจุบันทุกครั้งที่เปลี่ยน */
 export const notePath = (p: string) => { knownPath = p }
 if (typeof window !== 'undefined') {
-  addEventListener('popstate', () => { if (location.pathname !== knownPath) beginNavigation('history') })
+  addEventListener('popstate', () => {
+    if (location.pathname !== knownPath) beginNavigation(isPathReady(location.pathname) ? 'revisit' : 'history')
+  })
 }
 export function endNavigation() { if (navigating) { navigating = false; emit() } }
 

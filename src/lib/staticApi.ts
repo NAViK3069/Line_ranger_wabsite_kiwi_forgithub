@@ -273,11 +273,30 @@ export async function apiFetch(input: string, init?: RequestInit): Promise<Respo
   const file = dataFile(pathname, q)
   if (!file) return json({ error: `No static data for ${pathname}` }, 404)
 
-  const res = await fetch(`${DATA_BASE}/${file}`, { signal: init?.signal })
-  if (res.status === 404) {
+  const d = await dataFileOnce(file)
+  if (init?.signal?.aborted) throw new DOMException('Aborted', 'AbortError')
+  if (d.status === 404) {
     const fb = emptyFallback(pathname, q)
     if (fb !== undefined) return json(fb)
     return json({ error: 'Not found' }, 404)
   }
-  return res
+  return new Response(d.body, { status: d.status, headers: { 'Content-Type': d.type } })
+}
+
+/**
+ * ไฟล์ข้อมูลเดียวกันดึงครั้งเดียวต่อการเปิดเว็บ (ข้อมูลเปลี่ยนวันละครั้งตอน deploy)
+ * → กลับมาหน้าเดิมได้ข้อมูลทันที ไม่ต้องรอเน็ต · หลายคอมโพเนนต์ขอพร้อมกันก็ยิงครั้งเดียว
+ */
+const dataMemo = new Map<string, Promise<{ status: number; body: string; type: string }>>()
+function dataFileOnce(file: string) {
+  let p = dataMemo.get(file)
+  if (!p) {
+    p = fetch(`${DATA_BASE}/${file}`).then(async r => ({
+      status: r.status, body: await r.text(), type: r.headers.get('Content-Type') ?? 'application/json',
+    }))
+    dataMemo.set(file, p)
+    // เน็ตหลุด / เซิร์ฟเวอร์พัง → ไม่จำ ให้ลองใหม่ได้ครั้งหน้า
+    p.then(d => { if (d.status >= 500) dataMemo.delete(file) }, () => dataMemo.delete(file))
+  }
+  return p
 }

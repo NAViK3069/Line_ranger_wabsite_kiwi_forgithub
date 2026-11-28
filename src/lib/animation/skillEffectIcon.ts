@@ -14,6 +14,9 @@
 //     FLASH / อื่นๆ : นิ่ง
 //   วางบนยูนิต (UnitNode ทุกจุดที่สร้าง เช่น 0xcd20ec): ลบไอคอนเดิม (tag 0x1be9fe) ก่อน → ยูนิตละ 1 ไอคอน
 //     จุดยึด (0.5, 0) ที่ (0, ความสูงยูนิต + 5pt) จากตำแหน่งยูนิต (= กลางกรอบไฟล์ .sam = จุดยืน)
+//     ความสูงยูนิต (UnitNode slot 0x7b8 = 0xd0a1b8) = UnitData ความสูง (0xd5c15c) × สเกลยูนิต
+//       UnitData ความสูง = ความสูงรูป res/<id>/<id>-thum.png (CCSprite::create → contentSize.height, แคชไว้)
+//       ถ้าได้ 0 → ใช้ contentSize ของโหนดยูนิตแทน · ไอคอนถูก setScale ตามสเกลยูนิตด้วย (ยูนิตปกติ = 1)
 //   ระยะแสดง: ฟังก์ชันแสดงไอคอนให้ยูนิต (0xbc62ec) ใช้ DelayTime(2.0) → RemoveSelf เป็นค่าตั้งต้น
 // ====================================================
 
@@ -21,7 +24,7 @@ import { proxyFile, corsImage } from '@/lib/staticApi'
 
 export const SKILL_ICON_SECONDS = 2.0
 /** ช่วงเฟดหายก่อนครบเวลา (เว็บเพิ่มเอง — ในเกมไอคอนหายทันที) */
-export const ICON_FADE_SECONDS = 0.4
+export const ICON_FADE_SECONDS = 0.2
 /** ขนาดโหนด 2×2 pt — กลางสไปรต์อยู่สูงกว่าจุดยึด 1pt */
 const NODE_HALF_PT = 1
 const LIFT_PT = 5
@@ -36,6 +39,22 @@ export interface IconSheet {
 }
 
 const BASE = 'https://rangers.lerico.net/res/skill_effect_icon/skill_effect_icon'
+const thumbH = new Map<string, Promise<number>>()
+
+/** ความสูงยูนิตแบบเกม (world px = px ของรูป hd) จาก -thum.png · โหลดไม่ได้ = 0 (ให้ผู้เรียกใช้กรอบไฟล์แทน) */
+export function loadUnitIconHeight(unitId: string): Promise<number> {
+  let p = thumbH.get(unitId)
+  if (!p) {
+    p = new Promise<number>(resolve => {
+      const img = new Image()
+      img.onload = () => resolve(img.naturalHeight || 0)
+      img.onerror = () => { thumbH.delete(unitId); resolve(0) }
+      img.src = `https://rangers.lerico.net/res/${unitId}/${unitId}-thum.png`
+    })
+    thumbH.set(unitId, p)
+  }
+  return p
+}
 let sheetPromise: Promise<IconSheet | null> | null = null
 
 /** โหลดชีตครั้งเดียวต่อการเปิดเว็บ (plist + png ผ่าน Worker → วาดลง canvas ได้โดยไม่ taint) */

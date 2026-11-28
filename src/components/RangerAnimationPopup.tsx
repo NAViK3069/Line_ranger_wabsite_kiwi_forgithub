@@ -11,7 +11,7 @@ import { proxyFile, fetchSamList, corsImage } from '@/lib/staticApi'
 import { apiFetch } from '@/lib/staticApi'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { loadSkillIconSheet, drawSkillIcon, SKILL_ICON_SECONDS, ICON_FADE_SECONDS, type IconSheet, type SkillIconSet, type SkillIconSpec } from '@/lib/animation/skillEffectIcon'
+import { loadSkillIconSheet, loadUnitIconHeight, drawSkillIcon, SKILL_ICON_SECONDS, ICON_FADE_SECONDS, type IconSheet, type SkillIconSet, type SkillIconSpec } from '@/lib/animation/skillEffectIcon'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useSound } from '@/contexts/SoundContext'
 import { SAMParser, applyAttackCombos, type SamFrame } from '@/lib/animation/samParser'
@@ -614,11 +614,13 @@ interface DummyAsset {
   // จุด CENTER = ระดับอกของเป้าหมาย: แกน X ตาม MAIN (จุดยืน) / แกน Y คือกึ่งกลางตัวจริงๆ
   // เดิมมีแค่ MAIN (พื้น) กับ FACE (0.65 ของลำตัว = ระดับหัวสำหรับตัวหัวโต) ไม่มีจุดกลางตัว
   centerAnchor: { x: number; y: number } | null
+  iconH: number   // ความสูงยูนิตแบบเกม (สูงรูป -thum.png) สำหรับวางไอคอนผลสกิล · 0 = ใช้สูงกรอบไฟล์
 }
 // โหลด .sam/.plist/.png ของกระสอบทราย แล้วหา animation ท่ายืน + คำนวณจุดยืน(anchor)/จุดรับดาเมจ(faceAnchor) คงที่
 // (คำนวณครั้งเดียวจาก bbox ของ anim ท่ายืนล้วนๆ — ไม่ผูกกับเฟรม/anim ที่กำลังเล่นอยู่ขณะนั้น)
 async function loadDummyRanger(unitId: string): Promise<DummyAsset | null> {
   try {
+    const iconHP = loadUnitIconHeight(unitId)
     const [list, centers] = await Promise.all([
       fetchSamList(unitId).then(r => r.json()) as Promise<{ samFiles?: string[] }>,
       fetchRenderCenters(unitId),
@@ -645,7 +647,7 @@ async function loadDummyRanger(unitId: string): Promise<DummyAsset | null> {
     // ลำตัวจริงของ u1517h-ron ทิ้ง) ส่วนแกน X ยึดตาม MAIN เพราะจุดยืนคือแกนกลางตัวอยู่แล้ว
     const medBox = animMedianBBox(sam, sprites, idleName)
     const centerAnchor = anchor && medBox ? { x: anchor.x, y: (medBox.y0 + medBox.y1) / 2 } : null
-    return { sam, sprites, idleName, hitName, liftWorld: unitLiftWorld(unitId), pivotX, anchor, faceAnchor, centerAnchor }
+    return { sam, sprites, idleName, hitName, liftWorld: unitLiftWorld(unitId), pivotX, anchor, faceAnchor, centerAnchor, iconH: await iconHP }
   } catch {
     return null
   }
@@ -944,6 +946,13 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
   useEffect(() => { skillIconsRef.current = skillIcons }, [skillIcons])
   const iconSheetRef = useRef<IconSheet | null>(null)
   const iconEventsRef = useRef<Record<string, { spec: SkillIconSpec; tick: number }>>({})
+  const mainIconHRef = useRef(0)   // ความสูงยูนิตแบบเกมของผู้ร่าย (สูงรูป -thum.png)
+  useEffect(() => {
+    let alive = true
+    mainIconHRef.current = 0
+    loadUnitIconHeight(rangerId).then(h => { if (alive) mainIconHRef.current = h })
+    return () => { alive = false }
+  }, [rangerId])
   useEffect(() => {
     const any = skillIcons && [skillIcons.skill1, skillIcons.skill2].some(x => x && (x.enemy || x.self))
     if (!any || iconSheetRef.current) return
@@ -1611,7 +1620,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
         }
         // ไอคอนผลสกิลเหนือหัวหุ่นตัวนี้ (ตำแหน่งยูนิต = กลางกรอบไฟล์)
         const node = dummyPointWorld(d, canvasCenter(d.sam) ?? d.anchor, dummyDrawOffset(d, standX, gap), unitYOff(d))
-        paintIcon(iconKey, originRef.current.x + node.x * z, originRef.current.y + node.y * z, d.sam.canvas?.h ?? 0)
+        paintIcon(iconKey, originRef.current.x + node.x * z, originRef.current.y + node.y * z, d.iconH || (d.sam.canvas?.h ?? 0))
       }
       paintDummy(dummy, dummyGapRef.current, dummyHitRef, 'front')
       if (rearDummyRef.current && rearGapRef.current > 0) {
@@ -1669,7 +1678,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       // ไอคอนผลสกิลเหนือหัวผู้ร่าย (บัฟตัวเอง) — ตำแหน่งยูนิต = กลางกรอบไฟล์ (+ระยะพุ่งของ MOVE_ATTACK)
       if (!viewingBulletFileRef.current) {
         const mp = mainGamePos()
-        paintIcon('main', originRef.current.x + dashX + mp.x * zoomRef.current, originRef.current.y + mp.y * zoomRef.current, mainCanvasHRef.current)
+        paintIcon('main', originRef.current.x + dashX + mp.x * zoomRef.current, originRef.current.y + mp.y * zoomRef.current, mainIconHRef.current || mainCanvasHRef.current)
       }
       // ── Layer panel: เก็บกรอบของแต่ละชิ้น + วาดกรอบแดงให้ชิ้นที่กำลังชี้ ──
       // คิดเฉพาะตอนเปิดแถบ (ปิดอยู่ = ไม่มีงานเพิ่มในลูปวาดเลย)

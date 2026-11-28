@@ -287,7 +287,9 @@ export default function InfinityTowerPage() {
   const titleLogo: TIcon = { atlas: 'main16', frame: `ml_endless_main_title_${lang === 'th' ? 'th' : 'en'}.png` }
 
   return (
-    <div className="min-h-screen pb-[calc(96px+env(safe-area-inset-bottom))] sm:pb-16 bg-[radial-gradient(120%_60%_at_50%_0%,#2a0d4d_0%,#12061f_55%,#0b0414_100%)]">
+    <div className="relative isolate min-h-screen pb-[calc(96px+env(safe-area-inset-bottom))] sm:pb-16">
+      {/* พื้นหลังยึดกับจอ — เดิมไล่สีตามความสูงทั้งหน้า (หลายหมื่น px) สีจึงเปลี่ยนไปเรื่อยๆ ตอนเลื่อน */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(120%_60%_at_50%_0%,#2a0d4d_0%,#12061f_55%,#0b0414_100%)]" />
       {/* มือถือ: fixed (ยึดกับจอที่มองเห็น) — sticky ในหน้ายาวมากๆ บน Chrome Android ถูกแถบ URL บังขอบบนตอนเลื่อนขึ้น-ลง
           จึงวางช่องว่างสูงเท่าแถบไว้แทนที่ · จอใหญ่ใช้ sticky ตามเดิม (มีแถบแท็บด้วย สูงไม่คงที่) */}
       <div aria-hidden className="sm:hidden" style={{ height: 49 }} />

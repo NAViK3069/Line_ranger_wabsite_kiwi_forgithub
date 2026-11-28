@@ -25,6 +25,7 @@ import { EnemySkeleton, Shimmer } from '../infinity-tower/TowerLoading'
 
 // canvas + โหลดไฟล์ .sam → ฝั่ง browser เท่านั้น
 const AreaMap = dynamic(() => import('./AreaMap'), { ssr: false })
+const StageScene = dynamic(() => import('./StageScene'), { ssr: false })
 
 type L = 'en' | 'th'
 type Tfn = (th: string, en: string) => string
@@ -488,12 +489,12 @@ function StageDetail({ s, a, data, lang, T, onEnemy }: { s: MSStage; a: MSArea; 
 
   return (
     <div className="border-t border-white/10 bg-black/25">
-      {/* ── หัวด่าน: ฉากต่อสู้ของเกม (res/<bg>/bg.png ต่อกันแนวนอน) ── */}
-      <div className="relative overflow-hidden">
-        <div aria-hidden className="absolute inset-0 bg-repeat-x opacity-90"
-          style={{ backgroundImage: `url(${LERICO_ORIGIN}/res/${s.bg}/bg.png)`, backgroundSize: 'auto 260%', backgroundPosition: 'center 72%' }} />
-        <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/40 to-black/10" />
-        <div className="relative flex items-center gap-3 px-3 py-3 sm:px-4 sm:py-4">
+      {/* ── หัวด่าน: ฉากต่อสู้ของเกม (bg + ออปเจค วางแบบในเกม — StageScene.tsx) ── */}
+      <div className="relative overflow-hidden min-h-[150px] sm:min-h-[190px] lg:min-h-[210px] flex flex-col justify-end bg-[#120a20]">
+        <StageScene bg={s.bg} field={s.distance ?? 1000} seed={s.code} />
+        <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-transparent" />
+        <div aria-hidden className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/60 to-transparent" />
+        <div className="relative flex items-end gap-3 px-3 py-3 sm:px-4 sm:py-4">
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-white/60">{tx(a.name, lang)} · {T('พื้นที่', 'Area')} {a.no}-{s.idx}</p>
             <p className="font-[family-name:var(--font-line)] text-[22px] sm:text-[26px] leading-tight text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">

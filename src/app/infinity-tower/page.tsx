@@ -50,11 +50,11 @@ const IC: Record<string, TIcon> = {
   sallyFree: { atlas: 'endlesspopup', frame: 'endless_sally_img02.png' },
 }
 
-/** สีตามประเภทด่าน */
+/** สีตามประเภทด่าน — ตรงกับสีของชั้นหอคอยในเกม (ช่วยเหลือ = ม่วงชมพู · ช่วยเหลือ/กรงขัง = ฟ้า · ล้อมโจมตี = เขียว) */
 const TONE: Record<TBattle, { chip: string; ring: string }> = {
-  OFFENCE: { chip: 'bg-sky-500/15 border-sky-400/40 text-sky-200', ring: 'border-sky-400/25' },
-  TIMEATTACK: { chip: 'bg-emerald-500/15 border-emerald-400/40 text-emerald-200', ring: 'border-emerald-400/25' },
-  SIEGE: { chip: 'bg-amber-500/15 border-amber-400/40 text-amber-200', ring: 'border-amber-400/25' },
+  OFFENCE: { chip: 'bg-fuchsia-500/15 border-fuchsia-400/40 text-fuchsia-200', ring: 'border-fuchsia-400/25' },
+  TIMEATTACK: { chip: 'bg-sky-500/15 border-sky-400/40 text-sky-200', ring: 'border-sky-400/25' },
+  SIEGE: { chip: 'bg-emerald-500/15 border-emerald-400/40 text-emerald-200', ring: 'border-emerald-400/25' },
   BOSS: { chip: 'bg-rose-500/15 border-rose-400/50 text-rose-200', ring: 'border-rose-400/35' },
 }
 const ELEMENT_ICON: Record<string, string> = { fire: 'fire', water: 'water', tree: 'wood', wood: 'wood', light: 'light', dark: 'dark' }

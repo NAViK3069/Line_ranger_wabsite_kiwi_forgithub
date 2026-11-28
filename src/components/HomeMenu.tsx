@@ -82,12 +82,14 @@ const ITEMS: Item[] = [
 export default function HomeMenu() {
   const { lang } = useLanguage()
   return (
-    <nav aria-label="Main menu" className="w-full max-w-3xl lg:max-w-6xl text-left grid grid-cols-2 lg:grid-cols-4 auto-rows-fr gap-3 sm:gap-3.5">
+    <>
+    {/* flex-wrap + กึ่งกลาง: แถวสุดท้ายที่ไม่เต็ม (เช่น เมนูที่ 9) อยู่ตรงกลาง ไม่ชิดซ้าย · ความกว้าง = 2 / 4 คอลัมน์ลบช่องว่าง */}
+    <nav aria-label="Main menu" className="w-full max-w-3xl lg:max-w-6xl text-left flex flex-wrap justify-center gap-3 sm:gap-3.5">
       {ITEMS.map(it => (
         <Link
           key={it.href}
           href={it.href}
-          className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-sm
+          className={`w-[calc(50%-6px)] sm:w-[calc(50%-7px)] lg:w-[calc(25%-10.5px)] group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-sm
             p-3.5 sm:px-4 sm:py-3.5 lg:px-3.5 xl:px-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-3.5 lg:gap-3 xl:gap-3.5
             transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/[0.07] active:scale-[0.98] ${it.hover}`}
         >
@@ -118,5 +120,6 @@ export default function HomeMenu() {
         </Link>
       ))}
     </nav>
+    </>
   )
 }

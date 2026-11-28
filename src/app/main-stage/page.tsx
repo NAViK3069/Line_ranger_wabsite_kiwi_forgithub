@@ -131,6 +131,10 @@ export default function MainStagePage() {
   const [open, setOpen] = useState<string | null>(null)
   const [enemy, setEnemy] = useState<TEnemy | null>(null)
   const headerRef = useRef<HTMLElement>(null)
+  /** ของที่กำลังหา (รหัสไอเทม "UNIT:u014e-cony") — ซ่อนพื้นที่ที่ไม่มี + ปุ่มด่านที่ไม่ดรอปมืดลง */
+  const [find, setFind] = useState<string | null>(null)
+  /** แผ่นมือถือ / กล่องคอมที่เปิดอยู่ */
+  const [sheet, setSheet] = useState<'find' | 'jump' | null>(null)
 
   useEffect(() => {
     apiFetch('/api/main-stage').then(r => (r.ok ? r.json() : Promise.reject(r.status)))
@@ -167,7 +171,7 @@ export default function MainStagePage() {
   }
   const pickMode = (m: StageMode) => {
     if (m === mode) return
-    setMode(m); setOpen(null); setTreasure(null); syncUrl(m, null)
+    setMode(m); setOpen(null); setTreasure(null); setFind(null); syncUrl(m, null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
   /**
@@ -237,7 +241,32 @@ export default function MainStagePage() {
     alignArea(a)
   }, [open, treasure, alignArea])
 
-  const areas = data?.modes[mode] ?? []
+  const allAreas = useMemo(() => data?.modes[mode] ?? [], [data, mode])
+  /** ของทั้งหมดที่ดรอปในโหมดนี้ (สำหรับช่องหาของ) */
+  const modeItems = useMemo(() => collectItems(allAreas), [allAreas])
+  const areas = useMemo(() => (find ? allAreas.filter(a => a.stages.some(st => stageHas(st, find))) : allAreas), [allAreas, find])
+  const findInfo = find ? modeItems.find(x => x.key === find) ?? null : null
+  const stageRange = useMemo(() => {
+    const nos = allAreas.flatMap(a => a.stages.map(st => st.no))
+    return nos.length ? [Math.min(...nos), Math.max(...nos)] as [number, number] : [1, 1] as [number, number]
+  }, [allAreas])
+  /** ไปด่าน (เลขด่านของโหมดนี้) — เปิดรายละเอียดด่าน แล้วเลื่อนการ์ดพื้นที่ชิดบนจอ */
+  const goStage = (no: number) => {
+    const area = allAreas.find(a => a.stages.some(st => st.no === no))
+    const st = area?.stages.find(x => x.no === no)
+    if (!area || !st) return false
+    if (find && !area.stages.some(x => stageHas(x, find))) setFind(null)
+    setSheet(null)
+    openRef.current = st.code
+    setOpen(st.code)
+    syncUrl(mode, st.code)
+    pendingAlign.current = area.code
+    return true
+  }
+  const pickFind = (key: string | null) => {
+    setFind(key); setSheet(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
   const counts = useMemo(() => Object.fromEntries(MODES.map(m => [m, data?.modes[m].reduce((n, a) => n + a.stages.length, 0) ?? 0])) as Record<StageMode, number>, [data])
   const modeName = (m: StageMode) => (data ? tx(m === 'normal' ? data.ui.SPECIAL_AREA_DIFF_TEXT_NORMAL : m === 'hard' ? data.ui.SPECIAL_AREA_DIFF_TEXT_HARD : data.ui.FRIEND_HOME_EXTREME_STAGE, lang) : '')
     || ({ normal: 'Normal', hard: 'Hard', extreme: 'Extreme' })[m]
@@ -262,6 +291,14 @@ export default function MainStagePage() {
               <ModeTab key={m} m={m} on={mode === m} label={modeName(m)} n={counts[m]} onClick={() => pickMode(m)} />
             ))}
           </div>
+          {data && (
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              <FindBox items={modeItems} data={data} lang={lang} T={T} value={find} onPick={pickFind}
+                open={sheet === 'find'} onOpen={v => setSheet(v ? 'find' : null)} />
+              <JumpBox T={T} range={stageRange} areas={allAreas} lang={lang} onGo={goStage}
+                open={sheet === 'jump'} onOpen={v => setSheet(v ? 'jump' : null)} />
+            </div>
+          )}
         </div>
       </header>
 
@@ -272,12 +309,30 @@ export default function MainStagePage() {
         {failed && <p className="mt-10 text-center text-rose-300">{T('โหลดข้อมูลด่านไม่ได้', 'Could not load the stage data')}</p>}
         {!data && !failed && <AreasSkeleton />}
 
+        {/* กำลังหาของ: บอกว่าเจอกี่ด่าน/พื้นที่ + ล้าง */}
+        {data && findInfo && (
+          <div className="mt-3 flex items-center gap-2.5 rounded-2xl border border-amber-300/30 bg-gradient-to-r from-amber-400/15 via-amber-400/5 to-transparent p-2.5">
+            <span className="shrink-0 flex items-center justify-center w-11 h-11 rounded-xl bg-black/30 ring-1 ring-amber-300/40">
+              <ItemIcon icon={data.items[findInfo.key]?.icon} alt="" className="w-10 h-10" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[14px] text-white">{tx(data.items[findInfo.key]?.name, lang)}</p>
+              <p className="text-[11.5px] text-amber-100/80">
+                {T(`ดรอปใน ${findInfo.stages} ด่าน · ${findInfo.areas} พื้นที่`, `Drops in ${findInfo.stages} stages · ${findInfo.areas} areas`)}
+              </p>
+            </div>
+            <button onClick={() => pickFind(null)} className="shrink-0 flex items-center gap-1 h-9 rounded-xl px-3 text-sm text-amber-100 ring-1 ring-amber-300/30 hover:bg-white/10">
+              <span className="material-icons-round text-[18px]">close</span>{T('ล้าง', 'Clear')}
+            </button>
+          </div>
+        )}
+
         {data && (
-          <ol key={mode} className="it-stagger mt-3 space-y-3 sm:space-y-4">
+          <ol key={`${mode}:${find ?? ''}`} className="it-stagger mt-3 space-y-3 sm:space-y-4">
             {areas.map((a, i) => (
               <AreaCard key={a.code} a={a} data={data} lang={lang} T={T} order={Math.min(i, 10)}
                 open={a.stages.some(s => s.code === open) ? open : null} onToggle={toggle} onEnemy={setEnemy}
-                treasureOpen={treasure === a.code} onTreasure={toggleTreasure} />
+                treasureOpen={treasure === a.code} onTreasure={toggleTreasure} findItem={find} />
             ))}
           </ol>
         )}
@@ -298,9 +353,226 @@ export default function MainStagePage() {
         </nav>
       )}
 
+      {/* มือถือ: ปุ่มลอย หาของ / ไปด่าน (เหนือแถบโหมด) */}
+      {data && (
+        <div className="sm:hidden fixed right-3 z-40 bottom-[calc(72px+env(safe-area-inset-bottom))] flex flex-col items-end gap-2">
+          <button onClick={() => setSheet('find')} aria-label={T('หาของ', 'Find item')}
+            className={`flex items-center gap-1.5 rounded-full h-11 pl-1.5 pr-3.5 text-white ring-1 ring-white/20 shadow-[0_8px_24px_rgba(0,0,0,0.5)] active:scale-95 transition-transform ${find ? 'bg-gradient-to-b from-amber-500 to-orange-700' : 'bg-[#2a1846]/95'}`}>
+            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-black/25">
+              {findInfo ? <ItemIcon icon={data.items[findInfo.key]?.icon} alt="" className="w-7 h-7" /> : <span className="material-icons-round text-[20px]">search</span>}
+            </span>
+            <span className="font-[family-name:var(--font-line)] text-[13.5px]">{T('หาของ', 'Find')}</span>
+          </button>
+          <button onClick={() => setSheet('jump')} aria-label={T('ไปด่าน', 'Go to stage')}
+            className="flex items-center gap-1.5 rounded-full h-11 pl-1.5 pr-3.5 text-white ring-1 ring-white/20 shadow-[0_8px_24px_rgba(0,0,0,0.5)] active:scale-95 transition-transform bg-gradient-to-b from-fuchsia-500 to-purple-700">
+            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-black/25"><GameIcon icon={BTN[mode].on} className="w-7 h-7" /></span>
+            <span className="font-[family-name:var(--font-line)] text-[13.5px]">{T('ไปด่าน', 'Stage')}</span>
+          </button>
+        </div>
+      )}
+      {data && sheet === 'find' && (
+        <Sheet onClose={() => setSheet(null)} label={T('หาของ', 'Find item')}>
+          <ItemPicker items={modeItems} data={data} lang={lang} T={T} value={find} onPick={pickFind} tall />
+        </Sheet>
+      )}
+      {data && sheet === 'jump' && (
+        <Sheet onClose={() => setSheet(null)} label={T('ไปด่าน', 'Go to stage')}>
+          <JumpPanel T={T} range={stageRange} areas={allAreas} lang={lang} onGo={goStage} autoFocus={false} />
+        </Sheet>
+      )}
+
       {enemy && (
         <TowerEnemyPopup enemy={enemy} name={tx(enemy.name, lang)} bossLabel={T('บอส', 'Boss')} T={T} onClose={() => setEnemy(null)} />
       )}
+    </div>
+  )
+}
+
+// ── หาของ / ไปด่าน ──
+
+const stageHas = (s: MSStage, key: string) => s.first.some(r => r.item === key) || s.drops.some(r => r.item === key)
+/** ลำดับชนิดของ: วัสดุ Potential/วิวัฒนาการ → เรนเจอร์ → เกียร์ → ตั๋ว/ไอเทม → อื่นๆ */
+const TYPE_RANK: Record<string, number> = { EV_MTRL: 0, UNIT: 1, UNIT_EQUIP: 2, P_GACHA: 3, CLS_GACHA: 3, SHORTEN_TIME: 4, ITEM: 5 }
+interface ModeItem { key: string; stages: number; areas: number; rank: number }
+function collectItems(areas: MSArea[]): ModeItem[] {
+  const m = new Map<string, { stages: Set<string>; areas: Set<string> }>()
+  for (const a of areas) for (const s of a.stages) for (const r of [...s.first, ...s.drops]) {
+    let e = m.get(r.item)
+    if (!e) m.set(r.item, e = { stages: new Set(), areas: new Set() })
+    e.stages.add(s.code); e.areas.add(a.code)
+  }
+  return [...m.entries()].map(([key, e]) => ({ key, stages: e.stages.size, areas: e.areas.size, rank: TYPE_RANK[key.split(':')[0]] ?? 9 }))
+    .sort((x, y) => x.rank - y.rank || x.key.localeCompare(y.key))
+}
+const TYPE_LABEL: Record<number, [string, string]> = {
+  0: ['วัสดุ', 'Materials'], 1: ['เรนเจอร์', 'Rangers'], 2: ['เกียร์', 'Gear'], 3: ['ตั๋วกาชา', 'Gacha tickets'],
+  4: ['ตั๋วลดเวลา', 'Time tickets'], 5: ['ไอเทมต่อสู้', 'Battle items'], 9: ['อื่นๆ', 'Other'],
+}
+
+/** รายการของให้เลือก + ช่องค้นหาชื่อ (ไทย/อังกฤษ) — จัดกลุ่มตามชนิด */
+function ItemPicker({ items, data, lang, T, value, onPick, tall = false }: {
+  items: ModeItem[]; data: MainStageIndex; lang: L; T: Tfn; value: string | null; onPick: (key: string | null) => void; tall?: boolean
+}) {
+  const [q, setQ] = useState('')
+  const needle = q.trim().toLowerCase()
+  const shown = needle
+    ? items.filter(x => { const n = data.items[x.key]?.name; return `${n?.en ?? ''} ${n?.th ?? ''} ${x.key}`.toLowerCase().includes(needle) })
+    : items
+  const groups = [...new Set(shown.map(x => x.rank))]
+  return (
+    <div className="flex flex-col">
+      <label className="flex items-center gap-2 h-11 rounded-xl bg-white/5 px-3 ring-1 ring-white/15 focus-within:ring-amber-300/60">
+        <span className="material-icons-round text-[20px] text-gray-400">search</span>
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder={T('พิมพ์ชื่อของ เช่น Cony, Potential', 'Type a name, e.g. Cony, Potential')}
+          className="min-w-0 flex-1 bg-transparent text-[14px] text-white placeholder:text-gray-500 focus:outline-none" />
+        {q && <button type="button" onClick={() => setQ('')} aria-label={T('ล้าง', 'Clear')} className="text-gray-400"><span className="material-icons-round text-[18px]">close</span></button>}
+      </label>
+      <div className={`mt-2 overflow-y-auto overscroll-contain pr-1 ${tall ? 'max-h-[55vh]' : 'max-h-[60vh]'}`}>
+        {value && (
+          <button type="button" onClick={() => onPick(null)} className="mb-2 w-full flex items-center justify-center gap-1 h-9 rounded-xl text-sm text-amber-100 ring-1 ring-amber-300/30 hover:bg-white/10">
+            <span className="material-icons-round text-[18px]">filter_alt_off</span>{T('ไม่กรอง (แสดงทุกพื้นที่)', 'No filter (show all areas)')}
+          </button>
+        )}
+        {!shown.length && <p className="py-6 text-center text-sm text-gray-500">{T('ไม่เจอของชื่อนี้', 'Nothing matches')}</p>}
+        {groups.map(g => (
+          <section key={g} className="mb-2">
+            <p className="sticky top-0 z-10 bg-[#1b1030]/95 py-1 text-[10.5px] font-semibold uppercase tracking-wider text-gray-400">{T(...(TYPE_LABEL[g] ?? TYPE_LABEL[9]))}</p>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+              {shown.filter(x => x.rank === g).map(x => {
+                const it = data.items[x.key]
+                const on = value === x.key
+                return (
+                  <li key={x.key}>
+                    <button type="button" onClick={() => onPick(on ? null : x.key)} aria-pressed={on}
+                      className={`w-full flex items-center gap-2 rounded-xl p-1.5 text-left transition-colors ${on ? 'bg-amber-400/20 ring-1 ring-amber-300/60' : 'hover:bg-white/[0.06] active:bg-white/10'}`}>
+                      <ItemIcon icon={it?.icon} alt="" className="w-9 h-9 shrink-0" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] text-white">{tx(it?.name, lang)}</span>
+                        <span className="block text-[11px] text-gray-400">{T(`${x.stages} ด่าน · ${x.areas} พื้นที่`, `${x.stages} stages · ${x.areas} areas`)}</span>
+                      </span>
+                      {on && <span className="material-icons-round text-[18px] text-amber-300">check_circle</span>}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </section>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** ไปด่าน: พิมพ์เลขด่าน + ปุ่มลัดไปด่านแรกของแต่ละพื้นที่ */
+function JumpPanel({ T, range, areas, lang, onGo, autoFocus = true }: {
+  T: Tfn; range: [number, number]; areas: MSArea[]; lang: L; onGo: (no: number) => boolean; autoFocus?: boolean
+}) {
+  const [v, setV] = useState('')
+  const [miss, setMiss] = useState(false)
+  const n = parseInt(v, 10)
+  const ok = n >= range[0] && n <= range[1]
+  const go = (x: number) => { if (!onGo(x)) setMiss(true) }
+  return (
+    <div>
+      <form className="flex gap-2" onSubmit={e => { e.preventDefault(); if (ok) go(n) }}>
+        <input value={v} autoFocus={autoFocus} onChange={e => { setV(e.target.value.replace(/\D/g, '').slice(0, 3)); setMiss(false) }}
+          inputMode="numeric" enterKeyHint="go" placeholder={T(`ด่าน ${range[0]}-${range[1]}`, `Stage ${range[0]}-${range[1]}`)} aria-label={T('เลขด่าน', 'Stage number')}
+          className="min-w-0 flex-1 h-11 rounded-xl border border-white/15 bg-white/5 px-3.5 text-[16px] text-white placeholder:text-gray-500 focus:border-fuchsia-400/70 focus:outline-none" />
+        <button type="submit" disabled={!ok} className="h-11 rounded-xl bg-fuchsia-500 px-5 font-semibold text-white disabled:opacity-40 hover:bg-fuchsia-400 active:bg-fuchsia-600">{T('ไป', 'Go')}</button>
+      </form>
+      {miss && <p className="mt-1 text-xs text-rose-300">{T('ไม่มีด่านนี้ในโหมดนี้', 'No such stage in this mode')}</p>}
+      <p className="mt-3 mb-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-gray-400">{T('ไปพื้นที่', 'Jump to area')}</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-[45vh] overflow-y-auto overscroll-contain pr-1">
+        {areas.map(a => (
+          <button key={a.code} type="button" onClick={() => go(a.stages[0].no)}
+            className="flex items-center gap-2 rounded-xl bg-white/5 px-2 py-1.5 text-left ring-1 ring-white/10 hover:bg-fuchsia-500/20 active:bg-white/15">
+            <span className="shrink-0 rounded-md bg-black/30 px-1.5 text-[11px] font-bold leading-5 text-amber-200">{a.no}</span>
+            <span className="min-w-0">
+              <span className="block truncate text-[12.5px] text-white">{tx(a.name, lang)}</span>
+              <span className="block text-[10.5px] tabular-nums text-gray-400">{a.stages[0].no}-{a.stages[a.stages.length - 1].no}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** กล่องลอยของแถบบน (คอม) — ปิดเมื่อคลิกข้างนอก / Esc */
+function Popover({ open, onOpen, button, width, children }: {
+  open: boolean; onOpen: (v: boolean) => void; button: React.ReactNode; width: string; children: React.ReactNode
+}) {
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const off = (ev: MouseEvent) => { if (box.current && !box.current.contains(ev.target as Node)) onOpen(false) }
+    const esc = (ev: KeyboardEvent) => { if (ev.key === 'Escape') onOpen(false) }
+    addEventListener('mousedown', off); addEventListener('keydown', esc)
+    return () => { removeEventListener('mousedown', off); removeEventListener('keydown', esc) }
+  }, [open, onOpen])
+  return (
+    <div ref={box} className="relative">
+      {button}
+      {open && (
+        <div className={`absolute right-0 top-full mt-2 ${width} rounded-2xl border border-white/15 bg-[#1b1030] p-3 shadow-[0_16px_40px_rgba(0,0,0,0.6)]`}>
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FindBox({ items, data, lang, T, value, onPick, open, onOpen }: {
+  items: ModeItem[]; data: MainStageIndex; lang: L; T: Tfn; value: string | null; onPick: (key: string | null) => void
+  open: boolean; onOpen: (v: boolean) => void
+}) {
+  const it = value ? data.items[value] : null
+  return (
+    <Popover open={open} onOpen={onOpen} width="w-[540px]" button={
+      <button type="button" onClick={() => onOpen(!open)} aria-expanded={open}
+        className={`flex items-center gap-2 h-10 rounded-xl pl-1.5 pr-3 text-sm ring-1 transition-colors ${value ? 'bg-amber-400/20 text-white ring-amber-300/50' : 'bg-black/35 text-gray-200 ring-white/10 hover:bg-white/10'}`}>
+        <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-black/25">
+          {it ? <ItemIcon icon={it.icon} alt="" className="w-7 h-7" /> : <span className="material-icons-round text-[20px]">search</span>}
+        </span>
+        <span className="max-w-[160px] truncate">{it ? tx(it.name, lang) : T('หาของที่ดรอป', 'Find a drop')}</span>
+        <span className={`material-icons-round text-[18px] text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
+      </button>
+    }>
+      <ItemPicker items={items} data={data} lang={lang} T={T} value={value} onPick={onPick} />
+    </Popover>
+  )
+}
+
+function JumpBox({ T, range, areas, lang, onGo, open, onOpen }: {
+  T: Tfn; range: [number, number]; areas: MSArea[]; lang: L; onGo: (no: number) => boolean; open: boolean; onOpen: (v: boolean) => void
+}) {
+  return (
+    <Popover open={open} onOpen={onOpen} width="w-[420px]" button={
+      <button type="button" onClick={() => onOpen(!open)} aria-expanded={open}
+        className="flex items-center gap-1.5 h-10 rounded-xl bg-black/35 pl-2 pr-3 text-sm text-gray-200 ring-1 ring-white/10 hover:bg-white/10">
+        <span className="material-icons-round text-[19px]">my_location</span>{T('ไปด่าน', 'Go to stage')}
+        <span className={`material-icons-round text-[18px] text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
+      </button>
+    }>
+      <JumpPanel T={T} range={range} areas={areas} lang={lang} onGo={onGo} />
+    </Popover>
+  )
+}
+
+/** แผ่นเลื่อนขึ้นจากล่าง (มือถือ) */
+function Sheet({ onClose, label, children }: { onClose: () => void; label: string; children: React.ReactNode }) {
+  useEffect(() => {
+    const k = (ev: KeyboardEvent) => { if (ev.key === 'Escape') onClose() }
+    addEventListener('keydown', k)
+    return () => removeEventListener('keydown', k)
+  }, [onClose])
+  return (
+    <div className="sm:hidden fixed inset-0 z-50 flex items-end justify-center bg-black/60" onClick={onClose} role="dialog" aria-modal="true" aria-label={label}>
+      <div className="w-full rounded-t-3xl border-t border-white/15 bg-[#1b1030] p-4 pb-[calc(16px+env(safe-area-inset-bottom))]" onClick={e => e.stopPropagation()}>
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" />
+        <p className="mb-2 font-[family-name:var(--font-line)] text-[16px] text-white">{label}</p>
+        {children}
+      </div>
     </div>
   )
 }
@@ -363,17 +635,20 @@ function AreasSkeleton() {
   )
 }
 
-const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggle, onEnemy, treasureOpen, onTreasure }: {
+const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggle, onEnemy, treasureOpen, onTreasure, findItem }: {
   a: MSArea; data: MainStageIndex; lang: L; T: Tfn; order: number
   /** ด่านที่กางอยู่ในพื้นที่นี้ (null = ไม่มี) */
   open: string | null
   onToggle: (code: string) => void; onEnemy: (e: TEnemy) => void
   treasureOpen: boolean; onTreasure: (areaCode: string) => void
+  /** ของที่หาอยู่ทั้งหน้า (ช่องหาของ) — ใช้เป็นตัวกรองของพื้นที่นี้ ถ้าไม่ได้กด Key drops เอง */
+  findItem: string | null
 }) {
   const st = open ? a.stages.find(s => s.code === open) ?? null : null
   /** ของสำคัญที่เลือกอยู่ (กดไอคอนใน Key drops) → ปุ่มด่านที่ไม่ดรอปของนี้มืดลง · กดซ้ำ = ยกเลิก */
-  const [pick, setPick] = useState<string | null>(null)
-  const hasPick = (s: MSStage) => !!pick && [...s.first, ...s.drops].some(r => r.item === pick)
+  const [ownPick, setPick] = useState<string | null>(null)
+  const pick = ownPick ?? findItem
+  const hasPick = (s: MSStage) => !!pick && stageHas(s, pick)
   const first = a.stages[0]?.no, last = a.stages[a.stages.length - 1]?.no
   return (
     <li style={{ ['--i' as string]: order }}>
@@ -397,7 +672,7 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
             {a.story && <p className="mt-1 text-[11.5px] sm:text-[12.5px] leading-snug text-gray-400 line-clamp-3 sm:line-clamp-2 lg:max-w-[760px]">{tx(a.story, lang)}</p>}
           </div>
           {/* ของสำคัญ — มือถือ: แถวเต็มความกว้างใต้ฉาก · จอใหญ่: ใต้ชื่อ */}
-          <KeyDrops a={a} data={data} lang={lang} T={T} picked={pick} onPick={k => setPick(p => (p === k ? null : k))} />
+          <KeyDrops a={a} data={data} lang={lang} T={T} picked={pick} onPick={k => setPick(p => ((p ?? findItem) === k ? (findItem && findItem !== k ? findItem : null) : k))} />
           {/* ── ปุ่มด่าน 12 ปุ่ม (ของเกม) ── */}
           <div className="col-span-2 sm:col-span-1 grid grid-cols-6 lg:grid-cols-12 gap-x-1.5 gap-y-1 sm:gap-x-2 sm:gap-y-1.5 sm:max-w-[520px] lg:max-w-none">
             {a.stages.map(s => (

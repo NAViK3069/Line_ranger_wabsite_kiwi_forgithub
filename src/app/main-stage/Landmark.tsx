@@ -12,7 +12,7 @@ import { SAMParser } from '@/lib/animation/samParser'
 import { animBBox, loadSprites, renderSAMFrame, type SpriteMap } from '@/lib/animation/samRenderer'
 import { LERICO_ORIGIN, lericoProxy } from '@/lib/staticApi'
 
-interface Loaded { sam: SAMParser; sprites: SpriteMap; clip: string; box: { x0: number; x1: number; y0: number; y1: number } }
+export interface Loaded { sam: SAMParser; sprites: SpriteMap; clip: string; box: { x0: number; x1: number; y0: number; y1: number } }
 const cache = new Map<string, Promise<Loaded | null>>()
 const url = (land: string, file: string) => lericoProxy(`${LERICO_ORIGIN}/res/new_${land}/${file}`)
 /** ภาพนิ่งของพื้นที่ (ไม่ต้องผ่าน Worker — แค่แสดงเป็น <img>) */
@@ -26,7 +26,7 @@ async function fetchAtlas(land: string): Promise<[ArrayBuffer, Blob] | null> {
   return null
 }
 
-function loadLand(land: string): Promise<Loaded | null> {
+export function loadLand(land: string): Promise<Loaded | null> {
   let p = cache.get(land)
   if (!p) {
     p = (async () => {

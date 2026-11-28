@@ -4,7 +4,7 @@
 // /main-stage — ด่านหลัก (ปกติ / Hard / Extreme) ทุกพื้นที่ จากข้อมูลเกมของเรา
 //   ข้อมูล: /api/main-stage (พื้นที่ + ด่านทั้งหมด) + /api/main-stage/<stage> (ศัตรูแบ่งตามช่วง — โหลดตอนเปิดด่าน)
 //   ที่มา/กติกาของข้อมูล: src/lib/mainStage.ts
-//   การ์ดพื้นที่ = อนิเมชันฉากของเกม (new_arNN/arNN-lm-body — Landmark.tsx) + ปุ่มด่าน 12 ปุ่มของเกม
+//   การ์ดพื้นที่ = แผนที่ของเกม (area_bg) + ฉากอนิเมชัน new_arNN + ปุ่มด่านวางตามตำแหน่งในเกม (AreaMap.tsx) + ปุ่มด่าน 12 ปุ่ม
 //   (area3-btn-* / area-btn-hard-* / area-btn-extreme-*) → กดแล้วรายละเอียดด่านกางลงมาใต้การ์ด
 //
 // ออกแบบมือถือก่อน: ค่าเริ่มของ class = จอมือถือ · sm:/lg: = จอใหญ่ขึ้น
@@ -24,7 +24,7 @@ import TowerEnemyPopup from '../infinity-tower/TowerEnemyPopup'
 import { EnemySkeleton, Shimmer } from '../infinity-tower/TowerLoading'
 
 // canvas + โหลดไฟล์ .sam → ฝั่ง browser เท่านั้น
-const Landmark = dynamic(() => import('./Landmark'), { ssr: false })
+const AreaMap = dynamic(() => import('./AreaMap'), { ssr: false })
 
 type L = 'en' | 'th'
 type Tfn = (th: string, en: string) => string
@@ -321,10 +321,18 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
       <article className={`rounded-2xl border bg-[#181026]/95 overflow-hidden transition-colors ${st ? `${TONE[a.mode].open} shadow-[0_10px_30px_rgba(0,0,0,0.35)]` : TONE[a.mode].ring}`}>
         <div className="flex gap-3 p-3">
           {/* ── ฉากพื้นที่ (อนิเมชันเกม) + ชื่อ ── */}
-          <div className="w-[112px] sm:w-[170px] lg:w-[200px] shrink-0">
-            <div className="relative overflow-hidden rounded-xl bg-gradient-to-b from-white/[0.06] to-black/30 ring-1 ring-white/10">
-              <span className={`pointer-events-none absolute inset-x-4 bottom-2 h-6 rounded-[50%] blur-md ${TONE[a.mode].glow}`} />
-              <Landmark land={a.land} className={`aspect-[490/420] w-full ${TONE[a.mode].land}`} />
+          <div className="w-[128px] sm:w-[200px] lg:w-[240px] shrink-0">
+            <div className="relative overflow-hidden rounded-xl ring-1 ring-white/15 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.3)]">
+              <AreaMap land={a.land} tower={a.tower} mode={a.mode} className="w-full"
+                buttons={a.stages.map(s => {
+                  const b = btnOf(a), on = s.code === open
+                  return {
+                    x: s.pt[0], y: s.pt[1], on, label: String(s.no),
+                    icon: s.boss ? (on ? b.boss : b.bossOff) : (on ? b.on : b.off),
+                    digits: s.boss ? null : String(s.no).split('').map(b.num),
+                  }
+                })} />
+              <span aria-hidden className="pointer-events-none absolute inset-0 shadow-[inset_0_-18px_24px_-12px_rgba(0,0,0,0.55)]" />
               <span className={`absolute left-1.5 top-1.5 rounded-md px-1.5 text-[10px] font-bold leading-5 ring-1 backdrop-blur ${TONE[a.mode].chip}`}>
                 {T('พื้นที่', 'AREA')} {a.no}
               </span>

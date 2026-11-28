@@ -43,6 +43,8 @@ export interface MSStage {
   no: number
   /** ลำดับในพื้นที่ 1–12 */
   idx: number
+  /** ตำแหน่งปุ่มด่านบนแผนที่ของเกม (pt, y ขึ้นบน — stage.pointX / pointY) */
+  pt: [number, number]
   boss: boolean
   needHeart: number
   distance: number | null
@@ -83,6 +85,8 @@ export interface MSArea {
   land: string
   /** ซีซั่นของพื้นที่ (area.season 1–3) — ปุ่มด่านของเกมต่างกันตามซีซั่น */
   season: number
+  /** ตำแหน่งฉากพื้นที่บนแผนที่ของเกม (pt, y ขึ้นบน — area.towerPosX / towerPosY) */
+  tower: [number, number]
   treasure: MSTreasure | null
   name: TText
   story: TText | null
@@ -237,6 +241,7 @@ export function mainStageIndex(): MainStageIndex {
     const story = storyKey && areaTx.en[storyKey] ? pick(areaTx, storyKey) : null
     modes[mode].push({
       code, mode, no: modes[mode].length + 1, land: `ar${n}`, season: num(a.season) ?? 1,
+      tower: [num(a.towerPosX) ?? 0, num(a.towerPosY) ?? 0],
       treasure: treasureOf(a, keyTx),
       name: pickJoin(areaTx, str(a.areaNameCode) || `${code}_nm`, str(a.areaName)),
       story: story && story.en !== str(a.areaName) ? story : null,
@@ -261,7 +266,7 @@ export function mainStageIndex(): MainStageIndex {
         const ai = aiOf.get(sc) ?? []
         const tipKey = `${sc}_tip`
         return {
-          code: sc, no: Number(sc.replace(/^\D+/, '')) || i + 1, idx: i + 1,
+          code: sc, no: Number(sc.replace(/^\D+/, '')) || i + 1, idx: i + 1, pt: [num(s.pointX) ?? 0, num(s.pointY) ?? 0],
           boss: (num(s.bossType) ?? 0) > 0,
           needHeart: num(s.needHeart) ?? 0,
           distance: num(s.distance), soulCharge: num(s.soulCharge), enemyTowerHp: num(s.enemyTowerHp),

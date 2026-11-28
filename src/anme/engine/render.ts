@@ -10,6 +10,95 @@ import {
   GAME_PX_PER_PT, facing, fxLaunchPoint, gamePathPos, gameRotation, gameShotDistance, poseFrames, visibility, type Timeline,
 } from './timeline'
 import { ART_FACES_LEFT, clamp } from './scene'
+import { drawSkillIcon, ICON_FADE_SECONDS, SKILL_ICON_SECONDS, type SkillIconSpec } from '@/lib/animation/skillEffectIcon'
+import { auraSet, iconSheet, onSkillVisualReady, rangerVisual } from './skillVisuals'
+import { gameAnchorOffset } from './timeline'
+
+onSkillVisualReady(() => assets.refresh())
+
+/** ช่องสกิลของคิว (ชื่อท่าที่ปล่อย: s_… = สกิล 1 · s2_… = สกิล 2) */
+const slotOfRelease = (release: string): 'skill1' | 'skill2' | null =>
+  release.startsWith('s2_') ? 'skill2' : release.startsWith('s_') ? 'skill1' : null
+
+/** ตำแหน่งยูนิตแบบเกม (getPosition = กลางกรอบไฟล์ body) */
+function unitPoint(scene: Scene, a: Actor, rt: RangerRuntime, t: number): Vec {
+  const p = actorPos(scene, a, t)
+  const off = gameAnchorOffset(rt)
+  return { x: p.x + off.x * a.scale * (a.flip ? -1 : 1), y: p.y + off.y * a.scale }
+}
+
+// ── เอฟเฟกต์สีตอนร่ายสกิล (หลังตัว) — เริ่มที่ต้นช่วงร่าย เล่น normal ครั้งเดียว ──
+function drawCastAura(ctx: CanvasRenderingContext2D, scene: Scene, tl: Timeline, a: Actor, rt: RangerRuntime, t: number, alpha: number) {
+  const vis = rangerVisual(rt.rangerId)
+  if (!vis) return
+  let best: { c: Extract<Scene['cues'][number], { type: 'skill' }>; at: number } | null = null
+  for (const c of scene.cues) {
+    if (c.type !== 'skill' || c.actorId !== a.id || c.castColor === false) continue
+    const st = tl.skill.get(c.id)
+    if (!st || st.castStart > t || (best && st.castStart < best.at)) continue
+    best = { c, at: st.castStart }
+  }
+  if (!best) return
+  const slot = slotOfRelease(best.c.release)
+  const color = slot ? vis[slot].color : null
+  const set = color ? auraSet(color) : null
+  if (!set) return
+  const frames = set.sam.animations['normal'] ?? set.sam.animations[set.clips[0]]
+  const fi = Math.floor((t - best.at) * set.fps * Math.max(0.05, best.c.speed))
+  const fr = frames?.[fi]
+  if (!fr) return   // เล่นจบแล้ว (ไม่วน)
+  const p = unitPoint(scene, a, rt, t)
+  const c = set.sam.canvas
+  const ref = { x: c.x + c.w / 2, y: c.y + c.h / 2 }
+  const z = a.scale
+  renderSAMFrame(ctx, fr, set.sam.images, set.sprites, p.x - ref.x * z * (a.flip ? -1 : 1), p.y - ref.y * z, z, undefined, a.flip, 0, 0, alpha * a.opacity)
+}
+
+// ── ไอคอนผลสกิลเหนือหัว — ยูนิตละ 1 อัน (อันใหม่ทับ) · ขึ้น 2 วิ แล้วเฟดหาย ──
+function drawSkillIcons(ctx: CanvasRenderingContext2D, scene: Scene, tl: Timeline, t: number, order: Actor[]) {
+  const sheet = iconSheet()
+  const latest = new Map<string, { spec: SkillIconSpec; at: number }>()
+  const put = (id: string, spec: SkillIconSpec, at: number) => {
+    if (at > t || t - at >= SKILL_ICON_SECONDS) return
+    const cur = latest.get(id)
+    if (!cur || at >= cur.at) latest.set(id, { spec, at })
+  }
+  const setOf = (c: Extract<Scene['cues'][number], { type: 'skill' }>) => {
+    if (c.icons === false) return null
+    const caster = scene.actors.find(x => x.id === c.actorId)
+    const rt = caster ? assets.get(caster.assetId) : undefined
+    const slot = slotOfRelease(c.release)
+    if (rt?.kind !== 'ranger' || !slot) return null
+    return rangerVisual(rt.rangerId)?.[slot].icons ?? null
+  }
+  for (const h of tl.hits) {
+    const set = h.targetId ? setOf(h.cue) : null
+    if (set?.enemy) put(h.targetId!, set.enemy, h.at)
+  }
+  for (const c of scene.cues) {
+    if (c.type !== 'skill') continue
+    const set = setOf(c)
+    const st = tl.skill.get(c.id)
+    if (!set?.self || !st) continue
+    put(c.actorId, set.self, st.shots.length ? st.shots[0].impactAt : st.launchAt)
+  }
+  if (!sheet || !latest.size) return
+  for (const a of order) {
+    const ev = latest.get(a.id)
+    const rt = ev ? assets.get(a.assetId) : undefined
+    if (!ev || rt?.kind !== 'ranger') continue
+    const vis = visibility(scene, a, t)
+    if (!vis || vis.alpha <= 0) continue
+    const life = t - ev.at
+    const left = SKILL_ICON_SECONDS - life
+    const p = unitPoint(scene, a, rt, t)
+    const h = rangerVisual(rt.rangerId)?.iconH || rt.sam.canvas.h
+    ctx.save()
+    ctx.globalAlpha = vis.alpha * a.opacity * (left < ICON_FADE_SECONDS ? left / ICON_FADE_SECONDS : 1)
+    drawSkillIcon(ctx, sheet, ev.spec, p.x, p.y, h, a.scale, life)
+    ctx.restore()
+  }
+}
 import type { Actor, InfoCue, Scene, SkillCard, Vec } from './types'
 import { appUrl } from './storage'
 
@@ -167,6 +256,8 @@ function drawRanger(ctx: CanvasRenderingContext2D, scene: Scene, tl: Timeline, a
   const z = a.scale
   const ox = p.x - rt.stand.x * z, oy = p.y - rt.stand.y * z
   ctx.save()
+  // เอฟเฟกต์สีตอนร่ายสกิล — เกม z −20 = อยู่หลังตัวละคร
+  drawCastAura(ctx, scene, tl, a, rt, t, alpha)
   ctx.globalCompositeOperation = a.blend
   const hidden = hiddenSet(a.hiddenParts)
   renderSAMFrame(ctx, frame, rt.sam.images, rt.sprites, ox, oy, z, hidden, a.flip, rt.stand.x, 0, alpha * a.opacity)
@@ -713,6 +804,7 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene, t: numb
   }
   if (opts.afterActors) { ctx.save(); opts.afterActors(ctx); ctx.restore() }
   drawSkillFx(ctx, scene, tl, t)
+  drawSkillIcons(ctx, scene, tl, t, order)
   drawRanges(ctx, scene, t, order)
   ctx.restore()
 

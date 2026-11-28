@@ -431,6 +431,8 @@ function SkillFields({ c }: { c: SkillCue }) {
           <Toggle label={L('เป้าเล่นท่าโดนตี', 'Target plays hit clip')} value={c.hitReact} onChange={v => p(k => { k.hitReact = v })} />
           {c.hitReact && targetRt?.kind === 'ranger' && <Select label={L('ท่าโดนตี', 'Hit clip')} value={c.hitClip} options={targetRt.clips} onChange={v => p(k => { k.hitClip = v })} />}
           <Toggle label={L('เป้ากะพริบขาวตอนโดน', 'Target flashes white on hit')} value={c.flash} onChange={v => p(k => { k.flash = v })} />
+          <Toggle label={L('เอฟเฟกต์สีตอนร่าย (แบบเกม)', 'Cast color effect (game)')} value={c.castColor !== false} onChange={v => p(k => { k.castColor = v })} />
+          <Toggle label={L('ไอคอนผลสกิลเหนือหัว (แบบเกม)', 'Skill effect icons (game)')} value={c.icons !== false} onChange={v => p(k => { k.icons = v })} />
         </>}
       </Section>
 

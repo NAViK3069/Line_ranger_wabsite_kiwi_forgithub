@@ -211,6 +211,13 @@ export interface SkillCue extends CueBase {
    *   ไม่มีค่า = ไม่โดนซ้ำ
    */
   followUp?: number[]
+  /**
+   * ภาพประกอบสกิลแบบเกม (ชุดเดียวกับตัวเล่นอนิเมชั่นเรนเจอร์) — ไม่มีค่า = เปิด (ค่าเริ่มต้น)
+   *   castColor = เอฟเฟกต์สีหลังตัวตอนเริ่มร่าย (unit.skillEffectColor1/2)
+   *   icons     = ไอคอนผลสกิลเหนือหัว (skill.attackedEffect) บนเป้าที่โดน / บนตัวผู้ร่ายสำหรับผล SELF
+   */
+  castColor?: boolean
+  icons?: boolean
 }
 
 export interface SkillSound {

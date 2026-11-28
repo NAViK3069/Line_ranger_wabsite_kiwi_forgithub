@@ -383,6 +383,8 @@ class AssetStore {
 
   subscribe(fn: () => void) { this.listeners.add(fn); return () => { this.listeners.delete(fn) } }
   private emit() { this.version++; this.listeners.forEach(f => f()) }
+  /** ให้ฉากวาดใหม่ (ไฟล์ประกอบนอก asset เช่น เอฟเฟกต์สีตอนร่าย / ไอคอนผลสกิล โหลดเสร็จ) */
+  refresh() { this.emit() }
 
   get(id: string): Runtime | undefined { return this.runtimes.get(id) }
   statusOf(id: string): Status | undefined { return this.status.get(id) }

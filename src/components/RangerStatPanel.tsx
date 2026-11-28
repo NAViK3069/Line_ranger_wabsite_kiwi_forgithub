@@ -478,8 +478,8 @@ export default function RangerStatPanel({
   // animation popup: เปิดเมื่อกดรูปเรนเจอร์
   const [showAnimation, setShowAnimation] = useState(false)
   // แผ่นรายละเอียดสกิล/ความสามารถ (ปุ่มมุมขวาบนของ tooltip)
-  const [detail, setDetail] = useState<{ kind: 'skill' | 'ability'; code: string } | null>(null)
-  const openDetail = (kind: 'skill' | 'ability', code: string) => { play('click_global.ogg'); setIconPinnedKey(null); setDetail({ kind, code }) }
+  const [detail, setDetail] = useState<{ kind: 'skill' | 'ability' | 'awaken'; code: string } | null>(null)
+  const openDetail = (kind: 'skill' | 'ability' | 'awaken', code: string) => { play('click_global.ogg'); setIconPinnedKey(null); setDetail({ kind, code }) }
   // ── Book mode: picker + installed-gear detail ─────
   const [pickerSlot, setPickerSlot]       = useState<SlotKey | null>(null)
   const [bookDetailSlot, setBookDetailSlot] = useState<SlotKey | null>(null)
@@ -1211,7 +1211,7 @@ export default function RangerStatPanel({
                       isPinned={iconPinnedKey === 'awaken-ability'}
                       suppressHover={iconPinnedKey !== null && iconPinnedKey !== 'awaken-ability'}
                       onPinToggle={() => { play('click_global.ogg'); setIconPinnedKey(iconPinnedKey === 'awaken-ability' ? null : 'awaken-ability') }}
-                      onOpenDetail={() => openDetail('ability', awakenAbilities[0].code)}
+                      onOpenDetail={() => openDetail('awaken', topAwakenCode ?? awakenAbilities[0].code)}
                     />
                   : undefined
                 }
@@ -1414,15 +1414,15 @@ export default function RangerStatPanel({
             castSec: sk.slot === 'passive' ? null
               : (sk.slot === 'skill1' ? castTimesMap?.skill1 : (castTimesMap?.[sk.slot] ?? castTimesMap?.skill2))?.seconds ?? null,
           }))}
-          abilities={[
-            ...stats.abilities.map(ab => ({ code: ab.code, name: ab.name, description: ab.description, iconUrl: ab.iconUrl, game: ab.game })),
-            ...(awakenAbilities ?? []).map(ab => ({
-              code: ab.code,
-              name: lang === 'en' ? (ab.nameEn || ab.nameZh) : ab.nameZh,
-              description: lang === 'en' ? (ab.descEn || ab.descZh) : ab.descZh,
-              iconUrl: ab.iconUrl, game: ab.game, awaken: true,
-            })),
-          ]}
+          // ความสามารถ กับ ความสามารถปลุกพลัง แยกแผ่นกัน — แต่ละปุ่มเปิดเฉพาะกลุ่มของตัวเอง
+          abilities={detail.kind === 'awaken'
+            ? (awakenAbilities ?? []).map(ab => ({
+                code: ab.code,
+                name: lang === 'en' ? (ab.nameEn || ab.nameZh) : ab.nameZh,
+                description: lang === 'en' ? (ab.descEn || ab.descZh) : ab.descZh,
+                iconUrl: ab.iconUrl, game: ab.game,
+              }))
+            : stats.abilities.map(ab => ({ code: ab.code, name: ab.name, description: ab.description, iconUrl: ab.iconUrl, game: ab.game }))}
         />
       )}
 

@@ -28,8 +28,6 @@ export interface DetailAbility {
   description?: string
   iconUrl: string
   game?: AbilityGame
-  /** ความสามารถปลุกพลัง (9★) */
-  awaken?: boolean
 }
 
 const FALLBACK_ICON = '/gacha/images/No_image_SkillorAbility.png'
@@ -65,7 +63,7 @@ function YesNo({ ok, label }: { ok: boolean; label: string }) {
 }
 
 export default function SkillDetailSheet({ kind, skills = [], abilities = [], focusCode, grade, level, onClose }: {
-  kind: 'skill' | 'ability'
+  kind: 'skill' | 'ability' | 'awaken'
   skills?: DetailSkill[]
   abilities?: DetailAbility[]
   focusCode: string | null
@@ -105,7 +103,9 @@ export default function SkillDetailSheet({ kind, skills = [], abilities = [], fo
         <div className="relative flex items-center justify-between gap-2 px-4 pt-3.5 pb-2.5 border-b border-white/10 shrink-0">
           <div className="sm:hidden absolute left-1/2 -translate-x-1/2 top-1.5 h-1 w-10 rounded-full bg-white/20" aria-hidden />
           <h3 className="text-[15px] sm:text-lg font-black text-yellow-300">
-            {kind === 'skill' ? T('รายละเอียดทักษะ', 'Skill details') : T('รายละเอียดความสามารถ', 'Ability details')}
+            {kind === 'skill' ? T('รายละเอียดทักษะ', 'Skill details')
+              : kind === 'awaken' ? T('รายละเอียดความสามารถปลุกพลัง', 'Awakening Ability details')
+              : T('รายละเอียดความสามารถ', 'Ability details')}
           </h3>
           <button type="button" onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-white p-1 -mr-1">
             <span className="material-icons-round">close</span>
@@ -195,7 +195,7 @@ export default function SkillDetailSheet({ kind, skills = [], abilities = [], fo
             )
           })}
 
-          {kind === 'ability' && abilities.map(ab => {
+          {kind !== 'skill' && abilities.map(ab => {
             const name = tAbility(ab.code, ab.name)
             const desc = ab.description ? tAbilityDesc(ab.code, ab.description) : ''
             const rows = ab.game ? abilityRows(ab.game, lang) : []
@@ -206,11 +206,6 @@ export default function SkillDetailSheet({ kind, skills = [], abilities = [], fo
                   <Icon src={ab.iconUrl} />
                   <div className="min-w-0">
                     <div className="text-[14px] font-bold text-cyan-200 leading-tight">
-                      {ab.awaken && (
-                        <span className="mr-1.5 align-middle inline-block rounded bg-yellow-400/15 px-1.5 py-px text-[10px] font-bold text-yellow-300 ring-1 ring-yellow-400/30">
-                          {T('ปลุกพลัง', 'Awakening')}
-                        </span>
-                      )}
                       {name && name !== ab.code ? name : ab.code}
                     </div>
                     {desc && <p className="lr-tt-desc text-[12px] text-gray-400 mt-1 whitespace-pre-line leading-snug">{descLines(desc)}</p>}

@@ -337,7 +337,7 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="font-[family-name:var(--font-line)] text-[16px] sm:text-[19px] leading-tight text-white">{tx(a.name, lang)}</h3>
-            <p className="text-[11px] sm:text-[12px] tabular-nums text-gray-400">{T('ด่าน', 'Stage')} {first}–{last}</p>
+            <p className="text-[11px] sm:text-[12px] tabular-nums text-gray-400">{T('ด่าน', 'Stage')} {first}-{last}</p>
             {a.story && <p className="mt-1 hidden sm:block text-[12.5px] leading-snug text-gray-400 line-clamp-2 lg:max-w-[760px]">{tx(a.story, lang)}</p>}
             {/* ── ปุ่มด่าน 12 ปุ่ม (ของเกม) ── */}
             <div className="mt-2 grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-x-1.5 gap-y-1 sm:gap-x-2 sm:gap-y-1.5 sm:max-w-[520px] lg:max-w-none">
@@ -418,8 +418,8 @@ function TreasureBar({ t, land, stages, lang, T }: { t: MSTreasure; land: string
               return (
                 <li key={g.code} className="rounded-xl bg-white/[0.03] p-2 ring-1 ring-white/[0.07]">
                   {from != null && to != null && (
-                    <p className="mb-1.5 flex items-center justify-center">
-                      <TreasureStage from={from} to={to} lang={lang} />
+                    <p className="mb-1.5 text-center text-[12px] font-semibold tabular-nums text-white">
+                      {T('ด่าน', 'Stage')} {from}-{to}
                     </p>
                   )}
                   {/* แถวบน = กรอบชิ้น + ลูกศร (กึ่งกลางกรอบ) · แถวล่าง = ชื่อ */}
@@ -452,25 +452,6 @@ function TreasureBar({ t, land, stages, lang, T }: { t: MSTreasure; land: string
       )}
     </div>
   )
-}
-
-/** "Stage 1–4" ด้วยป้ายและตัวเลขของหน้าสมบัติในเกม (ml_treasure_stage_<ภาษา> + treasure_stage_num_0N) */
-function TreasureStage({ from, to, lang }: { from: number; to: number; lang: L }) {
-  const digits = (n: number) => String(n).split('').map((d, i) => <TreasureDigit key={i} icon={{ atlas: 'treasure16', frame: `treasure_stage_num_0${d}.png` }} />)
-  return (
-    // พื้นครีมแบบป้ายในเกม — ตัวอักษรของเกมเป็นสีน้ำตาล บนพื้นเข้มจะกลืนกัน
-    <span className="inline-flex items-center gap-1 rounded-md bg-gradient-to-b from-[#fff3d6] to-[#f1d9a8] px-1.5 py-0.5 ring-1 ring-[#b9824a]/70 shadow-[0_1px_0_rgba(0,0,0,0.35)]" aria-label={`Stage ${from}-${to}`}>
-      <GameIcon icon={{ atlas: 'treasure', frame: `ml_treasure_stage_${lang === 'th' ? 'th' : 'en'}.png` }} className="h-3 w-auto" />
-      <span className="inline-flex h-3.5 items-center">
-        {digits(from)}<TreasureDigit icon={{ atlas: 'treasure16', frame: 'treasure_stage_num_slash.png' }} />{digits(to)}
-      </span>
-    </span>
-  )
-}
-function TreasureDigit({ icon }: { icon: TIcon }) {
-  const url = useIconUrl(icon)
-  // eslint-disable-next-line @next/next/no-img-element
-  return url ? <img src={url} alt="" draggable={false} style={{ height: '100%', width: 'auto', maxWidth: 'none' }} /> : null
 }
 
 function StageButton({ s, b, on, onClick, T }: { s: MSStage; b: Btn; on: boolean; onClick: () => void; T: Tfn }) {
@@ -642,7 +623,7 @@ function Gimmicks({ s, data, lang, T }: { s: MSStage; data: MainStageIndex; lang
                       {f != null && f > 1 && <span className="ml-1.5 font-semibold text-rose-300">+{pct(f - 1)}</span>}
                     </p>
                     <p className="mt-0.5 text-[11.5px] leading-snug text-gray-400">{tx(gi?.desc, lang)}</p>
-                    <p className="mt-0.5 text-[10px] text-gray-500">{T('ค่าในเกม', 'Game value')} ×{f ?? '–'}{g.value != null ? ` · ${g.value}` : ''}</p>
+                    <p className="mt-0.5 text-[10px] text-gray-500">{T('ค่าในเกม', 'Game value')} ×{f ?? '-'}{g.value != null ? ` · ${g.value}` : ''}</p>
                   </div>
                 </div>
               )
@@ -745,7 +726,7 @@ function RewardGrid({ list, data, lang }: { list: TReward[]; data: MainStageInde
   )
 }
 
-const respawn = (e: TEnemy) => (e.minSec === e.maxSec ? `${e.minSec}` : `${e.minSec}–${e.maxSec}`)
+const respawn = (e: TEnemy) => (e.minSec === e.maxSec ? `${e.minSec}` : `${e.minSec}-${e.maxSec}`)
 const short = (n: number) => (n >= 1e9 ? `${Math.round(n / 1e8) / 10}B` : n >= 1e6 ? `${Math.round(n / 1e5) / 10}M` : n >= 1e4 ? `${Math.round(n / 100) / 10}K` : fmt(n))
 
 function EnemyList({ list, lang, T, onEnemy }: { list: MSEnemy[]; lang: L; T: Tfn; onEnemy: (e: TEnemy) => void }) {
@@ -797,8 +778,8 @@ function EnemyList({ list, lang, T, onEnemy }: { list: MSEnemy[]; lang: L; T: Tf
                   </span>
                 </td>
                 <td className="px-2 py-1.5 text-right tabular-nums text-gray-100">{fmt(e.hp)}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-gray-200">{e.attack ? fmt(e.attack) : '–'}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-gray-200">{e.specialAttack ? fmt(e.specialAttack) : '–'}</td>
+                <td className="px-2 py-1.5 text-right tabular-nums text-gray-200">{e.attack ? fmt(e.attack) : '-'}</td>
+                <td className="px-2 py-1.5 text-right tabular-nums text-gray-200">{e.specialAttack ? fmt(e.specialAttack) : '-'}</td>
                 <td className="px-2 py-1.5 text-right text-gray-200">{e.initDelay}{T(' วิ', 's')}</td>
                 <td className="px-2 py-1.5 text-right text-gray-200">{respawn(e)}{T(' วิ', 's')}</td>
                 <td className="px-3 py-1.5 text-right text-gray-200">{fmt(e.maxCount)}</td>

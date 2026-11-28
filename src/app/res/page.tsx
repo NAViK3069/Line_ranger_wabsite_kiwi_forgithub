@@ -286,17 +286,34 @@ function ResBrowser() {
     if (t) go(parentPath ? `${parentPath}/${t}` : t)
   }
 
-  // ไฟล์ .sam ทุกตัวในโฟลเดอร์ที่มี .plist กับ .png คู่ครบ — ขาดไฟล์ไหนก็เล่นไม่ได้
+  // ไฟล์ .sam ทุกตัวในโฟลเดอร์ที่มี atlas (.plist + .png) คู่ครบ — ขาดไฟล์ไหนก็เล่นไม่ได้
+  // atlas ชื่อเดียวกับ .sam (x.sam → x.plist + x.png) หรือมีป้ายต่อท้ายชื่อ (x.sam → x.16.plist + x.16.png
+  // เช่นด่าน new_ar14 — เกมเก็บ atlas สี 16 บิตไว้ชื่อนี้) → ส่งชื่อ atlas จริงให้ตัวเล่นทาง samAtlas
   // ส่งเป็น URL เต็มให้ตัวเล่น เพราะมันคาดหวังรูปแบบเดียวกับที่ API list คืนมา
-  const samUrls = useMemo(() => {
+  const { samUrls, samAtlas } = useMemo(() => {
     const names = new Set(entries.list.filter(e => e.kind === 'file').map(e => e.name))
-    return entries.list
-      .filter(e => e.kind === 'file' && e.name.toLowerCase().endsWith('.sam'))
-      .filter(e => {
-        const base = e.name.slice(0, -4)
-        return names.has(`${base}.plist`) && names.has(`${base}.png`)
-      })
-      .map(e => { const p = path ? `${path}/${e.name}` : e.name; return isLocalRes(p) ? localResUrl(p) : ORIGIN + p })
+    const toUrl = (name: string) => { const p = path ? `${path}/${name}` : name; return isLocalRes(p) ? localResUrl(p) : ORIGIN + p }
+    const atlasOf = (base: string): string | null => {
+      if (names.has(`${base}.plist`) && names.has(`${base}.png`)) return base
+      for (const n of names) {
+        if (!n.startsWith(`${base}.`)) continue
+        const m = n.slice(base.length).match(/^(\.[^.]+)\.plist$/i)
+        if (m && names.has(`${base}${m[1]}.png`)) return `${base}${m[1]}`
+      }
+      return null
+    }
+    const urls: string[] = []
+    const atlas: Record<string, string> = {}
+    for (const e of entries.list) {
+      if (e.kind !== 'file' || !e.name.toLowerCase().endsWith('.sam')) continue
+      const base = e.name.slice(0, -4)
+      const a = atlasOf(base)
+      if (!a) continue
+      const url = toUrl(e.name)
+      urls.push(url)
+      if (a !== base) atlas[url] = toUrl(a)
+    }
+    return { samUrls: urls, samAtlas: atlas }
   }, [entries, path])
 
   // ปิดตัวเล่นเองเมื่อเปลี่ยนโฟลเดอร์ ไม่งั้นจะค้างเล่นไฟล์ของโฟลเดอร์เดิม
@@ -466,6 +483,7 @@ function ResBrowser() {
               rangerId={path || 'res'}
               rangerName={path.slice(path.lastIndexOf('/') + 1) || 'res'}
               samFilesOverride={samUrls}
+              samAtlasOverride={samAtlas}
               embedded
               onClose={() => {}}
             />
@@ -639,6 +657,7 @@ function ResBrowser() {
           rangerId={path || 'res'}
           rangerName={path.slice(path.lastIndexOf('/') + 1) || 'res'}
           samFilesOverride={samUrls}
+              samAtlasOverride={samAtlas}
           onClose={() => setPlayerOpen(false)}
         />
       )}

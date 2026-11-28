@@ -58,6 +58,9 @@ interface Props {
   // ถ้าไม่ใส่ จะอ่านรายชื่อจากโฟลเดอร์ res/<rangerId>/ ผ่าน fetchSamList()
   // จำเป็นเพราะ fetchSamList รับได้แค่ชื่อชั้นเดียว ใช้กับพาธซ้อนอย่าง hd/area ไม่ได้
   samFilesOverride?: string[]
+  // atlas (.plist + .png) ของแต่ละ .sam ถ้าชื่อไม่ตรงกับ .sam — URL ไฟล์ .sam → URL ไม่มีนามสกุลของ atlas
+  // เช่น ด่าน new_ar14: ar14-lm-body.sam ใช้ ar14-lm-body.16.plist / .16.png (ไม่ใส่ = ชื่อเดียวกับ .sam)
+  samAtlasOverride?: Record<string, string>
   // ฝังอยู่ในหน้าเลย ไม่ใช่ป๊อปอัพลอยทับจอ — หน้า /res บนจอใหญ่ใช้แบบนี้
   // ต่างกันที่: ไม่มีฉากดำคลุม ไม่ล็อกการเลื่อนหน้า ไม่ปิดด้วย ESC และไม่มีปุ่มกากบาท
   embedded?: boolean
@@ -865,7 +868,7 @@ function BgStagePicker({ value, onPick, onClose }: { value: string | null; onPic
   )
 }
 
-export default function RangerAnimationPopup({ rangerId, rangerName, attackRange, skillTargets, skillAreas, skillRearMul, isFlyer, isAirAmbush, samFilesOverride, embedded = false, skillIcons, skillEffectColors, onClose }: Props) {
+export default function RangerAnimationPopup({ rangerId, rangerName, attackRange, skillTargets, skillAreas, skillRearMul, isFlyer, isAirAmbush, samFilesOverride, samAtlasOverride, embedded = false, skillIcons, skillEffectColors, onClose }: Props) {
   const { tStat } = useLanguage()
   const { play, volume } = useSound()
   const [samFiles, setSamFiles] = useState<string[]>([])
@@ -2213,7 +2216,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     if (!samFiles.length) return
     const samUrl = samFiles[currentSamIdx]; if (!samUrl) return
     viewingBulletFileRef.current = /-bul\d?\.sam$/i.test(samUrl)
-    const prefix = samUrl.replace(/\.sam$/i, '')
+    const prefix = samAtlasOverride?.[samUrl] ?? samUrl.replace(/\.sam$/i, '')
     let cancelled = false
     let ownSprites: SpriteMap | null = null   // sprites ที่ run นี้เป็นเจ้าของ → dispose ใน cleanup ของ run นี้
     setLoading(true); setError('')
@@ -2253,7 +2256,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
         if (spritesRef.current === ownSprites) spritesRef.current = null  // กัน drawFrame วาด bitmap ที่ปิดแล้ว
       }
     }
-  }, [samFiles, currentSamIdx, recomputeMainAnchor])
+  }, [samFiles, currentSamIdx, recomputeMainAnchor, samAtlasOverride])
 
   // ── สลับไฟล์อนิเมชั่น (⏮/⏭) → ล้างลำดับ/ช่วงเฟรมที่ตั้งไว้ทั้งหมด (ผูกกับไฟล์เดิม ใช้กับไฟล์ใหม่ไม่ได้ + กันสะสม state ค้างเปล่าประโยชน์) ──
   // รวมถึงเลือกพื้นที่/พื้นหลัง — ฟีเจอร์พวกนี้ใช้ได้เฉพาะไฟล์หลัก (body) สลับไฟล์แล้วต้องล้างทิ้ง

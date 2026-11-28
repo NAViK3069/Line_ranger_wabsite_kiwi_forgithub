@@ -18,7 +18,7 @@ import {
 import { ensureTriggerBasisLoaded, getTriggerBasis, type TriggerBasis } from '@/lib/rangerTriggerBasis'
 import type { RangerGrowthInput } from '@/lib/rangerLevelCalc'
 import { gameTable } from '@/lib/gameData'
-import type { LevelRules, SkillGame } from '@/lib/rangerGameCalc'
+import type { AbilityGame, LevelRules, SkillGame } from '@/lib/rangerGameCalc'
 
 // ── Response types ──────────────────────────────────
 
@@ -51,6 +51,8 @@ export interface AbilitySlot {
   condition2Type?: string
   condition2Value?: string
   probability?: number          // 0–1
+  /** แถวของตาราง ability (+ ความสามารถย่อย) — ตารางรายละเอียดความสามารถ */
+  game?: AbilityGame
 }
 
 export interface RangerStatsResponse {
@@ -142,11 +144,35 @@ function skillGame(code: string, depth = 0): SkillGame | undefined {
     code,
     skillType: str(r.skillType), factorType: str(r.factorType), factorApplyType: str(r.factorApplyType), factor: n(r.factor),
     buffFactorType: str(r.buffFactorType), buffFactor: n(r.buffFactor),
-    subFactorType: str(r.subFactorType), subFactor: n(r.subFactor),
+    subFactorType: str(r.subFactorType), subFactor: n(r.subFactor), subFactorApplyType: str(r.subFactorApplyType),
     probability: n(r.probability), delay: n(r.skillDelayTime), range: n(r.range), targetType: str(r.targetType),
+    rsearchRatio: n(r.rsearchRatio),
+    affectEventStage: n(r.affectEventStage), affectGuardian: n(r.affectGuardian), affectColossus: n(r.affectColossus),
     ...(subs ? { subs } : {}),
   }
 }
+
+let abilityIndex: Map<string, Record<string, unknown>> | null = null
+function abilityGame(code: string, depth = 0): AbilityGame | undefined {
+  if (!abilityIndex) abilityIndex = new Map(gameTable('ability').map(a => [String(a.code), a as Record<string, unknown>]))
+  const r = abilityIndex.get(code)
+  if (!r) return undefined
+  const subs = depth < 2
+    ? str(r.subAbilities).split(',').map(c => c.trim()).filter(Boolean).map(c => abilityGame(c, depth + 1)).filter((x): x is AbilityGame => !!x)
+    : []
+  return {
+    code,
+    actionType: str(r.actionType), aptitudeType: str(r.aptitudeType), searchType: str(r.searchType),
+    activeOnType: str(r.activeOnType), activeWhenType: str(r.activeWhenType),
+    cond1Type: str(r.activeCondition1Type), cond1Value: str(r.activeCondition1Value),
+    cond2Type: str(r.activeCondition2Type), cond2Value: str(r.activeCondition2Value),
+    probability: n(r.activeProbability, 1),
+    factorType: str(r.factorType), factorApplyType: str(r.factorApplyType),
+    buffFactorType: str(r.buffFactorType), buffFactor: n(r.buffFactor), subBuffFactor: n(r.subBuffFactor),
+    ...(subs.length ? { subs } : {}),
+  }
+}
+export { abilityGame }
 
 let factorIndex: Map<string, string> | null = null
 function factor(name: string, d: number): number {
@@ -255,6 +281,7 @@ export function buildAbilities(raw: RawRanger, unitCode: string): AbilitySlot[] 
       condition2Type:  rawGroupAb?.activeCondition2Type,
       condition2Value: rawGroupAb?.activeCondition2Value,
       probability:     rawGroupAb?.activeProbability,
+      game:            abilityGame(groupCode),
     })
     seenCodes.add(groupCode)
   }
@@ -283,6 +310,7 @@ export function buildAbilities(raw: RawRanger, unitCode: string): AbilitySlot[] 
       condition2Type:  rawAb?.activeCondition2Type,
       condition2Value: rawAb?.activeCondition2Value,
       probability:     rawAb?.activeProbability,
+      game:            abilityGame(code),
     })
     seenCodes.add(code)
     abilityIdx = (abilityIdx + 1) as 1 | 2

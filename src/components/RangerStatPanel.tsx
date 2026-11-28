@@ -11,12 +11,13 @@ import { createPortal } from 'react-dom'
 import type { GearEffect, GearEffects } from '@/lib/pvpScraper'
 import GearDetailPopup from '@/components/GearDetailPopup'
 import RangerAnimationPopup from '@/components/RangerAnimationPopup'
+import SkillDetailSheet from '@/components/SkillDetailSheet'
 import { selectSwitchableEffects, absEffectValue, effectKey, DEFAULT_SLOT_ORDER, type RangerContext, type SwitchableResultMap, type SlotOrder } from '@/lib/switchableSelector'
 import { recalcGearEffects, splitSliderLevel, effectAmount } from '@/lib/gearLevelCalc'
 import {
   levelStats, totalsOf, typedValues, finalStats, switchableConditionMet, skillUseChance,
   skillPlusHits, skillPlusPower, hasAttackFactorSkill,
-  type SkillGame, type LevelRules, type UnitBase, type FinalStats, type StatTotals,
+  type SkillGame, type AbilityGame, type LevelRules, type UnitBase, type FinalStats, type StatTotals,
 } from '@/lib/rangerGameCalc'
 import GearPickerModal, { type GearBookItem } from '@/components/GearPickerModal'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -54,6 +55,7 @@ interface AbilitySlot {
   condition2Type?:  string
   condition2Value?: string
   probability?:     number
+  game?:            AbilityGame
 }
 
 interface RangerStatsResponse {
@@ -475,6 +477,9 @@ export default function RangerStatPanel({
   const [detailGear, setDetailGear] = useState<GearItem | null>(null)
   // animation popup: เปิดเมื่อกดรูปเรนเจอร์
   const [showAnimation, setShowAnimation] = useState(false)
+  // แผ่นรายละเอียดสกิล/ความสามารถ (ปุ่มมุมขวาบนของ tooltip)
+  const [detail, setDetail] = useState<{ kind: 'skill' | 'ability'; code: string } | null>(null)
+  const openDetail = (kind: 'skill' | 'ability', code: string) => { play('click_global.ogg'); setIconPinnedKey(null); setDetail({ kind, code }) }
   // ── Book mode: picker + installed-gear detail ─────
   const [pickerSlot, setPickerSlot]       = useState<SlotKey | null>(null)
   const [bookDetailSlot, setBookDetailSlot] = useState<SlotKey | null>(null)
@@ -1187,6 +1192,7 @@ export default function RangerStatPanel({
             {stats.skills.length > 0 && (
               <PillIconRow label="Skill" items={stats.skills} kind="skill"
                 pinnedKey={iconPinnedKey} onSetPinnedKey={setIconPinnedKey}
+                onOpenDetail={code => openDetail('skill', code)}
                 skillPlusBySkill={skillPlusBySkill}
                 castTimesMap={castTimesMap}
               />
@@ -1196,6 +1202,7 @@ export default function RangerStatPanel({
             {stats.abilities.length > 0 && (
               <PillIconRow label="Ability" items={stats.abilities} kind="ability"
                 pinnedKey={iconPinnedKey} onSetPinnedKey={setIconPinnedKey}
+                onOpenDetail={code => openDetail('ability', code)}
                 extraEnd={awakenAbilities && awakenAbilities.length > 0
                   ? <AwakenAbilityButton
                       abilities={awakenAbilities}
@@ -1204,6 +1211,7 @@ export default function RangerStatPanel({
                       isPinned={iconPinnedKey === 'awaken-ability'}
                       suppressHover={iconPinnedKey !== null && iconPinnedKey !== 'awaken-ability'}
                       onPinToggle={() => { play('click_global.ogg'); setIconPinnedKey(iconPinnedKey === 'awaken-ability' ? null : 'awaken-ability') }}
+                      onOpenDetail={() => openDetail('ability', awakenAbilities[0].code)}
                     />
                   : undefined
                 }
@@ -1394,6 +1402,30 @@ export default function RangerStatPanel({
           ถ้า map ตามชื่อ slot ตรงๆ สกิลที่สองจะไม่มีข้อมูลเลย → ต้องเรียงเอาเฉพาะสกิลที่ใช้งานได้
           isFlyer      = ability "ab201_flight"  (projectile_data มี render.flightYn แต่เป็น 0 ทั้ง 3081 ตัว ใช้แยกไม่ได้)
           isAirAmbush   = ability "ab217_airatk" (+ตัวแปร _X ของ hyper evolve) = "Attacks Flyer units" */}
+      {detail && (
+        <SkillDetailSheet
+          kind={detail.kind}
+          focusCode={detail.code}
+          grade={stats.grade ?? 0}
+          level={displayLevel}
+          onClose={() => setDetail(null)}
+          skills={stats.skills.map(sk => ({
+            slot: sk.slot, code: sk.code, name: sk.name, description: sk.description, iconUrl: sk.iconUrl, game: sk.game,
+            castSec: sk.slot === 'passive' ? null
+              : (sk.slot === 'skill1' ? castTimesMap?.skill1 : (castTimesMap?.[sk.slot] ?? castTimesMap?.skill2))?.seconds ?? null,
+          }))}
+          abilities={[
+            ...stats.abilities.map(ab => ({ code: ab.code, name: ab.name, description: ab.description, iconUrl: ab.iconUrl, game: ab.game })),
+            ...(awakenAbilities ?? []).map(ab => ({
+              code: ab.code,
+              name: lang === 'en' ? (ab.nameEn || ab.nameZh) : ab.nameZh,
+              description: lang === 'en' ? (ab.descEn || ab.descZh) : ab.descZh,
+              iconUrl: ab.iconUrl, game: ab.game, awaken: true,
+            })),
+          ]}
+        />
+      )}
+
       {showAnimation && (() => {
         const animSkills = (stats?.skills ?? []).filter(sk => sk.slot !== 'passive')
         return createPortal(
@@ -1461,15 +1493,16 @@ function PillRow({ label, value }: { label: string; value: string }) {
 
 // ── Awakening Ability button (9★+) ─────────────────────
 // ใช้ pattern เหมือน IconWithTooltip: hover=show, click=pin, พี่น้องที่ pin แล้ว=suppressHover
-function AwakenAbilityButton({ abilities, topCode, selectable = false, isPinned, suppressHover, onPinToggle }: {
+function AwakenAbilityButton({ abilities, topCode, selectable = false, isPinned, suppressHover, onPinToggle, onOpenDetail }: {
   abilities: AwakenAbility[]
   topCode?: string | null   // code ของ Awakening Ability ที่คนใช้เยอะสุดใน Meta PVP — ถ้ามี ใช้ไอคอนตัวนี้แทน default
   selectable?: boolean      // true = ไม่ใช่ Meta → ให้กดเลือก/ถอด Awakening Ability เองได้ (แทน topCode ที่มาจากสถิติ)
   isPinned: boolean
   suppressHover: boolean
   onPinToggle: () => void
+  onOpenDetail?: () => void
 }) {
-  const { tAbility, tAbilityDesc, lang } = useLanguage()
+  const { tAbility, tAbilityDesc, tStat, lang } = useLanguage()
   const { play } = useSound()
   const [hovered, setHovered] = useState(false)
   const [selectedCode, setSelectedCode] = useState<string | null>(null)
@@ -1536,9 +1569,18 @@ function AwakenAbilityButton({ abilities, topCode, selectable = false, isPinned,
             maxHeight: maxH,
           }}
         >
-          {/* Header */}
-          <div className="font-bold mb-2 leading-tight text-[14px] sm:text-[18px] text-yellow-300">
-            {lang === 'en' ? 'Awakening Ability' : 'ความสามารถปลุกพลัง'}
+          {/* Header + ปุ่มรายละเอียด */}
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <div className="font-bold leading-tight text-[14px] sm:text-[18px] text-yellow-300">
+              {lang === 'en' ? 'Awakening Ability' : 'ความสามารถปลุกพลัง'}
+            </div>
+            {onOpenDetail && (
+              <button type="button" onClick={(e) => { e.stopPropagation(); onOpenDetail() }}
+                className="shrink-0 inline-flex items-center gap-0.5 rounded-md bg-white/10 hover:bg-white/20 ring-1 ring-white/15 px-1.5 py-0.5 text-[11px] font-semibold text-gray-100">
+                <span className="material-icons-round text-[14px]">table_view</span>
+                {tStat('Details')}
+              </button>
+            )}
           </div>
           {/* Ability list — ตัวที่ไฮไลท์ (topCode ใน Meta / selectedCode ที่กดเลือกเองในโหมดอื่น) มีกรอบ/พื้นหลังทองไฮไลท์
               โหมดอื่น (selectable) กดรูปซ้ำ = ถอด, กดตัวใหม่ = สลับ */}
@@ -1578,7 +1620,7 @@ function AwakenAbilityButton({ abilities, topCode, selectable = false, isPinned,
 }
 
 function PillIconRow({
-  label, items, kind, pinnedKey, onSetPinnedKey, skillPlusBySkill, castTimesMap, extraEnd,
+  label, items, kind, pinnedKey, onSetPinnedKey, onOpenDetail, skillPlusBySkill, castTimesMap, extraEnd,
 }: {
   label: string
   items: (SkillSlot | AbilitySlot)[]
@@ -1586,6 +1628,7 @@ function PillIconRow({
   pinnedKey: string | null
   onSetPinnedKey: (key: string | null) => void
   skillPlusBySkill?: Map<string, SkillPlusLine[]>
+  onOpenDetail?: (code: string) => void
   castTimesMap?: CastEntry | null
   extraEnd?: React.ReactNode
 }) {
@@ -1607,6 +1650,7 @@ function PillIconRow({
               isPinned={isThisPinned}
               suppressHover={pinnedKey !== null && !isThisPinned}
               onPinToggle={() => { play('click_global.ogg'); onSetPinnedKey(pinnedKey === itemKey ? null : itemKey) }}
+              onOpenDetail={onOpenDetail ? () => onOpenDetail(it.code) : undefined}
               skillPlusLines={kind === 'skill' ? skillPlusBySkill?.get(it.code) : undefined}
               skillTiming={(() => {
                 if (kind !== 'skill') return null               // ability → ไม่แสดง
@@ -1727,13 +1771,14 @@ function splitDescription(desc: string): string[] {
 }
 
 function IconWithTooltip({
-  item, kind, isPinned, suppressHover, onPinToggle, skillPlusLines, skillTiming,
+  item, kind, isPinned, suppressHover, onPinToggle, onOpenDetail, skillPlusLines, skillTiming,
 }: {
   item: SkillSlot | AbilitySlot
   kind: 'skill' | 'ability'
   isPinned: boolean
   suppressHover: boolean
   onPinToggle: () => void
+  onOpenDetail?: () => void
   skillPlusLines?: SkillPlusLine[]
   skillTiming?: SkillTiming | null
 }) {
@@ -1837,11 +1882,23 @@ function IconWithTooltip({
             maxHeight: tooltipMaxH,
           }}
         >
-          {/* Header: skill/ability name — ใหญ่ๆ ทุกภาษา (mobile 14px / desktop 18px) */}
-          <div className={`font-bold mb-1 leading-tight text-[14px] sm:text-[18px] ${
-            kind === 'skill' ? 'text-yellow-300' : isGroup ? 'text-pink-300' : 'text-cyan-300'
-          }`}>
-            {displayName}
+          {/* Header: ชื่อ + ปุ่มรายละเอียด (มุมขวาบน) — ไม่มีชื่อในไฟล์ภาษา → แสดงประเภทแทนโค้ด */}
+          <div className="flex items-start justify-between gap-2 mb-1">
+            <div className={`font-bold leading-tight text-[14px] sm:text-[18px] min-w-0 ${
+              kind === 'skill' ? 'text-yellow-300' : isGroup ? 'text-pink-300' : 'text-cyan-300'
+            }`}>
+              {displayName && displayName !== item.code ? displayName : tStat(kind === 'skill' ? 'Skill' : 'Ability')}
+            </div>
+            {onOpenDetail && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onOpenDetail() }}
+                className={`shrink-0 inline-flex items-center gap-0.5 rounded-md bg-white/10 hover:bg-white/20 ring-1 ring-white/15 px-1.5 py-0.5 text-[11px] font-semibold text-gray-100 ${isPinned ? '' : 'opacity-80'}`}
+              >
+                <span className="material-icons-round text-[14px]">table_view</span>
+                {tStat('Details')}
+              </button>
+            )}
           </div>
 
           {/* Stat line: Use X% · CD Ys */}

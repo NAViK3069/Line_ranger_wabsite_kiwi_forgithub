@@ -78,6 +78,7 @@ const STAT_LABELS_TH: Record<string, string> = {
   // ── Section labels ──
   'Skill':                          'ทักษะ',
   'Ability':                        'ความสามารถ',
+  'Details':                        'รายละเอียด',
   'In use':                         'ใช้แล้ว',
   // ── Skill timing / area labels ──
   'Area Skill':                     'ระยะสกิล',

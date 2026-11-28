@@ -37,6 +37,34 @@ export interface SkillGame {
   range: number
   targetType: string
   subs?: SkillGame[]
+  // ── สำหรับตารางรายละเอียดสกิล (skillDetail.ts) ──
+  subFactorApplyType?: string
+  rsearchRatio?: number
+  /** ใช้ได้ในสเตจอีเวนต์ / กับผู้พิทักษ์ (Guardian) / กับโคลอสซัส */
+  affectEventStage?: number
+  affectGuardian?: number
+  affectColossus?: number
+}
+
+/** แถวของตาราง ability (+ ความสามารถย่อย) */
+export interface AbilityGame {
+  code: string
+  actionType: string
+  aptitudeType: string
+  searchType: string
+  activeOnType: string
+  activeWhenType: string
+  cond1Type: string
+  cond1Value: string
+  cond2Type: string
+  cond2Value: string
+  probability: number
+  factorType: string
+  factorApplyType: string
+  buffFactorType: string
+  buffFactor: number
+  subBuffFactor: number
+  subs?: AbilityGame[]
 }
 
 /** กฎปลดลิมิตของเรนเจอร์ตัวนี้ (game_factor + unit_level_expansion) */

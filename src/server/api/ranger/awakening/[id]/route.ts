@@ -9,6 +9,8 @@
 
 import { NextResponse } from 'next/server'
 import { gameAwakenAbilities, gameText } from '@/lib/gameData'
+import { abilityGame } from '@/lib/buildRangerStats'
+import type { AbilityGame } from '@/lib/rangerGameCalc'
 
 const LERICO_ICON = (icon: string) => `https://rangers.lerico.net/res/ability_icon/${icon}`
 
@@ -19,6 +21,8 @@ export interface AwakenAbility {
   nameZh: string    // ชื่อจีน (TH fallback via tAbility())
   descZh: string    // คำอธิบายจีน (TH fallback via tAbilityDesc())
   iconUrl: string   // from lerico res
+  /** แถวของตาราง ability (+ ย่อย) — ตารางรายละเอียด */
+  game?: AbilityGame
 }
 
 export interface AwakenAbilityResponse {
@@ -42,6 +46,7 @@ export async function GET(
     nameZh: zh[`${a.code}_nm`] ?? '',
     descZh: zh[`${a.code}_desc`] ?? '',
     iconUrl: LERICO_ICON(a.icon),
+    game: abilityGame(a.code),
   }))
   const payload: AwakenAbilityResponse = { rangerId: id, abilities }
   return NextResponse.json(payload, {

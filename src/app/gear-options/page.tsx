@@ -14,7 +14,6 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
-import DownloadMenu from './DownloadMenu'
 import { GEAR_OPTIONS, SAMPLE_SCENE, sceneUrl } from './options'
 
 // engine ของสตูดิโอใช้ canvas / Web Audio ตั้งแต่ตอนโหลดโมดูล → โหลดฝั่ง browser เท่านั้น
@@ -86,9 +85,6 @@ export default function GearOptionsPage() {
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <h1 className="text-lg sm:text-xl font-bold text-white">{T(opt.th, opt.en)}</h1>
           <span className="text-sm text-gray-500">{T(opt.en, opt.th)}</span>
-          <div className="flex-1" />
-          {/* ดาวน์โหลดภาพ/วิดีโอของคลิปนี้ (ภาษาตามเว็บ) */}
-          <DownloadMenu fileBase={`line-ranger-kiwi-${opt.id}-${lang}`} T={T} />
         </div>
 
         {/* ปุ่มเลือกออพชั่น */}

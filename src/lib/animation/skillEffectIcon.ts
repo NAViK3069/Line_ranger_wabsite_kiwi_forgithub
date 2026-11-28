@@ -20,6 +20,8 @@
 import { proxyFile, corsImage } from '@/lib/staticApi'
 
 export const SKILL_ICON_SECONDS = 2.0
+/** ช่วงเฟดหายก่อนครบเวลา (เว็บเพิ่มเอง — ในเกมไอคอนหายทันที) */
+export const ICON_FADE_SECONDS = 0.4
 /** ขนาดโหนด 2×2 pt — กลางสไปรต์อยู่สูงกว่าจุดยึด 1pt */
 const NODE_HALF_PT = 1
 const LIFT_PT = 5

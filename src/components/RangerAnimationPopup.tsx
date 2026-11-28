@@ -11,7 +11,7 @@ import { proxyFile, fetchSamList, corsImage } from '@/lib/staticApi'
 import { apiFetch } from '@/lib/staticApi'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { loadSkillIconSheet, drawSkillIcon, SKILL_ICON_SECONDS, type IconSheet, type SkillIconSet, type SkillIconSpec } from '@/lib/animation/skillEffectIcon'
+import { loadSkillIconSheet, drawSkillIcon, SKILL_ICON_SECONDS, ICON_FADE_SECONDS, type IconSheet, type SkillIconSet, type SkillIconSpec } from '@/lib/animation/skillEffectIcon'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useSound } from '@/contexts/SoundContext'
 import { SAMParser, applyAttackCombos, type SamFrame } from '@/lib/animation/samParser'
@@ -1546,7 +1546,12 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       if (!ev || !sheet) return
       const t = (sceneTickRef.current - ev.tick) / iconFps
       if (t < 0 || t >= SKILL_ICON_SECONDS) return
+      // ค่อยๆ เฟดหายช่วงท้าย (ICON_FADE_SECONDS สุดท้าย)
+      const left = SKILL_ICON_SECONDS - t
+      ctx.save()
+      ctx.globalAlpha *= left < ICON_FADE_SECONDS ? left / ICON_FADE_SECONDS : 1
       drawSkillIcon(ctx, sheet, ev.spec, nodeX, nodeY, heightPx, zoomRef.current, t)
+      ctx.restore()
     }
     // ── วาดเป้าหมาย (แนวหน้า + แนวหลังถ้ามี) — ใช้เส้นทางเดียวกันทั้งคู่ ──
     if (bgc && dummy) {

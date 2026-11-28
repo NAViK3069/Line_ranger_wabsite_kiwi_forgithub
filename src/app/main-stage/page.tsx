@@ -897,14 +897,16 @@ function StageDetail({ s, a, data, lang, T, onEnemy }: { s: MSStage; a: MSArea; 
         <span className="absolute right-2 top-2 lg:right-auto lg:left-4 lg:top-3 z-10">
           <Chip icon={IC.heart} label={T('ใช้หัวใจ', 'Hearts')}>×{s.needHeart}</Chip>
         </span>
-        <div className="relative flex items-end gap-3 px-3 py-3 sm:px-4 sm:py-4">
-          <div className="min-w-0 flex-1">
+        {/* มือถือ: ชื่อด่านชิดซ้ายบน · ป้อมขวาล่างบนพื้น (แถวสูงเต็มแถบ) · คอม: ชิดล่างแถวเดียวกับการ์ดรางวัล */}
+        <div className="relative flex flex-1 items-end gap-3 px-3 py-3 sm:px-4 sm:py-4">
+          <div className="min-w-0 flex-1 self-stretch flex flex-col lg:justify-end">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-white/60">{tx(a.name, lang)} · {T('พื้นที่', 'Area')} {a.no}-{s.idx}</p>
             <p className="font-[family-name:var(--font-line)] text-[22px] sm:text-[26px] leading-tight text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
               {T('ด่าน', 'Stage')} {s.no}
               {s.boss && <span className="ml-2 align-middle rounded-md bg-rose-500/90 px-1.5 py-0.5 text-[11px] font-bold text-white">{T('บอส', 'BOSS')}</span>}
             </p>
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {/* มือถือ: HP / ระยะ ซ้อนคนละบรรทัด ชิดล่าง · คอม: แถวเดียว */}
+            <div className="mt-auto pt-1.5 lg:mt-1.5 lg:pt-0 flex flex-col items-start lg:flex-row lg:flex-wrap lg:items-center gap-1.5">
               {s.enemyTowerHp != null && (
                 <Chip label={T('HP ป้อมศัตรู', 'Enemy castle HP')}>
                   <span className="pl-1.5 text-[11px] font-bold text-rose-300">HP</span>{fmt(s.enemyTowerHp)}

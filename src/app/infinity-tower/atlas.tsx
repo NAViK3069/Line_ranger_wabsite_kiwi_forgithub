@@ -25,8 +25,17 @@ const ATLAS: Record<AtlasKey, string> = {
   endlesspopup: lericoProxy(`${LERICO_ORIGIN}/res/endless_popup/endless_popup`),
   popup: localResUrl('hd/common/popup/common_popup_ui'),
   // Main Stage: ปุ่มด่าน/เลขด่านโหมดปกติ (area3-btn-*, area3-num-0N) · Hard/Extreme + ไอคอนโหมด (area-btn-hard-*, intro_mode_*)
+  //   ปุ่ม/เลขด่านตามซีซั่นของพื้นที่: 1 = area-btn/area-num (hd/area/area) · 2 = area2-btn (area2_common) + area2-num (hd/area/area)
+  //   · 3 = area3-btn/area3-num (area3_common)
+  area: localResUrl('hd/area/area'),
+  area2: lericoProxy(`${LERICO_ORIGIN}/res/area2_common/area2_common`),
   area3: lericoProxy(`${LERICO_ORIGIN}/res/area3_common/area3_common`),
   areahard: lericoProxy(`${LERICO_ORIGIN}/res/area_hard_mode/area_hard_mode`),
+  // หน้าต่างเข้าด่านของเกม (entry_tip_icon, entry_icon_hard01 / extreme01) · ไอคอนไอเทม/กลไกในฉากต่อสู้ · กรอบช่องกลไก
+  entry: localResUrl('hd/area/entry'),
+  entryico: localResUrl('hd/area/entry_ico'),
+  battleicon: localResUrl('hd/battle/battle_icon'),
+  commonui: localResUrl('hd/common/common_ui'),
 }
 
 interface Loaded { img: HTMLImageElement; pieces: Map<string, Piece> }

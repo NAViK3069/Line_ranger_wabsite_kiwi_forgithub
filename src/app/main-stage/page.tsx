@@ -42,6 +42,9 @@ const IC: Record<string, TIcon> = {
   timer: { atlas: 'main', frame: 'endless_main_timer.png' },
   trophy: { atlas: 'main', frame: 'endless_reward_icon_trophy.png' },
   boss: { atlas: 'ui', frame: 'endless_battle_track_boss_icon.png' },
+  tip: { atlas: 'entry', frame: 'entry_tip_icon.png' },
+  coverSquare: { atlas: 'commonui', frame: 'entry_popup_gimmick_cover_on01.png' },
+  coverRound: { atlas: 'commonui', frame: 'entry_popup_gimmick_cover_on02.png' },
 }
 /** ไอคอนโหมด (area_hard_mode: intro_mode_*_icon) */
 const MODE_ICON: Record<StageMode, TIcon> = {
@@ -50,7 +53,28 @@ const MODE_ICON: Record<StageMode, TIcon> = {
   extreme: { atlas: 'areahard', frame: 'intro_mode_extreme_icon.png' },
 }
 /** ปุ่มด่านของเกมตามโหมด (ปกติ = ทอง · Hard = ม่วง · Extreme = ส้ม · บอส = แดงหัวกะโหลก) + ตัวเลขของโหมดนั้น */
-const BTN: Record<StageMode, { on: TIcon; off: TIcon; boss: TIcon; bossOff: TIcon; num: (d: string) => TIcon }> = {
+type Btn = { on: TIcon; off: TIcon; boss: TIcon; bossOff: TIcon; num: (d: string) => TIcon }
+/** โหมดปกติ: ปุ่มต่างกันตามซีซั่นของพื้นที่ (1 = ทอง · 2 = ฟ้า · 3 = ทองแบบใหม่) */
+const SEASON_BTN: Record<number, Btn> = {
+  1: {
+    on: { atlas: 'area', frame: 'area-btn-on.png' }, off: { atlas: 'area', frame: 'area-btn-off.png' },
+    boss: { atlas: 'area', frame: 'area-btn-boss-on.png' }, bossOff: { atlas: 'area', frame: 'area-btn-boss-off.png' },
+    num: d => ({ atlas: 'area', frame: `area-num-0${d}.png` }),
+  },
+  2: {
+    on: { atlas: 'area2', frame: 'area2-btn-on.png' }, off: { atlas: 'area2', frame: 'area2-btn-off.png' },
+    boss: { atlas: 'area2', frame: 'area2-btn-boss-on.png' }, bossOff: { atlas: 'area2', frame: 'area2-btn-boss-off.png' },
+    num: d => ({ atlas: 'area', frame: `area2-num-0${d}.png` }),
+  },
+}
+const btnOf = (a: MSArea): Btn => (a.mode === 'normal' ? SEASON_BTN[a.season] ?? BTN.normal : BTN[a.mode])
+/** หัวโหมด: ไอคอนใหญ่ของหน้าต่างเข้าด่าน (entry_icon_hard01 / extreme01) · ปกติใช้ Sally ของแท็บโหมด */
+const HERO_ICON: Record<StageMode, TIcon> = {
+  normal: { atlas: 'areahard', frame: 'intro_mode_normal_icon.png' },
+  hard: { atlas: 'entryico', frame: 'entry_icon_hard01.png' },
+  extreme: { atlas: 'entryico', frame: 'entry_icon_extreme01.png' },
+}
+const BTN: Record<StageMode, Btn> = {
   normal: {
     on: { atlas: 'area3', frame: 'area3-btn-on.png' }, off: { atlas: 'area3', frame: 'area3-btn-off.png' },
     boss: { atlas: 'area3', frame: 'area3-btn-boss-on.png' }, bossOff: { atlas: 'area3', frame: 'area3-btn-boss-off.png' },
@@ -250,7 +274,7 @@ function ModeHero({ mode, data, lang, T, name }: { mode: StageMode; data: MainSt
       <div className={`pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full blur-3xl ${TONE[mode].glow}`} />
       <div className="relative flex items-center gap-3 sm:gap-4">
         <span className="shrink-0 flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-black/35 ring-1 ring-white/10">
-          <GameIcon icon={MODE_ICON[mode]} className="w-10 h-10 sm:w-12 sm:h-12" />
+          <GameIcon icon={HERO_ICON[mode]} className="w-11 h-11 sm:w-14 sm:h-14" />
         </span>
         <div className="min-w-0 flex-1">
           <h2 className="font-[family-name:var(--font-line)] text-xl sm:text-2xl text-white">{name}</h2>
@@ -313,7 +337,7 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
             {/* ── ปุ่มด่าน 12 ปุ่ม (ของเกม) ── */}
             <div className="mt-2 grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-x-1.5 gap-y-1 sm:gap-x-2 sm:gap-y-1.5 sm:max-w-[520px] lg:max-w-none">
               {a.stages.map(s => (
-                <StageButton key={s.code} s={s} mode={a.mode} on={s.code === open} onClick={() => onToggle(s.code)} T={T} />
+                <StageButton key={s.code} s={s} b={btnOf(a)} on={s.code === open} onClick={() => onToggle(s.code)} T={T} />
               ))}
             </div>
           </div>
@@ -324,8 +348,7 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
   )
 })
 
-function StageButton({ s, mode, on, onClick, T }: { s: MSStage; mode: StageMode; on: boolean; onClick: () => void; T: Tfn }) {
-  const b = BTN[mode]
+function StageButton({ s, b, on, onClick, T }: { s: MSStage; b: Btn; on: boolean; onClick: () => void; T: Tfn }) {
   return (
     <button id={`st-${s.code}`} onClick={onClick} aria-expanded={on}
       aria-label={`${T('ด่าน', 'Stage')} ${s.no}${s.boss ? ` (${T('บอส', 'Boss')})` : ''}`}
@@ -411,7 +434,7 @@ function StageDetail({ s, a, data, lang, T, onEnemy }: { s: MSStage; a: MSArea; 
         {/* เคล็ดลับ (ข้อความเกม <stage>_tip — ส่วนใหญ่โหมด Hard) */}
         {s.tip && (
           <div className="flex items-start gap-2.5 rounded-xl border border-sky-300/20 bg-sky-400/[0.07] p-2.5">
-            <span className="material-icons-round text-sky-300 text-[22px]">lightbulb</span>
+            <GameIcon icon={IC.tip} className="w-9 h-9 -my-1 shrink-0" />
             <p className="text-[13px] leading-snug text-sky-50/90">
               <b className="mr-1 text-sky-200">{tx(data.ui.HARD_MODE_TIP_NM, lang) || T('เคล็ดลับ', 'Hint!')}</b>{tx(s.tip, lang)}
             </p>
@@ -486,7 +509,7 @@ function Gimmicks({ s, data, lang, T }: { s: MSStage; data: MainStageIndex; lang
               const f = gi?.factor
               return (
                 <div key={g.key} className="flex items-start gap-2.5 rounded-xl border border-white/10 bg-black/20 p-2.5">
-                  {gi?.icon ? <GameIcon icon={gi.icon} size={40} /> : <span className="material-icons-round w-10 text-center text-[30px] text-orange-300">warning</span>}
+                  <GimmickIcon icon={gi?.icon} shape="square" fallback="warning" />
                   <div className="min-w-0">
                     <p className="text-[13.5px] leading-snug text-white">
                       {tx(gi?.title, lang)}
@@ -514,7 +537,7 @@ function Gimmicks({ s, data, lang, T }: { s: MSStage; data: MainStageIndex; lang
               const gi = data.gimmicks[k]
               return (
                 <div key={k} className="flex items-start gap-2.5 rounded-xl border border-orange-300/15 bg-black/20 p-2.5">
-                  <span className="material-icons-round w-10 shrink-0 text-center text-[28px] text-orange-300">{ACTIVE_ICON[k.split('_')[2]] ?? 'bolt'}</span>
+                  <GimmickIcon icon={gi?.icon} shape="round" fallback={ACTIVE_ICON[k.split('_')[2]] ?? 'bolt'} />
                   <div className="min-w-0">
                     <p className="text-[13.5px] leading-snug text-white">{tx(gi?.title, lang)}</p>
                     <p className="mt-0.5 text-[11.5px] leading-snug text-gray-400">{tx(gi?.desc, lang)}</p>
@@ -529,6 +552,18 @@ function Gimmicks({ s, data, lang, T }: { s: MSStage; data: MainStageIndex; lang
   )
 }
 const ACTIVE_ICON: Record<string, string> = { beast: 'pets', blizzard: 'ac_unit', hellfire: 'local_fire_department', storm: 'thunderstorm', tower: 'fort', unbeat: 'shield' }
+
+/** ไอคอนกลไกในกรอบทองแบบหน้าต่างเข้าด่านของเกม (common_ui: entry_popup_gimmick_cover_on01 สี่เหลี่ยม / on02 วงกลม) */
+function GimmickIcon({ icon, shape, fallback }: { icon: TIcon | null | undefined; shape: 'square' | 'round'; fallback: string }) {
+  return (
+    <span className="relative shrink-0 flex items-center justify-center w-12 h-12">
+      {icon
+        ? <GameIcon icon={icon} className={shape === 'round' ? 'w-[42px] h-[42px]' : 'w-[38px] h-[38px]'} />
+        : <span className="material-icons-round text-[28px] text-orange-300">{fallback}</span>}
+      <GameIcon icon={shape === 'round' ? IC.coverRound : IC.coverSquare} className="pointer-events-none absolute inset-0 w-full h-full" />
+    </span>
+  )
+}
 
 function H({ children, icon }: { children: React.ReactNode; icon?: TIcon }) {
   return (

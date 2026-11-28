@@ -30,7 +30,8 @@ export interface TText { en: string; th: string }
 /** รูปจาก atlas ของเกม (plist + png) หรือไฟล์รูปเดี่ยว */
 export type TIcon = { atlas: AtlasKey; frame: string } | { url: string }
 /** atlas ที่หน้าใช้ — client แปลงเป็น URL เอง (lerico ผ่าน Worker / ของเราใน /gameres) */
-export type AtlasKey = 'main' | 'main16' | 'mission' | 'ui' | 'popup' | 'minigacha' | 'endlesspopup' | 'area3' | 'areahard'
+export type AtlasKey = 'main' | 'main16' | 'mission' | 'ui' | 'popup' | 'minigacha' | 'endlesspopup'
+  | 'area' | 'area2' | 'area3' | 'areahard' | 'entry' | 'entryico' | 'battleicon' | 'commonui'
 
 /** ไอเทมรางวัล (เก็บครั้งเดียวใน TowerIndex.items — key = "<rewardType>:<code>") */
 export interface TItem { type: string; code: string; name: TText; icon: TIcon | null }
@@ -101,7 +102,9 @@ const BATTLE_ICON: Record<TBattle, string> = {
 /** ข้อความประเภทด่านของเกม (ENDLESS_<X>_TITLE / _DESC) */
 const BATTLE_KEY: Record<TBattle, string> = { OFFENCE: 'NORMAL', TIMEATTACK: 'TIMEATTACK', SIEGE: 'SIEGE', BOSS: 'BOSS' }
 /** ไอคอนของขวัญตามชนิดไอเทม (common_popup_ui: pop_gift_icon_NN — เลขตามชนิดไอเทมของเกม) */
-const GIFT_ICON: Record<string, string> = { COIN: 'pop_gift_icon_02.png', HEART: 'pop_gift_icon_03.png', P_GACHA: 'pop_gift_icon_05.png', SCND_HEART: 'pop_gift_icon_07.png', RUBY: 'pop_gift_icon_00.png' }
+const GIFT_ICON: Record<string, string> = { COIN: 'pop_gift_icon_02.png', HEART: 'pop_gift_icon_03.png', P_GACHA: 'pop_gift_icon_05.png', SCND_HEART: 'pop_gift_icon_07.png', RUBY: 'pop_gift_icon_00.png', CLS_GACHA: 'pop_gift_icon_33.png' }
+/** ไอเทมต่อสู้ (bi-01_mto …) → ไอคอนปุ่มไอเทมในฉากต่อสู้ของเกม (hd/battle/battle_icon: battle_icon_<ชนิด>_big) */
+const BATTLE_ITEM_ICON = (code: string) => { const m = code.match(/^bi-\d+_([a-z]+)$/); return m ? `battle_icon_${m[1]}_big.png` : null }
 /** ไอเทมพื้นฐาน → รหัสในตาราง game_item (ชื่อ ITEM ni-xx_nm) */
 const ITEM_CODE: Record<string, string> = { COIN: 'ni-01', RUBY: 'ni-02', HEART: 'ni-04', P_GACHA: 'ni-06', SCND_HEART: 'ni-08' }
 const thumb = (code: string) => `https://rangers.lerico.net/res/${code}/${code}-thum.png`
@@ -170,7 +173,9 @@ export function makeItem(type: string, code: string, c: Ctx): TItem {
     icon = { url: `https://rangers.lerico.net/res/evolve_items/evolve_material_${code}.png` }
   } else {
     name = pick(c.item, `${ITEM_CODE[type] ?? code}_nm`, type)
-    if (GIFT_ICON[type]) icon = { atlas: 'popup', frame: GIFT_ICON[type] }
+    const bi = type === 'ITEM' ? BATTLE_ITEM_ICON(code) : null
+    if (bi) icon = { atlas: 'battleicon', frame: bi }
+    else if (GIFT_ICON[type]) icon = { atlas: 'popup', frame: GIFT_ICON[type] }
   }
   return { type, code, name, icon }
 }

@@ -67,6 +67,8 @@ export interface MSArea {
   no: number
   /** พื้นที่ปกติที่ใช้ฉากเดียวกัน (ar14) → res/new_ar14/ar14-lm-body.sam */
   land: string
+  /** ซีซั่นของพื้นที่ (area.season 1–3) — ปุ่มด่านของเกมต่างกันตามซีซั่น */
+  season: number
   name: TText
   story: TText | null
   stages: MSStage[]
@@ -100,6 +102,11 @@ const GIMMICK_ICON: Record<string, string> = {
   dark: 'endless_gimmick_icon_elementdown_dark.png',
   mnrl: 'endless_gimmick_icon_mineralregen.png', cost: 'endless_gimmick_icon_mineralsumn.png',
 }
+/** กลไกที่สุ่มใช้ = ไอเทมต่อสู้ขั้น 2 ของเกม (hd/battle/battle_icon: 05 พายุหิมะ · 06 พายุฟ้าคะนอง · 07 อมตะ · 08 ไฟนรก · 09 คลั่ง) */
+const ACTIVE_ICON: Record<string, string> = {
+  blizzard: 'battle_icon_05_big.png', storm: 'battle_icon_06_big.png', unbeat: 'battle_icon_07_big.png',
+  hellfire: 'battle_icon_08_big.png', beast: 'battle_icon_09_big.png',
+}
 const ACTIVE_KEY: Record<string, string> = {
   beast: 'BEAST', blizzard: 'BLIZZARD', hellfire: 'HELLFIRE', storm: 'THNDRSTRM', tower: 'TOWER', unbeat: 'UNBEAT',
 }
@@ -117,12 +124,14 @@ function gimmickInfo(code: string, abilities: Map<string, Row>, abTx: ReturnType
     else if (what === 'cooltime' || what === 'ctime') key = 'COOLTIME_UP'
     else if (what === 'cost') key = 'SUMMON_COST_UP'
   } else key = ACTIVE_KEY[what] ?? what.toUpperCase()
-  const icon = GIMMICK_ICON[what]
+  const icon: TIcon | null = kind === 'pas'
+    ? (GIMMICK_ICON[what] ? { atlas: 'ui', frame: GIMMICK_ICON[what] } : null)
+    : (ACTIVE_ICON[what] ? { atlas: 'battleicon', frame: ACTIVE_ICON[what] } : null)
   return {
     kind: kind === 'pas' ? 'passive' : 'active',
     title: pick(abTx, `STAGE_GIMMICK_${key}_NM`, code),
     desc: pick(abTx, `STAGE_GIMMICK_${key}_DESC`),
-    icon: icon ? { atlas: 'ui', frame: icon } : null,
+    icon,
     factor,
   }
 }
@@ -187,7 +196,7 @@ export function mainStageIndex(): MainStageIndex {
     const storyKey = str(a.areaStoryCode)
     const story = storyKey && areaTx.en[storyKey] ? pick(areaTx, storyKey) : null
     modes[mode].push({
-      code, mode, no: modes[mode].length + 1, land: `ar${n}`,
+      code, mode, no: modes[mode].length + 1, land: `ar${n}`, season: num(a.season) ?? 1,
       name: pick(areaTx, str(a.areaNameCode) || `${code}_nm`, str(a.areaName)),
       story: story && story.en !== str(a.areaName) ? story : null,
       stages: list.map((s, i): MSStage => {

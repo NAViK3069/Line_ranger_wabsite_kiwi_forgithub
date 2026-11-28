@@ -853,7 +853,6 @@ const TRIGGER_TONE: Record<MSTrigger, string> = {
   TIME: 'bg-amber-500/15 text-amber-200 ring-amber-400/30',
   SPECIAL: 'bg-fuchsia-500/15 text-fuchsia-200 ring-fuchsia-400/30',
 }
-const TRIGGER_ICON: Record<MSTrigger, string> = { START: 'flag', FRONT: 'directions_run', ENEMY_HP: 'castle', TIME: 'schedule', SPECIAL: 'auto_awesome' }
 function triggerText(w: MSWave, T: Tfn) {
   switch (w.trigger) {
     case 'START': return T('เริ่มด่าน', 'Battle start')
@@ -977,7 +976,6 @@ function StageDetail({ s, a, data, lang, T, onEnemy }: { s: MSStage; a: MSArea; 
                 <li key={i} className="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden">
                   <div className="flex items-center gap-2 border-b border-white/[0.07] bg-white/[0.03] px-2.5 py-1.5">
                     <span className={`flex items-center justify-center w-6 h-6 rounded-lg text-[11px] font-bold ring-1 ${TRIGGER_TONE[w.trigger] ?? TRIGGER_TONE.SPECIAL}`}>{i + 1}</span>
-                    <span className={`material-icons-round text-[17px] ${(TRIGGER_TONE[w.trigger] ?? '').split(' ').find(c => c.startsWith('text-')) ?? 'text-gray-300'}`}>{TRIGGER_ICON[w.trigger] ?? 'bolt'}</span>
                     <span className="min-w-0 flex-1 text-[13px] text-white">{triggerText(w, T)}</span>
                     {w.delay > 0 && <span className="shrink-0 text-[11px] text-gray-400">+{w.delay}{T(' วิ', 's')}</span>}
                     <span className="shrink-0 rounded-full bg-white/10 px-1.5 text-[11px] leading-5 text-gray-300 tabular-nums">{w.enemies.length}</span>

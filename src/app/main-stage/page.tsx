@@ -575,11 +575,12 @@ function StageDetail({ s, a, data, lang, T, onEnemy }: { s: MSStage; a: MSArea; 
           </div>
           {/* คอม: รางวัลลอยอยู่บนฉาก (ที่ว่างด้านขวา) — มือถืออยู่ข้างล่างตามเดิม */}
           <div className="hidden lg:flex shrink-0 items-stretch gap-2">
+            {/* มากกว่า 2 ชิ้น → 2 คอลัมน์ (การ์ดไม่สูงเกินฉาก) */}
             {s.first.length > 0 && (
-              <div className="relative w-[250px] overflow-hidden rounded-xl bg-gradient-to-br from-amber-500/30 via-black/55 to-black/60 p-2.5 ring-1 ring-amber-300/40 backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.45)]">
+              <div className={`relative ${s.first.length > 2 ? 'w-[400px]' : 'w-[250px]'} overflow-hidden rounded-xl bg-gradient-to-br from-amber-500/30 via-black/55 to-black/60 p-2.5 ring-1 ring-amber-300/40 backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.45)]`}>
                 <span className="pointer-events-none absolute -left-6 -top-8 h-20 w-24 rounded-full bg-amber-400/30 blur-2xl" />
                 <H icon={IC.trophy}>{T('รางวัลเคลียร์ครั้งแรก', 'First clear reward')}</H>
-                <RewardList list={s.first} data={data} lang={lang} />
+                <RewardList list={s.first} data={data} lang={lang} cols={s.first.length > 2 ? 2 : 1} />
               </div>
             )}
             <div className="w-[230px] rounded-xl bg-black/55 p-2.5 ring-1 ring-white/15 backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.45)]">
@@ -752,9 +753,9 @@ function ItemIcon({ icon, alt, className }: { icon: TIcon | null | undefined; al
   return <GameIcon icon={icon} alt={alt} className={className} />
 }
 
-function RewardList({ list, data, lang }: { list: TReward[]; data: MainStageIndex; lang: L }) {
+function RewardList({ list, data, lang, cols = 1 }: { list: TReward[]; data: MainStageIndex; lang: L; cols?: 1 | 2 }) {
   return (
-    <ul className="relative space-y-1.5 text-[13px]">
+    <ul className={`relative text-[13px] ${cols === 2 ? 'grid grid-cols-2 gap-x-3 gap-y-1.5' : 'space-y-1.5'}`}>
       {list.map((r, i) => {
         const it = data.items[r.item]
         return (

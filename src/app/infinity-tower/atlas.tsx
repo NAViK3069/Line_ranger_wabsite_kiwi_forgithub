@@ -24,6 +24,9 @@ const ATLAS: Record<AtlasKey, string> = {
   minigacha: lericoProxy(`${LERICO_ORIGIN}/res/mini_gacha/mini_gacha_icon`),
   endlesspopup: lericoProxy(`${LERICO_ORIGIN}/res/endless_popup/endless_popup`),
   popup: localResUrl('hd/common/popup/common_popup_ui'),
+  // Main Stage: ปุ่มด่าน/เลขด่านโหมดปกติ (area3-btn-*, area3-num-0N) · Hard/Extreme + ไอคอนโหมด (area-btn-hard-*, intro_mode_*)
+  area3: lericoProxy(`${LERICO_ORIGIN}/res/area3_common/area3_common`),
+  areahard: lericoProxy(`${LERICO_ORIGIN}/res/area_hard_mode/area_hard_mode`),
 }
 
 interface Loaded { img: HTMLImageElement; pieces: Map<string, Piece> }

@@ -68,6 +68,11 @@ const ITEMS: Item[] = [
     iconBg: 'from-purple-400 to-indigo-600', hover: 'hover:border-purple-400/60 hover:shadow-[0_10px_30px_-12px_rgba(192,132,252,0.55)]', glow: 'bg-purple-400',
   },
   {
+    href: '/main-stage', img: '/home-icons/mission-main-stage.webp', icon: 'map', title: 'Main Stage',
+    th: 'ด่านหลัก Normal · Hard · Extreme', en: 'Normal, Hard & Extreme stages',
+    iconBg: 'from-amber-400 to-red-600', hover: 'hover:border-amber-400/60 hover:shadow-[0_10px_30px_-12px_rgba(251,191,36,0.55)]', glow: 'bg-amber-400',
+  },
+  {
     href: '/custom', img: '/home-icons/mission-custom.webp', icon: 'dashboard_customize', title: 'Custom',
     th: 'Lobby · วิดีโอ · กาชาเอง', en: 'Lobby, video & more',
     iconBg: 'from-fuchsia-400 to-pink-600', hover: 'hover:border-fuchsia-400/60 hover:shadow-[0_10px_30px_-12px_rgba(232,121,249,0.55)]', glow: 'bg-fuchsia-400',

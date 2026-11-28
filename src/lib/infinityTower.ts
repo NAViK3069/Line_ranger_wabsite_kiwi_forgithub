@@ -30,7 +30,7 @@ export interface TText { en: string; th: string }
 /** รูปจาก atlas ของเกม (plist + png) หรือไฟล์รูปเดี่ยว */
 export type TIcon = { atlas: AtlasKey; frame: string } | { url: string }
 /** atlas ที่หน้าใช้ — client แปลงเป็น URL เอง (lerico ผ่าน Worker / ของเราใน /gameres) */
-export type AtlasKey = 'main' | 'main16' | 'mission' | 'ui' | 'popup' | 'minigacha' | 'endlesspopup'
+export type AtlasKey = 'main' | 'main16' | 'mission' | 'ui' | 'popup' | 'minigacha' | 'endlesspopup' | 'area3' | 'areahard'
 
 /** ไอเทมรางวัล (เก็บครั้งเดียวใน TowerIndex.items — key = "<rewardType>:<code>") */
 export interface TItem { type: string; code: string; name: TText; icon: TIcon | null }
@@ -83,10 +83,10 @@ export interface TowerIndex {
 }
 
 // ── ข้อความ ──
-const clean = (s: string) => s.replace(/\\n|\r?\n/g, ' ').replace(/[ \t]+/g, ' ').trim()
-type Tx = { en: Record<string, string>; th: Record<string, string> }
-const texts = (msgType: string): Tx => ({ en: gameText('en', msgType), th: gameText('th', msgType) })
-function pick(t: Tx, key: string, fallback = ''): TText {
+export const clean = (s: string) => s.replace(/\\n|\r?\n/g, ' ').replace(/[ \t]+/g, ' ').trim()
+export type Tx = { en: Record<string, string>; th: Record<string, string> }
+export const texts = (msgType: string): Tx => ({ en: gameText('en', msgType), th: gameText('th', msgType) })
+export function pick(t: Tx, key: string, fallback = ''): TText {
   const en = t.en[key] ?? '', th = t.th[key] ?? ''
   return { en: clean(en || fallback), th: clean(th || en || fallback) }
 }
@@ -106,14 +106,14 @@ const GIFT_ICON: Record<string, string> = { COIN: 'pop_gift_icon_02.png', HEART:
 const ITEM_CODE: Record<string, string> = { COIN: 'ni-01', RUBY: 'ni-02', HEART: 'ni-04', P_GACHA: 'ni-06', SCND_HEART: 'ni-08' }
 const thumb = (code: string) => `https://rangers.lerico.net/res/${code}/${code}-thum.png`
 
-interface Ctx {
-  area: Tx; item: Tx; mini: Tx; unitTx: Tx
+export interface Ctx {
+  area: Tx; item: Tx; mini: Tx; unitTx: Tx; equip: Tx
   boxOf: Map<string, string>; units: Map<string, Row>
   /** ตัวละคร (ส่วนหลังขีดของรหัส) → คีย์ชื่อ UNIT ที่มีข้อความ */
   bySuffix: Map<string, string[]>
 }
 let ctxCache: Ctx | null = null
-function ctx(): Ctx {
+export function ctx(): Ctx {
   if (ctxCache) return ctxCache
   const unitTx = texts('UNIT')
   const bySuffix = new Map<string, string[]>()
@@ -124,7 +124,7 @@ function ctx(): Ctx {
     bySuffix.get(m[1])!.push(k)
   }
   ctxCache = {
-    area: texts('ENDLESS'), item: texts('ITEM'), mini: texts('MINI_GACHA'), unitTx,
+    area: texts('ENDLESS'), item: texts('ITEM'), mini: texts('MINI_GACHA'), unitTx, equip: texts('EQUIP'),
     boxOf: new Map(gameTable('mini_gacha_info').map(r => [str(r.gacha_id), str(r.box_cd)])),
     units: new Map(gameTable('unit').map(r => [str(r.unitCode), r])),
     bySuffix,
@@ -139,7 +139,7 @@ function ctx(): Ctx {
  *      ศัตรูส่วนใหญ่ในหอคอยไม่มีข้อความของตัวเอง · ถ้าได้หลายชื่อ ใช้ของยูนิตศัตรู/NPC (u8xxxx/u9xxxx) ถ้าเหลือชื่อเดียว
  *   3. unit.unitName (ชื่อในฐานข้อมูล — บางตัวเป็นชื่อภายใน เช่น u81029 = "THOR" จึงใช้เป็นทางสุดท้าย)
  */
-function unitDisplayName(code: string, c: Ctx): TText {
+export function unitDisplayName(code: string, c: Ctx): TText {
   const u = c.units.get(code)
   const nameCode = str(u?.unitNameCode) || `${code}_nm`
   if (c.unitTx.en[nameCode]) return pick(c.unitTx, nameCode)
@@ -153,7 +153,7 @@ function unitDisplayName(code: string, c: Ctx): TText {
   return { en: db, th: db }
 }
 
-function makeItem(type: string, code: string, c: Ctx): TItem {
+export function makeItem(type: string, code: string, c: Ctx): TItem {
   let name: TText = { en: code, th: code }, icon: TIcon | null = null
   if (type === 'MINI_GACHA') {
     name = pick(c.mini, `${code}_nm`, code)
@@ -162,6 +162,9 @@ function makeItem(type: string, code: string, c: Ctx): TItem {
   } else if (type === 'UNIT') {
     name = unitDisplayName(code, c)
     icon = { url: thumb(code) }
+  } else if (type === 'UNIT_EQUIP') {
+    name = pick(c.equip, `${code}_nm`, code)
+    icon = { url: `https://rangers.lerico.net/res/gear_icon/${code}_icon.png` }
   } else if (type === 'EV_MTRL') {
     name = pick(c.item, `${code}_nm`, code)
     icon = { url: `https://rangers.lerico.net/res/evolve_items/evolve_material_${code}.png` }

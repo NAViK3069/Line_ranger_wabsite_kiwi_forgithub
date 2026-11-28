@@ -22,6 +22,7 @@ import { pathToFileURL } from 'url'
 import { NextRequest } from 'next/server'
 import { dataFile, emptyFallback, gearEffectsFile, gearUsersFile, itemCodeFromIconUrl, resRootFile, resRootUnitsFile } from '../src/lib/staticApi'
 import { towerFloorCodes } from '../src/lib/infinityTower'
+import { mainStageCodes } from '../src/lib/mainStage'
 
 const ROOT = process.cwd()
 const OUT = path.join(ROOT, 'public', 'data')
@@ -142,6 +143,13 @@ async function emitGameData() {
   await emit(await route('infinity-tower'), '/api/infinity-tower')
   const towerFloor = await route('infinity-tower/[floor]')
   for (const floor of towerFloorCodes()) await emit(towerFloor, `/api/infinity-tower/${floor}`, { floor })
+  // Main Stage: พื้นที่/ด่านทั้งหมด + ศัตรูรายด่าน (ข้อมูลเกม area / stage / stage_ai / stage_productline)
+  await emit(await route('main-stage'), '/api/main-stage')
+  const mainStage = await route('main-stage/[stage]')
+  // ตาราง stage_* ยังไม่อยู่ใน branch gamedata (ก่อนส่งข้อมูลรอบแรก) → ข้ามไป ไม่ให้ทั้ง emit ล้ม
+  let stageCodes: string[] = []
+  try { stageCodes = mainStageCodes() } catch (e) { console.warn('  ! main-stage: ไม่มีตารางด่าน —', e instanceof Error ? e.message : e) }
+  for (const stage of stageCodes) await emit(mainStage, `/api/main-stage/${stage}`, { stage })
   await emit(await route('lerico/ranger-names'), '/api/lerico/ranger-names')
   await emit(await route('lerico/equip-names'), '/api/lerico/equip-names')
   const tr = await route('translations/[lang]')

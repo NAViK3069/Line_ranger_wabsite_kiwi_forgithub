@@ -1,0 +1,1 @@
+[{"structure_cd":"extower01","structure_nm":"익스트림 타워","twr_tp":8,"atk_tp":1,"atk":1000000000,"hp":525000000,"atk_delay":50,"min_atk_range":80,"max_atk_range":620,"atk_splash":0,"atk_delta":0,"hp_delta":0,"add_ability_tp":1,"add_ability_prob":1.0,"add_ability_val":2.0,"def":1000.0,"spcl_def":3000.0}]

@@ -21,7 +21,7 @@ import type { TEnemy, TIcon, TReward, TText } from '@/lib/infinityTower'
 import type { MainStageDetail, MainStageIndex, MSArea, MSEnemy, MSStage, MSTreasure, MSTrigger, MSWave, StageMode } from '@/lib/mainStage'
 import { GameIcon, useIconUrl } from '../infinity-tower/atlas'
 import TowerEnemyPopup from '../infinity-tower/TowerEnemyPopup'
-import { EnemySkeleton, Shimmer } from '../infinity-tower/TowerLoading'
+import { EnemySkeleton, SamLoop, Shimmer } from '../infinity-tower/TowerLoading'
 
 // canvas + โหลดไฟล์ .sam → ฝั่ง browser เท่านั้น
 const AreaMap = dynamic(() => import('./AreaMap'), { ssr: false })
@@ -620,10 +620,23 @@ function StageDetail({ s, a, data, lang, T, onEnemy }: { s: MSStage; a: MSArea; 
             </p>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               <Chip icon={IC.heart} label={T('ใช้หัวใจ', 'Hearts')}>×{s.needHeart}</Chip>
-              {s.enemyTowerHp != null && <Chip icon={IC.base} label={T('HP ป้อมศัตรู', 'Enemy castle HP')}>{fmt(s.enemyTowerHp)}</Chip>}
-              {s.distance != null && <Chip label={T('ระยะสนาม', 'Field length')}><span className="material-icons-round text-[15px] text-gray-300">straighten</span>{fmt(s.distance)}</Chip>}
+              {s.enemyTowerHp != null && (
+                <Chip label={T('HP ป้อมศัตรู', 'Enemy castle HP')}>
+                  <span className="pl-1.5 text-[11px] font-bold text-rose-300">HP</span>{fmt(s.enemyTowerHp)}
+                </Chip>
+              )}
+              {s.distance != null && (
+                <Chip label={T('ระยะสนาม', 'Field length')}>
+                  <span className="pl-1.5 text-[11px] text-gray-300">{T('ระยะ', 'Distance')}</span>{fmt(s.distance)}<span className="text-[11px] text-gray-300">pt</span>
+                </Chip>
+              )}
             </div>
           </div>
+          {/* ป้อมศัตรูของด่าน (res/<tw>/<tw>-body.sam ท่า normal_idle) — ยืนบนพื้นฉาก */}
+          {s.tower && (
+            <SamLoop key={s.tower} base={`${s.tower}/${s.tower}-body`} clip="normal_idle"
+              className="shrink-0 -mb-1 w-[92px] h-[86px] sm:w-[130px] sm:h-[118px] lg:w-[140px] lg:h-[124px] drop-shadow-[0_4px_8px_rgba(0,0,0,0.55)]" />
+          )}
           {/* คอม: รางวัลลอยอยู่บนฉาก (ที่ว่างด้านขวา) — มือถืออยู่ข้างล่างตามเดิม */}
           <div className="hidden lg:flex shrink-0 items-stretch gap-2">
             {/* มากกว่า 2 ชิ้น → 2 คอลัมน์ (การ์ดไม่สูงเกินฉาก) */}

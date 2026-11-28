@@ -288,7 +288,10 @@ export default function InfinityTowerPage() {
 
   return (
     <div className="min-h-screen pb-[calc(96px+env(safe-area-inset-bottom))] sm:pb-16 bg-[radial-gradient(120%_60%_at_50%_0%,#2a0d4d_0%,#12061f_55%,#0b0414_100%)]">
-      <header ref={headerRef} className="sticky top-0 z-40 bg-[#14071f]/95 backdrop-blur-md border-b border-white/10">
+      {/* มือถือ: fixed (ยึดกับจอที่มองเห็น) — sticky ในหน้ายาวมากๆ บน Chrome Android ถูกแถบ URL บังขอบบนตอนเลื่อนขึ้น-ลง
+          จึงวางช่องว่างสูงเท่าแถบไว้แทนที่ · จอใหญ่ใช้ sticky ตามเดิม (มีแถบแท็บด้วย สูงไม่คงที่) */}
+      <div aria-hidden className="sm:hidden" style={{ height: 49 }} />
+      <header ref={headerRef} className="fixed inset-x-0 top-0 sm:sticky z-40 bg-[#14071f]/95 backdrop-blur-md border-b border-white/10">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 h-12 flex items-center gap-2.5">
           <Link href="/" className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm transition-colors" aria-label={tStat('Back')}>
             <span className="material-icons-round text-base">arrow_back</span>

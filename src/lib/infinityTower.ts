@@ -168,7 +168,8 @@ export function makeItem(type: string, code: string, c: Ctx): TItem {
   } else if (type === 'UNIT_EQUIP') {
     name = pick(c.equip, `${code}_nm`, code)
     icon = { url: `https://rangers.lerico.net/res/gear_icon/${code}_icon.png` }
-  } else if (type === 'EV_MTRL') {
+  } else if (type === 'EV_MTRL' || type === 'SHORTEN_TIME') {
+    // ตั๋วลดเวลา (st-ticket-N) ใช้ไฟล์ชุดเดียวกับวัตถุดิบวิวัฒนาการ — libgame 0x14565c8: %s/evolve_items/evolve_material_%s.png
     name = pick(c.item, `${code}_nm`, code)
     icon = { url: `https://rangers.lerico.net/res/evolve_items/evolve_material_${code}.png` }
   } else {

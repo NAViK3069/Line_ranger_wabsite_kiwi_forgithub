@@ -120,6 +120,8 @@ export default function AdminPoolsPage() {
   const [poolName, setPoolName] = useState('')
   const [bannerFile, setBannerFile] = useState<File | null>(null)
   const [bannerPreview, setBannerPreview] = useState('')
+  /** ลิงก์รูป Banner (เช่นรูปทางการจาก game.line-scdn.net) — ใช้แทนการอัปโหลดไฟล์ได้ */
+  const [bannerLink, setBannerLink] = useState('')
   const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null)
   const [textInput, setTextInput] = useState('')
   const [textErrors, setTextErrors] = useState<string[]>([])
@@ -206,6 +208,7 @@ export default function AdminPoolsPage() {
     setBannerPreview('')
     setExistingImageUrl(null)
     setBannerFile(null)
+    setBannerLink('')
     setEditingIdx(null)
     setError('')
     setView('edit')
@@ -216,6 +219,7 @@ export default function AdminPoolsPage() {
       setPoolName(data.name ?? pool.name)
       setExistingImageUrl(data.imageUrl ?? null)
       setBannerPreview(data.imageUrl ?? '')
+      setBannerLink(/^https?:\/\//i.test(data.imageUrl ?? '') ? data.imageUrl ?? '' : '')
       setResults(Array.isArray(data.rangers) ? data.rangers : [])
       setGuaranteedRangers(Array.isArray(data.guaranteedRangers) ? data.guaranteedRangers : [])
       setBadge(data.isEvent ? 'event' : data.isNew ? 'new' : 'none')
@@ -318,7 +322,7 @@ export default function AdminPoolsPage() {
   }
 
   function resetForm() {
-    setPoolName(''); setBannerFile(null); setBannerPreview(''); setExistingImageUrl(null)
+    setPoolName(''); setBannerFile(null); setBannerPreview(''); setExistingImageUrl(null); setBannerLink('')
     setResults(null); setError('')
     setTextInput(''); setTextErrors([]); setEditingIdx(null); setEditPoolId(null)
     setGuaranteedRangers([]); setEditingGuarIdx(null); setBadge('none'); setCopied(false); setPoolMode('normal'); setGuarText('')
@@ -355,7 +359,15 @@ export default function AdminPoolsPage() {
 
   function handleBanner(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; if (!file) return
-    setBannerFile(file); setBannerPreview(URL.createObjectURL(file)); setExistingImageUrl(null)
+    setBannerFile(file); setBannerPreview(URL.createObjectURL(file)); setExistingImageUrl(null); setBannerLink('')
+  }
+  /** ใส่ลิงก์รูปแทนไฟล์ — บันทึกเป็นลิงก์นั้นตรงๆ (ไม่อัปโหลดรูปขึ้น repo) · ลบลิงก์ = ไม่มีรูป */
+  function applyBannerLink(v: string) {
+    setBannerLink(v)
+    const url = v.trim()
+    if (!url) { setBannerFile(null); setBannerPreview(''); setExistingImageUrl(null); return }
+    if (!/^https?:\/\/\S+$/i.test(url)) return
+    setBannerFile(null); setExistingImageUrl(url); setBannerPreview(url)
   }
 
   function parseText() {
@@ -774,6 +786,20 @@ export default function AdminPoolsPage() {
             )}
           </div>
           <input ref={bannerRef} type="file" accept="image/*" onChange={handleBanner} className="hidden" />
+          {/* หรือใส่ลิงก์รูป (เช่นรูปตู้ทางการ https://game.line-scdn.net/...png) — เว็บแสดงจากลิงก์นั้นเลย */}
+          <div className="mt-3 flex items-center gap-2">
+            <span className="shrink-0 text-xs text-gray-500">หรือลิงก์รูป</span>
+            <input type="url" inputMode="url" value={bannerLink} onChange={e => applyBannerLink(e.target.value)}
+              placeholder="https://game.line-scdn.net/.../gacha_....png"
+              className="min-w-0 flex-1 rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-purple-500/60" />
+            {bannerLink && (
+              <button type="button" onClick={() => applyBannerLink('')} title="ล้างลิงก์"
+                className="shrink-0 h-9 w-9 flex items-center justify-center rounded-lg text-gray-400 hover:bg-white/10 hover:text-white">
+                <span className="material-icons-round text-[18px]">close</span>
+              </button>
+            )}
+          </div>
+          {bannerLink && !/^https?:\/\/\S+$/i.test(bannerLink.trim()) && <p className="mt-1 text-xs text-rose-300">ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://</p>}
         </div>
 
         {/* ③ อัตราสุ่ม */}

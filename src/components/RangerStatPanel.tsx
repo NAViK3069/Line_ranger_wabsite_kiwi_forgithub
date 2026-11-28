@@ -1165,19 +1165,32 @@ export default function RangerStatPanel({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={levelInfo.iconUrl} alt={levelInfo.iconAlt} className="h-7 w-auto object-contain" />
                   )}
-                  {!isTower && <span className="material-icons-round text-gray-400 text-lg">unfold_more</span>}
                 </div>
               </button>
               {levelPopupOpen && !isTower && (
-                <LevelWheel
-                  value={displayLevel}
-                  max={playerMaxLevel}
-                  cap={stats.maxLevel}
-                  step={rules.step}
-                  accent={levelPopupTheme(stats.tier).text}
-                  onChange={setSliderLevel}
-                  onTick={() => play('click_global.ogg')}
-                />
+                // สไลเดอร์ปรับเลเวล (แบบเดิม) — ค่าพลังคำนวณสดตามเลเวลที่ลาก
+                <div
+                  role="dialog"
+                  aria-label={lang === 'th' ? 'ปรับเลเวล' : 'Adjust level'}
+                  className="absolute left-1/2 -translate-x-1/2 mt-1.5 w-64 rounded-xl bg-gray-900/95 backdrop-blur border border-white/10 shadow-xl z-50 p-3.5"
+                >
+                  <div className="flex items-center justify-between mb-2.5">
+                    <span className="text-xs font-semibold text-gray-300">{lang === 'th' ? 'เลเวล' : 'Level'}</span>
+                    <span className={`text-xs font-bold tabular-nums ${levelPopupTheme(stats.tier).text}`}>{displayLevel}/{playerMaxLevel}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={1}
+                    max={playerMaxLevel}
+                    step={1}
+                    value={displayLevel}
+                    onChange={(e) => setSliderLevel(parseInt(e.target.value, 10))}
+                    onPointerUp={() => play('click_global.ogg')}
+                    onKeyUp={() => play('click_global.ogg')}
+                    className={`w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-white/15 ${levelPopupTheme(stats.tier).accent}`}
+                    aria-label="Ranger level"
+                  />
+                </div>
               )}
             </div>
 
@@ -2035,77 +2048,6 @@ function IconWithTooltip({
         </div>,
         document.body
       )}
-    </div>
-  )
-}
-
-// ── วงล้อเลือกเลเวล (scroll-snap) — แตะ/ลาก/เลื่อนล้อเมาส์ · ปุ่มลัด 1 / cap / MAX ──
-const WHEEL_ROW = 36
-function LevelWheel({ value, max, cap, step, accent, onChange, onTick }: {
-  value: number
-  max: number
-  cap: number
-  step: number
-  accent: string
-  onChange: (lv: number) => void
-  onTick: () => void
-}) {
-  const ref = useRef<HTMLDivElement>(null)
-  const settle = useRef<number | null>(null)
-  const last = useRef(value)
-  // เปิดมาที่เลเวลปัจจุบันทันที (ไม่มีแอนิเมชันเลื่อนตอนเปิด)
-  useEffect(() => {
-    if (ref.current) ref.current.scrollTop = (value - 1) * WHEEL_ROW
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-  const onScroll = () => {
-    const el = ref.current
-    if (!el) return
-    const lv = Math.min(max, Math.max(1, Math.round(el.scrollTop / WHEEL_ROW) + 1))
-    if (lv !== last.current) { last.current = lv; onChange(lv) }
-    if (settle.current) window.clearTimeout(settle.current)
-    settle.current = window.setTimeout(onTick, 120)
-  }
-  const jump = (lv: number) => {
-    last.current = lv
-    onChange(lv)
-    onTick()
-    ref.current?.scrollTo({ top: (lv - 1) * WHEEL_ROW, behavior: 'smooth' })
-  }
-  const marks = [1, cap, ...Array.from({ length: Math.round((max - cap) / step) }, (_, i) => cap + (i + 1) * step)]
-  const quick = [...new Set([1, cap, max])]
-  return (
-    <div role="dialog" aria-label="Level"
-      className="absolute left-1/2 -translate-x-1/2 mt-1.5 w-60 rounded-xl bg-gray-900/95 backdrop-blur border border-white/10 shadow-xl z-50 p-2.5">
-      <div className="relative" style={{ height: WHEEL_ROW * 5 }}>
-        {/* แถบเลือกกลางวงล้อ */}
-        <div className="absolute inset-x-0 rounded-lg bg-white/10 border border-white/15 pointer-events-none" style={{ top: WHEEL_ROW * 2, height: WHEEL_ROW }} />
-        <div
-          ref={ref}
-          onScroll={onScroll}
-          className="h-full overflow-y-auto snap-y snap-mandatory overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          style={{ maskImage: 'linear-gradient(transparent, #000 30%, #000 70%, transparent)' }}
-        >
-          <div style={{ height: WHEEL_ROW * 2 }} />
-          {Array.from({ length: max }, (_, i) => i + 1).map(lv => (
-            <button key={lv} type="button" onClick={() => jump(lv)}
-              className={`w-full snap-center flex items-center justify-center gap-1.5 tabular-nums transition-colors ${lv === value ? `${accent} font-black text-lg` : 'text-gray-400 text-sm'}`}
-              style={{ height: WHEEL_ROW }}>
-              Lv.{lv}
-              {marks.includes(lv) && lv > cap && <span className="text-[10px] text-gray-500 font-normal">+{Math.round((lv - cap) / step)}</span>}
-            </button>
-          ))}
-          <div style={{ height: WHEEL_ROW * 2 }} />
-        </div>
-      </div>
-      <div className="flex gap-1.5 mt-2">
-        {quick.map(lv => (
-          <button key={lv} type="button" onClick={() => jump(lv)}
-            className={`flex-1 rounded-md py-1 text-xs font-bold tabular-nums ${lv === value ? 'bg-white/20 text-white' : 'bg-white/5 text-gray-300 hover:bg-white/10'}`}>
-            {lv === max ? 'MAX' : `Lv.${lv}`}
-          </button>
-        ))}
-      </div>
     </div>
   )
 }

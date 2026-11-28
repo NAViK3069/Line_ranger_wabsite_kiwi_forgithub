@@ -943,6 +943,17 @@ export default function RangerStatPanel({
       </section>
     )
   }
+  // ไฟล์ข้อมูลรุ่นเก่า (Daily Data ยังไม่สร้างใหม่หลังอัปเดตโค้ด) ไม่มีข้อมูลเกมที่ใช้คำนวณ
+  // → แจ้งเฉยๆ แทนที่จะพังทั้งหน้า (ข้อมูลจะครบเองหลัง Daily Data รอบถัดไป)
+  if (!stats.game?.levelRules) {
+    return (
+      <section className="bg-yellow-500/10 rounded-xl p-3 text-xs text-yellow-200">
+        {lang === 'th'
+          ? '⏳ ข้อมูลเรนเจอร์กำลังอัปเดต — ลองเปิดใหม่อีกครั้งภายหลัง'
+          : '⏳ Ranger data is being updated — please try again later.'}
+      </section>
+    )
+  }
 
   // ── ค่าพลังตามเลเวล (libgame 0xd55400) ──
   const rules = stats.game.levelRules

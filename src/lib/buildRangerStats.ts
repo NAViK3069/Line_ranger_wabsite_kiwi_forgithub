@@ -161,6 +161,9 @@ function skillGame(code: string, depth = 0): SkillGame | undefined {
     affectEventStage: n(r.affectEventStage), affectGuardian: n(r.affectGuardian), affectColossus: n(r.affectColossus),
     ...(str(r.attackedEffect) ? { attackedEffect: str(r.attackedEffect), effectIconType: str(r.skillEffectIconType) } : {}),
     ...(subs ? { subs } : {}),
+    // บังคับใช้หน้าป้อมตอนออกจากป้อม — timeSkillDelay 30000 = ค่ากันว่างของสกิลปกติ (ไม่ใช่สกิลแบบนี้)
+    ...(n(r.timeSkillProb) > 0 && n(r.timeSkillCnt) > 0 && n(r.timeSkillDelay) < 1000
+      ? { spawnCast: { delay: n(r.timeSkillDelay), count: n(r.timeSkillCnt) } } : {}),
   }
 }
 

@@ -89,6 +89,7 @@ const STAT_LABELS_TH: Record<string, string> = {
   'Area Skill':                     'ระยะสกิล',
   'Cast Time':                      'ระยะเวลาร่ายสกิล',
   'Recovery':                       'ระยะเวลากลับตำแหน่ง',
+  'Castle Buff Time':               'ระยะเวลาบัฟหน้าป้อม',
   'Total':                          'รวม',
   // ── Trigger Basis (เป้าของสกิล — skill.targetType ของเกม) ──
   'Self':                           'ตัวเอง',

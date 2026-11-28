@@ -1890,6 +1890,11 @@ function IconWithTooltip({
   }, [isPinned])
 
   const skillItem = kind === 'skill' ? (item as SkillSlot) : null
+  /**
+   * ระยะเวลาบัฟหน้าป้อม — สกิลที่เกมบังคับใช้หน้าป้อมตอนเรนเจอร์ออกจากป้อม (skill.timeSkillDelay)
+   * ขั้นต่ำ 0.1 วิ: ค่า 0 ในเกมยังใช้ 0.1 วิ (Dragon's Son Dumpy 0 → 0.1 · Poseidon 0.5 → 0.5)
+   */
+  const castleBuff = skillItem?.game?.spawnCast ? Math.round(Math.max(0.1, skillItem.game.spawnCast.delay) * 100) / 100 : null
   const isGroup = kind === 'ability' && (item as AbilitySlot).slot === 'group'
   // แสดง tooltip เฉพาะเมื่อ: pin อยู่ หรือ hover แต่ไม่มีพี่น้องที่ pin แล้ว
   const show = isPinned || (hovered && !suppressHover)
@@ -2088,9 +2093,12 @@ function IconWithTooltip({
                   {skillTiming.recovery && (
                     <div>{tStat('Recovery')} &nbsp;→ {skillTiming.recovery.seconds}{tStat('s')}</div>
                   )}
+                  {castleBuff != null && (
+                    <div>{tStat('Castle Buff Time')} → {castleBuff}{tStat('s')}</div>
+                  )}
                   {skillTiming.cast && skillTiming.recovery && (
                     <div className="border-t border-orange-300/30 pt-0.5 mt-0.5">
-                      {tStat('Total')} &nbsp;&nbsp;&nbsp;&nbsp;→ {(skillTiming.cast.seconds + skillTiming.recovery.seconds).toFixed(2)}{tStat('s')}
+                      {tStat('Total')} &nbsp;&nbsp;&nbsp;&nbsp;→ {(skillTiming.cast.seconds + skillTiming.recovery.seconds + (castleBuff ?? 0)).toFixed(2)}{tStat('s')}
                     </div>
                   )}
                 </div>

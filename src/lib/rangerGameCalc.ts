@@ -49,6 +49,11 @@ export interface SkillGame {
   attackedEffect?: string
   /** ท่าของไอคอน (skill.skillEffectIconType: MOVE / SCALE / ROTATE / TINT / SHAKE / FLASH) */
   effectIconType?: string
+  /**
+   * สกิลที่เกมบังคับใช้หน้าป้อมตอนเรนเจอร์ออกจากป้อม (skill.timeSkillProb / timeSkillCnt > 0)
+   * delay = skill.timeSkillDelay (วินาทีหลังออกจากป้อม) — ไม่มีช่องนี้ = สกิลปกติ
+   */
+  spawnCast?: { delay: number; count: number }
 }
 
 /** ศักยภาพ 1 ช่อง (potential_stat_group.stat_idN → potential_stat_info) — ช่องที่ N ใช้วัสดุ pt-00N */

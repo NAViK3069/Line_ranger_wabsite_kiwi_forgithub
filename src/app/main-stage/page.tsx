@@ -328,7 +328,7 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
             จอใหญ่: ฉากซ้าย (สูงเต็มการ์ด) · ชื่อ + ปุ่มด่านขวา */}
         <div className="grid grid-cols-[150px_minmax(0,1fr)] sm:grid-cols-[200px_minmax(0,1fr)] lg:grid-cols-[240px_minmax(0,1fr)] gap-x-3 gap-y-2.5 p-3">
           {/* ── ฉากพื้นที่ (อนิเมชันเกม) ── */}
-          <div className="sm:row-span-2">
+          <div className="sm:row-span-3">
             <div className="relative overflow-hidden rounded-xl ring-1 ring-white/15 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.3)]">
               <AreaMap land={a.land} tower={a.tower} mode={a.mode} className="w-full" />
               <span aria-hidden className="pointer-events-none absolute inset-0 shadow-[inset_0_-18px_24px_-12px_rgba(0,0,0,0.55)]" />
@@ -340,9 +340,10 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
           <div className="min-w-0">
             <h3 className="font-[family-name:var(--font-line)] text-[16px] sm:text-[19px] leading-tight text-white">{tx(a.name, lang)}</h3>
             <p className="text-[11px] sm:text-[12px] tabular-nums text-gray-400">{T('ด่าน', 'Stage')} {first}-{last}</p>
-            {a.story && <p className="mt-1 text-[11.5px] sm:text-[12.5px] leading-snug text-gray-400 line-clamp-2 lg:max-w-[760px]">{tx(a.story, lang)}</p>}
-            <KeyDrops a={a} data={data} lang={lang} T={T} />
+            {a.story && <p className="mt-1 text-[11.5px] sm:text-[12.5px] leading-snug text-gray-400 line-clamp-3 sm:line-clamp-2 lg:max-w-[760px]">{tx(a.story, lang)}</p>}
           </div>
+          {/* ของสำคัญ — มือถือ: แถวเต็มความกว้างใต้ฉาก · จอใหญ่: ใต้ชื่อ */}
+          <KeyDrops a={a} data={data} lang={lang} T={T} />
           {/* ── ปุ่มด่าน 12 ปุ่ม (ของเกม) ── */}
           <div className="col-span-2 sm:col-span-1 grid grid-cols-6 lg:grid-cols-12 gap-x-1.5 gap-y-1 sm:gap-x-2 sm:gap-y-1.5 sm:max-w-[520px] lg:max-w-none">
             {a.stages.map(s => (
@@ -374,14 +375,14 @@ function KeyDrops({ a, data, lang, T }: { a: MSArea; data: MainStageIndex; lang:
   }, [a])
   if (!list.length) return null
   return (
-    <div className="mt-1.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{T('ของสำคัญที่ดรอป', 'Key drops')}</p>
-      <ul className="mt-1 flex flex-wrap gap-1">
+    <div className="col-span-2 sm:col-span-1 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 rounded-xl bg-black/20 px-2 py-1.5 ring-1 ring-white/[0.06] sm:bg-transparent sm:p-0 sm:ring-0">
+      <p className="shrink-0 text-[10px] font-semibold uppercase leading-tight tracking-wider text-gray-400">{T('ของสำคัญ', 'Key drops')}</p>
+      <ul className="flex min-w-0 flex-1 flex-wrap gap-1.5">
         {list.map(({ key }) => {
           const it = data.items[key]
           return (
-            <li key={key} title={tx(it?.name, lang)} className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-black/30 ring-1 ring-white/10">
-              <ItemIcon icon={it?.icon} alt={tx(it?.name, lang)} className="w-7 h-7 sm:w-8 sm:h-8" />
+            <li key={key} title={tx(it?.name, lang)} className="shrink-0 flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-black/30 ring-1 ring-white/10">
+              <ItemIcon icon={it?.icon} alt={tx(it?.name, lang)} className="w-10 h-10 sm:w-11 sm:h-11" />
             </li>
           )
         })}

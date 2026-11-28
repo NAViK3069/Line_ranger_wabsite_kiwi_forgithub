@@ -340,7 +340,8 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
           <div className="min-w-0">
             <h3 className="font-[family-name:var(--font-line)] text-[16px] sm:text-[19px] leading-tight text-white">{tx(a.name, lang)}</h3>
             <p className="text-[11px] sm:text-[12px] tabular-nums text-gray-400">{T('ด่าน', 'Stage')} {first}-{last}</p>
-            {a.story && <p className="mt-1 text-[11.5px] sm:text-[12.5px] leading-snug text-gray-400 line-clamp-4 sm:line-clamp-2 lg:max-w-[760px]">{tx(a.story, lang)}</p>}
+            {a.story && <p className="mt-1 text-[11.5px] sm:text-[12.5px] leading-snug text-gray-400 line-clamp-2 lg:max-w-[760px]">{tx(a.story, lang)}</p>}
+            <KeyDrops a={a} data={data} lang={lang} T={T} />
           </div>
           {/* ── ปุ่มด่าน 12 ปุ่ม (ของเกม) ── */}
           <div className="col-span-2 sm:col-span-1 grid grid-cols-6 lg:grid-cols-12 gap-x-1.5 gap-y-1 sm:gap-x-2 sm:gap-y-1.5 sm:max-w-[520px] lg:max-w-none">
@@ -355,6 +356,39 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
     </li>
   )
 })
+
+/**
+ * ของสำคัญที่ดรอปในพื้นที่ (รวมทุกด่าน: รางวัลเคลียร์ครั้งแรก + ของที่อาจได้รับ)
+ * วัสดุ Potential / วิวัฒนาการ (EV_MTRL) ก่อน แล้วตามด้วยเรนเจอร์ (ไม่นับ Dr. Leonard ที่เป็นเรนเจอร์ EXP) และเกียร์
+ */
+function KeyDrops({ a, data, lang, T }: { a: MSArea; data: MainStageIndex; lang: L; T: Tfn }) {
+  const list = useMemo(() => {
+    const seen = new Map<string, { key: string; rank: number }>()
+    for (const s of a.stages) for (const r of [...s.first, ...s.drops]) {
+      const type = r.item.split(':')[0]
+      if (seen.has(r.item) || /-leonard$/.test(r.item)) continue
+      const rank = type === 'EV_MTRL' ? 0 : type === 'UNIT' ? 1 : type === 'UNIT_EQUIP' ? 2 : -1
+      if (rank >= 0) seen.set(r.item, { key: r.item, rank })
+    }
+    return [...seen.values()].sort((x, y) => x.rank - y.rank || x.key.localeCompare(y.key))
+  }, [a])
+  if (!list.length) return null
+  return (
+    <div className="mt-1.5">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{T('ของสำคัญที่ดรอป', 'Key drops')}</p>
+      <ul className="mt-1 flex flex-wrap gap-1">
+        {list.map(({ key }) => {
+          const it = data.items[key]
+          return (
+            <li key={key} title={tx(it?.name, lang)} className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-black/30 ring-1 ring-white/10">
+              <ItemIcon icon={it?.icon} alt={tx(it?.name, lang)} className="w-7 h-7 sm:w-8 sm:h-8" />
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
 
 // ── สมบัติของพื้นที่ ──
 

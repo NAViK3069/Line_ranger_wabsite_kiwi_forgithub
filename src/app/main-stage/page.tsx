@@ -398,7 +398,7 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
           {/* ── ปุ่มด่าน 12 ปุ่ม (ของเกม) ── */}
           <div className="col-span-2 sm:col-span-1 grid grid-cols-6 lg:grid-cols-12 gap-x-1.5 gap-y-1 sm:gap-x-2 sm:gap-y-1.5 sm:max-w-[520px] lg:max-w-none">
             {a.stages.map(s => (
-              <StageButton key={s.code} s={s} b={btnOf(a)} on={s.code === open} onClick={() => onToggle(s.code)} T={T} />
+              <StageButton key={s.code} s={s} b={btnOf(a)} on={s.code === open} dim={!!open && s.code !== open} onClick={() => onToggle(s.code)} T={T} />
             ))}
           </div>
         </div>
@@ -543,12 +543,13 @@ function TreasureBar({ t, land, stages, lang, T, open, onToggle }: {
   )
 }
 
-function StageButton({ s, b, on, onClick, T }: { s: MSStage; b: Btn; on: boolean; onClick: () => void; T: Tfn }) {
+/** on = ด่านที่เปิดอยู่ (สว่าง + ใหญ่ขึ้นนิดหน่อย) · dim = ด่านอื่นในพื้นที่เดียวกันตอนมีด่านเปิด (มืดลงนิดหน่อย ให้ด่านที่เปิดเด่น) */
+function StageButton({ s, b, on, dim, onClick, T }: { s: MSStage; b: Btn; on: boolean; dim: boolean; onClick: () => void; T: Tfn }) {
   return (
     <button id={`st-${s.code}`} onClick={onClick} aria-expanded={on}
       aria-label={`${T('ด่าน', 'Stage')} ${s.no}${s.boss ? ` (${T('บอส', 'Boss')})` : ''}`}
       className="group relative flex flex-col items-center rounded-xl pt-0.5 transition-transform active:scale-95">
-      <span className="relative block w-full aspect-[90/76]">
+      <span className={`relative block w-full aspect-[90/76] transition-[transform,filter] duration-200 ${on ? 'z-10 scale-[1.14]' : dim ? 'brightness-[0.72] saturate-[0.85] group-hover:brightness-95' : ''}`}>
         <GameIcon icon={on ? (s.boss ? b.boss : b.on) : (s.boss ? b.bossOff : b.off)}
           className={`absolute inset-0 w-full h-full transition-[filter] ${on ? 'drop-shadow-[0_0_8px_rgba(255,255,255,0.45)]' : 'group-hover:brightness-110'}`} />
         {/* เลขด่าน (ตัวเลขของเกม) — ด่านบอสมีหัวกะโหลกอยู่แล้ว เลขไปอยู่ใต้ปุ่ม */}

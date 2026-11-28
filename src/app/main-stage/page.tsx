@@ -559,10 +559,6 @@ function StageButton({ s, b, on, dim, onClick, T }: { s: MSStage; b: Btn; on: bo
           </span>
         )}
       </span>
-      {/* ด่านบอส: ปุ่มเป็นหัวกะโหลก (ไม่มีเลข) → บอกเลขด่านใต้ปุ่ม */}
-      <span className={`-mt-0.5 text-[10px] sm:text-[11px] leading-4 tabular-nums font-bold ${s.boss ? 'text-rose-300' : 'invisible'}`} aria-hidden={!s.boss}>
-        {s.boss ? s.no : '0'}
-      </span>
     </button>
   )
 }
@@ -611,6 +607,10 @@ function StageDetail({ s, a, data, lang, T, onEnemy }: { s: MSStage; a: MSArea; 
         <StageScene bg={s.bg} field={SCENE_FIELD} seed={s.bg} />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-transparent" />
         <div aria-hidden className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/60 to-transparent" />
+        {/* ขนนกที่ใช้ — แยกไว้มุมบน: มือถือขวาบน · คอมซ้ายบน */}
+        <span className="absolute right-2 top-2 lg:right-auto lg:left-4 lg:top-3 z-10">
+          <Chip icon={IC.heart} label={T('ใช้หัวใจ', 'Hearts')}>×{s.needHeart}</Chip>
+        </span>
         <div className="relative flex items-end gap-3 px-3 py-3 sm:px-4 sm:py-4">
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-white/60">{tx(a.name, lang)} · {T('พื้นที่', 'Area')} {a.no}-{s.idx}</p>
@@ -619,7 +619,6 @@ function StageDetail({ s, a, data, lang, T, onEnemy }: { s: MSStage; a: MSArea; 
               {s.boss && <span className="ml-2 align-middle rounded-md bg-rose-500/90 px-1.5 py-0.5 text-[11px] font-bold text-white">{T('บอส', 'BOSS')}</span>}
             </p>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <Chip icon={IC.heart} label={T('ใช้หัวใจ', 'Hearts')}>×{s.needHeart}</Chip>
               {s.enemyTowerHp != null && (
                 <Chip label={T('HP ป้อมศัตรู', 'Enemy castle HP')}>
                   <span className="pl-1.5 text-[11px] font-bold text-rose-300">HP</span>{fmt(s.enemyTowerHp)}
@@ -632,11 +631,6 @@ function StageDetail({ s, a, data, lang, T, onEnemy }: { s: MSStage; a: MSArea; 
               )}
             </div>
           </div>
-          {/* ป้อมศัตรูของด่าน (res/<tw>/<tw>-body.sam ท่า normal_idle) — ยืนบนพื้นฉาก */}
-          {s.tower && (
-            <SamLoop key={s.tower} base={`${s.tower}/${s.tower}-body`} clip="normal_idle"
-              className="shrink-0 -mb-1 w-[92px] h-[86px] sm:w-[130px] sm:h-[118px] lg:w-[140px] lg:h-[124px] drop-shadow-[0_4px_8px_rgba(0,0,0,0.55)]" />
-          )}
           {/* คอม: รางวัลลอยอยู่บนฉาก (ที่ว่างด้านขวา) — มือถืออยู่ข้างล่างตามเดิม */}
           <div className="hidden lg:flex shrink-0 items-stretch gap-2">
             {/* มากกว่า 2 ชิ้น → 2 คอลัมน์ (การ์ดไม่สูงเกินฉาก) */}
@@ -652,6 +646,11 @@ function StageDetail({ s, a, data, lang, T, onEnemy }: { s: MSStage; a: MSArea; 
               <ClearReward s={s} T={T} />
             </div>
           </div>
+          {/* ป้อมศัตรูของด่าน (res/<tw>/<tw>-body.sam ท่า normal_idle) — ขวาสุดของฉาก ยืนบนพื้น */}
+          {s.tower && (
+            <SamLoop key={s.tower} base={`${s.tower}/${s.tower}-body`} clip="normal_idle"
+              className="shrink-0 -mb-1 -mr-1 sm:-mr-2 w-[92px] h-[86px] sm:w-[130px] sm:h-[118px] lg:w-[140px] lg:h-[124px] drop-shadow-[0_4px_8px_rgba(0,0,0,0.55)]" />
+          )}
         </div>
       </div>
 

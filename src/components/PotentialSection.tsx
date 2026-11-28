@@ -92,7 +92,8 @@ export default function PotentialSection({ slots, levels, onChange, onTick }: {
         <span className="text-yellow-300 font-bold text-xs tracking-wider">{tStat('Potential')}</span>
         <div className="flex-1 h-px bg-yellow-500/30" />
       </div>
-      <div className="flex items-center justify-between mb-1.5 text-[11px] text-gray-500">
+      {/* กดแถวนี้ (รวมถึง MAX / รีเซ็ต) = ปิดตัวปรับเลเวลด้วย */}
+      <div onClick={() => setOpen(null)} className="flex items-center justify-between mb-1.5 text-[11px] text-gray-500">
         <span>{th ? 'ระดับรวม' : 'Total'} <b className="text-yellow-300 tabular-nums">{total}</b> / {TOTAL_LIMIT}</span>
         <span className="flex items-center gap-2">
           <button type="button" onClick={() => { onTick(); onChange(slots.map(s => s.max)) }} className="hover:text-white font-semibold">MAX</button>

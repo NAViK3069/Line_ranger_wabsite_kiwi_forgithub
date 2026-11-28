@@ -33,6 +33,8 @@ const fmt = (n: number) => n.toLocaleString('en-US')
 const pct = (v: number) => `${Math.round(v * 1000) / 10}%`
 const tx = (t: TText | undefined | null, lang: L) => (t ? t[lang] || t.en : '')
 const MODES: StageMode[] = ['normal', 'hard', 'extreme']
+/** ความยาวสนามที่ใช้วาดฉากหัวด่าน (pt) — เท่ากันทุกด่าน ฉากเดียวกันจึงไม่ย่อ/ขยายต่างกันตามระยะสนามของแต่ละด่าน */
+const SCENE_FIELD = 1600
 
 // ── ไอคอนของเกม ──
 const IC: Record<string, TIcon> = {
@@ -554,7 +556,8 @@ function StageDetail({ s, a, data, lang, T, onEnemy }: { s: MSStage; a: MSArea; 
     <div className="border-t border-white/10 bg-black/25">
       {/* ── หัวด่าน: ฉากต่อสู้ของเกม (bg + ออปเจค วางแบบในเกม — StageScene.tsx) ── */}
       <div className="relative overflow-hidden min-h-[150px] sm:min-h-[190px] lg:min-h-0 flex flex-col justify-end bg-[#120a20]">
-        <StageScene bg={s.bg} field={s.distance ?? 1000} seed={s.code} />
+        {/* ฉากเดียวกัน = ภาพเดียวกันทุกด่าน: ความยาวแสดงคงที่ + สุ่มตำแหน่งออปเจคตามชื่อฉาก (ไม่ใช่ตามด่าน) */}
+        <StageScene bg={s.bg} field={SCENE_FIELD} seed={s.bg} />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-transparent" />
         <div aria-hidden className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/60 to-transparent" />
         <div className="relative flex items-end gap-3 px-3 py-3 sm:px-4 sm:py-4">

@@ -13,7 +13,7 @@
 
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { apiFetch, LERICO_ORIGIN } from '@/lib/staticApi'
@@ -46,6 +46,10 @@ const IC: Record<string, TIcon> = {
   tip: { atlas: 'entry', frame: 'entry_tip_icon.png' },
   coverSquare: { atlas: 'commonui', frame: 'entry_popup_gimmick_cover_on01.png' },
   coverRound: { atlas: 'commonui', frame: 'entry_popup_gimmick_cover_on02.png' },
+  treasureCard: { atlas: 'treasure', frame: 'treasure_detail_item_bg.png' },
+  treasureArrow: { atlas: 'treasure16', frame: 'treasure_arrow.png' },
+  star: { atlas: 'treasure16', frame: 'treasure_img_star.png' },
+  starDim: { atlas: 'treasure16', frame: 'treasure_img_star_dim.png' },
 }
 /** ไอคอนโหมด (area_hard_mode: intro_mode_*_icon) */
 const MODE_ICON: Record<StageMode, TIcon> = {
@@ -343,7 +347,7 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
             </div>
           </div>
         </div>
-        {a.treasure && <TreasureBar t={a.treasure} land={a.land} lang={lang} T={T} />}
+        {a.treasure && <TreasureBar t={a.treasure} land={a.land} stages={a.stages} lang={lang} T={T} />}
         {st && <StageDetail key={st.code} s={st} a={a} data={data} lang={lang} T={T} onEnemy={onEnemy} />}
       </article>
     </li>
@@ -362,7 +366,7 @@ function PieceImg({ land, code, className }: { land: string; code: string; class
   )
 }
 
-function TreasureBar({ t, land, lang, T }: { t: MSTreasure; land: string; lang: L; T: Tfn }) {
+function TreasureBar({ t, land, stages, lang, T }: { t: MSTreasure; land: string; stages: MSStage[]; lang: L; T: Tfn }) {
   const [open, setOpen] = useState(false)
   return (
     <div className="border-t border-amber-300/15 bg-gradient-to-r from-amber-400/[0.10] via-amber-400/[0.03] to-transparent">
@@ -405,27 +409,64 @@ function TreasureBar({ t, land, lang, T }: { t: MSTreasure; land: string; lang: 
           </div>
           {/* ชิ้นส่วน 3 กลุ่ม × 3 ระดับ */}
           <p className="mt-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-300">{T('ชิ้นส่วนสมบัติ', 'Treasure pieces')}</p>
-          <ol className="space-y-1.5">
-            {t.groups.map((g, gi) => (
-              <li key={g.code} className="flex items-stretch gap-1.5 rounded-xl bg-white/[0.03] p-1.5 ring-1 ring-white/[0.07]">
-                <span className="shrink-0 flex items-center justify-center w-6 rounded-lg bg-amber-400/15 text-[12px] font-bold text-amber-200">{gi + 1}</span>
-                <div className="min-w-0 flex-1 grid grid-cols-3 gap-1">
-                  {g.pieces.map((p, k) => (
-                    <div key={p.code} className="relative flex flex-col items-center gap-0.5 rounded-lg bg-black/20 px-1 py-1.5 text-center">
-                      {k > 0 && <span className="material-icons-round absolute -left-[11px] top-[22px] text-[14px] text-amber-300/70">chevron_right</span>}
-                      <PieceImg land={land} code={p.code} className="w-11 h-11 object-contain" />
-                      <span className="text-[10.5px] leading-tight text-gray-200 line-clamp-2">{tx(p.name, lang)}</span>
-                      <span className="text-[9.5px] text-amber-300/80">{T(`ระดับ ${k + 1}`, `Lv.${k + 1}`)}</span>
-                    </div>
-                  ))}
-                </div>
-              </li>
-            ))}
+          {/* กลุ่มละแถว: ด่านที่ดรอป (กลุ่ม 1 = ด่าน 1–4 ของพื้นที่ · 2 = 5–8 · 3 = 9–12 แบบหน้าสมบัติในเกม)
+              + ชิ้น 3 ระดับบนกรอบไม้ของเกม ดาวบอกระดับ (★☆☆ → ★★★) */}
+          <ol className="space-y-2">
+            {t.groups.map((g, gi) => {
+              const from = stages[gi * 4]?.no, to = stages[Math.min(stages.length, gi * 4 + 4) - 1]?.no
+              return (
+                <li key={g.code} className="rounded-xl bg-white/[0.03] p-2 ring-1 ring-white/[0.07]">
+                  {from != null && to != null && (
+                    <p className="mb-1.5 flex items-center gap-1.5 text-[11px] text-amber-200/80">
+                      <span className="material-icons-round text-[15px]">place</span>
+                      {T('ดรอปจาก', 'Drops from')}
+                      <TreasureStage from={from} to={to} lang={lang} />
+                    </p>
+                  )}
+                  <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-start gap-1 sm:gap-2">
+                    {g.pieces.map((p, k) => (
+                      <Fragment key={p.code}>
+                        {k > 0 && <GameIcon icon={IC.treasureArrow} className="mt-[14%] w-3 h-5 sm:w-4 sm:h-6 -scale-x-100" />}
+                        <div className="flex min-w-0 flex-col items-center text-center">
+                          <span className="relative block w-full max-w-[112px] aspect-[158/150]">
+                            <GameIcon icon={IC.treasureCard} className="absolute inset-0 w-full h-full" />
+                            <PieceImg land={land} code={p.code} className="absolute left-[16%] top-[8%] w-[68%] h-[62%] object-contain drop-shadow-[0_2px_3px_rgba(0,0,0,0.5)]" />
+                            {/* ดาวระดับ — วางทับขอบล่างของรูปชิ้น แบบในเกม */}
+                            <span className="absolute inset-x-0 bottom-[12%] flex justify-center">
+                              {[0, 1, 2].map(i => <GameIcon key={i} icon={i <= k ? IC.star : IC.starDim} className="w-[22%] aspect-square -mx-[1%]" />)}
+                            </span>
+                          </span>
+                          <span className="mt-1 text-[10.5px] sm:text-[11.5px] leading-tight text-gray-200 line-clamp-2">{tx(p.name, lang)}</span>
+                        </div>
+                      </Fragment>
+                    ))}
+                  </div>
+                </li>
+              )
+            })}
           </ol>
         </div>
       )}
     </div>
   )
+}
+
+/** "Stage 1–4" ด้วยป้ายและตัวเลขของหน้าสมบัติในเกม (ml_treasure_stage_<ภาษา> + treasure_stage_num_0N) */
+function TreasureStage({ from, to, lang }: { from: number; to: number; lang: L }) {
+  const digits = (n: number) => String(n).split('').map((d, i) => <TreasureDigit key={i} icon={{ atlas: 'treasure16', frame: `treasure_stage_num_0${d}.png` }} />)
+  return (
+    <span className="inline-flex items-center gap-1 rounded-md bg-[#3a2414] px-1.5 py-0.5 ring-1 ring-amber-900/60" aria-label={`Stage ${from}-${to}`}>
+      <GameIcon icon={{ atlas: 'treasure', frame: `ml_treasure_stage_${lang === 'th' ? 'th' : 'en'}.png` }} className="h-3 w-auto" />
+      <span className="inline-flex h-3.5 items-center">
+        {digits(from)}<TreasureDigit icon={{ atlas: 'treasure16', frame: 'treasure_stage_num_slash.png' }} />{digits(to)}
+      </span>
+    </span>
+  )
+}
+function TreasureDigit({ icon }: { icon: TIcon }) {
+  const url = useIconUrl(icon)
+  // eslint-disable-next-line @next/next/no-img-element
+  return url ? <img src={url} alt="" draggable={false} style={{ height: '100%', width: 'auto', maxWidth: 'none' }} /> : null
 }
 
 function StageButton({ s, b, on, onClick, T }: { s: MSStage; b: Btn; on: boolean; onClick: () => void; T: Tfn }) {

@@ -31,7 +31,7 @@ export interface TText { en: string; th: string }
 export type TIcon = { atlas: AtlasKey; frame: string } | { url: string }
 /** atlas ที่หน้าใช้ — client แปลงเป็น URL เอง (lerico ผ่าน Worker / ของเราใน /gameres) */
 export type AtlasKey = 'main' | 'main16' | 'mission' | 'ui' | 'popup' | 'minigacha' | 'endlesspopup'
-  | 'area' | 'area2' | 'area3' | 'areahard' | 'entry' | 'entryico' | 'battleicon' | 'commonui'
+  | 'area' | 'area2' | 'area3' | 'areahard' | 'entry' | 'entryico' | 'battleicon' | 'commonui' | 'treasure' | 'treasure16'
 
 /** ไอเทมรางวัล (เก็บครั้งเดียวใน TowerIndex.items — key = "<rewardType>:<code>") */
 export interface TItem { type: string; code: string; name: TText; icon: TIcon | null }

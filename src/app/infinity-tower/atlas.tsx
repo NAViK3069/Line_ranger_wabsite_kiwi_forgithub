@@ -36,6 +36,9 @@ const ATLAS: Record<AtlasKey, string> = {
   entryico: localResUrl('hd/area/entry_ico'),
   battleicon: localResUrl('hd/battle/battle_icon'),
   commonui: localResUrl('hd/common/common_ui'),
+  // สมบัติของพื้นที่: กรอบไม้ treasure_detail_item_bg + ป้าย ml_treasure_stage_<ภาษา> · ดาว/เลขด่าน/ลูกศร (.16)
+  treasure: localResUrl('hd/area/area_treasure'),
+  treasure16: localResUrl('hd/area/area_treasure.16'),
 }
 
 interface Loaded { img: HTMLImageElement; pieces: Map<string, Piece> }

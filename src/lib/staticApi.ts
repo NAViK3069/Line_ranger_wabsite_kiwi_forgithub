@@ -219,6 +219,13 @@ export async function fetchSamList(id: string): Promise<Response> {
  * โฟลเดอร์ย่อย → อ่าน directory index ผ่าน Worker แล้วตัดโฟลเดอร์ว่างออกเหมือนเดิม
  */
 export async function loadResDir(rawPath: string, advanced = false): Promise<import('./resIndex').DirEntry[]> {
+  // เรนเจอร์ที่เจ้าของเว็บซ่อนไว้ (hiddenRangers.ts): เข้าโฟลเดอร์ตรงๆ = ไม่พบ · ไม่ขึ้นในรายการ
+  const { isHiddenRanger } = await import('./hiddenRangers')
+  if (isHiddenRanger(rawPath.replace(/^\/+/, ''))) throw new Error('Origin 404')
+  return (await loadResDirAll(rawPath, advanced)).filter(e => !isHiddenRanger(e.name))
+}
+
+async function loadResDirAll(rawPath: string, advanced: boolean): Promise<import('./resIndex').DirEntry[]> {
   const { safeResPath, parseResIndex, isUnitDir } = await import('./resIndex')
   type Entry = import('./resIndex').DirEntry
   const path = safeResPath(rawPath)

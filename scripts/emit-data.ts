@@ -23,6 +23,7 @@ import { NextRequest } from 'next/server'
 import { dataFile, emptyFallback, gearEffectsFile, gearUsersFile, itemCodeFromIconUrl, resRootFile, resRootUnitsFile } from '../src/lib/staticApi'
 import { towerFloorCodes } from '../src/lib/infinityTower'
 import { mainStageCodes } from '../src/lib/mainStage'
+import { isHiddenRanger } from '../src/lib/hiddenRangers'
 
 const ROOT = process.cwd()
 const OUT = path.join(ROOT, 'public', 'data')
@@ -274,7 +275,7 @@ async function emitResRoot() {
     await pool(dirs, async (d) => {
       try { if ((await get(`${d.name}/`)).length > 0) keep.add(d.name) } catch { keep.add(d.name) }
     }, 'res dirs')
-    writeFile(resRootFile, { path: '', entries: entries.filter(e => e.kind !== 'dir' || keep.has(e.name)) })
+    writeFile(resRootFile, { path: '', entries: entries.filter(e => (e.kind !== 'dir' || keep.has(e.name)) && !isHiddenRanger(e.name)) })
 
     // โหมดขั้นสูงของหน้า /res: โฟลเดอร์เรนเจอร์ (u…/g…) ที่มีไฟล์ให้ดูจริง — ตัดโฟลเดอร์ว่าง / มีแต่ .db ทิ้งเหมือนกัน
     const units = (await get('', true)).filter(e => e.kind === 'dir' && isUnitDir(e.name))
@@ -282,7 +283,8 @@ async function emitResRoot() {
     await pool(units, async (d) => {
       try { if ((await get(`${d.name}/`)).length > 0) keepUnits.add(d.name) } catch { keepUnits.add(d.name) }
     }, 'res unit dirs')
-    writeFile(resRootUnitsFile, { path: '', entries: units.filter(e => keepUnits.has(e.name)) })
+    // เรนเจอร์ที่เจ้าของเว็บซ่อนไว้ (src/lib/hiddenRangers.ts) ไม่ใส่ในรายการ
+    writeFile(resRootUnitsFile, { path: '', entries: units.filter(e => keepUnits.has(e.name) && !isHiddenRanger(e.name)) })
   } catch (err) {
     failed++
     console.warn('  ✗ res root:', err)

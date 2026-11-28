@@ -10,6 +10,7 @@
 // ====================================================
 
 import type { RangerRow } from '@/app/lobby/RangerPicker'
+import { isHiddenRanger } from './hiddenRangers'
 
 interface UpcomingDef {
   id: string
@@ -33,12 +34,14 @@ interface UpcomingDef {
  *  g116-guardian4 → u1443e-wa · g115-guardian4 → u1428e-ks · g113-guardian4 → u1404e-bg (g ใหญ่กว่า +167%) */
 export const G_RANGER_SCALE = 0.375
 
-const DEFS: UpcomingDef[] = [
+const ALL_DEFS: UpcomingDef[] = [
   { id: 'u1652e-al', grade: 9, evolution: 'normal', tier: 'base9', tierIconKey: '9',  playerMaxLevel: 180, sizeRatio: G_RANGER_SCALE },
   { id: 'u1651u-al', grade: 8, evolution: 'ultra',  tier: 'ultra', tierIconKey: '8+', playerMaxLevel: 240, sizeRatio: G_RANGER_SCALE },
   { id: 'u1651h-al', grade: 8, evolution: 'hyper',  tier: 'hyper', tierIconKey: '8#', playerMaxLevel: 240, sizeRatio: G_RANGER_SCALE },
   { id: 'u1651e-al', grade: 8, evolution: 'normal', tier: 'base8', tierIconKey: '8',  playerMaxLevel: 140, sizeRatio: G_RANGER_SCALE },
 ]
+// เจ้าของเว็บซ่อนไว้ก่อน (src/lib/hiddenRangers.ts) — ไม่ขึ้นในตัวเลือก
+const DEFS = ALL_DEFS.filter(d => !isHiddenRanger(d.id))
 
 export const UPCOMING_RANGERS: RangerRow[] = DEFS.map(d => ({
   id: d.id, name: d.id, grade: d.grade, evolution: d.evolution, type: null, role: null, element: null, elementOpen: null,

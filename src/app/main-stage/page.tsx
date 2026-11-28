@@ -324,9 +324,11 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
   return (
     <li style={{ ['--i' as string]: order }}>
       <article className={`rounded-2xl border bg-[#181026]/95 overflow-hidden transition-colors ${st ? `${TONE[a.mode].open} shadow-[0_10px_30px_rgba(0,0,0,0.35)]` : TONE[a.mode].ring}`}>
-        <div className="flex gap-3 p-3">
-          {/* ── ฉากพื้นที่ (อนิเมชันเกม) + ชื่อ ── */}
-          <div className="w-[128px] sm:w-[200px] lg:w-[240px] shrink-0">
+        {/* มือถือ: แถวบน = ฉาก + ชื่อ/เรื่องราว · แถวล่าง = ปุ่มด่านเต็มความกว้าง (6 ปุ่ม × 2 แถว)
+            จอใหญ่: ฉากซ้าย (สูงเต็มการ์ด) · ชื่อ + ปุ่มด่านขวา */}
+        <div className="grid grid-cols-[150px_minmax(0,1fr)] sm:grid-cols-[200px_minmax(0,1fr)] lg:grid-cols-[240px_minmax(0,1fr)] gap-x-3 gap-y-2.5 p-3">
+          {/* ── ฉากพื้นที่ (อนิเมชันเกม) ── */}
+          <div className="sm:row-span-2">
             <div className="relative overflow-hidden rounded-xl ring-1 ring-white/15 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.3)]">
               <AreaMap land={a.land} tower={a.tower} mode={a.mode} className="w-full" />
               <span aria-hidden className="pointer-events-none absolute inset-0 shadow-[inset_0_-18px_24px_-12px_rgba(0,0,0,0.55)]" />
@@ -335,16 +337,16 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
               </span>
             </div>
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0">
             <h3 className="font-[family-name:var(--font-line)] text-[16px] sm:text-[19px] leading-tight text-white">{tx(a.name, lang)}</h3>
             <p className="text-[11px] sm:text-[12px] tabular-nums text-gray-400">{T('ด่าน', 'Stage')} {first}-{last}</p>
-            {a.story && <p className="mt-1 hidden sm:block text-[12.5px] leading-snug text-gray-400 line-clamp-2 lg:max-w-[760px]">{tx(a.story, lang)}</p>}
-            {/* ── ปุ่มด่าน 12 ปุ่ม (ของเกม) ── */}
-            <div className="mt-2 grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-x-1.5 gap-y-1 sm:gap-x-2 sm:gap-y-1.5 sm:max-w-[520px] lg:max-w-none">
-              {a.stages.map(s => (
-                <StageButton key={s.code} s={s} b={btnOf(a)} on={s.code === open} onClick={() => onToggle(s.code)} T={T} />
-              ))}
-            </div>
+            {a.story && <p className="mt-1 text-[11.5px] sm:text-[12.5px] leading-snug text-gray-400 line-clamp-4 sm:line-clamp-2 lg:max-w-[760px]">{tx(a.story, lang)}</p>}
+          </div>
+          {/* ── ปุ่มด่าน 12 ปุ่ม (ของเกม) ── */}
+          <div className="col-span-2 sm:col-span-1 grid grid-cols-6 lg:grid-cols-12 gap-x-1.5 gap-y-1 sm:gap-x-2 sm:gap-y-1.5 sm:max-w-[520px] lg:max-w-none">
+            {a.stages.map(s => (
+              <StageButton key={s.code} s={s} b={btnOf(a)} on={s.code === open} onClick={() => onToggle(s.code)} T={T} />
+            ))}
           </div>
         </div>
         {a.treasure && <TreasureBar t={a.treasure} land={a.land} stages={a.stages} lang={lang} T={T} />}

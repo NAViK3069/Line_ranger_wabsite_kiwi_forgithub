@@ -864,12 +864,17 @@ export default function RangerStatPanel({
       const amount = effectAmount(effect)
       for (const hit of skillPlusHits(g, skillGames)) {
         const list = m.get(hit.skill.code) ?? []
-        list.push({ effect, sub: hit.sub?.code ?? null, power: skillPlusPower(g, hit, amount) })
+        list.push({
+          effect,
+          sub: hit.node === hit.skill ? null : hit.node.code,
+          // ระยะเวลาแบบ GRADE / LEVEL คิดจากเกรดและเลเวลที่เลือกอยู่ (แบบเดียวกับตารางรายละเอียดสกิล)
+          power: skillPlusPower(g, hit, amount, stats?.grade ?? 0, sliderLevel ?? stats?.playerMaxLevel ?? 1),
+        })
         m.set(hit.skill.code, list)
       }
     }
     return m
-  }, [skillPlusDedup, skillGames])
+  }, [skillPlusDedup, skillGames, stats, sliderLevel])
 
   // ── ชื่อ effect ที่ slot อื่นกำลังใช้อยู่จริง (override > auto lock) ──
   const usedEffectNameOf = (s: SlotKey): string | null => {

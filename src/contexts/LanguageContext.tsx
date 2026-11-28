@@ -80,6 +80,8 @@ const STAT_LABELS_TH: Record<string, string> = {
   'Ability':                        'ความสามารถ',
   'Details':                        'รายละเอียด',
   'Potential':                      'ศักยภาพ',
+  'No matching skill':              'ไม่ตรงกับสกิลของเรนเจอร์',
+  'Overridden by':                  'ใช้ค่าของ',
   'Knockback Resistance':           'การต้านการถอยกลับ',
   'Silence Resistance':             'การต้านห้ามใช้สกิล',
   'In use':                         'ใช้แล้ว',

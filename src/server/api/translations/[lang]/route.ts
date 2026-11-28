@@ -31,10 +31,14 @@ interface TranslationBundle {
 function fetchOneType(lang: Lang, type: string): Record<string, string> {
   if (type === 'CUSTOM') return {}
   // ทำความสะอาด: ลบ \n, collapse spaces
+  //   ชื่อ (_nm) ภาษาไทย/จีน: เกมตัดบรรทัดกลางคำเพื่อจัดหน้า → ต่อกันเลย ไม่เว้นวรรค
+  //   (เช่น SKILL+ "เพิ่มความเร็ว\nการเคลื่อนที่ N%" → "เพิ่มความเร็วการเคลื่อนที่ N%") · คำอธิบาย/อังกฤษ เว้นวรรคตามเดิม
+  const joinTight = lang !== 'en'
   const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(gameText(lang, type))) {
     if (typeof v === 'string') {
-      out[k] = v.replace(/\\n/g, ' ').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
+      const sep = joinTight && k.endsWith('_nm') ? '' : ' '
+      out[k] = v.replace(/\s*(?:\\n|\n)\s*/g, sep).replace(/\s+/g, ' ').trim()
     }
   }
   return out

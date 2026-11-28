@@ -669,8 +669,8 @@ export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gear
               {/* SKILL+ (green) */}
               {effects.skillPlus.length > 0 && (
                 <div className="rounded-xl border border-green-500/30 bg-green-500/15 p-3 relative">
-                  {/* overlay มืด เมื่อ SKILL+ ไม่ตรงกับสกิลของเรนเจอร์ หรือซ้ำกับ SKILL+ ของเกียร์อื่น */}
-                  {(!skillPlusHasMatch || Object.keys(effectiveSkillPlusOverriddenBy).length > 0) && (
+                  {/* overlay มืดทั้งกล่อง เฉพาะเมื่อไม่มี SKILL+ ตัวไหนใช้ได้เลย · ใช้ได้บางตัว → หรี่เป็นรายบรรทัดด้านล่าง */}
+                  {!skillPlusHasMatch && (
                     <div className="absolute inset-0 rounded-xl bg-black/70 z-10" />
                   )}
                   <div className="flex items-center gap-1.5 mb-2">
@@ -680,12 +680,26 @@ export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gear
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
                   </div>
                   <div className="space-y-1.5">
-                    {effects.skillPlus.map((e, i) => (
-                      <div key={i} className="flex items-center justify-between gap-2 text-sm">
-                        <span className="text-green-200 leading-snug">{e.nameKey ? t('equip', e.nameKey, e.name) : e.name}</span>
-                        {e.value && <span className="font-bold text-white shrink-0">{tUnit(fmtSkillPlusValue(e.value))}</span>}
-                      </div>
-                    ))}
+                    {effects.skillPlus.map((e, i) => {
+                      // แต่ละบรรทัด: ตรงกับผลของสกิลเรนเจอร์ไหม (eqip_skl_plus_grp) · ถูกเกียร์อื่นในกลุ่มเดียวกันทับไหม
+                      const noMatch = !!rangerSkills?.length && hasSkillPlusRows(e.skillPlusGrowth)
+                        && skillPlusHits(e.skillPlusGrowth, rangerSkills).length === 0
+                      const overBy = effectiveSkillPlusOverriddenBy[e.name]
+                      const off = noMatch || !!overBy
+                      return (
+                        <div key={i} className={`flex items-center justify-between gap-2 text-sm ${off ? 'opacity-40' : ''}`}>
+                          <span className="text-green-200 leading-snug">
+                            {e.nameKey ? t('equip', e.nameKey, e.name) : e.name}
+                            {skillPlusHasMatch && off && (
+                              <span className="ml-1.5 text-[10px] font-semibold text-gray-300">
+                                ({noMatch ? tStat('No matching skill') : `${tStat('Overridden by')} ${overBy}`})
+                              </span>
+                            )}
+                          </span>
+                          {e.value && <span className="font-bold text-white shrink-0">{tUnit(fmtSkillPlusValue(e.value))}</span>}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )}

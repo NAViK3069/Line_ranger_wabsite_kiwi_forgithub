@@ -18,6 +18,7 @@
 // ====================================================
 
 import { effectAmount, effectType, type GearEffectLike, type SkillPlusEffectGrowth } from './gearLevelCalc'
+import { resolveFactor } from './skillDetail'
 
 // ── ข้อมูลเกมที่ต้องใช้ (มาจาก /api/meta/ranger-stats → buildRangerStats.ts) ──────────
 
@@ -287,26 +288,29 @@ export const skillUseChance = (p: number) => Math.min(0.95, Math.max(0, p))
 // ── 4) SKILL+ ↔ สกิลของเรนเจอร์ (eqip_skl_plus_grp) ────────────────────
 
 export interface SkillPlusHit {
-  /** สกิลหลักที่ได้ผล */
+  /** สกิลที่ติดตั้ง (หลัก) ที่มีผลนั้นอยู่ */
   skill: SkillGame
-  /** สกิลย่อยที่ได้ผล (SKILL+ แบบ SUB) */
-  sub?: SkillGame
+  /** ผลของสกิลที่ SKILL+ ไปเพิ่มค่า — ตัวสกิลหลักเอง หรือสกิลย่อยตัวใดก็ได้ในต้นไม้ของมัน */
+  node: SkillGame
 }
 
-/** สกิลที่ SKILL+ ตัวนี้ได้ผล — skillType + factorType + buffFactorType ต้องตรงกับแถวใดแถวหนึ่งของ eqip_skl_plus_grp */
+/**
+ * สกิลที่ SKILL+ ตัวนี้ได้ผล (eqip_skl_plus_grp)
+ *   ไล่ "ทุกผล" ในต้นไม้สกิล (สกิลหลัก + สกิลย่อยทุกตัว) — ผลใดที่ skillType + factorType + buffFactorType
+ *   ตรงกับแถวใดแถวหนึ่ง = ได้ผล
+ *   targetFactor ไม่ได้แปลว่าสกิลหลัก/ย่อย แต่บอก "ค่าไหนของผลนั้น" ที่ถูกเพิ่ม:
+ *     MAIN = factor (ความแรง — คู่กับ MUL ทุกแถว) · SUB = subFactor (ระยะเวลา — คู่กับ ADD วินาที)
+ *   เช่น หมวกไวเซอร์สายฟ้า (200370 BUFF/FIXED/SPEED · MAIN) → Yor u1554e ผลย่อย hsk1553_yf_a (BUFF/FIXED/SPEED) ✓
+ *   ตรวจกับตัวจับข้อความเดิมทั้งเกม: ตรงกัน 98.4% — ที่ต่างคือข้อความเดิมจับผิด (เช่น "Evade Rate" ไปติด Skill Evade Rate)
+ */
 export function skillPlusHits(g: SkillPlusEffectGrowth | undefined, skills: SkillGame[]): SkillPlusHit[] {
   const rows = g?.rows ?? []
   if (!rows.length) return []
-  const same = (s: SkillGame, r: (typeof rows)[number]) =>
-    s.skillType === r.skillType && s.factorType === r.factorType && s.buffFactorType === r.buffFactorType
   const out: SkillPlusHit[] = []
   for (const sk of skills) {
-    for (const r of rows) {
-      if (r.target === 'MAIN') {
-        if (same(sk, r) && !out.some(h => h.skill === sk && !h.sub)) out.push({ skill: sk })
-      } else {
-        for (const sub of sk.subs ?? []) if (same(sub, r) && !out.some(h => h.sub === sub)) out.push({ skill: sk, sub })
-      }
+    for (const node of [sk, ...(sk.subs ?? [])]) {
+      const hit = rows.some(r => node.skillType === r.skillType && node.factorType === r.factorType && node.buffFactorType === r.buffFactorType)
+      if (hit && !out.some(h => h.node === node)) out.push({ skill: sk, node })
     }
   }
   return out
@@ -316,20 +320,23 @@ export function skillPlusHits(g: SkillPlusEffectGrowth | undefined, skills: Skil
 export const hasSkillPlusRows = (g: SkillPlusEffectGrowth | undefined) => !!g?.rows?.length
 
 /**
- * ค่าของสกิลก่อน/หลัง SKILL+ — เฉพาะกรณีที่ตารางบอกตรงๆ:
- *   MUL (สกิลหลัก) → บวกเข้า skill.factor (แสดงเป็น %) เมื่อ factorType = ATTACK/HP/FIXED
- *   ADD + SUB       → บวกเข้า subFactor (วินาที) ของสกิลย่อย เมื่อ subFactorType = FIXED
- * กรณีอื่น (factor แบบ GRADE/LEVEL ที่เกมคูณตามระดับ) คืน null = แสดงเฉพาะค่าที่เพิ่ม
+ * ค่าของผลนั้นก่อน → หลัง SKILL+:
+ *   MAIN (factor) → เฉพาะความเสียหาย/ฟื้นฟู ที่ factorType = ATTACK / HP (คำอธิบายเกมเขียน "ATK x N%" = factor × 100 ตรงๆ)
+ *                   บัฟ/ดีบัฟ (FIXED/GRADE) คำอธิบายเกมแปลงค่าต่างกันไปแต่ละชนิด → แสดงเฉพาะค่าที่เพิ่ม
+ *   SUB (subFactor = ระยะเวลา) → ระยะเวลาจริงของผลนั้น (FIXED / GRADE / LEVEL คิดแบบเกม) + วินาทีที่เพิ่ม
  */
-export function skillPlusPower(g: SkillPlusEffectGrowth, hit: SkillPlusHit, amount: number): { before: number; after: number; unit: '%' | 's' | '' } | null {
-  if (g.applyType === 'MUL' && !hit.sub) {
-    const s = hit.skill
-    if (!['ATTACK', 'HP', 'FIXED'].includes(s.factorType)) return null
-    return { before: s.factor, after: s.factor + amount, unit: '%' }
+export function skillPlusPower(
+  g: SkillPlusEffectGrowth, hit: SkillPlusHit, amount: number, grade: number, level: number,
+): { before: number; after: number; unit: '%' | 's' | '' } | null {
+  const n = hit.node
+  if (g.target === 'MAIN') {
+    if (n.factorType !== 'ATTACK' && n.factorType !== 'HP') return null
+    return { before: n.factor, after: n.factor + amount, unit: '%' }
   }
-  if (g.applyType === 'ADD' && hit.sub) {
-    if (hit.sub.subFactorType !== 'FIXED') return null
-    return { before: hit.sub.subFactor, after: hit.sub.subFactor + amount, unit: 's' }
+  if (g.target === 'SUB') {
+    const dur = resolveFactor(n.subFactorType, n.subFactorApplyType, n.subFactor, grade, level)
+    if (dur == null || dur <= 0) return null
+    return { before: dur, after: dur + amount, unit: 's' }
   }
   return null
 }

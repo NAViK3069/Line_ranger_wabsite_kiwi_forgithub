@@ -323,15 +323,7 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
           {/* ── ฉากพื้นที่ (อนิเมชันเกม) + ชื่อ ── */}
           <div className="w-[128px] sm:w-[200px] lg:w-[240px] shrink-0">
             <div className="relative overflow-hidden rounded-xl ring-1 ring-white/15 shadow-[inset_0_0_0_1px_rgba(0,0,0,0.3)]">
-              <AreaMap land={a.land} tower={a.tower} mode={a.mode} className="w-full"
-                buttons={a.stages.map(s => {
-                  const b = btnOf(a), on = s.code === open
-                  return {
-                    x: s.pt[0], y: s.pt[1], on, label: String(s.no),
-                    icon: s.boss ? (on ? b.boss : b.bossOff) : (on ? b.on : b.off),
-                    digits: s.boss ? null : String(s.no).split('').map(b.num),
-                  }
-                })} />
+              <AreaMap land={a.land} tower={a.tower} mode={a.mode} className="w-full" />
               <span aria-hidden className="pointer-events-none absolute inset-0 shadow-[inset_0_-18px_24px_-12px_rgba(0,0,0,0.55)]" />
               <span className={`absolute left-1.5 top-1.5 rounded-md px-1.5 text-[10px] font-bold leading-5 ring-1 backdrop-blur ${TONE[a.mode].chip}`}>
                 {T('พื้นที่', 'AREA')} {a.no}

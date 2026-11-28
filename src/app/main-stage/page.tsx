@@ -411,33 +411,36 @@ function TreasureBar({ t, land, stages, lang, T }: { t: MSTreasure; land: string
           <p className="mt-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-300">{T('ชิ้นส่วนสมบัติ', 'Treasure pieces')}</p>
           {/* กลุ่มละแถว: ด่านที่ดรอป (กลุ่ม 1 = ด่าน 1–4 ของพื้นที่ · 2 = 5–8 · 3 = 9–12 แบบหน้าสมบัติในเกม)
               + ชิ้น 3 ระดับบนกรอบไม้ของเกม ดาวบอกระดับ (★☆☆ → ★★★) */}
-          <ol className="space-y-2">
+          {/* มือถือ: กลุ่มละแถว · คอม: 3 กลุ่มเรียงข้างกัน (ไม่เกะกะ) */}
+          <ol className="grid grid-cols-1 lg:grid-cols-3 gap-2">
             {t.groups.map((g, gi) => {
               const from = stages[gi * 4]?.no, to = stages[Math.min(stages.length, gi * 4 + 4) - 1]?.no
               return (
                 <li key={g.code} className="rounded-xl bg-white/[0.03] p-2 ring-1 ring-white/[0.07]">
                   {from != null && to != null && (
-                    <p className="mb-1.5 flex items-center gap-1.5 text-[11px] text-amber-200/80">
-                      <span className="material-icons-round text-[15px]">place</span>
-                      {T('ดรอปจาก', 'Drops from')}
+                    <p className="mb-1.5 flex items-center justify-center">
                       <TreasureStage from={from} to={to} lang={lang} />
                     </p>
                   )}
-                  <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-start gap-1 sm:gap-2">
+                  {/* แถวบน = กรอบชิ้น + ลูกศร (กึ่งกลางกรอบ) · แถวล่าง = ชื่อ */}
+                  <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-x-1 sm:gap-x-2 lg:gap-x-1">
                     {g.pieces.map((p, k) => (
                       <Fragment key={p.code}>
-                        {k > 0 && <GameIcon icon={IC.treasureArrow} className="mt-[14%] w-3 h-5 sm:w-4 sm:h-6 -scale-x-100" />}
-                        <div className="flex min-w-0 flex-col items-center text-center">
-                          <span className="relative block w-full max-w-[112px] aspect-[158/150]">
-                            <GameIcon icon={IC.treasureCard} className="absolute inset-0 w-full h-full" />
-                            <PieceImg land={land} code={p.code} className="absolute left-[16%] top-[8%] w-[68%] h-[62%] object-contain drop-shadow-[0_2px_3px_rgba(0,0,0,0.5)]" />
-                            {/* ดาวระดับ — วางทับขอบล่างของรูปชิ้น แบบในเกม */}
-                            <span className="absolute inset-x-0 bottom-[12%] flex justify-center">
-                              {[0, 1, 2].map(i => <GameIcon key={i} icon={i <= k ? IC.star : IC.starDim} className="w-[22%] aspect-square -mx-[1%]" />)}
-                            </span>
+                        {k > 0 && <GameIcon icon={IC.treasureArrow} className="w-3 h-5 lg:w-2.5 lg:h-4 -scale-x-100" />}
+                        <span className="relative mx-auto block w-full max-w-[104px] lg:max-w-[76px] aspect-[158/150]">
+                          <GameIcon icon={IC.treasureCard} className="absolute inset-0 w-full h-full" />
+                          <PieceImg land={land} code={p.code} className="absolute left-[16%] top-[8%] w-[68%] h-[62%] object-contain drop-shadow-[0_2px_3px_rgba(0,0,0,0.5)]" />
+                          {/* ดาวระดับ — วางทับขอบล่างของรูปชิ้น แบบในเกม */}
+                          <span className="absolute inset-x-0 bottom-[12%] flex justify-center">
+                            {[0, 1, 2].map(i => <GameIcon key={i} icon={i <= k ? IC.star : IC.starDim} className="w-[22%] aspect-square -mx-[1%]" />)}
                           </span>
-                          <span className="mt-1 text-[10.5px] sm:text-[11.5px] leading-tight text-gray-200 line-clamp-2">{tx(p.name, lang)}</span>
-                        </div>
+                        </span>
+                      </Fragment>
+                    ))}
+                    {g.pieces.map((p, k) => (
+                      <Fragment key={`${p.code}-name`}>
+                        {k > 0 && <span />}
+                        <span className="mt-1 self-start text-center text-[10.5px] sm:text-[11.5px] lg:text-[10.5px] leading-tight text-gray-200 line-clamp-2">{tx(p.name, lang)}</span>
                       </Fragment>
                     ))}
                   </div>
@@ -455,7 +458,8 @@ function TreasureBar({ t, land, stages, lang, T }: { t: MSTreasure; land: string
 function TreasureStage({ from, to, lang }: { from: number; to: number; lang: L }) {
   const digits = (n: number) => String(n).split('').map((d, i) => <TreasureDigit key={i} icon={{ atlas: 'treasure16', frame: `treasure_stage_num_0${d}.png` }} />)
   return (
-    <span className="inline-flex items-center gap-1 rounded-md bg-[#3a2414] px-1.5 py-0.5 ring-1 ring-amber-900/60" aria-label={`Stage ${from}-${to}`}>
+    // พื้นครีมแบบป้ายในเกม — ตัวอักษรของเกมเป็นสีน้ำตาล บนพื้นเข้มจะกลืนกัน
+    <span className="inline-flex items-center gap-1 rounded-md bg-gradient-to-b from-[#fff3d6] to-[#f1d9a8] px-1.5 py-0.5 ring-1 ring-[#b9824a]/70 shadow-[0_1px_0_rgba(0,0,0,0.35)]" aria-label={`Stage ${from}-${to}`}>
       <GameIcon icon={{ atlas: 'treasure', frame: `ml_treasure_stage_${lang === 'th' ? 'th' : 'en'}.png` }} className="h-3 w-auto" />
       <span className="inline-flex h-3.5 items-center">
         {digits(from)}<TreasureDigit icon={{ atlas: 'treasure16', frame: 'treasure_stage_num_slash.png' }} />{digits(to)}

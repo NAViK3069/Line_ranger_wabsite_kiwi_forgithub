@@ -553,7 +553,7 @@ function StageDetail({ s, a, data, lang, T, onEnemy }: { s: MSStage; a: MSArea; 
   return (
     <div className="border-t border-white/10 bg-black/25">
       {/* ── หัวด่าน: ฉากต่อสู้ของเกม (bg + ออปเจค วางแบบในเกม — StageScene.tsx) ── */}
-      <div className="relative overflow-hidden min-h-[150px] sm:min-h-[190px] lg:min-h-[210px] flex flex-col justify-end bg-[#120a20]">
+      <div className="relative overflow-hidden min-h-[150px] sm:min-h-[190px] lg:min-h-0 flex flex-col justify-end bg-[#120a20]">
         <StageScene bg={s.bg} field={s.distance ?? 1000} seed={s.code} />
         <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/25 to-transparent" />
         <div aria-hidden className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/60 to-transparent" />

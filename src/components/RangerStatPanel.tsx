@@ -1190,6 +1190,21 @@ export default function RangerStatPanel({
                     className={`w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-white/15 ${levelPopupTheme(stats.tier).accent}`}
                     aria-label="Ranger level"
                   />
+                  {/* ปุ่มลัด: Lv.1 / เลเวลสูงสุดก่อนปลดลิมิต / เลเวลสูงสุดหลังปลดลิมิตครบ */}
+                  <div className="flex gap-1.5 mt-3">
+                    {[...new Set([1, stats.maxLevel, playerMaxLevel])].map(lv => (
+                      <button
+                        key={lv}
+                        type="button"
+                        onClick={() => { play('click_global.ogg'); setSliderLevel(lv) }}
+                        className={`flex-1 rounded-md py-1 text-xs font-bold tabular-nums transition-colors ${
+                          lv === displayLevel ? `bg-white/20 ${levelPopupTheme(stats.tier).text}` : 'bg-white/5 text-gray-300 hover:bg-white/10'
+                        }`}
+                      >
+                        Lv.{lv}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

@@ -66,6 +66,7 @@
 // ====================================================
 
 import type { GearEffect, GearEffects } from './pvpScraper'
+import { effectAmount, effectType } from './gearLevelCalc'
 
 // ──────────────────────────────────────────────────────
 // SECTION 1 — Types & Constants
@@ -74,7 +75,7 @@ import type { GearEffect, GearEffects } from './pvpScraper'
 export interface RangerContext {
   category: string | null      // 'STR' | 'AGI' | 'INT'
   element: string | null       // 'fire'|'water'|'wood'|'light'|'dark' (normalized lowercase)
-  hasDamageSkill: boolean      // มีสกิลที่ description มี "ATK x"
+  hasDamageSkill: boolean      // มีสกิล (หลัก/ย่อย) ที่ factorType = ATTACK ในตาราง skill — ดู hasAttackFactorSkill()
   skillEvadeRate: number       // total รวม Basic gear bonus แล้ว (0–1, อาจ > 1)
   skillResistance: number      // total รวม Basic gear bonus แล้ว (0–1, อาจ > 1)
 }
@@ -116,17 +117,23 @@ type PriorityKey =
   | 'skillUseRate'
   | 'hp'
 
-// Matchers: ตรวจชื่อ effect ว่าเข้าข่ายของ priority key ไหน
-const MATCHERS: Record<PriorityKey, (name: string) => boolean> = {
-  rangerRegen:      n => /regeneration.time/i.test(n),
-  elementalProwess: n => { const l = n.toLowerCase(); return l.includes('elemental') && l.includes('prowess') },
-  elementalHit:     n => { const l = n.toLowerCase(); return l.includes('elemental') && l.includes('hit') },
-  mineralCost:      n => /mineral/i.test(n),
-  skillEvade:       n => /skill.evade/i.test(n),
-  skillResist:      n => /skill.resist/i.test(n),
-  skillUseRate:     n => /skill.*(use.rate|prob|usage)/i.test(n),
-  hp:               n => /^\s*hp\s*$/i.test(n),
+// Priority key → ชนิดค่าพลังของเกม (unit_eqip_attr.reinforceType) — ไม่อ่านจากชื่อ/ข้อความ
+const PRIORITY_TYPES: Record<PriorityKey, string[]> = {
+  rangerRegen:      ['PRD_SPE_MUL'],
+  elementalProwess: ['EATK_MUL'],
+  elementalHit:     ['EHIT_MUL'],
+  mineralCost:      ['SUMMON_ENGY_MUL'],
+  skillEvade:       ['SKLAVD_PROB_MUL'],
+  skillResist:      ['SKLRE_PROB_MUL'],
+  skillUseRate:     ['SKL_PROB_MUL'],
+  hp:               ['HP_MUL', 'HP_ADD'],
 }
+const MATCHERS: Record<PriorityKey, (e: GearEffect) => boolean> = Object.fromEntries(
+  (Object.keys(PRIORITY_TYPES) as PriorityKey[]).map(k => [k, (e: GearEffect) => PRIORITY_TYPES[k].includes(effectType(e) ?? '')]),
+) as Record<PriorityKey, (e: GearEffect) => boolean>
+
+/** ตัวระบุชนิดของ effect — ชนิดเดียวกันจากหลายชิ้น เกมนับแค่ Switchable ค่าสูงสุด (libgame 0x111d8c8) */
+export const effectKey = (e: GearEffect): string => effectType(e) ?? e.name
 
 type Option = { trigType: string | null; effect: GearEffect }
 
@@ -167,11 +174,8 @@ function filterCompatible(opts: Option[], category: string | null, element: stri
   return opts.filter(o => matchesTrigType(o.trigType, category, element))
 }
 
-// ดึงค่าตัวเลข absolute จาก value string ("+18.0%" → 18.0, "-30%" → 30)
-export function absNumericValue(valueStr: string): number {
-  const m = valueStr.match(/([0-9]+(?:\.[0-9]+)?)/)
-  return m ? parseFloat(m[1]) : 0
-}
+/** ขนาดของค่า effect (ใช้เทียบว่าชิ้นไหนสูงกว่า) — จากค่าตัวเลขดิบ ไม่แกะข้อความ */
+export const absEffectValue = (e: GearEffect): number => Math.abs(effectAmount(e))
 
 // ──────────────────────────────────────────────────────
 // SECTION 3 — Core: priority builder
@@ -219,7 +223,7 @@ function buildPriority(
 function pickByPriority(opts: Option[], priority: PriorityKey[]): Option | null {
   if (opts.length === 0) return null
   for (const key of priority) {
-    const found = opts.find(o => o.effect != null && MATCHERS[key](o.effect.name))
+    const found = opts.find(o => o.effect != null && MATCHERS[key](o.effect))
     if (found) return found
   }
   // Final fallback: คืน option แรกที่ compatible
@@ -243,7 +247,7 @@ function pickForSlot(
 
   // 3) Filter ตาม excludeNames (ใช้ตอน re-pick หลัง duplicate)
   if (excludeNames && excludeNames.size > 0) {
-    opts = opts.filter(o => !excludeNames.has(o.effect?.name ?? ''))
+    opts = opts.filter(o => !o.effect || !excludeNames.has(effectKey(o.effect)))
   }
 
   // 4) Build priority + pick
@@ -257,12 +261,12 @@ function pickForSlot(
 
 function isElementalEffect(effect: GearEffect | null): boolean {
   if (!effect) return false
-  return MATCHERS.elementalProwess(effect.name) || MATCHERS.elementalHit(effect.name)
+  return MATCHERS.elementalProwess(effect) || MATCHERS.elementalHit(effect)
 }
 
 function isMineralCostEffect(effect: GearEffect | null): boolean {
   if (!effect) return false
-  return MATCHERS.mineralCost(effect.name)
+  return MATCHERS.mineralCost(effect)
 }
 
 // Helper สำหรับ classify AMR pick (ใช้โดย caller ถ้าต้องการ — แต่ logic หลักไม่ต้องการแล้ว)
@@ -329,7 +333,7 @@ export function selectSwitchableEffects(
         const sA = ALL_SLOTS[i], sB = ALL_SLOTS[j]
         const stA = state[sA], stB = state[sB]
         if (!stA.active || !stB.active || !stA.effect || !stB.effect) continue
-        if (stA.effect.name === stB.effect.name) {
+        if (effectKey(stA.effect) === effectKey(stB.effect)) {
           cA = sA; cB = sB
           break outer
         }
@@ -339,7 +343,7 @@ export function selectSwitchableEffects(
 
     // ตัดสิน winner/loser
     const eA = state[cA].effect!, eB = state[cB].effect!
-    const vA = absNumericValue(eA.value), vB = absNumericValue(eB.value)
+    const vA = absEffectValue(eA), vB = absEffectValue(eB)
 
     let winner: SlotKey, loser: SlotKey
     if (vA > vB) {
@@ -355,7 +359,7 @@ export function selectSwitchableEffects(
     }
 
     // Loser: เพิ่มชื่อ effect ไป excluded list + re-pick
-    const dupName = state[loser].effect!.name
+    const dupName = effectKey(state[loser].effect!)
     excluded[loser].add(dupName)
 
     const newPick = pickForSlot(loser, opts(gears[loser]), ctx, excluded[loser])

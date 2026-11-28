@@ -10,7 +10,8 @@ import { cleanUnitName } from './unitName'
 import { gameEquipments, gameText } from './gameData'
 import {
   calcBasicEffectValue, calcSwitchableEffectValue, calcSkillPlusEffectValue,
-  type BasicEffectGrowth, type SwitchableEffectGrowth, type SkillPlusEffectGrowth,
+  basicEffectAmount, switchableEffectAmount, skillPlusEffectAmount,
+  type BasicEffectGrowth, type SwitchableEffectGrowth, type SkillPlusEffectGrowth, type SkillPlusMatchRow,
 } from './gearLevelCalc'
 
 // =========== DB helpers ===========
@@ -203,9 +204,12 @@ interface RawSpAttribute {
   minValue?: number
   maxValue?: number
   valueDivideGrades?: number
+  targetFactor?: string | null
+  attrNumberGroup?: number | null
+  matchRows?: SkillPlusMatchRow[]
 }
 
-const equipDataCache      = new Map<string, RawEquipment>()
+const equipDataCache     = new Map<string, RawEquipment>()
 const attributesCache     = new Map<number, RawAttribute>()
 const randomOptionsByGroup = new Map<string, RawRandomOption[]>()
 const unlimitEffectsCache: RawUnlimitEffect[] = []
@@ -216,6 +220,8 @@ const spAttributesCache   = new Map<number, RawSpAttribute>()
 export interface GearEffect {
   name: string
   value: string   // formatted e.g. "+8.4%", "+120"
+  /** ค่าตัวเลขดิบของ value (0.084 = +8.4%) */
+  amount?: number
   /** Translation key suffix (ใช้กับ EQUIP map) สำหรับแปลชื่อ multi-lang client-side
    *  e.g. "GEAR_ATTR_HP_INC_PCT_nm" หรือ "SKILL_PLUS_200191_nm"
    */
@@ -363,6 +369,7 @@ function buildBasicEffect(attr: RawAttribute, enchant = 5): GearEffect | null {
   return {
     name: attrDisplayName(attr.reinforceType),
     value: calcBasicEffectValue(growth, enchant),
+    amount: basicEffectAmount(growth, enchant),
     nameKey: `GEAR_ATTR_${attr.reinforceType}_nm`,
     basicGrowth: growth,
   }
@@ -389,6 +396,7 @@ function buildSwitchableEffect(attr: RawAttribute, unlimitLevel = 5): GearEffect
   return {
     name: attrDisplayName(attr.reinforceType),
     value: calcSwitchableEffectValue(growth, unlimitLevel),
+    amount: switchableEffectAmount(growth, unlimitLevel),
     nameKey: `GEAR_ATTR_${attr.reinforceType}_nm`,
     switchableGrowth: growth,
   }
@@ -405,24 +413,18 @@ function buildSkillPlusEffect(attrNo: number, sp: RawSpAttribute, enchant = 5): 
   // ชื่อ SKILL+ จาก SKILL_PLUS_{attrNo}_nm
   const rawName = equipTranslateCache.get(`SKILL_PLUS_${attrNo}_nm`) ?? `SKILL_PLUS_${attrNo}`
 
-  // format ค่า: MUL = %, ADD + duration skillType = sec, อื่นๆ = ตัวเลขปกติ
-  // skillFactorApplyType มีแค่ 'ADD' | 'MUL' (ไม่มี 'SEC' ใน API จริง)
-  // sec-based skills: SILENCE (ทำให้ใช้สกิลไม่ได้), TEMPT (charm), STUN, POLYMORPH
-  const SEC_SKILL_TYPES = new Set(['SILENCE', 'TEMPT', 'STUN', 'POLYMORPH', 'DOT', 'DOTHEAL', 'BUBBLE'])
-  // attrNo ที่ทราบว่าเป็น sec-based แต่ skillType ไม่ได้อยู่ใน SEC_SKILL_TYPES
-  // (ตรวจสอบจาก gameplay: ค่า +X.X คือวินาทีที่เพิ่มให้สกิล)
-  const SEC_ATTRNO = new Set([
-    200191,  // Changes regular attacks to area attacks (+sec)
-    200151,  // Creates a shield over an area (+sec)
-    200201,  // Changes enemy types (+sec)
-    200381,  // Turns enemies in range into allies (+sec)
-    200431,  // Continuously cancels enemy invincibility (+sec)
-    200441,  // Continuously cancels enemy buffs (+sec)
-  ])
+  // หน่วยของค่า จากตาราง unit_eqip_skl_plus_attr ล้วนๆ:
+  //   MUL (ทุกตัวเป็น targetFactor MAIN) = บวกเข้าตัวคูณของสกิลหลัก → แสดงเป็น %
+  //   ADD + targetFactor SUB = บวกระยะเวลาของสกิลย่อย → วินาที
+  //   ADD + MAIN = บวกค่าตรงๆ (เช่น Area Physical DEF +N)
   const applyType = sp.skillFactorApplyType ?? ''
+  const target = sp.targetFactor ?? sp.targetFactorType ?? ''
   const isPct = applyType === 'MUL'
-  const isSec = applyType === 'ADD' && (SEC_SKILL_TYPES.has(sp.skillType ?? '') || SEC_ATTRNO.has(attrNo))
-  const growth: SkillPlusEffectGrowth = { base, statIncAmt, isPct, isSec }
+  const isSec = applyType === 'ADD' && target === 'SUB'
+  const growth: SkillPlusEffectGrowth = {
+    base, statIncAmt, isPct, isSec,
+    attrNo, group: sp.attrNumberGroup ?? attrNo, target, applyType, rows: sp.matchRows ?? [],
+  }
 
   // cleanName: แทน \\n ด้วย space และ collapse หลาย space เป็น space เดียว
   // สำคัญ: API บางตัวมี "\\n" กลางชื่อ เช่น "Applies charm effect \\nto N enemies"
@@ -431,7 +433,7 @@ function buildSkillPlusEffect(attrNo: number, sp: RawSpAttribute, enchant = 5): 
   const cleanName = rawName.replace(/\\n/g, ' ').replace(/\s+/g, ' ').trim()
 
   // ทั้ง N-template และ non-N ต่างคืน { name, value } — value แสดงที่ column ขวาของ SKILL+ section
-  return { name: cleanName, value: calcSkillPlusEffectValue(growth, enchant), nameKey: `SKILL_PLUS_${attrNo}_nm`, skillPlusGrowth: growth }
+  return { name: cleanName, value: calcSkillPlusEffectValue(growth, enchant), amount: skillPlusEffectAmount(growth, enchant), nameKey: `SKILL_PLUS_${attrNo}_nm`, skillPlusGrowth: growth }
 }
 
 // 3-level enchant: แยกควบคุม basic / switchable / skill+ ได้อิสระ

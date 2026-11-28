@@ -646,11 +646,17 @@ export function gameEquipments(): GameEquipments {
     upgrades.set(u.attr_no, list)
   }
   const groups = new Map<unknown, Row[]>()
+  // ทุกแถวของ eqip_skl_plus_grp = สกิลที่ SKILL+ ตัวนี้ได้ผล (skillType + factorType + buffFactorType ต้องตรงกับสกิล
+  // หลัก (MAIN) หรือสกิลย่อย (SUB) ของเรนเจอร์) — เก็บครบทุกแถวไว้ใน matchRows ให้ฝั่งเว็บเทียบกับตาราง skill ได้ตรงๆ
+  const matchRows = new Map<unknown, Row[]>()
   for (const g of gameTable('eqip_skl_plus_grp')) {
     const list = groups.get(g.attrNo) ?? []
     // แถวที่ต่างกันแค่ factorType นับเป็นผลเดียวกัน (ชนิดสกิล + บัฟ + เป้า เดียวกัน)
     if (!list.some(x => x.skillType === g.skillType && x.buffFactorType === g.buffFactorType && x.targetFactorType === g.targetFactorType)) list.push(g)
     groups.set(g.attrNo, list)
+    const rows = matchRows.get(g.attrNo) ?? []
+    rows.push({ skillType: g.skillType, factorType: g.factorType, buffFactorType: g.buffFactorType, target: g.targetFactorType })
+    matchRows.set(g.attrNo, rows)
   }
   const spAttributes: Row[] = []
   for (const s of gameTable('unit_eqip_skl_plus_attr')) {
@@ -660,6 +666,8 @@ export function gameEquipments(): GameEquipments {
         attrNo: s.attrNo, skillType: g.skillType, buffFactorType: g.buffFactorType, targetFactorType: g.targetFactorType,
         stat_inc_amt: inc, skillFactorApplyType: s.skillFactorApplyType,
         minValue: s.minValue, maxValue: s.maxValue, valueDivideGrades: s.valueDivideGrades,
+        targetFactor: s.targetFactor, attrNumberGroup: s.attrNumberGroup ?? s.attrNo,
+        matchRows: matchRows.get(s.attrNo) ?? [],
       })
     }
   }

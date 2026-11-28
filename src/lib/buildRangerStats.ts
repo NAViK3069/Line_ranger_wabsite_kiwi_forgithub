@@ -17,6 +17,8 @@ import {
 } from '@/lib/rangerData'
 import { ensureTriggerBasisLoaded, getTriggerBasis, type TriggerBasis } from '@/lib/rangerTriggerBasis'
 import type { RangerGrowthInput } from '@/lib/rangerLevelCalc'
+import { gameTable } from '@/lib/gameData'
+import type { LevelRules, SkillGame } from '@/lib/rangerGameCalc'
 
 // ── Response types ──────────────────────────────────
 
@@ -30,6 +32,8 @@ export interface SkillSlot {
   cooldown?: number      // seconds
   area?: number
   triggerBasis?: TriggerBasis   // เป้าของสกิล (self / front enemy / rear enemy ×N) — skill.targetType ของเกม
+  /** แถวของตาราง skill (+ สกิลย่อย) — ใช้จับคู่ SKILL+ และคำนวณพลังสกิล */
+  game?: SkillGame
 }
 
 export interface AbilitySlot {
@@ -104,17 +108,80 @@ export interface RangerStatsResponse {
 
   skills: SkillSlot[]
   abilities: AbilitySlot[]
+
+  /** ข้อมูลเกมดิบสำหรับคำนวณฝั่งเว็บ (rangerGameCalc.ts) */
+  game: {
+    levelRules: LevelRules
+    attackDelay: number
+    movingSpeed: number
+    attackRange: number
+    splash: number
+    summonEnergy: number
+    productionSpeed: number
+    critRatio: number
+  }
+}
+
+// ── ข้อมูลเกม: skill / game_factor / unit_level_expansion ─────────
+
+let skillIndex: Map<string, Record<string, unknown>> | null = null
+function skillRow(code: string): Record<string, unknown> | null {
+  if (!skillIndex) skillIndex = new Map(gameTable('skill').map(s => [String(s.skillCode), s as Record<string, unknown>]))
+  return skillIndex.get(code) ?? null
+}
+const n = (v: unknown, d = 0) => (typeof v === 'number' && isFinite(v) ? v : d)
+const str = (v: unknown) => (typeof v === 'string' ? v : '')
+
+function skillGame(code: string, depth = 0): SkillGame | undefined {
+  const r = skillRow(code)
+  if (!r) return undefined
+  const subs = depth === 0
+    ? str(r.subSkills).split(',').map(c => c.trim()).filter(Boolean).map(c => skillGame(c, 1)).filter((x): x is SkillGame => !!x)
+    : undefined
+  return {
+    code,
+    skillType: str(r.skillType), factorType: str(r.factorType), factorApplyType: str(r.factorApplyType), factor: n(r.factor),
+    buffFactorType: str(r.buffFactorType), buffFactor: n(r.buffFactor),
+    subFactorType: str(r.subFactorType), subFactor: n(r.subFactor),
+    probability: n(r.probability), delay: n(r.skillDelayTime), range: n(r.range), targetType: str(r.targetType),
+    ...(subs ? { subs } : {}),
+  }
+}
+
+let factorIndex: Map<string, string> | null = null
+function factor(name: string, d: number): number {
+  if (!factorIndex) factorIndex = new Map(gameTable('game_factor').map(f => [String(f.factor).trim(), String(f.val)]))
+  const v = parseFloat(factorIndex.get(name) ?? '')
+  return isFinite(v) ? v : d
+}
+
+/**
+ * กฎปลดลิมิตตามชนิดเรนเจอร์:
+ *   อัลตร้า (transcend) / ไฮเปอร์ (hyper) → ค่า *_TRANSCENDENT ของ game_factor + ตาราง 20 ขั้น
+ *   8★ ธรรมดา (evolution) → LEVEL_EXPANSION_*_INCREASE_RATE (0.2 ต่อครั้ง) + ตาราง 4 ขั้น
+ *   9★ ใช้ตาราง evolution (4 ขั้น) แต่ค่าพลังไม่คูณเพิ่ม (ยืนยันกับเกม: n=0 ได้ค่า Lv.180 ตรง)
+ */
+function levelRulesOf(tier: RangerStatsResponse['tier']): LevelRules {
+  const evolutionType = tier === 'ultra' ? 'transcend' : tier === 'hyper' ? 'hyper' : 'evolution'
+  const rows = gameTable('unit_level_expansion').filter(r => r.evolutionType === evolutionType)
+  const maxCount = rows.reduce((m, r) => Math.max(m, n(r.levelExpansionCount)), 0)
+  const decreaseRates = [0, ...Array.from({ length: maxCount }, (_, i) =>
+    n(rows.find(r => n(r.levelExpansionCount) === i + 1)?.productionSpeedDecreaseRate))]
+  const trans = evolutionType !== 'evolution'
+  const noGrowth = trans || tier === 'base9'
+  const rate = (k: string) => (noGrowth ? factor(`LEVEL_EXPANSION_${k}_INCREASE_RATE_TRANSCENDENT`, 0) : factor(`LEVEL_EXPANSION_${k}_INCREASE_RATE`, 0.2))
+  return {
+    evolutionType,
+    step: trans ? factor('LEVEL_EXPANSION_AMOUNT_TRANSCENDENT', 5) : factor('LEVEL_EXPANSION_AMOUNT', 5),
+    maxCount,
+    atkRate: rate('ATK'), defRate: rate('DEF'), hpRate: rate('HP'),
+    decreaseRates,
+    productionMin: factor('UNIT_PRODUCTION_SPEED_MIN_LIMIT', 1.3),
+    minSummonEnergy: factor('UNIT_MIN_SUMMON_ENERGY', 1),
+  }
 }
 
 // ── Skill builder ───────────────────────────────────
-
-const AREA_CANDIDATES = [
-  'range',
-  'attackScope', 'skillScope', 'projectileAttackScope', 'attackRange',
-  'areaScope', 'skillAttackScope', 'effectScope', 'hitRange',
-  'targetScope', 'rangeScope', 'skillRange', 'aoeRange', 'area',
-  'skillAttackRange', 'effectRange', 'splashScope',
-]
 
 export async function buildSkills(raw: RawRanger): Promise<SkillSlot[]> {
   const entries: { slot: SkillSlot['slot']; code?: string }[] = [
@@ -134,14 +201,9 @@ export async function buildSkills(raw: RawRanger): Promise<SkillSlot[]> {
     const name = translateSkill(`${code}_nm`) || translateSkill(code) || code
     const description = translateSkill(`${code}_desc`) || undefined
 
-    let area: number | undefined
-    if (rawSk) {
-      const rawSkAny = rawSk as Record<string, unknown>
-      for (const key of AREA_CANDIDATES) {
-        const v = rawSkAny[key]
-        if (typeof v === 'number' && v > 0) { area = v; break }
-      }
-    }
+    // ระยะสกิล = skill.range ของเกม
+    const range = (rawSk as Record<string, unknown> | null)?.range
+    const area = typeof range === 'number' && range > 0 ? range : undefined
 
     const triggerBasis = getTriggerBasis(unitCode, rawSk?.iconResourcePath) ?? undefined
 
@@ -155,6 +217,7 @@ export async function buildSkills(raw: RawRanger): Promise<SkillSlot[]> {
       cooldown:      typeof rawSk?.skillDelayTime === 'number' ? rawSk.skillDelayTime : undefined,
       area,
       triggerBasis,
+      game: skillGame(code),
     })
   }
   return out
@@ -315,5 +378,16 @@ export async function buildRangerStatsResponse(
 
     skills: await buildSkills(raw),
     abilities: buildAbilities(raw, rangerId),
+
+    game: {
+      levelRules: levelRulesOf(tier),
+      attackDelay: raw.attackDelay ?? 30,
+      movingSpeed: raw.movingSpeed ?? 0,
+      attackRange: raw.attackRange ?? 0,
+      splash: raw.projectileAttackScope ?? 0,
+      summonEnergy: raw.summonEnergy ?? 0,
+      productionSpeed: raw.productionSpeed ?? 0,
+      critRatio: typeof raw.criticalRatio === 'number' ? raw.criticalRatio : 1,
+    },
   }
 }

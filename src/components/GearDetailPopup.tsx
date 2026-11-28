@@ -6,13 +6,14 @@
 
 import { apiFetch } from '@/lib/staticApi'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { pickAutoSwitchable, type RangerContext } from '@/lib/switchableSelector'
+import { pickAutoSwitchable, effectKey, type RangerContext } from '@/lib/switchableSelector'
+import { skillPlusHits, hasSkillPlusRows, type SkillGame } from '@/lib/rangerGameCalc'
 import { aggregateGearBonuses } from '@/lib/gearEffectParser'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useSound } from '@/contexts/SoundContext'
 import GearSpecSection from '@/components/GearSpecSection'
 import {
-  splitSliderLevel, recalcGearEffects,
+  splitSliderLevel, recalcGearEffects, effectAmount,
   type BasicEffectGrowth, type SwitchableEffectGrowth, type SkillPlusEffectGrowth,
 } from '@/lib/gearLevelCalc'
 
@@ -80,11 +81,11 @@ interface Props {
   // ถ้าไม่มี (เช่น picker preview) → popup คำนวณ auto pick เอง
   lockedAutoSelectionName?: string | null
   switchableInactiveReason?: 'duplicate' | 'type_mismatch'  // ถ้า Switchable Effect ใช้งานไม่ได้ → แสดง overlay (ใช้สำหรับ installed gear)
-  rangerSkillDescriptions?: string[]                         // skill descriptions ของเรนเจอร์ → ตรวจ SKILL+ match
+  rangerSkills?: SkillGame[]                                  // สกิลของเรนเจอร์ (ตาราง skill) → จับคู่ SKILL+ ด้วย eqip_skl_plus_grp
   skillPlusOverriddenBy?: Record<string, string>             // effectName → slot ที่ชนะ ('WPN'/'AMR'/'ACC') — ถ้ามี → effect นั้นถูก override โดย slot อื่น (ใช้สำหรับ installed gear)
   // ── picker preview context (ตรวจเงื่อนไขก่อนติดตั้ง) ──
   occupiedSwitchableTypes?: string[]                         // trigTypes ที่ถูก slot อื่นครอบครองแล้ว (ใช้ใน expanded options dimming)
-  existingSkillPlus?: Array<{ name: string; value: string; slot: string }> // SKILL+ จาก slot อื่นที่ใส่แล้ว (ตรวจ override)
+  existingSkillPlus?: Array<{ group: number; amount: number; slot: string }> // SKILL+ จาก slot อื่นที่ใส่แล้ว (กลุ่มเดียวกัน → ค่าสูงกว่าชนะ)
   compareBasicEffects?: Array<{ name: string; value: string }>  // Basic Effect ของเกียร์ที่ใส่อยู่ปัจจุบัน → เทียบค่า up/down/equal
   // ── installed gear switchable override ──
   selectedSwitchableOverride?: string | null                 // effectName ที่ user เลือกเอง (installed gear)
@@ -128,22 +129,6 @@ async function fetchGearDetailCached(qs: string, effectsOnly: boolean): Promise<
     cloned.json().then(d => effectsCacheSet(qs, d)).catch(() => {})
   }
   return res
-}
-
-// ── Regex cache สำหรับ N-template matching ──
-// compile แค่ครั้งเดียวต่อ template → ไม่ compile ซ้ำทุกครั้งที่เรียก skillPlusMatchesDescriptions
-const _regexCache = new Map<string, RegExp | null>()
-function getSkillPlusRegex(template: string): RegExp | null {
-  if (_regexCache.has(template)) return _regexCache.get(template)!
-  try {
-    const escaped = template.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const re = new RegExp(escaped.replace(/\b[Nn]\b/g, '[\\d]+(?:\\.[\\d]+)?'), 'i')
-    _regexCache.set(template, re)
-    return re
-  } catch {
-    _regexCache.set(template, null)
-    return null
-  }
 }
 
 // helper: สร้าง URL รูป upgrade level icon
@@ -221,58 +206,6 @@ function StarImage({ grade, className = 'h-4 object-contain' }: { grade: number 
   // eslint-disable-next-line @next/next/no-img-element
   return <img loading="lazy" decoding="async" src={src} alt={`${grade}★`} className={className} />
 }
-
-// แยก description string (อาจมี \n และ * bullet) ออกเป็น segments แต่ละบรรทัด
-function splitDescriptionLines(desc: string): string[] {
-  const lines = desc.replace(/\\n/g, '\n').split(/\n+/)
-  const segs: string[] = []
-  for (const line of lines) {
-    // บรรทัดอาจมีหลาย * bullet ต่อกัน — split ที่ * ที่ไม่ใช่ตัวแรก
-    const parts = line.split(/(?=\*)/).map(s => s.trim()).filter(Boolean)
-    for (const p of parts) segs.push(p.replace(/^\*+/, '').trim())
-  }
-  return segs.filter(Boolean)
-}
-
-// ตรวจว่า SKILL+ template ตรงกับ segment ใดใน descriptions หรือไม่
-// descriptions = array ของ raw description string (อาจ multi-line / * bullets)
-// → N-template: N = wildcard ตัวเลข (เช่น "ATK x N% Area Damage")
-// → Non-N template: substring match (เช่น "Makes enemy skills unusable")
-// → strip trailing (...) เพราะ description อาจมี "(10 sec)", "(6 sec)" ปิดท้าย
-// บาง SKILL+ ชื่อเป็น label สั้นๆ ไม่ตรงกับคำใน skill description ตรงๆ
-// เช่น "Enemy Fear (sec)" ↔ "Fear effect on some enemies (4 sec)" / "Fear effect on 1 enemy (2 sec)"
-const SKILL_PLUS_ALIAS_PATTERN: Record<string, RegExp> = {
-  'enemy fear (sec)': /\bfear effect on\b/i,
-}
-
-function skillPlusMatchesDescriptions(template: string, descriptions: string[]): boolean {
-  const aliasPattern = SKILL_PLUS_ALIAS_PATTERN[template.trim().toLowerCase()]
-  const hasN = /\b[Nn]\b/.test(template)
-  // ใช้ cached regex แทนการ compile ใหม่ทุกครั้ง
-  const pattern = hasN ? getSkillPlusRegex(template) : null
-  if (hasN && !pattern) return false
-  for (const desc of descriptions) {
-    for (const seg of splitDescriptionLines(desc)) {
-      const cleanSeg = seg.replace(/\s*\([^)]*\)\s*$/, '').trim()
-      if (aliasPattern) { if (aliasPattern.test(cleanSeg)) return true; continue }
-      if (hasN) {
-        if (pattern!.test(cleanSeg)) return true
-      } else {
-        if (cleanSeg.toLowerCase().includes(template.toLowerCase())) return true
-      }
-    }
-  }
-  return false
-}
-
-// ── SKILL+ helpers (ใช้คำนวณ override ใน picker preview) ────────────────
-function parseSkillPlusValueLocal(value: string): number {
-  const m = value.match(/[\d.]+/)
-  return m ? parseFloat(m[0]) : 0
-}
-function normSkillPlusNameLocal(name: string): string {
-  return name.replace(/\b[Nn]\b/g, '__N__').replace(/\s+/g, ' ').trim().toLowerCase()
-}
 // format ค่า SKILL+ — ถ้าเป็นตัวเลขล้วน (ไม่มี %) → หน่วยวินาที ต่อท้ายด้วย "sec"
 // เช่น "+3.5" → "+3.5sec", "+80.0%" → "+80.0%" (ไม่เปลี่ยน)
 function fmtSkillPlusValue(value: string): string {
@@ -280,7 +213,7 @@ function fmtSkillPlusValue(value: string): string {
   return /^[+\-]?[\d.]+$/.test(v) ? v + 'sec' : v
 }
 
-export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gearSlot, league, onClose, onInstall, onRemove, onReplace, hideRangerUsage, effectLevel, rangerCtx, otherSlotsLockedNames, lockedAutoSelectionName, switchableInactiveReason, rangerSkillDescriptions, skillPlusOverriddenBy, occupiedSwitchableTypes, existingSkillPlus, compareBasicEffects, selectedSwitchableOverride, onSwitchableSelect, zIndex, showLevelSlider, sliderLevel: sliderLevelProp, onSliderLevelChange, specLevel, onSpecLevelChange }: Props) {
+export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gearSlot, league, onClose, onInstall, onRemove, onReplace, hideRangerUsage, effectLevel, rangerCtx, otherSlotsLockedNames, lockedAutoSelectionName, switchableInactiveReason, rangerSkills, skillPlusOverriddenBy, occupiedSwitchableTypes, existingSkillPlus, compareBasicEffects, selectedSwitchableOverride, onSwitchableSelect, zIndex, showLevelSlider, sliderLevel: sliderLevelProp, onSliderLevelChange, specLevel, onSpecLevelChange }: Props) {
   const { t, tGear, tRanger, tUnit, tStat } = useLanguage()
   const { play } = useSound()
   const handleClose = () => { play('click_collect_cancel.ogg'); onClose() }
@@ -371,17 +304,11 @@ export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gear
     if (!existingSkillPlus?.length || !effects?.skillPlus?.length) return {}
     const result: Record<string, string> = {}
     for (const sp of effects.skillPlus) {
-      const myNorm = normSkillPlusNameLocal(sp.name)
-      const myVal  = parseSkillPlusValueLocal(sp.value)
-      for (const other of existingSkillPlus) {
-        if (normSkillPlusNameLocal(other.name) === myNorm) {
-          // other ชนะถ้าค่า >= myVal (รวม equal: already installed wins)
-          if (parseSkillPlusValueLocal(other.value) >= myVal) {
-            result[sp.name] = other.slot
-          }
-          break  // เจอ match แล้ว ไม่ต้อง loop ต่อ
-        }
-      }
+      // SKILL+ กลุ่มเดียวกัน (attrNumberGroup ของเกม) — ชิ้นที่ใส่อยู่แล้วชนะถ้าค่า ≥ ชิ้นนี้
+      const group = sp.skillPlusGrowth?.group ?? sp.skillPlusGrowth?.attrNo
+      if (group == null) continue
+      const other = existingSkillPlus.find(o => o.group === group)
+      if (other && Math.abs(other.amount) >= Math.abs(effectAmount(sp))) result[sp.name] = other.slot
     }
     return result
   }, [skillPlusOverriddenBy, existingSkillPlus, effects?.skillPlus])
@@ -389,12 +316,11 @@ export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gear
   // ตรวจว่า SKILL+ ของเกียร์นี้ตรงกับสกิลของเรนเจอร์หรือไม่
   // ถ้า false → แสดง overlay มืดบน SKILL+ section
   const skillPlusHasMatch = useMemo(() => {
-    if (!rangerSkillDescriptions?.length) return true // ไม่มี context → ไม่เตือน
-    if (!effects?.skillPlus?.length) return true       // ไม่มี SKILL+ → ไม่เตือน
-    // SKILL+ ทุก effect ใน Line Rangers ผูกกับ skill เฉพาะเสมอ (ไม่มี generic buff)
-    // ตรวจทุก effect: ถ้ามีอย่างน้อย 1 ตัวตรงกับ description → ผ่าน (ไม่เตือน)
-    return effects.skillPlus.some(sp => skillPlusMatchesDescriptions(sp.name, rangerSkillDescriptions))
-  }, [effects?.skillPlus, rangerSkillDescriptions])
+    if (!rangerSkills?.length) return true        // ไม่มี context → ไม่เตือน
+    if (!effects?.skillPlus?.length) return true  // ไม่มี SKILL+ → ไม่เตือน
+    // จับคู่ด้วยตารางเกม: skillType + factorType + buffFactorType ของสกิลหลัก/ย่อย (eqip_skl_plus_grp)
+    return effects.skillPlus.some(sp => !hasSkillPlusRows(sp.skillPlusGrowth) || skillPlusHits(sp.skillPlusGrowth, rangerSkills).length > 0)
+  }, [effects?.skillPlus, rangerSkills])
 
   useEffect(() => {
     let cancelled = false
@@ -683,7 +609,7 @@ export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gear
                             {effects.switchable.allEffects.map((o, i) => {
                               const trig = o.trigType?.toUpperCase()
                               const isSelected = o.effect.name === mainEffect.name
-                              const isOccupied = !!(occupiedSwitchableTypes?.includes(o.effect.name))
+                              const isOccupied = !!(occupiedSwitchableTypes?.includes(effectKey(o.effect)))
                               return (
                                 <button
                                   key={i}

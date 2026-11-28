@@ -28,6 +28,7 @@ const STAT_LABELS_TH: Record<string, string> = {
   'Physical DEF':                   'พลังป้องกันกาย',
   'Magical DEF':                    'พลังเวทป้องกัน',
   'ATK Speed':                      'ความเร็วในการโจมตี',
+  'ATK Interval (sec)':             'ระยะห่างการโจมตี (วิ)',
   'ATK speed':                      'ความเร็วในการโจมตี',
   'Move Speed':                     'ความเร็วการเคลื่อนที่',
   'Move speed':                     'ความเร็วการเคลื่อนที่',

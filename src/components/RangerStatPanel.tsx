@@ -9,26 +9,22 @@ import { apiFetch } from '@/lib/staticApi'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { GearEffect, GearEffects } from '@/lib/pvpScraper'
-import {
-  aggregateGearBonuses,
-  aggregateTalentBonuses,
-  mergeStatBonusMaps,
-  applyBonus,
-  inGameMineral,
-  type StatBonus,
-  type StatBonusMap,
-} from '@/lib/gearEffectParser'
 import GearDetailPopup from '@/components/GearDetailPopup'
 import RangerAnimationPopup from '@/components/RangerAnimationPopup'
-import { selectSwitchableEffects, absNumericValue, DEFAULT_SLOT_ORDER, type RangerContext, type SwitchableResultMap, type SlotOrder } from '@/lib/switchableSelector'
-import { recalcGearEffects, splitSliderLevel } from '@/lib/gearLevelCalc'
+import { selectSwitchableEffects, absEffectValue, effectKey, DEFAULT_SLOT_ORDER, type RangerContext, type SwitchableResultMap, type SlotOrder } from '@/lib/switchableSelector'
+import { recalcGearEffects, splitSliderLevel, effectAmount } from '@/lib/gearLevelCalc'
+import {
+  levelStats, totalsOf, typedValues, finalStats, switchableConditionMet, skillUseChance,
+  skillPlusHits, skillPlusPower, hasAttackFactorSkill,
+  type SkillGame, type LevelRules, type UnitBase, type FinalStats, type StatTotals,
+} from '@/lib/rangerGameCalc'
 import GearPickerModal, { type GearBookItem } from '@/components/GearPickerModal'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { usePro } from '@/contexts/ProContext'
 import { useSound } from '@/contexts/SoundContext'
 import type { AwakenAbility } from '@/server/api/ranger/awakening/[id]/route'
 import type { TriggerBasis } from '@/lib/rangerTriggerBasis'
-import { calcRangerLevelStats, type RangerGrowthInput } from '@/lib/rangerLevelCalc'
+import type { RangerGrowthInput } from '@/lib/rangerLevelCalc'
 
 // ── Types from /api/meta/ranger-stats ────────────────
 interface SkillSlot {
@@ -41,6 +37,7 @@ interface SkillSlot {
   cooldown?: number
   area?: number
   triggerBasis?: TriggerBasis
+  game?: SkillGame
 }
 
 interface AbilitySlot {
@@ -105,6 +102,16 @@ interface RangerStatsResponse {
   }
   skills: SkillSlot[]
   abilities: AbilitySlot[]
+  game: {
+    levelRules: LevelRules
+    attackDelay: number
+    movingSpeed: number
+    attackRange: number
+    splash: number
+    summonEnergy: number
+    productionSpeed: number
+    critRatio: number
+  }
 }
 
 interface GearItem {
@@ -206,6 +213,29 @@ function speedLabel(type: string | null | undefined): string {
 function pctText(v: number, digits = 1): string {
   return `${(v * 100).toFixed(digits)}%`
 }
+/** ส่วนต่างเปอร์เซ็นต์ (สีเขียว) — ว่างถ้าไม่ต่าง */
+function pctDelta(d: number): string {
+  if (Math.abs(d) < 1e-9) return ''
+  const v = d * 100
+  return `${v >= 0 ? '+' : ''}${Math.abs(v) >= 10 ? v.toFixed(0) : v.toFixed(1)}%`
+}
+/** วินาที — ตัด 0 ท้ายทศนิยม (2.27 / 4 / 1.3) */
+function secText(v: number): string {
+  return `${+v.toFixed(2)}s`
+}
+function secDelta(d: number): string {
+  if (Math.abs(d) < 0.005) return ''
+  return `${d >= 0 ? '+' : ''}${+d.toFixed(2)}s`
+}
+
+/** SKILL+ ที่ได้ผลกับสกิลหนึ่ง (จับคู่ด้วย eqip_skl_plus_grp) */
+interface SkillPlusLine {
+  effect: GearEffect
+  /** โค้ดสกิลย่อยที่ได้ผล (SKILL+ แบบ SUB) */
+  sub: string | null
+  /** ค่าของสกิลก่อน/หลัง SKILL+ (null = เกมคูณตามระดับ แสดงเฉพาะค่าที่เพิ่ม) */
+  power: { before: number; after: number; unit: '%' | 's' | '' } | null
+}
 
 // ─ Gear upgrade icon ตาม gear level ปัจจุบัน (0-15) + Spec+ level (0-5, เกียร์ 9★ เท่านั้น) ─
 // level 0        → ไม่แสดงไอคอน (ยังไม่ได้อัพเลย)
@@ -255,13 +285,13 @@ function tierUnlimitIconUrl(tierIconKey: string, n: number): string {
 //   maxLevel < level < max  → "{level}/{tierEnd}" + ไอคอน N_tier.png (กำลังไล่ tier)
 //   level = playerMaxLevel  → "Level MAX : {level}/{level}" + ไอคอน N_max.png
 function levelDisplayInfo(
-  stats: { maxLevel: number; playerMaxLevel: number; unlimitMax: number; tierIconKey: string; tierLabel: string },
+  stats: { maxLevel: number; playerMaxLevel: number; unlimitMax: number; tierIconKey: string; tierLabel: string; step: number },
   level: number,
 ) {
-  const { maxLevel, playerMaxLevel, unlimitMax, tierIconKey, tierLabel } = stats
+  const { maxLevel, playerMaxLevel, unlimitMax, tierIconKey, tierLabel, step } = stats
   const clamped = Math.min(playerMaxLevel, Math.max(1, level))
-  const tier = Math.min(unlimitMax, Math.ceil(Math.max(0, clamped - maxLevel) / 5))
-  const tierEnd = tier > 0 ? Math.min(playerMaxLevel, maxLevel + tier * 5) : maxLevel
+  const tier = Math.min(unlimitMax, Math.ceil(Math.max(0, clamped - maxLevel) / step))
+  const tierEnd = tier > 0 ? Math.min(playerMaxLevel, maxLevel + tier * step) : maxLevel
   // "Level : n/tierEnd" เสมอ (ไม่มีคำ MAX แยก — รูป + คำว่า MAX ในไอคอนบอกอยู่แล้วตอนเต็ม)
   const label = `Level : ${clamped}/${tierEnd}`
   return {
@@ -277,24 +307,6 @@ function levelPopupTheme(tier: 'base8' | 'ultra' | 'hyper' | 'base9'): { accent:
   if (tier === 'ultra') return { accent: 'accent-sky-400', text: 'text-sky-300' }
   if (tier === 'hyper') return { accent: 'accent-pink-400', text: 'text-pink-300' }
   return { accent: 'accent-yellow-400', text: 'text-yellow-300' }
-}
-
-// ─ Bonus formatters (ใช้ใน stat panel ส่วนล่าง) ─
-function bonusPctText(b: StatBonus | undefined): string {
-  if (!b || b.pct === 0) return ''
-  const v = b.pct * 100
-  const rounded = Math.abs(v) >= 10 ? v.toFixed(0) : v.toFixed(1)
-  return `(${v >= 0 ? '+' : ''}${rounded}%)`
-}
-function bonusFlatText(b: StatBonus | undefined): string {
-  if (!b || b.flat === 0) return ''
-  const v = Math.round(b.flat)
-  return `(${v >= 0 ? '+' : ''}${v})`
-}
-function bonusEither(b: StatBonus | undefined): string {
-  if (!b) return ''
-  // ใช้ pct ก่อน ถ้าไม่มีค่อย fallback flat
-  return bonusPctText(b) || bonusFlatText(b)
 }
 
 // ── Module-level caches (ลด request ซ้ำเมื่อกดสลับเรนเจอร์) ──
@@ -382,26 +394,16 @@ export interface TowerUnitStats {
   antiAvoid: number; antiSkillAvoid: number
 }
 
-/** ค่าพลังของยูนิต (ตาราง unit) → ค่าของหอคอย (ทับเฉพาะที่หอคอยกำหนด — สกิล/ความสามารถ/ความเร็วคงเดิม) */
-function applyTowerStats(s: RangerStatsResponse, t: TowerUnitStats): RangerStatsResponse {
+/** ค่าของหอคอย → ค่าพื้นฐานของยูนิต (ทับเฉพาะที่หอคอยกำหนด — สกิล/ความสามารถ/ความเร็วคงเดิม) */
+function towerBase(b: UnitBase, t: TowerUnitStats): UnitBase {
   return {
-    ...s,
+    ...b,
+    phyAtk: t.attack, magAtk: t.specialAttack, phyDef: t.defence, magDef: t.specialDefence, hp: t.hp,
+    // t.splash = unit.attackScope (จำนวนเป้า) ไม่ใช่รัศมีสแปลช (projectileAttackScope) — คงค่ายูนิตเดิม
     attackRange: t.range,
-    attackScope: t.splash,
-    baseStats: {
-      ...s.baseStats,
-      phyAtk: t.attack, magAtk: t.specialAttack, phyDef: t.defence, magDef: t.specialDefence, hp: t.hp,
-      phyDps: s.baseStats.attackDelaySec > 0 ? t.attack / s.baseStats.attackDelaySec : 0,
-    },
-    rates: {
-      critRate: t.critRate,
-      critDamage: Math.max(0, t.critRatio - 1),   // แบบเดียวกับ buildRangerStats (criticalRatio − 1)
-      evadeRate: t.avoid,
-      skillEvadeRate: t.skillAvoid,
-      skillResistance: t.skillResist,
-      hitRate: t.antiAvoid,
-      skillHitRate: t.antiSkillAvoid,
-    },
+    critRate: t.critRate, critRatio: t.critRatio,
+    avoid: t.avoid, skillAvoid: t.skillAvoid, skillResist: t.skillResist,
+    antiAvoid: t.antiAvoid, antiSkillAvoid: t.antiSkillAvoid,
   }
 }
 
@@ -435,9 +437,7 @@ export default function RangerStatPanel({
   const isBook  = mode === 'book'
   const isTower = mode === 'tower' && !!tower
 
-  const [rawStats, setStats] = useState<RangerStatsResponse | null>(null)
-  // หอคอย: ทับค่าพลังด้วยค่าของชั้นนั้น — ส่วนอื่นของแผง (สกิล, ความสามารถ, ความเร็ว) ใช้ข้อมูลยูนิตเดิม
-  const stats = useMemo(() => (rawStats && isTower ? applyTowerStats(rawStats, tower!) : rawStats), [rawStats, isTower, tower])
+  const [stats, setStats] = useState<RangerStatsResponse | null>(null)
   const [statsLoading, setStatsLoading] = useState(true)
   const [statsError, setStatsError] = useState('')
 
@@ -507,14 +507,26 @@ export default function RangerStatPanel({
   // book mode: คำนวณสดตาม gearLevel ของแต่ละ slot (ผู้ใช้ปรับเองได้ เริ่มที่ 0)
   // meta/gacha mode: ไม่มี concept เลเวล → ใช้ effectsBySlot (raw, max) ตรงๆ เหมือนเดิมเสมอ
   const computedEffectsBySlot = useMemo((): Record<SlotKey, GearEffects | null> => {
-    if (!isBook) return effectsBySlot
     const out: Record<SlotKey, GearEffects | null> = { WPN: null, AMR: null, ACC: null }
     for (const s of ['WPN', 'AMR', 'ACC'] as SlotKey[]) {
       const raw = effectsBySlot[s]
-      out[s] = raw ? recalcGearEffects(raw, gearLevel[s]) : null
+      // Meta: เกียร์ที่คนใช้ = เลเวลเต็ม (Basic 5 + Switchable 5 + SKILL+ 5)
+      out[s] = raw ? recalcGearEffects(raw, isBook ? gearLevel[s] : 15) : null
     }
     return out
   }, [effectsBySlot, gearLevel, isBook])
+
+  // ── สกิลของเรนเจอร์ตามตาราง skill (หลัก + ย่อย) — ใช้จับคู่ SKILL+ / เลือก Switchable ──
+  const skillGames = useMemo(
+    () => (stats?.skills ?? []).map(s => s.game).filter((g): g is SkillGame => !!g),
+    [stats],
+  )
+  // ค่า Basic ของเกียร์แต่ละชิ้นแยกตามชนิด (reinforceType ของเกม)
+  const basicBySlot = useMemo(() => ({
+    WPN: typedValues(computedEffectsBySlot.WPN?.basic),
+    AMR: typedValues(computedEffectsBySlot.AMR?.basic),
+    ACC: typedValues(computedEffectsBySlot.ACC?.basic),
+  }), [computedEffectsBySlot])
 
   // ── Install Order (book mode) ────────────────────────
   // ลำดับการติดตั้งเกียร์ — slot ที่ install ก่อนมีค่าน้อยกว่า → ชนะ tiebreak ใน duplicate resolution
@@ -541,21 +553,15 @@ export default function RangerStatPanel({
   // เป็น pure computation ล้วน (ไม่ lock-in) → level/เกียร์ชิ้นไหนเปลี่ยน re-compute ใหม่ถูกต้องเสมอ
   const switchableResults = useMemo((): SwitchableResultMap | null => {
     if (isGacha || !stats) return null
-    const hasDamageSkill = stats.skills.some(s => s.description?.includes('ATK x'))
-
     // ── ctx: รวม basic effects ของ "ทุก slot" ที่ติดตั้งอยู่ ──
-    // เหตุผล: threshold (95%) คือ "total rate (รวม basic ของทุกชิ้น) เกินแล้วหรือยัง?"
-    // ถ้าเกินแล้ว → ไม่ต้อง pick stat นั้นใน switchable (เพราะจะเกินไป ไม่มีประโยชน์)
-    const basicBonusesAll = aggregateGearBonuses(
-      [computedEffectsBySlot.WPN, computedEffectsBySlot.AMR, computedEffectsBySlot.ACC],
-      [null, null, null]
-    )
+    // threshold (95%) คือ "total rate (รวม basic ของทุกชิ้น) เกินแล้วหรือยัง?"
+    const all = totalsOf([...basicBySlot.WPN, ...basicBySlot.AMR, ...basicBySlot.ACC], []).sum
     const ctx: RangerContext = {
       category: stats.category,
       element: normalizeElement(stats.element),
-      hasDamageSkill,
-      skillEvadeRate:  stats.rates.skillEvadeRate  + (basicBonusesAll.skillEvadeRate?.pct  ?? 0),
-      skillResistance: stats.rates.skillResistance + (basicBonusesAll.skillResistance?.pct ?? 0),
+      hasDamageSkill: hasAttackFactorSkill(skillGames),
+      skillEvadeRate:  stats.rates.skillEvadeRate  + (all.SKLAVD_PROB_MUL ?? 0),
+      skillResistance: stats.rates.skillResistance + (all.SKLRE_PROB_MUL ?? 0),
     }
 
     return selectSwitchableEffects(
@@ -563,7 +569,7 @@ export default function RangerStatPanel({
       ctx,
       installOrder,
     )
-  }, [stats, computedEffectsBySlot, isGacha, installOrder])
+  }, [stats, computedEffectsBySlot, basicBySlot, skillGames, isGacha, installOrder])
 
   // ── User switchable override — book mode เท่านั้น (เลือก option เอง) ──
   const [switchableOverrides, setSwitchableOverrides] = useState<Record<SlotKey, string | null>>({
@@ -622,25 +628,9 @@ export default function RangerStatPanel({
       return result
     }
 
-    // ── มี override → คำนวณใหม่ ──
-    // ตรวจ type_mismatch ตามกฎ matchesTrigType ใน switchableSelector:
-    //   null trigType → works for all, CATEGORY → match category, ELEMENT → match element
-    const CATEGORY_TYPES = new Set(['STR', 'AGI', 'INT'])
-    const ELEM_TRIG_MAP: Record<string, string[]> = {
-      FIRE: ['fire'], WATER: ['water'],
-      TREE: ['wood', 'tree', 'nature', 'earth', 'plant'],
-      LIGHT: ['light', 'holy'], DARK: ['dark', 'shadow'],
-    }
-    const checkCompat = (trigType: string | null): boolean => {
-      if (!trigType) return true
-      if (CATEGORY_TYPES.has(trigType)) return trigType === stats?.category?.toUpperCase()
-      const targets = ELEM_TRIG_MAP[trigType]
-      if (targets) {
-        const ek = normalizeElement(stats?.element ?? null)
-        return ek ? targets.includes(ek) : false
-      }
-      return false   // unknown trigType → ไม่ compatible
-    }
+    // ── มี override → คำนวณใหม่ (เงื่อนไขของ unit_eqip_attr.unitEquipRandOptTrigType) ──
+    const checkCompat = (trigType: string | null): boolean =>
+      switchableConditionMet(trigType, stats?.category ?? null, stats?.element ?? null)
 
     // Step 1: หา selected effect + trigType (override > auto)
     type SelInfo = { effect: GearEffect | null; trigType: string | null }
@@ -670,19 +660,19 @@ export default function RangerStatPanel({
       result[s] = { active: compat, effect, trigType, inactiveReason: compat ? undefined : 'type_mismatch' }
     }
 
-    // Step 3: duplicate detection โดย EFFECT NAME — เทียบค่าตัวเลขจริง (สูงกว่าชนะ)
+    // Step 3: ชนิดเดียวกันหลายชิ้น — เกมนับเฉพาะ Switchable ค่า |สูงสุด| (libgame 0x111d8c8)
     // เท่ากันถึงตัดสินด้วย install order (ติดตั้งก่อนชนะ) — ตรงกับ selectSwitchableEffects
     const activeSlots = slots.filter(s => result[s].active && result[s].effect)
     const byName = new Map<string, SlotKey[]>()
     for (const s of activeSlots) {
-      const name = result[s].effect!.name
-      byName.set(name, [...(byName.get(name) ?? []), s])
+      const key = effectKey(result[s].effect!)
+      byName.set(key, [...(byName.get(key) ?? []), s])
     }
     for (const group of byName.values()) {
       if (group.length < 2) continue
       const winner = group.reduce((best, s) => {
-        const vBest = absNumericValue(result[best].effect!.value)
-        const vS = absNumericValue(result[s].effect!.value)
+        const vBest = absEffectValue(result[best].effect!)
+        const vS = absEffectValue(result[s].effect!)
         if (vS !== vBest) return vS > vBest ? s : best
         return (installOrder[s] ?? 999) < (installOrder[best] ?? 999) ? s : best
       })
@@ -741,17 +731,15 @@ export default function RangerStatPanel({
     return () => { ctrl.abort() }
   }, [rangerId])
 
-  // ── ปรับเลเวลเรนเจอร์เอง (Ranger Book เท่านั้น) ──
-  //   คำนวณค่าพลังสดฝั่ง client จาก stats.growth (ดู calcRangerLevelStats) — ลากสไลเดอร์ลื่นไหลได้เลย
-  //   ไม่ต้องยิง fetch ซ้ำทุกครั้งที่ลาก (ต่างจาก warmycat ที่โหลด growth ทั้งก้อนมาตั้งแต่แรกเหมือนกัน)
+  // ── เลเวลเรนเจอร์ (วงล้อเลือกเลเวล) — คำนวณค่าพลังสดจากตาราง unit/unit_reinforce_rate ──
+  //   Meta เริ่มที่ MAX · Gacha / Ranger Book เริ่มที่ Lv.1 · หอคอยใช้เลเวลของศัตรู (ปรับไม่ได้)
   const [sliderLevel, setSliderLevel] = useState<number | null>(null)
   const [levelPopupOpen, setLevelPopupOpen] = useState(false)
   const levelPopupRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    // Ranger Book เริ่มที่ Level 1 เสมอ (ไม่ใช่ MAX) แล้วให้ผู้ใช้ปรับเองผ่านสไลเดอร์ — โหมดอื่นไม่เกี่ยว (fallback เป็น MAX ตามเดิม)
-    setSliderLevel(isBook ? 1 : null); setLevelPopupOpen(false)
-  }, [rangerId, isBook])
+    setSliderLevel(isBook || isGacha ? 1 : null); setLevelPopupOpen(false)
+  }, [rangerId, isBook, isGacha])
 
   // ปิด popup เมื่อคลิกข้างนอก
   useEffect(() => {
@@ -765,8 +753,7 @@ export default function RangerStatPanel({
 
   // ── Fetch ranger stats (cache + AbortController กันยิงซ้ำเมื่อกดรัว ๆ) — ครั้งเดียวต่อ ranger เสมอ ──
   useEffect(() => {
-    // gacha mode: ใช้ level=1 (ไม่ปลดลิมิต ไม่บวกเลเวล) — แยก cache key กัน collide
-    const cacheKey = isGacha ? `${rangerId}:lv1` : rangerId
+    const cacheKey = rangerId
     const cached = statsCache.get(cacheKey)
     if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
       setStats(cached.data); setStatsLoading(false); setStatsError('')
@@ -775,9 +762,7 @@ export default function RangerStatPanel({
 
     const ctrl = new AbortController()
     setStats(null); setStatsLoading(true); setStatsError('')
-    const apiUrl = isGacha
-      ? `/api/meta/ranger-stats?id=${encodeURIComponent(rangerId)}&level=1`
-      : `/api/meta/ranger-stats?id=${encodeURIComponent(rangerId)}`
+    const apiUrl = `/api/meta/ranger-stats?id=${encodeURIComponent(rangerId)}`
     apiFetch(apiUrl, { signal: ctrl.signal, cache: 'no-store' })
       .then((r) => r.json())
       .then((j) => {
@@ -792,7 +777,7 @@ export default function RangerStatPanel({
         setStatsLoading(false)
       })
     return () => { ctrl.abort() }
-  }, [rangerId, isGacha])
+  }, [rangerId])
 
   // ── Fetch gear effects แบบ batch (3 → 1 request) + cancellation ──
   // skip ถ้า gacha mode (ไม่มีเกียร์)
@@ -818,32 +803,16 @@ export default function RangerStatPanel({
     return () => { ctrl.abort() }
   }, [selected, isGacha])
 
-  const gearBonuses: StatBonusMap = useMemo(
-    () => aggregateGearBonuses(
-      [computedEffectsBySlot.WPN, computedEffectsBySlot.AMR, computedEffectsBySlot.ACC],
-      [
-        effectiveSwitchable.WPN.active ? effectiveSwitchable.WPN.effect : null,
-        effectiveSwitchable.AMR.active ? effectiveSwitchable.AMR.effect : null,
-        effectiveSwitchable.ACC.active ? effectiveSwitchable.ACC.effect : null,
-      ]
-    ),
-    [computedEffectsBySlot, effectiveSwitchable]
-  )
-
-  // ── Talent bonus (Ranger Book เท่านั้น) — Enhanced Talent ภาษาอังกฤษทางการของเกม (ชื่อสเตตัส GEAR_ATTR + ค่า
-  //    เช่น "Physical ATK +300%") ให้ classify() จับ pattern ได้ตรงๆ
-  //    แล้วรวมเข้ากับ bonuses ของเกียร์ด้วยโลจิกเดียวกันเป๊ะๆ ผ่าน aggregateTalentBonuses/mergeStatBonusMaps ──
-  const [talentEnhancedEn, setTalentEnhancedEn] = useState<string[]>([])
+  // ── พรสวรรค์เสริม (tlnt.enhanceType + enhanceVal ของเกม) — ระดับ 2–4 ปลดทีละตัว ──
+  const [talentStats, setTalentStats] = useState<{ type: string; value: number }[]>([])
   useEffect(() => {
     // Meta ก็ต้องโหลดด้วย — ใช้คำนวณค่าพลังจาก topTalentCode (Talent Release Status อันดับ 1) อัตโนมัติ
-    if (mode !== 'book' && mode !== 'meta') { setTalentEnhancedEn([]); return }
+    if (mode !== 'book' && mode !== 'meta') { setTalentStats([]); return }
     let cancelled = false
     apiFetch(`/api/ranger/talents/${encodeURIComponent(rangerId)}?v=3`).then(r => r.json()).catch(() => ({ hasTalent: false }))
-      .then((data: { enhancedL?: ({ en?: string } | null)[] }) => {
-        if (cancelled) return
-        const lines = Array.isArray(data.enhancedL) ? data.enhancedL : []
-        setTalentEnhancedEn(lines.map(l => l?.en ?? ''))
-      }).catch(() => { if (!cancelled) setTalentEnhancedEn([]) })
+      .then((data: { enhancedStats?: { type: string; value: number }[] }) => {
+        if (!cancelled) setTalentStats(Array.isArray(data.enhancedStats) ? data.enhancedStats : [])
+      }).catch(() => { if (!cancelled) setTalentStats([]) })
     return () => { cancelled = true }
   }, [mode, rangerId])
 
@@ -853,27 +822,46 @@ export default function RangerStatPanel({
     : mode === 'meta' ? (topTalentCode ? parseInt(topTalentCode, 10) || 0 : 0)
     : 0
 
-  // ระดับ 1 = ปลด Major Talent เฉยๆ (ไม่มีค่าพลัง) / ระดับ 2-4 = สะสม Enhanced Talent ตัวที่ 1..N
-  const talentBonuses: StatBonusMap = useMemo(
-    () => effectiveTalentLevel > 0
-      ? aggregateTalentBonuses(talentEnhancedEn.slice(0, Math.max(0, effectiveTalentLevel - 1)))
-      : {},
-    [effectiveTalentLevel, talentEnhancedEn]
-  )
-
-  const bonuses: StatBonusMap = useMemo(
-    () => mergeStatBonusMaps(gearBonuses, talentBonuses),
-    [gearBonuses, talentBonuses]
-  )
+  // ── รวมค่าจากเกียร์ + พรสวรรค์ ตามกฎเกม: Basic บวกกัน · Switchable ที่ผ่านเงื่อนไข นับค่าสูงสุดต่อชนิด ──
+  const totals: StatTotals = useMemo(() => {
+    if (isTower) return { sum: {}, mult: {} }
+    const basic = [
+      ...basicBySlot.WPN, ...basicBySlot.AMR, ...basicBySlot.ACC,
+      // ระดับ 1 = ปลด Major Talent เฉยๆ (ไม่มีค่าพลัง) / ระดับ 2-4 = Enhanced Talent ตัวที่ 1..N
+      ...talentStats.slice(0, Math.max(0, effectiveTalentLevel - 1)),
+    ]
+    const sw = (['WPN', 'AMR', 'ACC'] as SlotKey[]).flatMap(s => {
+      const e = effectiveSwitchable[s]
+      return e.active && e.effect ? typedValues([e.effect]) : []
+    })
+    return totalsOf(basic, sw)
+  }, [isTower, basicBySlot, talentStats, effectiveTalentLevel, effectiveSwitchable])
 
   // SKILL+ deduplication — ป้องกัน tooltip โชว์ effect ซ้ำข้ามสล็อต
   const skillPlusDedup = useMemo(() => deduplicateSkillPlus(computedEffectsBySlot), [computedEffectsBySlot])
+  // SKILL+ ที่ใช้ได้จริง → สกิล (หลัก/ย่อย) ที่ได้ผลตามตาราง eqip_skl_plus_grp
+  const skillPlusBySkill = useMemo(() => {
+    const m = new Map<string, SkillPlusLine[]>()
+    for (const { effect } of skillPlusDedup.activeEffects) {
+      const g = effect.skillPlusGrowth
+      if (!g) continue
+      const amount = effectAmount(effect)
+      for (const hit of skillPlusHits(g, skillGames)) {
+        const list = m.get(hit.skill.code) ?? []
+        list.push({ effect, sub: hit.sub?.code ?? null, power: skillPlusPower(g, hit, amount) })
+        m.set(hit.skill.code, list)
+      }
+    }
+    return m
+  }, [skillPlusDedup, skillGames])
 
   // ── ชื่อ effect ที่ slot อื่นกำลังใช้อยู่จริง (override > auto lock) ──
   const usedEffectNameOf = (s: SlotKey): string | null => {
     const ov = switchableOverrides[s]
-    if (ov) return ov
-    return switchableResults?.[s]?.effect?.name ?? null
+    const eff = ov
+      ? computedEffectsBySlot[s]?.switchable?.allEffects?.find(o => o.effect?.name === ov)?.effect
+      : switchableResults?.[s]?.effect
+    return eff ? effectKey(eff) : null
   }
   const otherSlotsLockedNamesFor = (currentSlot: SlotKey): string[] => {
     return (['WPN', 'AMR', 'ACC'] as SlotKey[])
@@ -886,22 +874,20 @@ export default function RangerStatPanel({
   // Memoize ทุก slot พร้อมกันใน object เดียว → aggregateGearBonuses ถูกเรียกแค่ตอน stats/effectsBySlot เปลี่ยน
   const rangerCtxBySlot = useMemo((): Partial<Record<SlotKey, RangerContext>> => {
     if (!stats) return {}
-    const hasDamageSkill = stats.skills.some(s => s.description?.includes('ATK x'))
     const SLOTS: SlotKey[] = ['WPN', 'AMR', 'ACC']
     const result: Partial<Record<SlotKey, RangerContext>> = {}
     for (const slot of SLOTS) {
-      const otherEffects = SLOTS.filter(s => s !== slot).map(s => computedEffectsBySlot[s])
-      const bb = aggregateGearBonuses(otherEffects, [null, null, null])
+      const bb = totalsOf(SLOTS.filter(s => s !== slot).flatMap(s => basicBySlot[s]), []).sum
       result[slot] = {
         category: stats.category,
         element: normalizeElement(stats.element),
-        hasDamageSkill,
-        skillEvadeRate:  stats.rates.skillEvadeRate  + (bb.skillEvadeRate?.pct  ?? 0),
-        skillResistance: stats.rates.skillResistance + (bb.skillResistance?.pct ?? 0),
+        hasDamageSkill: hasAttackFactorSkill(skillGames),
+        skillEvadeRate:  stats.rates.skillEvadeRate  + (bb.SKLAVD_PROB_MUL ?? 0),
+        skillResistance: stats.rates.skillResistance + (bb.SKLRE_PROB_MUL ?? 0),
       }
     }
     return result
-  }, [stats, computedEffectsBySlot])
+  }, [stats, basicBySlot, skillGames])
 
   const rangerCtxForSlot = (excludeSlot: SlotKey): RangerContext | undefined =>
     rangerCtxBySlot[excludeSlot]
@@ -911,13 +897,14 @@ export default function RangerStatPanel({
   // เพื่อให้ preview popup แสดง inactive switchable + override SKILL+ ได้ถูกต้อง
 
   // SKILL+ จาก slot อื่น (ไม่ใช่ pickerSlot) ที่ใส่เกียร์แล้ว
-  const pickerExistingSkillPlus = useMemo((): Array<{ name: string; value: string; slot: string }> => {
+  const pickerExistingSkillPlus = useMemo((): Array<{ group: number; amount: number; slot: string }> => {
     if (!pickerSlot) return []
     const others = (['WPN', 'AMR', 'ACC'] as SlotKey[]).filter(s => s !== pickerSlot)
-    const result: Array<{ name: string; value: string; slot: string }> = []
+    const result: Array<{ group: number; amount: number; slot: string }> = []
     for (const s of others) {
       for (const sp of computedEffectsBySlot[s]?.skillPlus ?? []) {
-        result.push({ name: sp.name, value: sp.value, slot: s })
+        const group = sp.skillPlusGrowth?.group ?? sp.skillPlusGrowth?.attrNo
+        if (group != null) result.push({ group, amount: effectAmount(sp), slot: s })
       }
     }
     return result
@@ -941,50 +928,30 @@ export default function RangerStatPanel({
     )
   }
 
-  // ── ค่าพลังที่ level ที่เลือกจริง (Ranger Book) — คำนวณสดฝั่ง client จาก stats.growth ──
-  //   โหมดอื่น (gacha/meta) ใช้ stats.baseStats ตรงๆ เหมือนเดิม (เลเวลคงที่)
-  const displayLevelForCalc = isBook ? (sliderLevel ?? stats.playerMaxLevel) : undefined
-  const effectiveBaseStats = isBook
-    ? calcRangerLevelStats(
-        stats.growth,
-        { tier: stats.tier, combineMax: stats.unlimitMax, maxLevel: stats.maxLevel, playerMaxLevel: stats.playerMaxLevel },
-        displayLevelForCalc,
-      )
-    : stats.baseStats
-
-  // ── Compute totals + bonuses ──────────────────────
-  const phyAtk = applyBonus(effectiveBaseStats.phyAtk, bonuses.phyAtk)
-  const magAtk = applyBonus(effectiveBaseStats.magAtk, bonuses.magAtk)
-  const hp = applyBonus(effectiveBaseStats.hp, bonuses.hp)
-  const phyDef = applyBonus(effectiveBaseStats.phyDef, bonuses.phyDef)
-  const magDef = applyBonus(effectiveBaseStats.magDef, bonuses.magDef)
-  // ATK Speed — คำนวณ effective delay หลังใส่เกียร์ที่เพิ่ม atkSpeed
-  // attackDelayFrames = frames @ 30fps → delaySec = frames/30
-  // ATK Speed display = 10000/frames (ตรงกับเกม)
-  // atkSpeedPct เป็น fraction (0.63 = +63%) → attack ไวขึ้น = delay ลดลง
-  const atkSpeedPct = bonuses.atkSpeed?.pct ?? 0
-  const baseDelayFrames = effectiveBaseStats.attackDelayFrames  // frames @ 30fps
-  const effectiveDelayFrames = baseDelayFrames > 0 ? baseDelayFrames / (1 + atkSpeedPct) : 0
-  const effectiveDelaySec = effectiveDelayFrames > 0 ? effectiveDelayFrames / 30 : 0  // frames ÷ 30 = seconds
-  // ATK per sec = (Phy ATK + Mag ATK) ÷ effective delay  — รวม Magical ATK ด้วย
-  const totalDps = effectiveDelaySec > 0 ? (phyAtk + magAtk) / effectiveDelaySec : 0
-  // ATK Speed display: 10000/frames → ตรงกับค่าในเกม
-  const atkSpeedBase = baseDelayFrames > 0 ? Math.round(10000 / baseDelayFrames) : 0
-  const atkSpeedEffective = effectiveDelayFrames > 0 ? Math.round(10000 / effectiveDelayFrames) : atkSpeedBase
-  const atkSpeedDelta = atkSpeedEffective - atkSpeedBase
-  const atkSpeedValueStr = atkSpeedBase > 0 ? `${atkSpeedBase}` : '—'
-  const atkSpeedBonusStr = atkSpeedDelta !== 0
-    ? `(${atkSpeedDelta >= 0 ? '+' : ''}${atkSpeedDelta})`
-    : ''
-
-  // totalDpsBase = base DPS ไม่มีเกียร์ (Phy+Mag ATK base ÷ base delay)
-  const totalDpsBase = baseDelayFrames > 0
-    ? (effectiveBaseStats.phyAtk + effectiveBaseStats.magAtk) / (baseDelayFrames / 30)
-    : 0
-  const totalAtk = phyAtk + magAtk
-  const totalAtkBase = effectiveBaseStats.phyAtk + effectiveBaseStats.magAtk
-  const totalDef = phyDef + magDef
-  const totalDefBase = effectiveBaseStats.phyDef + effectiveBaseStats.magDef
+  // ── ค่าพลังตามเลเวล (libgame 0xd55400) ──
+  const rules = stats.game.levelRules
+  const playerMaxLevel = stats.maxLevel + rules.step * rules.maxCount
+  const displayLevel = isTower ? tower!.level : Math.min(playerMaxLevel, sliderLevel ?? playerMaxLevel)
+  const lv = levelStats({ ...stats.growth, attackDelay: stats.game.attackDelay }, rules, stats.maxLevel, isTower ? 1 : displayLevel)
+  const unitBase: UnitBase = {
+    phyAtk: lv.phyAtk, magAtk: lv.magAtk, phyDef: lv.phyDef, magDef: lv.magDef, hp: lv.hp,
+    attackDelay: stats.game.attackDelay,
+    movingSpeed: stats.game.movingSpeed,
+    attackRange: stats.game.attackRange,
+    splash: stats.game.splash,
+    summonEnergy: stats.game.summonEnergy,
+    productionSpeed: stats.game.productionSpeed,
+    decreaseRate: lv.decreaseRate,
+    critRate: stats.rates.critRate, critRatio: stats.game.critRatio,
+    avoid: stats.rates.evadeRate, antiAvoid: stats.rates.hitRate,
+    skillAvoid: stats.rates.skillEvadeRate, antiSkillAvoid: stats.rates.skillHitRate, skillResist: stats.rates.skillResistance,
+  }
+  const baseForCalc = isTower ? towerBase(unitBase, tower!) : unitBase
+  // ค่าไม่รวมเกียร์ (ตัวเลขหลัก) กับค่ารวมเกียร์/พรสวรรค์ (ส่วนต่างสีเขียว)
+  const base: FinalStats = finalStats(baseForCalc, { sum: {}, mult: {} }, rules.productionMin, rules.minSummonEnergy)
+  const fin: FinalStats = finalStats(baseForCalc, totals, rules.productionMin, rules.minSummonEnergy)
+  const dps = (f: FinalStats) => (f.attackDelay > 0 ? (f.phyAtk + f.magAtk) / (f.attackDelay / 30) : 0)
+  const levelInfo = levelDisplayInfo({ maxLevel: stats.maxLevel, playerMaxLevel, unlimitMax: rules.maxCount, tierIconKey: stats.tierIconKey, tierLabel: stats.tierLabel, step: rules.step }, displayLevel)
 
   // element: ทนต่อ casing/alias + ถ้าไม่มี icon ตรงก็ยังแสดง label
   const elementKey = normalizeElement(stats.element)
@@ -1152,22 +1119,20 @@ export default function RangerStatPanel({
           {!isTower && <div className="order-4 sm:order-2">
             <InfoBox
               iconUrl="/gacha/images/mineral.png"
-              value={stats.mineral != null ? fmtRaw(applyBonus(stats.mineral, bonuses.mineralCost)) : '—'}
-              // ตัวเลขในเมนูกับตอนลงสนามรบไม่เท่ากัน (สมบัติลดแร่ + เกียร์รวมกันคนละแบบ)
-              extra={stats.mineral != null ? `(${inGameMineral(stats.mineral, bonuses.mineralCost)})` : null}
+              value={fmtRaw(fin.summonEnergy)}
             />
           </div>}
           {!isTower && <div className="order-2 sm:order-3">
             <InfoBox iconUrl="/gacha/images/leonardpoint.png" value={stats.leonardMax != null ? `Max: ${stats.leonardMax}` : '—'} />
           </div>}
           <div className="order-3 sm:order-4">
-            <InfoBox iconUrl="/gacha/images/atk.png" value={fmtCompact(totalDps)} />
+            <InfoBox iconUrl="/gacha/images/atk.png" value={fmtCompact(dps(fin))} />
           </div>
           <div className="order-5">
-            <InfoBox iconUrl="/gacha/images/hp.png" value={fmtCompact(hp)} />
+            <InfoBox iconUrl="/gacha/images/hp.png" value={fmtCompact(fin.hp)} />
           </div>
           <div className="order-6">
-            <InfoBox iconUrl="/gacha/images/def.png" value={fmtCompact(totalDef)} />
+            <InfoBox iconUrl="/gacha/images/def.png" value={fmtCompact(fin.phyDef + fin.magDef)} />
           </div>
         </div>
 
@@ -1176,88 +1141,40 @@ export default function RangerStatPanel({
 
           {/* MIDDLE */}
           <div className="space-y-2">
-            {/* Level row + tier-unlimit icon (gacha: Lv.1 ไม่ปลดลิมิต / book: กดปรับเลเวลเองได้ / meta: ล็อก MAX) */}
-            {isBook ? (
-              <div ref={levelPopupRef} className="relative">
-                <button
-                  type="button"
-                  onClick={() => { play('click_global.ogg'); setLevelPopupOpen(o => !o) }}
-                  aria-haspopup="dialog"
-                  aria-expanded={levelPopupOpen}
-                  className="w-full bg-white/5 hover:bg-white/10 rounded-lg px-3 py-2 flex items-center transition-colors"
-                >
-                  {(() => {
-                    const displayLevel = sliderLevel ?? stats.playerMaxLevel
-                    const info = levelDisplayInfo(stats, displayLevel)
-                    return (
-                      // แถวสูงคงที่ (h-8) กันปุ่มขยับตอนสลับมี/ไม่มีรูป — ข้อความ+รูปอยู่กลางเป็นกลุ่มเดียวกัน ห่างกันแค่ gap-2
-                      <div className="w-full h-8 flex items-center justify-center gap-2">
-                        <span className="text-white font-bold text-sm sm:text-base">{info.label}</span>
-                        {info.showIcon && (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={info.iconUrl}
-                            alt={info.iconAlt}
-                            className="h-7 object-contain"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                          />
-                        )}
-                      </div>
-                    )
-                  })()}
-                </button>
-
-                {levelPopupOpen && (() => {
-                  const displayLevel = sliderLevel ?? stats.playerMaxLevel
-                  const theme = levelPopupTheme(stats.tier)
-                  return (
-                    <div
-                      role="dialog"
-                      aria-label={lang === 'th' ? 'ปรับเลเวล' : 'Adjust level'}
-                      className="absolute left-1/2 -translate-x-1/2 mt-1.5 w-64 rounded-xl bg-gray-900/95 backdrop-blur border border-white/10 shadow-xl z-50 p-3.5"
-                    >
-                      <div className="flex items-center justify-between mb-2.5">
-                        <span className="text-xs font-semibold text-gray-300">{lang === 'th' ? 'เลเวล' : 'Level'}</span>
-                        <span className={`text-xs font-bold tabular-nums ${theme.text}`}>{displayLevel}/{stats.playerMaxLevel}</span>
-                      </div>
-                      <input
-                        type="range"
-                        min={1}
-                        max={stats.playerMaxLevel}
-                        step={1}
-                        value={displayLevel}
-                        onChange={(e) => setSliderLevel(parseInt(e.target.value, 10))}
-                        onPointerUp={() => play('click_global.ogg')}
-                        onKeyUp={() => play('click_global.ogg')}
-                        className={`w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-white/15 ${theme.accent}`}
-                        aria-label="Ranger level"
-                      />
-                    </div>
-                  )
-                })()}
-              </div>
-            ) : (() => {
-              const info = isTower
-                ? { label: `Level : ${tower!.level}`, showIcon: false, iconUrl: '', iconAlt: '' }   // เลเวลศัตรูของหอคอย (enemyLevel)
-                : levelDisplayInfo(stats, isGacha ? 1 : stats.playerMaxLevel)
-              // โครงสร้างเดียวกับปุ่ม Ranger Book เป๊ะๆ (outer px-3 py-2 + inner h-8) แต่เป็น div เฉยๆ ไม่ใช่ button — กดไม่ได้
-              return (
-                <div className="bg-white/5 rounded-lg px-3 py-2 flex items-center">
-                  <div className="w-full h-8 flex items-center justify-center gap-2">
-                    <span className="text-white font-bold text-sm sm:text-base">{info.label}</span>
-                    {info.showIcon && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={info.iconUrl}
-                        alt={info.iconAlt}
-                        className="h-7 object-contain"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                      />
-                    )}
-                  </div>
+            {/* Level row + ไอคอนปลดลิมิต — กดเปิดวงล้อเลือกเลเวล (หอคอย: เลเวลศัตรู ปรับไม่ได้) */}
+            <div ref={levelPopupRef} className="relative">
+              <button
+                type="button"
+                disabled={isTower}
+                onClick={() => { play('click_global.ogg'); setLevelPopupOpen(o => !o) }}
+                aria-haspopup="dialog"
+                aria-expanded={levelPopupOpen}
+                className={`w-full bg-white/5 rounded-lg px-3 py-2 flex items-center transition-colors ${isTower ? 'cursor-default' : 'hover:bg-white/10'}`}
+              >
+                {/* แถวสูงคงที่ (h-8) กันปุ่มขยับตอนสลับมี/ไม่มีรูป */}
+                <div className="w-full h-8 flex items-center justify-center gap-2">
+                  <span className="text-white font-bold text-sm sm:text-base tabular-nums">
+                    {isTower ? `Level : ${displayLevel}` : levelInfo.label}
+                  </span>
+                  {!isTower && levelInfo.showIcon && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={levelInfo.iconUrl} alt={levelInfo.iconAlt} className="h-7 w-auto object-contain" />
+                  )}
+                  {!isTower && <span className="material-icons-round text-gray-400 text-lg">unfold_more</span>}
                 </div>
-              )
-            })()}
+              </button>
+              {levelPopupOpen && !isTower && (
+                <LevelWheel
+                  value={displayLevel}
+                  max={playerMaxLevel}
+                  cap={stats.maxLevel}
+                  step={rules.step}
+                  accent={levelPopupTheme(stats.tier).text}
+                  onChange={setSliderLevel}
+                  onTick={() => play('click_global.ogg')}
+                />
+              )}
+            </div>
 
             {/* Speed pills */}
             <PillRow label="ATK speed" value={speedLabel(stats.attackSpeedType)} />
@@ -1270,7 +1187,7 @@ export default function RangerStatPanel({
             {stats.skills.length > 0 && (
               <PillIconRow label="Skill" items={stats.skills} kind="skill"
                 pinnedKey={iconPinnedKey} onSetPinnedKey={setIconPinnedKey}
-                skillPlusEffects={skillPlusDedup.activeEffects.map(e => e.effect)}
+                skillPlusBySkill={skillPlusBySkill}
                 castTimesMap={castTimesMap}
               />
             )}
@@ -1294,133 +1211,64 @@ export default function RangerStatPanel({
             )}
           </div>
 
-          {/* DETAIL STAT PANEL — scrollable */}
+          {/* DETAIL STAT PANEL — ตัวเลขหลัก = ค่าของเรนเจอร์ที่เลเวลนี้ · (+สีเขียว) = เกียร์/พรสวรรค์ ตามกฎรวมค่าของเกม */}
           <div className="bg-white/5 rounded-xl p-3 self-start max-h-[252px] overflow-y-auto space-y-1.5 text-sm">
-            {/* Combat */}
-            <DetailRow label="ATK per sec" value={fmtRaw(totalDpsBase)} bonus={fmtBonus(totalDps - totalDpsBase)} />
-            <DetailRow label="ATK"          value={fmtRaw(totalAtkBase)} bonus={fmtBonus(Math.floor(totalAtk) - totalAtkBase)} />
+            <DetailRow label="ATK per sec" value={fmtRaw(dps(base))} bonus={fmtBonus(dps(fin) - dps(base))} />
+            <DetailRow label="ATK" value={fmtRaw(base.phyAtk + base.magAtk)} bonus={fmtBonus(fin.phyAtk + fin.magAtk - base.phyAtk - base.magAtk)} />
             <div className="bg-black/20 rounded overflow-hidden">
-              <DetailRow label="Physical ATK" value={fmtRaw(effectiveBaseStats.phyAtk)} bonus={fmtBonus(Math.floor(phyAtk) - effectiveBaseStats.phyAtk)} sub />
-              <DetailRow label="Magical ATK"  value={fmtRaw(effectiveBaseStats.magAtk)} bonus={fmtBonus(Math.floor(magAtk) - effectiveBaseStats.magAtk)} sub />
+              <DetailRow label="Physical ATK" value={fmtRaw(base.phyAtk)} bonus={fmtBonus(fin.phyAtk - base.phyAtk)} sub />
+              <DetailRow label="Magical ATK"  value={fmtRaw(base.magAtk)} bonus={fmtBonus(fin.magAtk - base.magAtk)} sub />
             </div>
-            <DetailRow label="HP"           value={fmtRaw(effectiveBaseStats.hp)}     bonus={fmtBonus(Math.floor(hp) - effectiveBaseStats.hp)} />
-            <DetailRow label="DEF"          value={fmtRaw(totalDefBase)} bonus={fmtBonus(Math.floor(totalDef) - totalDefBase)} />
+            <DetailRow label="HP" value={fmtRaw(base.hp)} bonus={fmtBonus(fin.hp - base.hp)} />
+            <DetailRow label="DEF" value={fmtRaw(base.phyDef + base.magDef)} bonus={fmtBonus(fin.phyDef + fin.magDef - base.phyDef - base.magDef)} />
             <div className="bg-black/20 rounded overflow-hidden">
-              <DetailRow label="Physical DEF" value={fmtRaw(effectiveBaseStats.phyDef)} bonus={fmtBonus(Math.floor(phyDef) - effectiveBaseStats.phyDef)} sub />
-              <DetailRow label="Magical DEF"  value={fmtRaw(effectiveBaseStats.magDef)} bonus={fmtBonus(Math.floor(magDef) - effectiveBaseStats.magDef)} sub />
+              <DetailRow label="Physical DEF" value={fmtRaw(base.phyDef)} bonus={fmtBonus(fin.phyDef - base.phyDef)} sub />
+              <DetailRow label="Magical DEF"  value={fmtRaw(base.magDef)} bonus={fmtBonus(fin.magDef - base.magDef)} sub />
             </div>
 
             <Divider />
 
-            {/* Speed / Range */}
-            <DetailRow label="ATK Speed"     value={atkSpeedValueStr} bonus={atkSpeedBonusStr} />
-            <DetailRow label="Move Speed"    value={stats.movingSpeed != null ? `${stats.movingSpeed}` : '—'} bonus={bonusEither(bonuses.moveSpeed)} />
-            {(() => {
-              const base = stats.attackRange
-              const atkRange = base != null ? applyBonus(base, bonuses.attackRange) : null
-              const delta = (atkRange != null && base != null) ? Math.floor(atkRange) - base : 0
-              return (
-                <DetailRow
-                  label="ATK Range"
-                  value={base != null ? fmtRaw(base) : '—'}
-                  bonus={fmtBonus(delta)}
-                />
-              )
-            })()}
-            <DetailRow label="Splash Radius" value={stats.splashRadius != null ? fmtRaw(stats.splashRadius) : '—'} bonus={bonusFlatText(bonuses.splashRadius)} />
+            {/* attackDelay (เฟรม 30 fps) → วินาทีต่อการโจมตี — เกียร์ ATK Speed ลด delay ตามสูตร libgame 0xd5d490 */}
+            <DetailRow label="ATK Interval (sec)" value={secText(base.attackDelay / 30)} bonus={secDelta(fin.attackDelay / 30 - base.attackDelay / 30)} />
+            <DetailRow label="Move Speed" value={fmtRaw(base.movingSpeed)} bonus={fmtBonus(fin.movingSpeed - base.movingSpeed)} />
+            <DetailRow label="ATK Range" value={fmtRaw(base.attackRange)} bonus={fmtBonus(fin.attackRange - base.attackRange)} />
+            <DetailRow label="Splash Radius" value={fmtRaw(base.splash)} bonus={fmtBonus(fin.splash - base.splash)} />
 
             <Divider />
 
-            {/* Crit / Evade / Hit */}
-            <DetailRow label="Critical Rate"   value={pctText(stats.rates.critRate)}   bonus={bonusPctText(bonuses.critRate)} />
-            <DetailRow label="Critical Damage" value={pctText(stats.rates.critDamage)} bonus={bonusPctText(bonuses.critDamage)} />
-            <DetailRow label="Evade Rate"      value={pctText(stats.rates.evadeRate)}  bonus={bonusPctText(bonuses.evadeRate)} />
-            <DetailRow label="Hit Rate"        value={pctText(stats.rates.hitRate)}    bonus={bonusPctText(bonuses.hitRate)} />
+            <DetailRow label="Critical Rate" value={pctText(base.critRate)} bonus={pctDelta(fin.critRate - base.critRate)} />
+            {/* criticalRatio = ตัวคูณดาเมจตอนคริ (libgame 0xcecfec: max(1, ratio)) */}
+            <DetailRow label="Critical Damage" value={`×${+base.critRatio.toFixed(2)}`} bonus={fin.critRatio !== base.critRatio ? `+${+(fin.critRatio - base.critRatio).toFixed(3)}` : ''} />
+            <DetailRow label="Evade Rate" value={pctText(base.avoid)} bonus={pctDelta(fin.avoid - base.avoid)} />
+            <DetailRow label="Hit Rate" value={pctText(base.antiAvoid)} bonus={pctDelta(fin.antiAvoid - base.antiAvoid)} />
 
             <Divider />
 
-            {/* Skill use rate / cooldown */}
-            {(() => {
-              const active = stats.skills.filter((s) => s.slot !== 'passive')
-              const sk1 = active[0]
-              const sk2 = active[1]
+            {/* สกิลที่ใช้งานได้ (ตาราง skill: probability / skillDelayTime) — โอกาสใช้จริงสูงสุด 95% */}
+            {stats.skills.filter(sk => sk.slot !== 'passive').slice(0, 2).map((sk, i) => {
+              const p = sk.game?.probability ?? sk.probability ?? 0
+              const cd = sk.game?.delay ?? sk.cooldown ?? 0
               return (
-                <>
-                  <DetailRow
-                    label="Skill Use Rate 1"
-                    value={sk1?.probability != null ? pctText(sk1.probability) : '—'}
-                    bonus={sk1 ? bonusPctText(bonuses.skillUseRate) : ''}
-                  />
-                  <DetailRow
-                    label="Skill Cooldown 1"
-                    value={sk1?.cooldown != null ? `${sk1.cooldown}s` : '—'}
-                    bonus={sk1 ? bonusPctText(bonuses.skillCooldown) : ''}
-                  />
-                  <DetailRow
-                    label="Skill Use Rate 2"
-                    value={sk2?.probability != null ? pctText(sk2.probability) : '—'}
-                    bonus={sk2 ? bonusPctText(bonuses.skillUseRate) : ''}
-                  />
-                  <DetailRow
-                    label="Skill Cooldown 2"
-                    value={sk2?.cooldown != null ? `${sk2.cooldown}s` : '—'}
-                    bonus={sk2 ? bonusPctText(bonuses.skillCooldown) : ''}
-                  />
-                </>
+                <div key={sk.code} className="space-y-1.5">
+                  <DetailRow label={`Skill Use Rate ${i + 1}`} value={pctText(p)}
+                    bonus={fin.skillProbAdd ? `${pctDelta(fin.skillProbAdd)} → ${pctText(skillUseChance(p + fin.skillProbAdd))}` : ''} />
+                  <DetailRow label={`Skill Cooldown ${i + 1}`} value={secText(cd)}
+                    bonus={fin.skillDelayMul !== 1 ? secDelta(cd * fin.skillDelayMul - cd) : ''} />
+                </div>
               )
-            })()}
+            })}
 
             <Divider />
 
-            {/* Skill resist / hit / evade */}
-            <DetailRow label="Skill Evade Rate" value={pctText(stats.rates.skillEvadeRate)}  bonus={bonusPctText(bonuses.skillEvadeRate)} />
-            <DetailRow label="Skill Hit Rate"   value={pctText(stats.rates.skillHitRate)}    bonus={bonusPctText(bonuses.skillHitRate)} />
-            <DetailRow label="Skill Resistance" value={pctText(stats.rates.skillResistance)} bonus={bonusPctText(bonuses.skillResistance)} />
+            <DetailRow label="Skill Evade Rate" value={pctText(base.skillAvoid)} bonus={pctDelta(fin.skillAvoid - base.skillAvoid)} />
+            <DetailRow label="Skill Hit Rate" value={pctText(base.antiSkillAvoid)} bonus={pctDelta(fin.antiSkillAvoid - base.antiSkillAvoid)} />
+            <DetailRow label="Skill Resistance" value={pctText(base.skillResist)} bonus={pctDelta(fin.skillResist - base.skillResist)} />
 
             <Divider />
 
-            {/* Cost / Regen */}
-            {(() => {
-              const baseRegen = effectiveBaseStats.cooldown
-              // applyBonus: base × (1 + sum(pct)) → ใช้ในเกียร์ส่วนใหญ่ (linear stacking)
-              // แต่ Ranger Regen Time มี **cap ที่ -88%** (เกมจริง: min regen time = 12% × base)
-              // ตัวอย่าง Medici (11s): sum bonus -112.8% → linear ได้ -12.5s แต่เกม cap ที่ -9.7s
-              // → max reduction = 88% × base, min remaining time = 12% × base
-              const REGEN_MAX_REDUCTION = 0.88  // 88%
-              const linearApplied = applyBonus(baseRegen, bonuses.cooldown)
-              const linearDelta = linearApplied - baseRegen   // เป็นลบ (เกียร์ลดเวลา)
-              const maxReduction = baseRegen * REGEN_MAX_REDUCTION
-              // delta ติดลบ: cap absolute value ไม่ให้เกิน maxReduction
-              const cappedDelta = linearDelta < -maxReduction ? -maxReduction : linearDelta
-              const bonusText = Math.abs(cappedDelta) >= 0.05
-                ? `${cappedDelta >= 0 ? '+' : ''}${cappedDelta.toFixed(1)}s`
-                : ''
-              return (
-                <DetailRow
-                  label="Ranger Regeneration Time (sec)"
-                  value={`${baseRegen.toFixed(1)}s`}
-                  bonus={bonusText}
-                />
-              )
-            })()}
-            {(() => {
-              if (stats.mineral == null) {
-                return <DetailRow label="Ranger Mineral Cost" value="—" bonus="" />
-              }
-              const baseMineral = stats.mineral
-              const appliedMineral = applyBonus(baseMineral, bonuses.mineralCost)
-              const delta = Math.round(appliedMineral - baseMineral)
-              const bonusText = Math.abs(delta) >= 1
-                ? `${delta >= 0 ? '+' : ''}${delta}`
-                : ''
-              return (
-                <DetailRow
-                  label="Ranger Mineral Cost"
-                  value={fmtRaw(baseMineral)}
-                  bonus={bonusText}
-                />
-              )
-            })()}
+            {/* เวลาเกิดใหม่: productionSpeed × (1 − X) โดย X = unit_level_expansion ของเลเวลนี้ · ขั้นต่ำ 1.3 วิ */}
+            <DetailRow label="Ranger Regeneration Time (sec)" value={secText(base.regen)} bonus={secDelta(fin.regen - base.regen)} />
+            <DetailRow label="Ranger Mineral Cost" value={fmtRaw(base.summonEnergy)} bonus={fmtBonus(fin.summonEnergy - base.summonEnergy)} />
           </div>
         </div>
       </div>
@@ -1432,8 +1280,8 @@ export default function RangerStatPanel({
           rangerElement={normalizeElement(stats.element)}
           rangerCategory={stats.category}
           rangerCtx={rangerCtxForSlot(pickerSlot)}
-          rangerSkillDescriptions={stats.skills.map(s => s.description ?? '').filter(Boolean)}
-          rangerAbilityNames={stats.abilities.map(a => a.name)}
+          rangerSkills={skillGames}
+          rangerAbilityCodes={stats.abilities.map(a => a.code)}
           otherSlotsLockedNames={otherSlotsLockedNamesFor(pickerSlot)}
           existingSkillPlus={pickerExistingSkillPlus}
           currentGearBasicEffects={computedEffectsBySlot[pickerSlot]?.basic}
@@ -1493,7 +1341,7 @@ export default function RangerStatPanel({
             assignInstallOrder(bookDetailSlot)
           }}
           occupiedSwitchableTypes={otherSlotsLockedNamesFor(bookDetailSlot)}
-          rangerSkillDescriptions={stats.skills.map(s => s.description ?? '').filter(Boolean)}
+          rangerSkills={skillGames}
           skillPlusOverriddenBy={Object.fromEntries(skillPlusDedup.overriddenBySlot.get(bookDetailSlot) ?? [])}
           zIndex={60}
           onClose={() => setBookDetailSlot(null)}
@@ -1529,7 +1377,7 @@ export default function RangerStatPanel({
               ? effectiveSwitchable[detailGear.slot as SlotKey]?.inactiveReason
               : undefined
           }
-          rangerSkillDescriptions={stats?.skills.map(s => s.description ?? '').filter(Boolean)}
+          rangerSkills={skillGames}
           skillPlusOverriddenBy={
             detailGear
               ? Object.fromEntries(skillPlusDedup.overriddenBySlot.get(detailGear.slot as SlotKey) ?? [])
@@ -1552,7 +1400,7 @@ export default function RangerStatPanel({
         <RangerAnimationPopup
           rangerId={rangerId}
           rangerName={rangerName}
-          attackRange={stats?.attackRange != null ? applyBonus(stats.attackRange, bonuses.attackRange) : null}
+          attackRange={fin.attackRange}
           skillTargets={{ skill1: animSkills[0]?.triggerBasis?.type ?? null, skill2: animSkills[1]?.triggerBasis?.type ?? null }}
           skillAreas={{ skill1: animSkills[0]?.area ?? null, skill2: animSkills[1]?.area ?? null }}
           skillRearMul={{ skill1: animSkills[0]?.triggerBasis?.multiplier ?? null, skill2: animSkills[1]?.triggerBasis?.multiplier ?? null }}
@@ -1730,14 +1578,14 @@ function AwakenAbilityButton({ abilities, topCode, selectable = false, isPinned,
 }
 
 function PillIconRow({
-  label, items, kind, pinnedKey, onSetPinnedKey, skillPlusEffects, castTimesMap, extraEnd,
+  label, items, kind, pinnedKey, onSetPinnedKey, skillPlusBySkill, castTimesMap, extraEnd,
 }: {
   label: string
   items: (SkillSlot | AbilitySlot)[]
   kind: 'skill' | 'ability'
   pinnedKey: string | null
   onSetPinnedKey: (key: string | null) => void
-  skillPlusEffects?: GearEffect[]
+  skillPlusBySkill?: Map<string, SkillPlusLine[]>
   castTimesMap?: CastEntry | null
   extraEnd?: React.ReactNode
 }) {
@@ -1759,7 +1607,7 @@ function PillIconRow({
               isPinned={isThisPinned}
               suppressHover={pinnedKey !== null && !isThisPinned}
               onPinToggle={() => { play('click_global.ogg'); onSetPinnedKey(pinnedKey === itemKey ? null : itemKey) }}
-              skillPlusEffects={kind === 'skill' ? skillPlusEffects : undefined}
+              skillPlusLines={kind === 'skill' ? skillPlusBySkill?.get(it.code) : undefined}
               skillTiming={(() => {
                 if (kind !== 'skill') return null               // ability → ไม่แสดง
                 if (castTimesMap == null) return undefined      // loading → แสดง "..."
@@ -1783,56 +1631,30 @@ function PillIconRow({
   )
 }
 
-// ── SKILL+ helpers ────────────────────────────────────
-
-// ── SKILL+ Deduplication ─────────────────────────────
-// ถ้า WPN + ACC มี SKILL+ ชื่อเดียวกัน (เช่น "ATK x N% Area Damage") → แสดงได้แค่อันเดียว
-// เลือก effect ที่ค่า (absolute) มากกว่า; ถ้าเท่ากัน → เรียงตามลำดับ WPN > AMR > ACC
-
-function parseSkillPlusValue(value: string): number {
-  const m = value.match(/[\d.]+/)
-  return m ? parseFloat(m[0]) : 0
-}
-
-// normalize สำหรับ group: แทน N/n ด้วย token คงที่, collapse space, lowercase
-function normSkillPlusName(name: string): string {
-  return name.replace(/\b[Nn]\b/g, '__N__').replace(/\s+/g, ' ').trim().toLowerCase()
-}
-
+// ── SKILL+ ซ้ำข้ามชิ้น ─────────────────────────────────
+// SKILL+ กลุ่มเดียวกัน (unit_eqip_skl_plus_attr.attrNumberGroup) จากหลายชิ้น → นับตัวที่ค่าสูงสุด
+// เท่ากัน → ชิ้นที่มาก่อนตามลำดับ WPN > AMR > ACC
 interface SkillPlusEntry { effect: GearEffect; slot: SlotKey }
 
 function deduplicateSkillPlus(eff: Record<SlotKey, GearEffects | null>): {
-  activeEffects: SkillPlusEntry[]          // effects ที่ควรแสดงใน tooltip
-  overriddenSlots: Set<SlotKey>            // slots ที่มี SKILL+ ถูก override → แสดง badge !
+  activeEffects: SkillPlusEntry[]
+  overriddenSlots: Set<SlotKey>
   overriddenBySlot: Map<SlotKey, Map<string, SlotKey>>  // slot → (effectName → winning slot)
 } {
   const ORDER: SlotKey[] = ['WPN', 'AMR', 'ACC']
-  const all: SkillPlusEntry[] = []
-  for (const slot of ORDER) {
-    for (const e of eff[slot]?.skillPlus ?? []) all.push({ effect: e, slot })
-  }
-
-  // group by normalized name + unit
-  // "HP +N%  +80.0%" (pct) และ "HP +N%  +3.5" (sec) มีชื่อเหมือนกันแต่หน่วยต่างกัน → ไม่นับว่าทับกัน
   const groups = new Map<string, SkillPlusEntry[]>()
-  for (const entry of all) {
-    const key = normSkillPlusName(entry.effect.name) + ':' + getSkillPlusUnit(entry.effect.value ?? '')
-    const g = groups.get(key) ?? []; g.push(entry); groups.set(key, g)
+  for (const slot of ORDER) {
+    for (const e of eff[slot]?.skillPlus ?? []) {
+      const key = String(e.skillPlusGrowth?.group ?? e.skillPlusGrowth?.attrNo ?? e.nameKey ?? e.name)
+      groups.set(key, [...(groups.get(key) ?? []), { effect: e, slot }])
+    }
   }
-
   const activeEffects: SkillPlusEntry[] = []
   const overriddenSlots = new Set<SlotKey>()
   const overriddenBySlot = new Map<SlotKey, Map<string, SlotKey>>()
-
   for (const entries of groups.values()) {
-    if (entries.length === 1) { activeEffects.push(entries[0]); continue }
-    // ชนะ = ค่าสูงสุด; ถ้าเท่ากัน → slot ที่มาก่อนใน ORDER (เนื่องจาก iterate ตาม ORDER แล้ว)
     let best = entries[0]
-    for (let i = 1; i < entries.length; i++) {
-      if (parseSkillPlusValue(entries[i].effect.value) > parseSkillPlusValue(best.effect.value)) {
-        best = entries[i]
-      }
-    }
+    for (const e of entries.slice(1)) if (Math.abs(effectAmount(e.effect)) > Math.abs(effectAmount(best.effect))) best = e
     activeEffects.push(best)
     for (const e of entries) {
       if (e === best) continue
@@ -1842,59 +1664,15 @@ function deduplicateSkillPlus(eff: Record<SlotKey, GearEffects | null>): {
       overriddenBySlot.set(e.slot, m)
     }
   }
-
   activeEffects.sort((a, b) => ORDER.indexOf(a.slot) - ORDER.indexOf(b.slot))
   return { activeEffects, overriddenSlots, overriddenBySlot }
 }
 
-// บาง SKILL+ ชื่อที่ API ให้มาเป็น label สั้นๆ ไม่ตรงกับคำใน skill description ตรงๆ
-// (ปกติ template จะเป็นคำเดียวกับใน description แค่ตัด (N sec) ท้ายออก แต่บางตัว label ถูกเรียบเรียงใหม่)
-// เช่น "Enemy Fear (sec)" ↔ "Fear effect on some enemies (4 sec)" / "Fear effect on 1 enemy (2 sec)"
-// → ต้อง map ชื่อ (lowercase) ไปเป็น pattern ที่ match กับข้อความจริงแทนการเทียบ substring ตรงๆ
-const SKILL_PLUS_ALIAS_PATTERN: Record<string, RegExp> = {
-  'enemy fear (sec)': /\bfear effect on\b/i,
-}
-
-// ตรวจว่า SKILL+ template (มี 'N' placeholder) ตรงกับบรรทัดใน skill description หรือไม่
-// เช่น template="ATK x N% Area Damage" ↔ descLine="*ATK x 3300% Area Damage" → true
-// template="Applies charm effect to N enemies within range." ↔ "*Applies charm effect to 2 enemies within range. (10 sec)" → true
-// → N ตัวใหญ่ (ตาม API), strip trailing (...) เพราะ description อาจมี "(10 sec)" ปิดท้าย
-function matchSkillPlusTemplate(template: string, descLine: string): boolean {
-  // ตัด * นำหน้า, ตัด (...) ที่อาจอยู่ท้าย เช่น "(10 sec)", "(8 sec)"
-  const cleanDesc = descLine.replace(/^\*+/, '').replace(/\s*\([^)]*\)\s*$/, '').trim()
-  // เช็ค alias พิเศษก่อน (ชื่อที่ไม่ตรงกับ description ตรงๆ)
-  const aliasPattern = SKILL_PLUS_ALIAS_PATTERN[template.trim().toLowerCase()]
-  if (aliasPattern) return aliasPattern.test(cleanDesc)
-  // N-template: ใช้ regex match (N = wildcard ตัวเลข)
-  // รองรับทั้ง N (ตัวใหญ่ จาก API ใหม่) และ n (ตัวเล็ก จาก cache เก่า)
-  if (/\b[Nn]\b/.test(template)) {
-    try {
-      const escaped = template.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      const pattern = escaped.replace(/\b[Nn]\b/g, '[\\d]+(?:\\.[\\d]+)?')
-      return new RegExp(pattern, 'i').test(cleanDesc)
-    } catch { return false }
-  }
-  // Non-N template (เช่น "Makes enemy skills unusable"): substring match (case-insensitive)
-  return cleanDesc.toLowerCase().includes(template.toLowerCase())
-}
-
-// ตรวจหน่วยของ SKILL+ value:
-//   "pct"  → มี % เช่น "+80.0%"
-//   "sec"  → ตัวเลขล้วน (ไม่มี %) เช่น "+3.5" → หน่วยวินาที
-//   "other" → รูปแบบอื่น
-function getSkillPlusUnit(value: string): 'pct' | 'sec' | 'other' {
-  const v = value.trim()
-  if (v.endsWith('%')) return 'pct'
-  if (/^[+\-]?[\d.]+$/.test(v)) return 'sec'
-  return 'other'
-}
-
-// สร้างข้อความแสดง SKILL+ bonus: "+ATK x N% Area Damage  +1200.0%"
-// ไม่แทน N ด้วยค่า — แสดง template ตามต้นฉบับ + ค่า enchant ด้านขวา
-// ถ้า value เป็นตัวเลขล้วน (sec) → ต่อท้ายด้วย "sec"
-function buildSkillPlusLine(template: string, value: string): string {
-  const suffix = getSkillPlusUnit(value) === 'sec' ? 'sec' : ''
-  return `*${template}  ${value}${suffix}`
+/** ค่าของสกิลก่อน → หลัง SKILL+ (factor ของสกิล = เท่าของ ATK → แสดงเป็น %) */
+function fmtPower(v: number, unit: '%' | 's' | ''): string {
+  if (unit === '%') return `${+(v * 100).toFixed(1)}%`
+  if (unit === 's') return `${+v.toFixed(2)}s`
+  return `${+v.toFixed(2)}`
 }
 
 // ── Ability tooltip helpers ──
@@ -1949,17 +1727,17 @@ function splitDescription(desc: string): string[] {
 }
 
 function IconWithTooltip({
-  item, kind, isPinned, suppressHover, onPinToggle, skillPlusEffects, skillTiming,
+  item, kind, isPinned, suppressHover, onPinToggle, skillPlusLines, skillTiming,
 }: {
   item: SkillSlot | AbilitySlot
   kind: 'skill' | 'ability'
   isPinned: boolean
   suppressHover: boolean
   onPinToggle: () => void
-  skillPlusEffects?: GearEffect[]
+  skillPlusLines?: SkillPlusLine[]
   skillTiming?: SkillTiming | null
 }) {
-  const { t, tSkill, tSkillDesc, tAbility, tAbilityDesc, tStat, tUnit, lang } = useLanguage()
+  const { t, tSkill, tSkillDesc, tAbility, tAbilityDesc, tStat, lang } = useLanguage()
   const [hovered, setHovered] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
   // ตำแหน่ง tooltip ใน viewport (position: fixed) — escape body overflow + popup header
@@ -2019,11 +1797,7 @@ function IconWithTooltip({
     ? (kind === 'skill' ? tSkillDesc(item.code, item.description) : tAbilityDesc(item.code, item.description))
     : ''
 
-  // descParts สำหรับ DISPLAY (ภาษาที่เลือก) — โชว์ใน tooltip
   const descParts = displayDesc ? splitDescription(displayDesc) : []
-  // origDescParts สำหรับ MATCHING (อังกฤษเสมอ) — ใช้ match กับ SKILL+ templates ที่เป็น EN
-  // ป้องกัน bug: ถ้าใช้ Thai description match กับ EN template → match ไม่เจอ → highlight ไม่ขึ้น
-  const origDescParts = item.description ? splitDescription(item.description) : []
 
   return (
     <div className="relative">
@@ -2088,11 +1862,6 @@ function IconWithTooltip({
             return (
             <div className="lr-tt-desc space-y-1 text-gray-200 leading-snug">
               {descParts.map((displayPart, i) => {
-                // ใช้ origDescParts (EN) สำหรับ match กับ SKILL+ template — ไม่ใช่ displayPart (อาจเป็น Thai)
-                const origPart = origDescParts[i] ?? displayPart
-                const matched = skillPlusEffects?.filter(sp =>
-                  sp.value && matchSkillPlusTemplate(sp.name, origPart)
-                )
                 // ใส่เส้นคั่นก่อน bullet ตัวแรก (ถ้ามี bullet และไม่ใช่บรรทัดแรกสุด)
                 const showDivider = firstBulletIdx > 0 && i === firstBulletIdx
                 return (
@@ -2101,19 +1870,32 @@ function IconWithTooltip({
                       <div className="border-t border-white/15 my-1.5" aria-hidden />
                     )}
                     <div>{displayPart}</div>
-                    {matched?.map((sp, j) => (
-                      <div key={j} className="text-green-400 pl-1">
-                        {tUnit(sp.nameKey
-                          ? buildSkillPlusLine(t('equip', sp.nameKey, sp.name), sp.value)
-                          : buildSkillPlusLine(sp.name, sp.value))}
-                      </div>
-                    ))}
                   </div>
                 )
               })}
             </div>
             )
           })()}
+
+          {/* SKILL+ ที่ได้ผลกับสกิลนี้ — จับคู่ด้วยตาราง eqip_skl_plus_grp (skillType + factorType + buffFactorType
+              ของสกิลหลัก/ย่อย) · ค่าก่อน → หลัง เมื่อตารางบอกค่าพลังของสกิลตรงๆ */}
+          {skillPlusLines && skillPlusLines.length > 0 && (
+            <div className="mt-1.5 pt-1.5 border-t border-green-400/20 space-y-0.5 font-line text-[12px]">
+              {skillPlusLines.map((l, j) => (
+                <div key={j} className="flex items-baseline justify-between gap-2 text-green-400">
+                  <span className="min-w-0">
+                    <span className="font-bold mr-1">SKILL+</span>
+                    {(l.effect.nameKey ? t('equip', l.effect.nameKey, l.effect.name) : l.effect.name).replace(/\\n|\n/g, ' ')}
+                  </span>
+                  <span className="shrink-0 tabular-nums text-right">
+                    {l.power
+                      ? <>{fmtPower(l.power.before, l.power.unit)} → <b>{fmtPower(l.power.after, l.power.unit)}</b></>
+                      : l.effect.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Trigger Basis (skill.targetType ของเกม) — เป้าหมายที่สกิลเล็ง: ตัวเอง/หน้า/หลัง(+ตัวคูณ)
               text size ใหญ่ขึ้นเฉพาะภาษาไทย (อ่านง่ายขึ้น) — ไม่กระทบ font-line ที่อื่นในเว็บ */}
@@ -2196,6 +1978,77 @@ function IconWithTooltip({
         </div>,
         document.body
       )}
+    </div>
+  )
+}
+
+// ── วงล้อเลือกเลเวล (scroll-snap) — แตะ/ลาก/เลื่อนล้อเมาส์ · ปุ่มลัด 1 / cap / MAX ──
+const WHEEL_ROW = 36
+function LevelWheel({ value, max, cap, step, accent, onChange, onTick }: {
+  value: number
+  max: number
+  cap: number
+  step: number
+  accent: string
+  onChange: (lv: number) => void
+  onTick: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const settle = useRef<number | null>(null)
+  const last = useRef(value)
+  // เปิดมาที่เลเวลปัจจุบันทันที (ไม่มีแอนิเมชันเลื่อนตอนเปิด)
+  useEffect(() => {
+    if (ref.current) ref.current.scrollTop = (value - 1) * WHEEL_ROW
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const onScroll = () => {
+    const el = ref.current
+    if (!el) return
+    const lv = Math.min(max, Math.max(1, Math.round(el.scrollTop / WHEEL_ROW) + 1))
+    if (lv !== last.current) { last.current = lv; onChange(lv) }
+    if (settle.current) window.clearTimeout(settle.current)
+    settle.current = window.setTimeout(onTick, 120)
+  }
+  const jump = (lv: number) => {
+    last.current = lv
+    onChange(lv)
+    onTick()
+    ref.current?.scrollTo({ top: (lv - 1) * WHEEL_ROW, behavior: 'smooth' })
+  }
+  const marks = [1, cap, ...Array.from({ length: Math.round((max - cap) / step) }, (_, i) => cap + (i + 1) * step)]
+  const quick = [...new Set([1, cap, max])]
+  return (
+    <div role="dialog" aria-label="Level"
+      className="absolute left-1/2 -translate-x-1/2 mt-1.5 w-60 rounded-xl bg-gray-900/95 backdrop-blur border border-white/10 shadow-xl z-50 p-2.5">
+      <div className="relative" style={{ height: WHEEL_ROW * 5 }}>
+        {/* แถบเลือกกลางวงล้อ */}
+        <div className="absolute inset-x-0 rounded-lg bg-white/10 border border-white/15 pointer-events-none" style={{ top: WHEEL_ROW * 2, height: WHEEL_ROW }} />
+        <div
+          ref={ref}
+          onScroll={onScroll}
+          className="h-full overflow-y-auto snap-y snap-mandatory overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={{ maskImage: 'linear-gradient(transparent, #000 30%, #000 70%, transparent)' }}
+        >
+          <div style={{ height: WHEEL_ROW * 2 }} />
+          {Array.from({ length: max }, (_, i) => i + 1).map(lv => (
+            <button key={lv} type="button" onClick={() => jump(lv)}
+              className={`w-full snap-center flex items-center justify-center gap-1.5 tabular-nums transition-colors ${lv === value ? `${accent} font-black text-lg` : 'text-gray-400 text-sm'}`}
+              style={{ height: WHEEL_ROW }}>
+              Lv.{lv}
+              {marks.includes(lv) && lv > cap && <span className="text-[10px] text-gray-500 font-normal">+{Math.round((lv - cap) / step)}</span>}
+            </button>
+          ))}
+          <div style={{ height: WHEEL_ROW * 2 }} />
+        </div>
+      </div>
+      <div className="flex gap-1.5 mt-2">
+        {quick.map(lv => (
+          <button key={lv} type="button" onClick={() => jump(lv)}
+            className={`flex-1 rounded-md py-1 text-xs font-bold tabular-nums ${lv === value ? 'bg-white/20 text-white' : 'bg-white/5 text-gray-300 hover:bg-white/10'}`}>
+            {lv === max ? 'MAX' : `Lv.${lv}`}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

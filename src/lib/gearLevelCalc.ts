@@ -16,11 +16,28 @@ export interface SwitchableEffectGrowth {
   reinforceType: string
 }
 
+/** แถวของ eqip_skl_plus_grp — สกิล (หลัก = MAIN / ย่อย = SUB) ที่ SKILL+ ตัวนี้ได้ผล */
+export interface SkillPlusMatchRow {
+  skillType: string
+  factorType: string
+  buffFactorType: string
+  target: string   // 'MAIN' | 'SUB'
+}
+
 export interface SkillPlusEffectGrowth {
   base: number
   statIncAmt: number[]
   isPct: boolean
   isSec: boolean
+  // ── ข้อมูลเกมสำหรับจับคู่กับสกิลของเรนเจอร์ (unit_eqip_skl_plus_attr + eqip_skl_plus_grp) ──
+  attrNo?: number
+  /** attrNumberGroup — SKILL+ กลุ่มเดียวกันจากหลายชิ้นนับตัวที่ค่าสูงสุด */
+  group?: number
+  /** targetFactor: MAIN = สกิลหลัก · SUB = สกิลย่อย */
+  target?: string
+  /** skillFactorApplyType: MUL = บวกเข้าตัวคูณของสกิล (%) · ADD = บวกค่าตรงๆ (สกิลย่อย = วินาที) */
+  applyType?: string
+  rows?: SkillPlusMatchRow[]
 }
 
 export function formatValueByReinforce(raw: number, reinforceType: string): string {
@@ -31,23 +48,31 @@ export function formatValueByReinforce(raw: number, reinforceType: string): stri
   return `${sign}${disp}${isPct ? '%' : ''}`
 }
 
-// Basic Effect: value = maxValue × (enchant + 1)  — enchant 0-5 → คูณ 1x-6x
-export function calcBasicEffectValue(g: BasicEffectGrowth, enchant: number): string {
-  const raw = g.maxValue * (enchant + 1)
-  return formatValueByReinforce(raw, g.reinforceType)
-}
-
-// Switchable Effect: value = baseMax + unlimitStep × unlimitLevel  (unlimitLevel 0-5)
-export function calcSwitchableEffectValue(g: SwitchableEffectGrowth, unlimitLevel: number): string {
-  const total = g.baseMax + g.unlimitStep * unlimitLevel
-  return formatValueByReinforce(total, g.reinforceType)
-}
-
-// SKILL+: value = base + sum(statIncAmt[0..enchant-1])  (enchant 0-5)
-export function calcSkillPlusEffectValue(g: SkillPlusEffectGrowth, enchant: number): string {
+// ── ค่าตัวเลขดิบ (ใช้คำนวณ) — สูตรเดียวกับข้อความที่แสดง ──
+/** GEAR_ENCHANT_ATTR_INCREASE_RATIO (game_factor) = 1.0 → ค่าพื้นฐาน × (1 + 1.0 × enchant) — libgame 0x112df84 */
+export const GEAR_ENCHANT_ATTR_INCREASE_RATIO = 1.0
+export const basicEffectAmount = (g: BasicEffectGrowth, enchant: number) =>
+  g.maxValue * (1 + GEAR_ENCHANT_ATTR_INCREASE_RATIO * enchant)
+/** Switchable: ค่าฐาน + ขั้นปลดลิมิต × จำนวนครั้ง (eqip_unlimit.stat_inc_amt) */
+export const switchableEffectAmount = (g: SwitchableEffectGrowth, unlimitLevel: number) =>
+  g.baseMax + g.unlimitStep * unlimitLevel
+/** SKILL+: ค่าฐาน + ผลรวม eqip_skl_plus_upgrd.stat_inc_amt ของขั้นที่อัปแล้ว */
+export function skillPlusEffectAmount(g: SkillPlusEffectGrowth, enchant: number): number {
   let bonus = 0
   for (let i = 0; i < Math.min(enchant, g.statIncAmt.length); i++) bonus += g.statIncAmt[i] ?? 0
-  const total = g.base + bonus
+  return g.base + bonus
+}
+
+export function calcBasicEffectValue(g: BasicEffectGrowth, enchant: number): string {
+  return formatValueByReinforce(basicEffectAmount(g, enchant), g.reinforceType)
+}
+
+export function calcSwitchableEffectValue(g: SwitchableEffectGrowth, unlimitLevel: number): string {
+  return formatValueByReinforce(switchableEffectAmount(g, unlimitLevel), g.reinforceType)
+}
+
+export function calcSkillPlusEffectValue(g: SkillPlusEffectGrowth, enchant: number): string {
+  const total = skillPlusEffectAmount(g, enchant)
   const abs = Math.abs(total)
   const disp = g.isPct ? (abs * 100).toFixed(1) : (Math.round(abs * 10) / 10).toString()
   const sign = total < 0 ? '-' : '+'
@@ -57,7 +82,6 @@ export function calcSkillPlusEffectValue(g: SkillPlusEffectGrowth, enchant: numb
 // ── รวม logic แปลง slider 0-15 → recompute ทั้งชุด GearEffects ──
 // ใช้ร่วมกันทั้ง GearDetailPopup (gear-book slider) และ RangerStatPanel (Ranger Book gear level)
 
-// แปลง slider value (0-15) → 3 component levels
 // slider 0-5  → basic=N,    switch=0,   skill+=0
 // slider 6-10 → basic=5,    switch=N-5, skill+=0
 // slider 11-15→ basic=5,    switch=5,   skill+=N-10
@@ -91,6 +115,8 @@ export function gearLevelBadgeUrl(level: number): string | null {
 export interface GearEffectLike {
   name: string
   value: string
+  /** ค่าตัวเลขดิบของ value (เช่น 0.084 = +8.4%) — ใช้คำนวณ ไม่ต้องแกะจากข้อความ */
+  amount?: number
   nameKey?: string
   basicGrowth?: BasicEffectGrowth
   switchableGrowth?: SwitchableEffectGrowth
@@ -112,9 +138,9 @@ export interface GearEffectsLike<E extends GearEffectLike> {
 export function recalcGearEffects<E extends GearEffectLike>(raw: GearEffectsLike<E>, sliderLevel: number): GearEffectsLike<E> {
   const levels = splitSliderLevel(sliderLevel)
   const recalc = (e: E): E => {
-    if (e.basicGrowth) return { ...e, value: calcBasicEffectValue(e.basicGrowth, levels.basic) }
-    if (e.switchableGrowth) return { ...e, value: calcSwitchableEffectValue(e.switchableGrowth, levels.switchable) }
-    if (e.skillPlusGrowth) return { ...e, value: calcSkillPlusEffectValue(e.skillPlusGrowth, levels.skillPlus) }
+    if (e.basicGrowth) return { ...e, value: calcBasicEffectValue(e.basicGrowth, levels.basic), amount: basicEffectAmount(e.basicGrowth, levels.basic) }
+    if (e.switchableGrowth) return { ...e, value: calcSwitchableEffectValue(e.switchableGrowth, levels.switchable), amount: switchableEffectAmount(e.switchableGrowth, levels.switchable) }
+    if (e.skillPlusGrowth) return { ...e, value: calcSkillPlusEffectValue(e.skillPlusGrowth, levels.skillPlus), amount: skillPlusEffectAmount(e.skillPlusGrowth, levels.skillPlus) }
     return e
   }
   return {
@@ -128,3 +154,16 @@ export function recalcGearEffects<E extends GearEffectLike>(raw: GearEffectsLike
     skillPlus: raw.skillPlus.map(recalc),
   }
 }
+
+/** ค่าตัวเลขของ effect — ใช้ amount ถ้ามี · ไฟล์เก่าที่ยังไม่มี amount คิดจาก growth ที่ระดับสูงสุดของไฟล์ (+5) */
+export function effectAmount(e: GearEffectLike): number {
+  if (typeof e.amount === 'number') return e.amount
+  if (e.basicGrowth) return basicEffectAmount(e.basicGrowth, 5)
+  if (e.switchableGrowth) return switchableEffectAmount(e.switchableGrowth, 5)
+  if (e.skillPlusGrowth) return skillPlusEffectAmount(e.skillPlusGrowth, 5)
+  return 0
+}
+
+/** reinforceType ของ effect (Basic / Switchable) — ชนิดค่าพลังตามตาราง unit_eqip_attr */
+export const effectType = (e: GearEffectLike): string | null =>
+  e.basicGrowth?.reinforceType ?? e.switchableGrowth?.reinforceType ?? null

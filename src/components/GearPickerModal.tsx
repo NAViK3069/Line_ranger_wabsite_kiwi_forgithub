@@ -13,6 +13,8 @@ import { useEffect, useRef, useState, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import GearDetailPopup from '@/components/GearDetailPopup'
 import type { RangerContext } from '@/lib/switchableSelector'
+import { skillPlusHits, hasSkillPlusRows, type SkillGame } from '@/lib/rangerGameCalc'
+import type { SkillPlusEffectGrowth } from '@/lib/gearLevelCalc'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useSound } from '@/contexts/SoundContext'
 
@@ -33,12 +35,12 @@ export interface GearPickerModalProps {
   rangerElement:            string | null
   rangerCategory:           string | null
   rangerCtx?:               RangerContext
-  rangerSkillDescriptions?: string[]
-  rangerAbilityNames?:      string[]   // ชื่อ Ability ของเรนเจอร์ → ใช้ตรวจ Flyer สำหรับเกียร์พื้นฐาน
+  rangerSkills?:            SkillGame[]   // สกิลของเรนเจอร์ (ตาราง skill) → จับคู่ SKILL+ ด้วยตาราง eqip_skl_plus_grp
+  rangerAbilityCodes?:      string[]      // โค้ด Ability ของเรนเจอร์ → ab201_flight = บินได้ (เกียร์พื้นฐาน)
   // ── picker preview context — ตรวจเงื่อนไขก่อนติดตั้ง ──
   otherSlotsLockedNames?:   string[]                                        // ชื่อ effect ที่ slot อื่น lock ไว้ → preview กรองออก
   occupiedSwitchableTypes?: string[]                                        // trigTypes ที่ slot อื่นครอบครองแล้ว
-  existingSkillPlus?:       Array<{ name: string; value: string; slot: string }> // SKILL+ จาก slot อื่น
+  existingSkillPlus?:       Array<{ group: number; amount: number; slot: string }> // SKILL+ จาก slot อื่น (attrNumberGroup + ค่า)
   currentGearBasicEffects?: Array<{ name: string; value: string }>          // Basic Effect ของเกียร์ที่ใส่อยู่ → เปรียบเทียบ up/down/equal
   onSelect:                 (gear: GearBookItem, level: number, specLevel: number) => void   // level (0-15) / specLevel (0-5, 9★) = ค่าที่ตั้งไว้ตอน preview ก่อนกดติดตั้ง
   onClose:                  () => void
@@ -96,35 +98,6 @@ function getGearBookData(): Promise<GearBookItem[]> {
   return _gearFetch
 }
 
-// ── SKILL+ matching ────────────────────────────────────
-// บาง SKILL+ ชื่อเป็น label สั้นๆ ไม่ตรงกับคำใน skill description ตรงๆ
-// เช่น "Enemy Fear (sec)" ↔ "Fear effect on some enemies (4 sec)" / "Fear effect on 1 enemy (2 sec)"
-const SKILL_PLUS_ALIAS_PATTERN: Record<string, RegExp> = {
-  'enemy fear (sec)': /\bfear effect on\b/i,
-}
-
-function matchSkillPlusTemplate(template: string, descriptions: string[]): boolean {
-  const aliasPattern = SKILL_PLUS_ALIAS_PATTERN[template.trim().toLowerCase()]
-  const hasN = /\b[Nn]\b/.test(template)
-  let pattern: RegExp | null = null
-  if (hasN) {
-    try {
-      const escaped = template.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      pattern = new RegExp(escaped.replace(/\b[Nn]\b/g, '[\\d]+(?:\\.[\\d]+)?'), 'i')
-    } catch { return false }
-  }
-  for (const desc of descriptions) {
-    const segs = desc.replace(/\\n/g, '\n').split(/\n+|(?=\*)/)
-      .map(s => s.trim().replace(/^\*+/, '').trim()).filter(Boolean)
-    for (const seg of segs) {
-      const clean = seg.replace(/\s*\([^)]*\)\s*$/, '').trim()
-      if (aliasPattern) { if (aliasPattern.test(clean)) return true; continue }
-      if (hasN ? pattern!.test(clean) : clean.toLowerCase().includes(template.toLowerCase())) return true
-    }
-  }
-  return false
-}
-
 // ── Tier logic ────────────────────────────────────────
 // tier 1 = 8★/9★ + SKILL+ ตรง + ธาตุตรง    (ดีที่สุด → เขียว)
 // tier 2 = 8★/9★ + SKILL+ ตรง + สายตรง     (ดีมาก   → เขียว)
@@ -133,13 +106,13 @@ function matchSkillPlusTemplate(template: string, descriptions: string[]): boole
 // tier 5 = ≤7★ ธาตุตรง
 // tier 6 = ≤7★ สายตรง
 // 9★ ใช้เงื่อนไขเดียวกับ 8★ เป๊ะๆ (ต่างกันแค่เกรด ไม่มีกฎพิเศษเพิ่ม)
-// spNames: undefined = ยังไม่รู้ (ไม่กรอง) / [] = ไม่มีข้อมูล (ไม่กรอง) / [...] = กรองได้
+// sp: undefined = ยังไม่รู้ (ไม่กรอง) / [] หรือไม่มีแถวจับคู่ = ไม่มีข้อมูล (ไม่กรอง) / [...] = จับคู่ด้วยตารางเกม
 function getRecommendTier(
   gear: GearBookItem,
   elemSw: string | null,
   catSw: string | null,
-  rangerSkillDescs: string[],
-  spNames: string[] | undefined,
+  rangerSkills: SkillGame[],
+  sp: SkillPlusEffectGrowth[] | undefined,
 ): 1 | 2 | 3 | 4 | 5 | 6 | null {
   const sw = gear.switchableType?.toUpperCase() ?? ''
   const elemMatch = elemSw ? sw === elemSw : false
@@ -149,9 +122,9 @@ function getRecommendTier(
 
   if (isTopGrade) {
     // ranger ไม่มี skill เลย → SKILL+ ไม่มีทางตรง → ไม่ได้ tier 1/2 เด็ดขาด
-    const hasSkills = rangerSkillDescs.length > 0
-    const canCheck  = hasSkills && spNames != null && spNames.length > 0
-    const skillPlusMatch = hasSkills && (!canCheck || spNames!.some(n => matchSkillPlusTemplate(n, rangerSkillDescs)))
+    const hasSkills = rangerSkills.length > 0
+    const canCheck  = hasSkills && sp != null && sp.some(hasSkillPlusRows)
+    const skillPlusMatch = hasSkills && (!canCheck || sp!.some(g => skillPlusHits(g, rangerSkills).length > 0))
     if (skillPlusMatch) {
       if (elemMatch) return 1
       if (catMatch)  return 2
@@ -169,9 +142,9 @@ function getRecommendTier(
 // ── Basic gear recommendations ──────────────────────────
 // รายการ gear ID พื้นฐานที่แนะนำตาม slot + category + ability ของเรนเจอร์
 // ใช้แสดงใน section "พื้นฐาน" ด้านล่างสุดของ picker
-function getBasicGearIds(slot: SlotKey, category: string | null, abilityNames: string[]): string[] {
+function getBasicGearIds(slot: SlotKey, category: string | null, abilityCodes: string[]): string[] {
   const cat = category?.toUpperCase()
-  const hasFlyer = abilityNames.some(n => n.toLowerCase().includes('flyer'))
+  const hasFlyer = abilityCodes.includes('ab201_flight')
   const ids: string[] = []
 
   if (slot === 'WPN') {
@@ -193,10 +166,13 @@ function getBasicGearIds(slot: SlotKey, category: string | null, abilityNames: s
   return ids
 }
 
+const EMPTY_SKILLS: SkillGame[] = []
+const EMPTY_CODES: string[] = []
+
 // ── Component ─────────────────────────────────────────
 export default function GearPickerModal({
-  slot, rangerElement, rangerCategory, rangerCtx, rangerSkillDescriptions = [],
-  rangerAbilityNames = [],
+  slot, rangerElement, rangerCategory, rangerCtx, rangerSkills = EMPTY_SKILLS,
+  rangerAbilityCodes = EMPTY_CODES,
   otherSlotsLockedNames,
   occupiedSwitchableTypes, existingSkillPlus, currentGearBasicEffects,
   onSelect, onClose,
@@ -214,8 +190,8 @@ export default function GearPickerModal({
   const [filterSwitchable, setFilterSwitchable] = useState<string[]>([])   // เปล่า = ทั้งหมด
 
   // ── Lazy SKILL+ fetch — gear-effects-batch สำหรับเกียร์ 8★ ในสล็อตนี้ ──
-  // Map: iconUrl → skillPlusNames[] (มีค่าแล้ว = fetch เสร็จ)
-  const [skillPlusMap, setSkillPlusMap] = useState<Map<string, string[]>>(new Map())
+  // Map: iconUrl → SKILL+ growth (ข้อมูลจับคู่จากตารางเกม) — มีค่าแล้ว = fetch เสร็จ
+  const [skillPlusMap, setSkillPlusMap] = useState<Map<string, SkillPlusEffectGrowth[]>>(new Map())
 
   // ── Detail preview ─────────────────────────────────
   const [previewGear, setPreviewGear] = useState<GearBookItem | null>(null)
@@ -286,13 +262,13 @@ export default function GearPickerModal({
       )
     ).then(results => {
       if (ctrl.signal.aborted) return
-      const map = new Map<string, string[]>()
+      const map = new Map<string, SkillPlusEffectGrowth[]>()
       for (const res of results) {
         if (!res) continue
         const { effects = {} } = res as { effects?: Record<string, unknown> }
         for (const [url, eff] of Object.entries(effects)) {
-          const spArr = (eff as { skillPlus?: Array<{ name: string }> } | null)?.skillPlus
-          map.set(url, spArr?.map(sp => sp.name) ?? [])
+          const spArr = (eff as { skillPlus?: Array<{ skillPlusGrowth?: SkillPlusEffectGrowth }> } | null)?.skillPlus
+          map.set(url, (spArr ?? []).map(sp => sp.skillPlusGrowth).filter((g): g is SkillPlusEffectGrowth => !!g))
         }
       }
       setSkillPlusMap(map)
@@ -303,7 +279,6 @@ export default function GearPickerModal({
 
   const elemSw = rangerElement ? (ELEM_TO_SWITCH[rangerElement.toLowerCase()] ?? null) : null
   const catSw  = rangerCategory?.toUpperCase() ?? null
-  const skillDescsKey = rangerSkillDescriptions.join('\x00')
 
   const { recommended, others } = useMemo(() => {
     const q = search.toLowerCase().trim()
@@ -320,12 +295,8 @@ export default function GearPickerModal({
     const others: GearBookItem[] = []
 
     for (const g of slotGears) {
-      // ลำดับความสำคัญ: lazy fetch > API enrichment > undefined (ไม่กรอง)
-      const spNames = skillPlusMap.has(g.iconUrl)
-        ? skillPlusMap.get(g.iconUrl)!
-        : g.skillPlusNames       // อาจเป็น undefined (ถ้า API เก่า) → ไม่กรอง
-
-      const tier = getRecommendTier(g, elemSw, catSw, rangerSkillDescriptions, spNames)
+      // ยังโหลด SKILL+ ไม่เสร็จ → undefined (ไม่กรอง)
+      const tier = getRecommendTier(g, elemSw, catSw, rangerSkills, skillPlusMap.get(g.iconUrl))
       if (tier !== null) recommended.push({ ...g, tier })
       else others.push(g)
     }
@@ -334,16 +305,15 @@ export default function GearPickerModal({
     others.sort((a, b) => (b.grade ?? 0) - (a.grade ?? 0))
 
     return { recommended, others }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gears, slot, search, elemSw, catSw, skillDescsKey, skillPlusMap, filterGrades, filterSwitchable])
+  }, [gears, slot, search, elemSw, catSw, rangerSkills, skillPlusMap, filterGrades, filterSwitchable])
 
   // ── Basic section: เกียร์พื้นฐานแนะนำ (ต่อจากแนะนำ) ──
   // เกียร์ที่อยู่ใน basicSection จะถูกกรองออกจาก others ไม่ให้ซ้ำกัน
   const basicSection = useMemo(() => {
-    const ids = getBasicGearIds(slot, rangerCategory, rangerAbilityNames)
+    const ids = getBasicGearIds(slot, rangerCategory, rangerAbilityCodes)
     const byId = new Map(gears.map(g => [g.id, g]))
     return ids.map(id => byId.get(id)).filter((g): g is GearBookItem => !!g)
-  }, [gears, slot, rangerCategory, rangerAbilityNames])
+  }, [gears, slot, rangerCategory, rangerAbilityCodes])
 
   const basicIds = useMemo(() => new Set(basicSection.map(g => g.id)), [basicSection])
 
@@ -574,7 +544,7 @@ export default function GearPickerModal({
           onSpecLevelChange={setPreviewSpecLevel}
           rangerCtx={rangerCtx}
           otherSlotsLockedNames={otherSlotsLockedNames}
-          rangerSkillDescriptions={rangerSkillDescriptions}
+          rangerSkills={rangerSkills}
           occupiedSwitchableTypes={occupiedSwitchableTypes}
           existingSkillPlus={existingSkillPlus}
           compareBasicEffects={currentGearBasicEffects}

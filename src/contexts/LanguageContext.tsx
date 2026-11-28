@@ -79,6 +79,9 @@ const STAT_LABELS_TH: Record<string, string> = {
   'Skill':                          'ทักษะ',
   'Ability':                        'ความสามารถ',
   'Details':                        'รายละเอียด',
+  'Potential':                      'ศักยภาพ',
+  'Knockback Resistance':           'การต้านการถอยกลับ',
+  'Silence Resistance':             'การต้านห้ามใช้สกิล',
   'In use':                         'ใช้แล้ว',
   // ── Skill timing / area labels ──
   'Area Skill':                     'ระยะสกิล',

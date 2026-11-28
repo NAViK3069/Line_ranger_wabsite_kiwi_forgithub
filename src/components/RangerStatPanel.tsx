@@ -12,12 +12,14 @@ import type { GearEffect, GearEffects } from '@/lib/pvpScraper'
 import GearDetailPopup from '@/components/GearDetailPopup'
 import RangerAnimationPopup from '@/components/RangerAnimationPopup'
 import SkillDetailSheet from '@/components/SkillDetailSheet'
+import PotentialSection, { PotentialMedal } from '@/components/PotentialSection'
 import { selectSwitchableEffects, absEffectValue, effectKey, DEFAULT_SLOT_ORDER, type RangerContext, type SwitchableResultMap, type SlotOrder } from '@/lib/switchableSelector'
 import { recalcGearEffects, splitSliderLevel, effectAmount } from '@/lib/gearLevelCalc'
 import {
   levelStats, totalsOf, typedValues, finalStats, switchableConditionMet, skillUseChance,
   skillPlusHits, skillPlusPower, hasAttackFactorSkill,
-  type SkillGame, type AbilityGame, type LevelRules, type UnitBase, type FinalStats, type StatTotals,
+  potentialValues,
+  type SkillGame, type AbilityGame, type LevelRules, type PotentialSlot, type UnitBase, type FinalStats, type StatTotals,
 } from '@/lib/rangerGameCalc'
 import GearPickerModal, { type GearBookItem } from '@/components/GearPickerModal'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -113,7 +115,11 @@ interface RangerStatsResponse {
     summonEnergy: number
     productionSpeed: number
     critRatio: number
+    antiStun?: number
+    antiKnockback?: number
+    antiSilence?: number
   }
+  potential?: PotentialSlot[] | null
 }
 
 interface GearItem {
@@ -478,6 +484,9 @@ export default function RangerStatPanel({
   // animation popup: เปิดเมื่อกดรูปเรนเจอร์
   const [showAnimation, setShowAnimation] = useState(false)
   // แผ่นรายละเอียดสกิล/ความสามารถ (ปุ่มมุมขวาบนของ tooltip)
+  // ── ศักยภาพ 5 ช่อง (0 – max_lv ต่อช่อง) — เริ่มที่ 0 ทุกโหมด (ไม่มีข้อมูลของผู้เล่น) ──
+  const [potentialLv, setPotentialLv] = useState<number[]>([0, 0, 0, 0, 0])
+  useEffect(() => { setPotentialLv([0, 0, 0, 0, 0]) }, [rangerId])
   const [detail, setDetail] = useState<{ kind: 'skill' | 'ability' | 'awaken'; code: string } | null>(null)
   const openDetail = (kind: 'skill' | 'ability' | 'awaken', code: string) => { play('click_global.ogg'); setIconPinnedKey(null); setDetail({ kind, code }) }
   // ── Book mode: picker + installed-gear detail ─────
@@ -834,13 +843,15 @@ export default function RangerStatPanel({
       ...basicBySlot.WPN, ...basicBySlot.AMR, ...basicBySlot.ACC,
       // ระดับ 1 = ปลด Major Talent เฉยๆ (ไม่มีค่าพลัง) / ระดับ 2-4 = Enhanced Talent ตัวที่ 1..N
       ...talentStats.slice(0, Math.max(0, effectiveTalentLevel - 1)),
+      // ศักยภาพ: grth_val × เลเวล เข้า Σ เดียวกับเกียร์ (libgame 0xe9c2xx: เกียร์ + ศักยภาพ + … แล้วคิดโบนัสครั้งเดียว)
+      ...potentialValues(stats?.potential, potentialLv),
     ]
     const sw = (['WPN', 'AMR', 'ACC'] as SlotKey[]).flatMap(s => {
       const e = effectiveSwitchable[s]
       return e.active && e.effect ? typedValues([e.effect]) : []
     })
     return totalsOf(basic, sw)
-  }, [isTower, basicBySlot, talentStats, effectiveTalentLevel, effectiveSwitchable])
+  }, [isTower, basicBySlot, talentStats, effectiveTalentLevel, effectiveSwitchable, stats, potentialLv])
 
   // SKILL+ deduplication — ป้องกัน tooltip โชว์ effect ซ้ำข้ามสล็อต
   const skillPlusDedup = useMemo(() => deduplicateSkillPlus(computedEffectsBySlot), [computedEffectsBySlot])
@@ -950,6 +961,7 @@ export default function RangerStatPanel({
     critRate: stats.rates.critRate, critRatio: stats.game.critRatio,
     avoid: stats.rates.evadeRate, antiAvoid: stats.rates.hitRate,
     skillAvoid: stats.rates.skillEvadeRate, antiSkillAvoid: stats.rates.skillHitRate, skillResist: stats.rates.skillResistance,
+    antiStun: stats.game.antiStun ?? 0, antiKnockback: stats.game.antiKnockback ?? 0, antiSilence: stats.game.antiSilence ?? 0,
   }
   const baseForCalc = isTower ? towerBase(unitBase, tower!) : unitBase
   // ค่าไม่รวมเกียร์ (ตัวเลขหลัก) กับค่ารวมเกียร์/พรสวรรค์ (ส่วนต่างสีเขียว)
@@ -1114,29 +1126,40 @@ export default function RangerStatPanel({
           </div>}
         </div>
 
-        {/* ─── TOP RIGHT: 6 quick-info boxes (full width) ─── */}
-        {/* mobile: 2 col, order = category|leonard / ATK|mineral / HP|DEF */}
-        {/* desktop: 3 col, order = category|mineral|leonard / ATK|HP|DEF  */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-          <div className="order-1">
+        {/* ─── TOP RIGHT: quick-info ───
+            มือถือ 2 คอลัมน์: สาย|เลโอนาร์ด / ATK|แร่ / HP|DEF / ศักยภาพ (เต็มแถว)
+            จอใหญ่ 12 ช่อง: แถวบน สาย|แร่|เลโอนาร์ด|ศักยภาพ (3 ช่องละ) · แถวล่าง ATK|HP|DEF (4 ช่องละ) */}
+        <div className="grid grid-cols-2 sm:grid-cols-12 gap-1.5">
+          <div className="order-1 sm:col-span-3">
             <InfoBox iconUrl={categoryIcon} value={stats.categoryLabel ?? '—'} />
           </div>
-          {!isTower && <div className="order-4 sm:order-2">
+          {!isTower && <div className="order-4 sm:order-2 sm:col-span-3">
             <InfoBox
               iconUrl="/gacha/images/mineral.png"
               value={fmtRaw(fin.summonEnergy)}
             />
           </div>}
-          {!isTower && <div className="order-2 sm:order-3">
+          {!isTower && <div className="order-2 sm:order-3 sm:col-span-3">
             <InfoBox iconUrl="/gacha/images/leonardpoint.png" value={stats.leonardMax != null ? `Max: ${stats.leonardMax}` : '—'} />
           </div>}
-          <div className="order-3 sm:order-4">
+          {!isTower && <div className="order-7 sm:order-4 col-span-2 sm:col-span-3">
+            {/* ระดับศักยภาพ = ผลรวมเลเวลทั้ง 5 ช่อง (POTENTIAL_TIP_DESC) */}
+            <div className="bg-white/5 rounded-lg px-2 py-2 sm:py-2.5 flex items-center gap-1.5 sm:gap-2 min-w-0 h-full">
+              <PotentialMedal order={1} size={24} dim={!stats.potential} />
+              <span className="text-white text-[12px] sm:text-[16px] font-semibold truncate">
+                {stats.potential
+                  ? <>{tStat('Potential')} <span className="tabular-nums">{potentialLv.reduce((a, v) => a + v, 0)}</span></>
+                  : tStat('Potential') + ' —'}
+              </span>
+            </div>
+          </div>}
+          <div className="order-3 sm:order-5 sm:col-span-4">
             <InfoBox iconUrl="/gacha/images/atk.png" value={fmtCompact(dps(fin))} />
           </div>
-          <div className="order-5">
+          <div className="order-5 sm:order-6 sm:col-span-4">
             <InfoBox iconUrl="/gacha/images/hp.png" value={fmtCompact(fin.hp)} />
           </div>
-          <div className="order-6">
+          <div className="order-6 sm:order-7 sm:col-span-4">
             <InfoBox iconUrl="/gacha/images/def.png" value={fmtCompact(fin.phyDef + fin.magDef)} />
           </div>
         </div>
@@ -1299,6 +1322,10 @@ export default function RangerStatPanel({
             <DetailRow label="Skill Evade Rate" value={pctText(base.skillAvoid)} bonus={pctDelta(fin.skillAvoid - base.skillAvoid)} />
             <DetailRow label="Skill Hit Rate" value={pctText(base.antiSkillAvoid)} bonus={pctDelta(fin.antiSkillAvoid - base.antiSkillAvoid)} />
             <DetailRow label="Skill Resistance" value={pctText(base.skillResist)} bonus={pctDelta(fin.skillResist - base.skillResist)} />
+            {((fin.antiStun ?? 0) > 0 || (fin.antiKnockback ?? 0) > 0 || (fin.antiSilence ?? 0) > 0) && <Divider />}
+            {(fin.antiStun ?? 0) > 0 && <DetailRow label="Stun Resistance" value={pctText(base.antiStun ?? 0)} bonus={pctDelta((fin.antiStun ?? 0) - (base.antiStun ?? 0))} />}
+            {(fin.antiKnockback ?? 0) > 0 && <DetailRow label="Knockback Resistance" value={pctText(base.antiKnockback ?? 0)} bonus={pctDelta((fin.antiKnockback ?? 0) - (base.antiKnockback ?? 0))} />}
+            {(fin.antiSilence ?? 0) > 0 && <DetailRow label="Silence Resistance" value={pctText(base.antiSilence ?? 0)} bonus={pctDelta((fin.antiSilence ?? 0) - (base.antiSilence ?? 0))} />}
 
             <Divider />
 
@@ -1308,6 +1335,16 @@ export default function RangerStatPanel({
           </div>
         </div>
       </div>
+
+      {/* ── ศักยภาพ (5 ช่อง) — กดการ์ดเพื่อปรับเลเวล · ค่าเข้าการคำนวณเหมือนเกียร์ ── */}
+      {!isTower && stats.potential && (
+        <PotentialSection
+          slots={stats.potential}
+          levels={potentialLv}
+          onChange={setPotentialLv}
+          onTick={() => play('click_global.ogg')}
+        />
+      )}
 
       {/* ── GearPickerModal — book mode เท่านั้น ── */}
       {isBook && pickerSlot && stats && (

@@ -17,8 +17,8 @@ import {
 } from '@/lib/rangerData'
 import { ensureTriggerBasisLoaded, getTriggerBasis, type TriggerBasis } from '@/lib/rangerTriggerBasis'
 import type { RangerGrowthInput } from '@/lib/rangerLevelCalc'
-import { gameTable } from '@/lib/gameData'
-import type { AbilityGame, LevelRules, SkillGame } from '@/lib/rangerGameCalc'
+import { gameTable, gameText, gameUnit } from '@/lib/gameData'
+import type { AbilityGame, LevelRules, PotentialSlot, SkillGame } from '@/lib/rangerGameCalc'
 
 // ── Response types ──────────────────────────────────
 
@@ -111,6 +111,9 @@ export interface RangerStatsResponse {
   skills: SkillSlot[]
   abilities: AbilitySlot[]
 
+  /** ศักยภาพ 5 ช่อง (unit.potentialStatGroup → potential_stat_group → potential_stat_info) · null = ไม่มี */
+  potential: PotentialSlot[] | null
+
   /** ข้อมูลเกมดิบสำหรับคำนวณฝั่งเว็บ (rangerGameCalc.ts) */
   game: {
     levelRules: LevelRules
@@ -121,6 +124,9 @@ export interface RangerStatsResponse {
     summonEnergy: number
     productionSpeed: number
     critRatio: number
+    antiStun: number
+    antiKnockback: number
+    antiSilence: number
   }
 }
 
@@ -150,6 +156,38 @@ function skillGame(code: string, depth = 0): SkillGame | undefined {
     affectEventStage: n(r.affectEventStage), affectGuardian: n(r.affectGuardian), affectColossus: n(r.affectColossus),
     ...(subs ? { subs } : {}),
   }
+}
+
+/**
+ * ศักยภาพของเรนเจอร์: ช่องที่ N ใช้วัสดุ pt-00N (รูป potential_meterial_0N.png)
+ * ค่าต่อเลเวล = potential_stat_info.grth_val (ชนิด grth_tp = ชนิดเดียวกับเกียร์) · สูงสุด max_lv ต่อช่อง
+ * ชื่อทางการ: PROPERTIES POTENTIAL_TYPE_NAME_<stat_id>_nm · ชื่อย่อยของชนิด POTENTIAL_STAT_<type>_nm
+ */
+function potentialOf(groupId: string): PotentialSlot[] | null {
+  if (!groupId) return null
+  const g = gameTable('potential_stat_group').find(r => r.group_id === groupId)
+  if (!g) return null
+  const info = new Map(gameTable('potential_stat_info').map(r => [String(r.stat_id), r]))
+  const en = gameText('en', 'PROPERTIES'), th = gameText('th', 'PROPERTIES')
+  const clean = (v: string | undefined) => (v ?? '').replace(/\\n|\n/g, ' ').replace(/\s+/g, ' ').trim()
+  const slots: PotentialSlot[] = []
+  for (let i = 1; i <= 5; i++) {
+    const id = str(g[`stat_id${i}`])
+    const r = info.get(id)
+    if (!r) continue
+    const types = ([1, 2] as const)
+      .map(k => ({ type: str(r[`grth_tp${k}`]), per: n(r[`grth_val${k}`]) }))
+      .filter(t => t.type)
+      .map(t => ({
+        ...t,
+        label: { en: clean(en[`POTENTIAL_STAT_${t.type}_nm`]), th: clean(th[`POTENTIAL_STAT_${t.type}_nm`]) },
+      }))
+    slots.push({
+      order: i, id, max: n(r.max_lv, 500), types,
+      name: { en: clean(en[`POTENTIAL_TYPE_NAME_${id}_nm`]) || id, th: clean(th[`POTENTIAL_TYPE_NAME_${id}_nm`]) },
+    })
+  }
+  return slots.length ? slots : null
 }
 
 let abilityIndex: Map<string, Record<string, unknown>> | null = null
@@ -327,6 +365,7 @@ export async function buildRangerStatsResponse(
   levelOverride?: number,
 ): Promise<RangerStatsResponse> {
   const stats = calcRangerStat(raw, levelOverride)
+  const unitRow = gameUnit(raw.unitCode ?? rangerId) as Record<string, unknown> | null
   const { tier, combineMax, maxLevel, playerMaxLevel, tierLabel, tierIconKey } = getTierInfo(raw)
   const cat = (raw.unitCategoryType ?? null) as string | null
   const catLabel = categoryLabel(cat)
@@ -407,6 +446,9 @@ export async function buildRangerStatsResponse(
     skills: await buildSkills(raw),
     abilities: buildAbilities(raw, rangerId),
 
+    // ช่องที่ rangerData ไม่ได้ส่งมา → อ่านจากตาราง unit โดยตรง
+    potential: potentialOf(str(unitRow?.potentialStatGroup)),
+
     game: {
       levelRules: levelRulesOf(tier),
       attackDelay: raw.attackDelay ?? 30,
@@ -416,6 +458,9 @@ export async function buildRangerStatsResponse(
       summonEnergy: raw.summonEnergy ?? 0,
       productionSpeed: raw.productionSpeed ?? 0,
       critRatio: typeof raw.criticalRatio === 'number' ? raw.criticalRatio : 1,
+      antiStun: n(unitRow?.antiStunProb),
+      antiKnockback: n(unitRow?.antiKnockbackProb),
+      antiSilence: n(unitRow?.antiSilenceProb),
     },
   }
 }

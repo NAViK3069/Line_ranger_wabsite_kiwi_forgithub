@@ -46,6 +46,29 @@ export interface SkillGame {
   affectColossus?: number
 }
 
+/** ศักยภาพ 1 ช่อง (potential_stat_group.stat_idN → potential_stat_info) — ช่องที่ N ใช้วัสดุ pt-00N */
+export interface PotentialSlot {
+  order: number
+  id: string
+  name: { en: string; th: string }
+  /** เลเวลสูงสุดของช่อง (max_lv) */
+  max: number
+  /** ชนิดค่าพลัง (ชนิดเดียวกับเกียร์) + ค่าต่อ 1 เลเวล */
+  types: { type: string; per: number; label: { en: string; th: string } }[]
+}
+
+/**
+ * ค่าศักยภาพ → รายการ { ชนิด, ค่า } เข้ากองเดียวกับเกียร์ (Basic)
+ * libgame: ค่า = grth_val × เลเวล (float32, 0xe797xx) · หน้าข้อมูลรวม Σ% = เกียร์ + ศักยภาพ + … แล้วคิดโบนัสครั้งเดียว (0xe9c2xx)
+ */
+export function potentialValues(slots: PotentialSlot[] | null | undefined, levels: number[]): { type: string; value: number }[] {
+  if (!slots) return []
+  return slots.flatMap((s, i) => {
+    const lv = Math.max(0, Math.min(s.max, levels[i] ?? 0))
+    return lv ? s.types.map(t => ({ type: t.type, value: Math.fround(Math.fround(t.per) * lv) })) : []
+  })
+}
+
 /** แถวของตาราง ability (+ ความสามารถย่อย) */
 export interface AbilityGame {
   code: string
@@ -202,6 +225,8 @@ export interface UnitBase {
   critRate: number; critRatio: number
   avoid: number; antiAvoid: number
   skillAvoid: number; antiSkillAvoid: number; skillResist: number
+  /** ต้านสตัน / ต้านการถอยกลับ / ต้านห้ามใช้สกิล (unit.antiStunProb …) */
+  antiStun?: number; antiKnockback?: number; antiSilence?: number
 }
 
 export interface FinalStats extends Omit<UnitBase, 'decreaseRate'> {
@@ -248,6 +273,9 @@ export function finalStats(b: UnitBase, t: StatTotals, minRegen: number, minEner
     skillAvoid: b.skillAvoid + s('SKLAVD_PROB_MUL'),
     antiSkillAvoid: b.antiSkillAvoid + s('ANTI_SKLAVD_PROB_MUL'),
     skillResist: b.skillResist + s('SKLRE_PROB_MUL'),
+    antiStun: (b.antiStun ?? 0) + s('ANTI_STUN_MUL'),
+    antiKnockback: (b.antiKnockback ?? 0) + s('ANTI_KNOCKBACK_MUL'),
+    antiSilence: (b.antiSilence ?? 0) + s('ANTI_SILENCE_MUL'),
     skillProbAdd: s('SKL_PROB_MUL'),
     skillDelayMul: 1 + s('SKDELAY_PROB_MUL'),
   }

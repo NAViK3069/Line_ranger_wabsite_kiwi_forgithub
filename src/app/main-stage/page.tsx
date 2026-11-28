@@ -547,7 +547,7 @@ function StageButton({ s, b, on, onClick, T }: { s: MSStage; b: Btn; on: boolean
   return (
     <button id={`st-${s.code}`} onClick={onClick} aria-expanded={on}
       aria-label={`${T('ด่าน', 'Stage')} ${s.no}${s.boss ? ` (${T('บอส', 'Boss')})` : ''}`}
-      className={`group relative flex flex-col items-center rounded-xl pt-0.5 transition-transform active:scale-95 ${on ? 'bg-white/[0.08] ring-1 ring-white/25' : 'hover:bg-white/[0.04]'}`}>
+      className="group relative flex flex-col items-center rounded-xl pt-0.5 transition-transform active:scale-95">
       <span className="relative block w-full aspect-[90/76]">
         <GameIcon icon={on ? (s.boss ? b.boss : b.on) : (s.boss ? b.bossOff : b.off)}
           className={`absolute inset-0 w-full h-full transition-[filter] ${on ? 'drop-shadow-[0_0_8px_rgba(255,255,255,0.45)]' : 'group-hover:brightness-110'}`} />

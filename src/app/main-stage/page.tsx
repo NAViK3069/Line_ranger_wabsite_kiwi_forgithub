@@ -371,6 +371,9 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
   treasureOpen: boolean; onTreasure: (areaCode: string) => void
 }) {
   const st = open ? a.stages.find(s => s.code === open) ?? null : null
+  /** ของสำคัญที่เลือกอยู่ (กดไอคอนใน Key drops) → ปุ่มด่านที่ไม่ดรอปของนี้มืดลง · กดซ้ำ = ยกเลิก */
+  const [pick, setPick] = useState<string | null>(null)
+  const hasPick = (s: MSStage) => !!pick && [...s.first, ...s.drops].some(r => r.item === pick)
   const first = a.stages[0]?.no, last = a.stages[a.stages.length - 1]?.no
   return (
     <li style={{ ['--i' as string]: order }}>
@@ -394,11 +397,11 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
             {a.story && <p className="mt-1 text-[11.5px] sm:text-[12.5px] leading-snug text-gray-400 line-clamp-3 sm:line-clamp-2 lg:max-w-[760px]">{tx(a.story, lang)}</p>}
           </div>
           {/* ของสำคัญ — มือถือ: แถวเต็มความกว้างใต้ฉาก · จอใหญ่: ใต้ชื่อ */}
-          <KeyDrops a={a} data={data} lang={lang} T={T} />
+          <KeyDrops a={a} data={data} lang={lang} T={T} picked={pick} onPick={k => setPick(p => (p === k ? null : k))} />
           {/* ── ปุ่มด่าน 12 ปุ่ม (ของเกม) ── */}
           <div className="col-span-2 sm:col-span-1 grid grid-cols-6 lg:grid-cols-12 gap-x-1.5 gap-y-1 sm:gap-x-2 sm:gap-y-1.5 sm:max-w-[520px] lg:max-w-none">
             {a.stages.map(s => (
-              <StageButton key={s.code} s={s} b={btnOf(a)} on={s.code === open} dim={!!open && s.code !== open} onClick={() => onToggle(s.code)} T={T} />
+              <StageButton key={s.code} s={s} b={btnOf(a)} on={s.code === open} dim={pick ? !hasPick(s) : !!open && s.code !== open} onClick={() => onToggle(s.code)} T={T} />
             ))}
           </div>
         </div>
@@ -413,7 +416,9 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
  * ของสำคัญที่ดรอปในพื้นที่ (รวมทุกด่าน: รางวัลเคลียร์ครั้งแรก + ของที่อาจได้รับ)
  * วัสดุ Potential / วิวัฒนาการ (EV_MTRL) ก่อน แล้วตามด้วยเรนเจอร์ (ไม่นับ Dr. Leonard ที่เป็นเรนเจอร์ EXP) และเกียร์
  */
-function KeyDrops({ a, data, lang, T }: { a: MSArea; data: MainStageIndex; lang: L; T: Tfn }) {
+function KeyDrops({ a, data, lang, T, picked, onPick }: {
+  a: MSArea; data: MainStageIndex; lang: L; T: Tfn; picked: string | null; onPick: (key: string) => void
+}) {
   const list = useMemo(() => {
     const seen = new Map<string, { key: string; rank: number }>()
     for (const s of a.stages) for (const r of [...s.first, ...s.drops]) {
@@ -432,8 +437,14 @@ function KeyDrops({ a, data, lang, T }: { a: MSArea; data: MainStageIndex; lang:
         {list.map(({ key }) => {
           const it = data.items[key]
           return (
-            <li key={key} title={tx(it?.name, lang)} className="shrink-0 flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-black/30 ring-1 ring-white/10">
-              <ItemIcon icon={it?.icon} alt={tx(it?.name, lang)} className="w-10 h-10 sm:w-11 sm:h-11" />
+            <li key={key} className="shrink-0">
+              <button type="button" onClick={() => onPick(key)} title={tx(it?.name, lang)} aria-pressed={picked === key}
+                aria-label={`${tx(it?.name, lang)} — ${T('ดูด่านที่ดรอป', 'show stages that drop it')}`}
+                className={`flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-xl transition-all active:scale-95 ${picked === key
+                  ? 'bg-amber-400/25 ring-2 ring-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.45)]'
+                  : picked ? 'bg-black/30 ring-1 ring-white/10 opacity-55 hover:opacity-90' : 'bg-black/30 ring-1 ring-white/10 hover:ring-white/30'}`}>
+                <ItemIcon icon={it?.icon} alt={tx(it?.name, lang)} className="w-10 h-10 sm:w-11 sm:h-11" />
+              </button>
             </li>
           )
         })}

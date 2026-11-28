@@ -11,6 +11,7 @@ import { proxyFile, fetchSamList, corsImage } from '@/lib/staticApi'
 import { apiFetch } from '@/lib/staticApi'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { loadSkillIconSheet, drawSkillIcon, SKILL_ICON_SECONDS, type IconSheet, type SkillIconSet, type SkillIconSpec } from '@/lib/animation/skillEffectIcon'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useSound } from '@/contexts/SoundContext'
 import { SAMParser, applyAttackCombos, type SamFrame } from '@/lib/animation/samParser'
@@ -62,6 +63,9 @@ interface Props {
   embedded?: boolean
   // เรนเจอร์ประเภทสอยนกบิน (ability ab217_airatk) — เป้าหมายต้องเป็นตัวบิน
   isAirAmbush?: boolean
+  // ไอคอนผลสกิลเหนือหัว (skill.attackedEffect + skillEffectIconType) ของสกิลที่ใช้งานได้ตัวที่ 1/2
+  //   enemy = ขึ้นบนศัตรูที่โดน · self = ขึ้นบนตัวผู้ร่าย (ผลที่ targetType = SELF)
+  skillIcons?: { skill1: SkillIconSet | null; skill2: SkillIconSet | null }
   onClose: () => void
 }
 
@@ -851,7 +855,7 @@ function BgStagePicker({ value, onPick, onClose }: { value: string | null; onPic
   )
 }
 
-export default function RangerAnimationPopup({ rangerId, rangerName, attackRange, skillTargets, skillAreas, skillRearMul, isFlyer, isAirAmbush, samFilesOverride, embedded = false, onClose }: Props) {
+export default function RangerAnimationPopup({ rangerId, rangerName, attackRange, skillTargets, skillAreas, skillRearMul, isFlyer, isAirAmbush, samFilesOverride, embedded = false, skillIcons, onClose }: Props) {
   const { tStat } = useLanguage()
   const { play, volume } = useSound()
   const [samFiles, setSamFiles] = useState<string[]>([])
@@ -934,6 +938,19 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
   const dummyHitRef = useRef<HitEvent[]>([])
   const skillTargetsRef = useRef(skillTargets)
   useEffect(() => { skillTargetsRef.current = skillTargets }, [skillTargets])
+  // ── ไอคอนผลสกิลเหนือหัว (แบบเกม: ยูนิตละ 1 ไอคอน ไอคอนใหม่ทับของเดิม · ขึ้น 2 วินาทีแล้วหาย) ──
+  //   เก็บเป็นเหตุการณ์ตาม tick → หยุด/ย้อน/เลื่อนเฟรมแล้วภาพตรงกับเวลาเสมอ
+  const skillIconsRef = useRef(skillIcons)
+  useEffect(() => { skillIconsRef.current = skillIcons }, [skillIcons])
+  const iconSheetRef = useRef<IconSheet | null>(null)
+  const iconEventsRef = useRef<Record<string, { spec: SkillIconSpec; tick: number }>>({})
+  useEffect(() => {
+    const any = skillIcons && [skillIcons.skill1, skillIcons.skill2].some(x => x && (x.enemy || x.self))
+    if (!any || iconSheetRef.current) return
+    let alive = true
+    loadSkillIconSheet().then(sh => { if (alive && sh) { iconSheetRef.current = sh; drawFrameRef.current() } })
+    return () => { alive = false }
+  }, [skillIcons])
   const skillAreasRef = useRef(skillAreas)
   useEffect(() => { skillAreasRef.current = skillAreas; drawFrameRef.current() }, [skillAreas])
   const skillRearMulRef = useRef(skillRearMul)
@@ -1183,15 +1200,18 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
   // เป้าหมายที่เล็งโดนเสมอ ส่วนอีกตัวโดนด้วยก็ต่อเมื่อ MAIN ของมันอยู่ในวง Area ของสกิล
   // (สกิลที่ตีแนวหลังแต่วงกว้างพอจะคลุมแนวหน้าด้วย → แนวหน้าต้องกระเด็นตาม
   //  ถ้าแนวหลังอยู่ไกลจนวงไม่ถึง แนวหน้าก็ไม่ต้องกระเด็น)
-  const applyHitReaction = useCallback((aimRear: boolean, isSkill: boolean, areaWorld: number, centerX: number) => {
+  // คืนรายชื่อยูนิตที่โดน ('front' / 'rear' / 'edge') — ใช้วางไอคอนผลสกิลเหนือหัว
+  const applyHitReaction = useCallback((aimRear: boolean, isSkill: boolean, areaWorld: number, centerX: number): string[] => {
     const tick = sceneTickRef.current
+    const keys: string[] = [aimRear ? 'rear' : 'front']
     pushHit((aimRear ? rearHitRef : dummyHitRef).current, tick, isSkill)
-    if (areaWorld <= 0) return
+    if (areaWorld <= 0) return keys
     // ตัวที่ยืนสุดขอบวงอยู่ห่างเท่ารัศมีพอดี → อยู่ในระยะเสมอเมื่อสกิลมี Area
     pushHit(edgeHitRef.current, tick, isSkill)
+    keys.push('edge')
     const other = aimRear ? dummyRef.current : rearDummyRef.current
     const otherGap = aimRear ? dummyGapRef.current : rearGapRef.current
-    if (!other || otherGap <= 0) return
+    if (!other || otherGap <= 0) return keys
     const standX = rangerStandRef.current?.x ?? 0
     const p = dummyPointWorld(
       other, other.anchor ?? other.faceAnchor,
@@ -1200,8 +1220,19 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     )
     if (Math.abs(p.x - centerX) <= areaWorld) {
       pushHit((aimRear ? dummyHitRef : rearHitRef).current, tick, isSkill)
+      keys.push(aimRear ? 'front' : 'rear')
     }
+    return keys
   }, [unitYOff])
+  // ── ไอคอนผลสกิล ณ จังหวะโดน: ศัตรูที่โดนได้ไอคอนฝั่ง enemy · ผู้ร่ายได้ไอคอนฝั่ง self ──
+  const fireSkillIcons = useCallback((kind: 'normal' | 'skill1' | 'skill2', hitKeys: string[]) => {
+    if (kind === 'normal') return
+    const set = skillIconsRef.current?.[kind]
+    if (!set) return
+    const tick = sceneTickRef.current
+    if (set.enemy) for (const k of hitKeys) iconEventsRef.current[k] = { spec: set.enemy, tick }
+    if (set.self) iconEventsRef.current.main = { spec: set.self, tick }
+  }, [])
   // ── สกิล MOVE_ATTACK (พุ่ง/กระโดดไปข้างหน้า) — ระยะที่เรนเจอร์เลื่อนไปแล้ว (world) ──
   // libgame 0xcda4cc (ช่วง s_action_attack_1 จบ): CCMoveTo ไปข้างหน้า factor ของสกิล (pt)
   //   เวลา = ระยะ ÷ (skillProjectileMoveSpeed × 60) — ค้างตำแหน่งใหม่จนจบท่า (ไม่ถอยกลับ)
@@ -1237,17 +1268,19 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
   }, [])
   // ── สกิลวงรอบจุดเดียว (MOVE_ATTACK) — เกม cf0c54: ยูนิตที่ "ตำแหน่ง" (กลางกรอบไฟล์) อยู่ใน [cx − r, cx + r] โดนทุกตัว ──
   //   (ccd0d4 = left ≤ x ≤ right — เทียบจุดตำแหน่ง ไม่ได้ใช้ hitbox) · ตัวยืนขอบวงยืนที่ cx + r พอดี จึงโดนเสมอ
-  const applyAreaHitAt = useCallback((centerX: number, areaWorld: number) => {
+  const applyAreaHitAt = useCallback((centerX: number, areaWorld: number): string[] => {
     const tick = sceneTickRef.current
     const standX = rangerStandRef.current?.x ?? 0
-    const test = (d: DummyAsset | null, gap: number, hitRef: { current: HitEvent[] }) => {
+    const keys: string[] = []
+    const test = (d: DummyAsset | null, gap: number, hitRef: { current: HitEvent[] }, key: string) => {
       if (!d || gap <= 0) return
       const p = dummyPointWorld(d, canvasCenter(d.sam) ?? d.anchor, dummyDrawOffset(d, standX, gap), unitYOff(d))
-      if (Math.abs(p.x - centerX) <= areaWorld) pushHit(hitRef.current, tick, true)
+      if (Math.abs(p.x - centerX) <= areaWorld) { pushHit(hitRef.current, tick, true); keys.push(key) }
     }
-    test(dummyRef.current, dummyGapRef.current, dummyHitRef)
-    test(rearDummyRef.current, rearGapRef.current, rearHitRef)
-    if (areaWorld > 0) pushHit(edgeHitRef.current, tick, true)
+    test(dummyRef.current, dummyGapRef.current, dummyHitRef, 'front')
+    test(rearDummyRef.current, rearGapRef.current, rearHitRef, 'rear')
+    if (areaWorld > 0) { pushHit(edgeHitRef.current, tick, true); keys.push('edge') }
+    return keys
   }, [unitYOff])
   // เสกกระสุน 1 นัด พุ่งจากจุดโจมตี (NormalATK/Skill1/Skill2) ไปยัง Face Center ของกระสอบทราย (จุดรับดาเมจจริง ไม่ใช่จุดยืน)
   // ทำงานเฉพาะตอนเปิดพื้นหลัง+มีกระสอบทราย และไฟล์กระสุนที่เกี่ยวข้องโหลดสำเร็จแล้วเท่านั้น
@@ -1277,9 +1310,11 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       ? mainGamePos().x + actionDash(false)
       : dummyPointWorld(dummy, canvasCenter(dummy.sam) ?? dummy.anchor, dummyOff, dummyYOff).x
     const hitNow = () => {
-      if (isBuff) return
-      if (isMoveAttack) applyAreaHitAt(areaCenterX, areaWorld)
-      else applyHitReaction(useRear, kind !== 'normal', areaWorld, areaCenterX)
+      if (isBuff) { fireSkillIcons(kind, []); return }
+      const keys = isMoveAttack
+        ? applyAreaHitAt(areaCenterX, areaWorld)
+        : applyHitReaction(useRear, kind !== 'normal', areaWorld, areaCenterX)
+      fireSkillIcons(kind, keys)
       playHitSound(kind)
     }
     // ── เกม: มีกระสุนเฉพาะ attackType กลุ่มยิง (ENERGY/ENERGYC/WEAPON/WEAPONC/DOUBLE/DOUBLEC/RETURN/BEAM) ──
@@ -1324,7 +1359,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       finishFrames: asset?.finishName ? (asset.sam.animations[asset.finishName]?.length || 0) : 0,
       bulletFps: asset?.sam.animRate || 24,
     })
-  }, [applyHitReaction, applyAreaHitAt, playHitSound, unitYOff, actionDash])   // identity คงที่ทุกตัว — spawnBullet จึงไม่ถูกสร้างใหม่
+  }, [applyHitReaction, applyAreaHitAt, fireSkillIcons, playHitSound, unitYOff, actionDash])   // identity คงที่ทุกตัว — spawnBullet จึงไม่ถูกสร้างใหม่
   const frameLabelRef = useRef<HTMLSpanElement>(null)  // counter "X/Y" — อัปเดตผ่าน textContent
   // grid cache — grid เป็น static (เปลี่ยนแค่ตอน zoom/origin/size) → render ครั้งเดียวเก็บไว้ blit
   const gridCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -1411,7 +1446,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     mainPosRef.current = null
     mainFaceAnchorRef.current = null
     activeBulletsRef.current = []
-    dummyHitRef.current = []; rearHitRef.current = []; edgeHitRef.current = []
+    dummyHitRef.current = []; rearHitRef.current = []; edgeHitRef.current = []; iconEventsRef.current = {}
     soundUrlsRef.current = null
     if (plainSam) return
     // ?v= คือรุ่นของรูปข้อมูล — route นี้แคช CDN 7 วัน ของเก่าไม่มี soundUrls ติดมา
@@ -1503,12 +1538,22 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       const rangePt = attackRangeRef.current && attackRangeRef.current > 0 ? attackRangeRef.current : DUMMY_FALLBACK_RANGE
       rearGapRef.current = slot ? rangePt * (skillRearMulRef.current?.[slot] ?? 0) * PT_TO_WORLD : 0
     }
+    // ── ไอคอนผลสกิลเหนือหัว: ยังอยู่ในช่วง 2 วินาทีหลังโดนหรือไม่ (เวลาในฉากนับจาก tick) ──
+    const iconFps = s?.animRate || 24
+    const paintIcon = (key: string, nodeX: number, nodeY: number, heightPx: number) => {
+      const ev = iconEventsRef.current[key]
+      const sheet = iconSheetRef.current
+      if (!ev || !sheet) return
+      const t = (sceneTickRef.current - ev.tick) / iconFps
+      if (t < 0 || t >= SKILL_ICON_SECONDS) return
+      drawSkillIcon(ctx, sheet, ev.spec, nodeX, nodeY, heightPx, zoomRef.current, t)
+    }
     // ── วาดเป้าหมาย (แนวหน้า + แนวหลังถ้ามี) — ใช้เส้นทางเดียวกันทั้งคู่ ──
     if (bgc && dummy) {
       const z = zoomRef.current
       const standX = rangerStandRef.current?.x ?? 0
       const standY = sceneGroundY()
-      const paintDummy = (d: DummyAsset, gap: number, hitRef: { current: HitEvent[] }) => {
+      const paintDummy = (d: DummyAsset, gap: number, hitRef: { current: HitEvent[] }, iconKey: string) => {
         const idleFrames = d.sam.animations[d.idleName] || []
         // ── เลือกเฟรมที่จะวาด: ปกติคือท่ายืน แต่ถ้าเพิ่งโดนสกิลให้เล่นท่าโดนตี 1 รอบก่อน ──
         let frames = idleFrames
@@ -1559,10 +1604,13 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
             ctx.restore()
           }
         }
+        // ไอคอนผลสกิลเหนือหัวหุ่นตัวนี้ (ตำแหน่งยูนิต = กลางกรอบไฟล์)
+        const node = dummyPointWorld(d, canvasCenter(d.sam) ?? d.anchor, dummyDrawOffset(d, standX, gap), unitYOff(d))
+        paintIcon(iconKey, originRef.current.x + node.x * z, originRef.current.y + node.y * z, d.sam.canvas?.h ?? 0)
       }
-      paintDummy(dummy, dummyGapRef.current, dummyHitRef)
+      paintDummy(dummy, dummyGapRef.current, dummyHitRef, 'front')
       if (rearDummyRef.current && rearGapRef.current > 0) {
-        paintDummy(rearDummyRef.current, rearGapRef.current, rearHitRef)
+        paintDummy(rearDummyRef.current, rearGapRef.current, rearHitRef, 'rear')
       }
       // ── ตัวยืนสุดขอบวง Area ของสกิลที่กำลังเปิดดู ──
       // ใช้จุดกึ่งกลางวงชุดเดียวกับแถบ Area ที่วาดในโหมดดูระยะ ตำแหน่งจึงตรงกับขอบแถบเป๊ะ
@@ -1589,7 +1637,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
           : dummyPointWorld(dummy, dummy.anchor ?? dummy.faceAnchor,
               dummyDrawOffset(dummy, standX, dummyGapRef.current), unitYOff(dummy)).x
         // ขอบขวาของวง = กึ่งกลาง + รัศมี (แปลง pt → world เหมือนแถบวัดระยะ)
-        paintDummy(edgeDummyRef.current, centerX + areaPt * PT_TO_WORLD - standX, edgeHitRef)
+        paintDummy(edgeDummyRef.current, centerX + areaPt * PT_TO_WORLD - standX, edgeHitRef, 'edge')
       }
     }
     if (showGridRef.current) {
@@ -1613,6 +1661,11 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       // สกิล MOVE_ATTACK: ตัวละครพุ่งไปข้างหน้า (CCMoveTo ในเกม) — เลื่อนเฉพาะตอนมีฉากกระสอบทราย
       const dashX = actionDash(false) * zoomRef.current
       if (fr) renderSAMFrame(ctx, fr, s.images, spr, originRef.current.x + dashX, originRef.current.y, zoomRef.current, hiddenImagesRef.current)
+      // ไอคอนผลสกิลเหนือหัวผู้ร่าย (บัฟตัวเอง) — ตำแหน่งยูนิต = กลางกรอบไฟล์ (+ระยะพุ่งของ MOVE_ATTACK)
+      if (!viewingBulletFileRef.current) {
+        const mp = mainGamePos()
+        paintIcon('main', originRef.current.x + dashX + mp.x * zoomRef.current, originRef.current.y + mp.y * zoomRef.current, mainCanvasHRef.current)
+      }
       // ── Layer panel: เก็บกรอบของแต่ละชิ้น + วาดกรอบแดงให้ชิ้นที่กำลังชี้ ──
       // คิดเฉพาะตอนเปิดแถบ (ปิดอยู่ = ไม่มีงานเพิ่มในลูปวาดเลย)
       if (showLayersRef.current && fr) {
@@ -1702,8 +1755,11 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
         if (T >= b.travelTicks && !b.hitFired) {
           b.hitFired = true
           if (b.isAttack) {
-            applyHitReaction(b.hitRear, b.isSkill, b.areaWorld, b.areaCenterX)
+            const keys = applyHitReaction(b.hitRear, b.isSkill, b.areaWorld, b.areaCenterX)
+            fireSkillIcons(b.kind, keys)
             playHitSound(b.kind)
+          } else {
+            fireSkillIcons(b.kind, [])   // สกิลบัฟที่มีกระสุนบินใส่ตัวเอง → ไอคอนขึ้นตอนถึง
           }
         }
         if (T < 0 || T > b.travelTicks + finishTicksEq) continue   // ยังไม่ถึงเวลา หรือเล่นจบแล้ว → ตัดทิ้ง
@@ -2165,7 +2221,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
   useEffect(() => {
     if (!bgStage) {
       bgCanvasRef.current = null; activeBulletsRef.current = []
-      dummyHitRef.current = []; rearHitRef.current = []; edgeHitRef.current = []
+      dummyHitRef.current = []; rearHitRef.current = []; edgeHitRef.current = []; iconEventsRef.current = {}
       drawFrame(); return
     }
     let cancelled = false
@@ -2224,7 +2280,7 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       for (const asset of bulletCacheRef.current.values()) { if (asset) disposeSprites(asset.sprites) }
       bulletCacheRef.current.clear()
       activeBulletsRef.current = []
-      dummyHitRef.current = []; rearHitRef.current = []; edgeHitRef.current = []
+      dummyHitRef.current = []; rearHitRef.current = []; edgeHitRef.current = []; iconEventsRef.current = {}
     }
   }, [samFiles])
 

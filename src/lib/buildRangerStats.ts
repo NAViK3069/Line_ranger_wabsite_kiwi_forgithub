@@ -157,6 +157,7 @@ function skillGame(code: string, depth = 0): SkillGame | undefined {
     probability: n(r.probability), delay: n(r.skillDelayTime), range: n(r.range), targetType: str(r.targetType),
     rsearchRatio: n(r.rsearchRatio),
     affectEventStage: n(r.affectEventStage), affectGuardian: n(r.affectGuardian), affectColossus: n(r.affectColossus),
+    ...(str(r.attackedEffect) ? { attackedEffect: str(r.attackedEffect), effectIconType: str(r.skillEffectIconType) } : {}),
     ...(subs ? { subs } : {}),
   }
 }

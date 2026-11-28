@@ -45,6 +45,10 @@ export interface SkillGame {
   affectEventStage?: number
   affectGuardian?: number
   affectColossus?: number
+  /** ไอคอนเหนือหัวของผลนี้ (skill.attackedEffect = ชื่อเฟรมในชีต skill_effect_icon) */
+  attackedEffect?: string
+  /** ท่าของไอคอน (skill.skillEffectIconType: MOVE / SCALE / ROTATE / TINT / SHAKE / FLASH) */
+  effectIconType?: string
 }
 
 /** ศักยภาพ 1 ช่อง (potential_stat_group.stat_idN → potential_stat_info) — ช่องที่ N ใช้วัสดุ pt-00N */

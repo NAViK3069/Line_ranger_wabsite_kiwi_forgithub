@@ -28,6 +28,18 @@ import { useSound, SFX } from '@/contexts/SoundContext'
 import type { AwakenAbility } from '@/server/api/ranger/awakening/[id]/route'
 import type { TriggerBasis } from '@/lib/rangerTriggerBasis'
 import type { RangerGrowthInput } from '@/lib/rangerLevelCalc'
+import { skillIconSetOf, type SkillIconSet } from '@/lib/animation/skillEffectIcon'
+import type { SkillGame as SkillIconNode } from '@/lib/rangerGameCalc'
+
+/** ไอคอนผลสกิลเหนือหัวของสกิล 1 ช่อง — ไล่ทุกผลในต้นไม้ (หลัก + ย่อยทุกชั้น) */
+function iconSetOfSkill(g: SkillIconNode | undefined): SkillIconSet | null {
+  if (!g) return null
+  const nodes: SkillIconNode[] = []
+  const walk = (n: SkillIconNode) => { nodes.push(n); for (const c of n.subs ?? []) walk(c) }
+  walk(g)
+  const set = skillIconSetOf(nodes)
+  return set.enemy || set.self ? set : null
+}
 
 // ── Types from /api/meta/ranger-stats ────────────────
 interface SkillSlot {
@@ -1516,6 +1528,7 @@ export default function RangerStatPanel({
           skillRearMul={{ skill1: animSkills[0]?.triggerBasis?.multiplier ?? null, skill2: animSkills[1]?.triggerBasis?.multiplier ?? null }}
           isFlyer={(stats?.abilities ?? []).some(ab => ab.code === 'ab201_flight')}
           isAirAmbush={(stats?.abilities ?? []).some(ab => ab.code === 'ab217_airatk' || ab.code === 'ab217_airatk_X')}
+          skillIcons={{ skill1: iconSetOfSkill(animSkills[0]?.game), skill2: iconSetOfSkill(animSkills[1]?.game) }}
           onClose={() => setShowAnimation(false)}
         />,
         document.body

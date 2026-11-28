@@ -37,11 +37,11 @@ export function PotentialMedal({ order, size = 32, dim = false }: { order: numbe
 
 // สีธีมตามสีเหรียญ 1–5 — พื้นทึบเข้มโทนเดียวกับเหรียญ + ขอบสีเดียวกัน ไม่มีเงา (เรียบ)
 const TONE = [
-  { card: 'bg-teal-950/70 border-teal-500/40', on: 'border-teal-400', label: 'text-teal-300/80', accent: 'accent-teal-400' },
-  { card: 'bg-red-950/70 border-red-500/40', on: 'border-red-400', label: 'text-red-300/80', accent: 'accent-red-400' },
-  { card: 'bg-sky-950/70 border-sky-500/40', on: 'border-sky-400', label: 'text-sky-300/80', accent: 'accent-sky-400' },
-  { card: 'bg-fuchsia-950/70 border-fuchsia-500/40', on: 'border-fuchsia-400', label: 'text-fuchsia-300/80', accent: 'accent-fuchsia-400' },
-  { card: 'bg-amber-950/70 border-amber-500/40', on: 'border-amber-400', label: 'text-amber-300/80', accent: 'accent-amber-400' },
+  { card: 'bg-teal-950/70 border-teal-500/40', on: 'border-teal-400', label: 'text-teal-300/80' },
+  { card: 'bg-red-950/70 border-red-500/40', on: 'border-red-400', label: 'text-red-300/80' },
+  { card: 'bg-sky-950/70 border-sky-500/40', on: 'border-sky-400', label: 'text-sky-300/80' },
+  { card: 'bg-fuchsia-950/70 border-fuchsia-500/40', on: 'border-fuchsia-400', label: 'text-fuchsia-300/80' },
+  { card: 'bg-amber-950/70 border-amber-500/40', on: 'border-amber-400', label: 'text-amber-300/80' },
 ]
 
 /** ชนิด % (MUL / PROB) หรือค่าตรง (ADD) — ตามชื่อชนิดของเกม */
@@ -115,11 +115,13 @@ export default function PotentialSection({ slots, levels, onChange, onTick }: {
               type="button"
               onClick={() => { onTick(); setOpen(active ? null : i) }}
               aria-expanded={active}
-              className={`min-w-0 h-[3.75rem] text-left rounded-lg border px-2 py-1.5 flex flex-col transition-colors ${tone.card} ${active ? tone.on : ''} ${
+              className={`min-w-0 h-[3.75rem] text-left rounded-lg border px-2 py-1.5 flex items-center gap-2 transition-colors ${tone.card} ${active ? tone.on : ''} ${
                 i === slots.length - 1 && slots.length % 2 ? 'col-span-2 sm:col-span-1' : ''}`}
             >
+              {/* เหรียญใหญ่ด้านซ้าย (สูงเต็มการ์ด) — ข้อความด้านขวา */}
+              <PotentialMedal order={s.order} size={32} dim={lv === 0} />
+              <span className="flex-1 min-w-0 h-full flex flex-col">
               <span className="flex items-center gap-1.5 min-w-0">
-                <PotentialMedal order={s.order} size={16} dim={lv === 0} />
                 <span className="flex-1 min-w-0 truncate text-[11px] text-gray-300">{name(s)}</span>
                 <span className="shrink-0 text-[10px] tabular-nums text-gray-400">{lv}</span>
               </span>
@@ -131,6 +133,7 @@ export default function PotentialSection({ slots, levels, onChange, onTick }: {
                   </span>
                 ))}
               </span>
+              </span>
             </button>
           )
         })}
@@ -138,9 +141,10 @@ export default function PotentialSection({ slots, levels, onChange, onTick }: {
 
       {/* ตัวปรับเลเวลของช่องที่เลือก */}
       {sel && open != null && (
-        <div className={`mt-1.5 rounded-lg border px-2.5 py-2 ${TONE[open]?.card ?? ''}`}>
+        // สีเทาปกติแบบกล่องอื่นในหน้ารายละเอียด (ไม่ใช้สีธีมของช่อง)
+        <div className="mt-1.5 rounded-lg bg-white/5 px-2.5 py-2">
           <div className="flex items-center gap-2">
-            <PotentialMedal order={sel.order} size={16} />
+            <PotentialMedal order={sel.order} size={24} />
             <span className="min-w-0 truncate text-[12px] font-semibold text-gray-200">{name(sel)}</span>
             <span className="ml-auto shrink-0 whitespace-nowrap text-[11px] tabular-nums text-gray-300">Lv {cur} / {sel.max}</span>
           </div>
@@ -154,7 +158,7 @@ export default function PotentialSection({ slots, levels, onChange, onTick }: {
               onPointerUp={onTick}
               onKeyUp={onTick}
               aria-label={name(sel)}
-              className={`flex-1 h-1.5 rounded-lg appearance-none cursor-pointer bg-white/15 ${TONE[open]?.accent ?? ''}`}
+              className={`flex-1 h-1.5 rounded-lg appearance-none cursor-pointer bg-white/15 accent-yellow-400`}
             />
             <button type="button" aria-label="+1" onClick={() => setLv(open, cur + 1)}
               className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 text-gray-200 text-sm leading-none shrink-0">+</button>

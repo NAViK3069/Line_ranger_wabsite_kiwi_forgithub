@@ -2,9 +2,9 @@
 // About Me — หน้าสาธารณะแสดงข้อมูลเจ้าของเว็บ
 // ====================================================
 
-import BackHomeLink from '@/components/BackHomeLink'
 import profileData from '../../../content/site-profile.json'
 import { safeUrl } from '@/lib/safeUrl'
+import SiteHeader from '@/components/SiteHeader'
 
 // ข้อมูลอ่านจาก content/site-profile.json ตอน build (แอดมินแก้ → commit → build ใหม่)
 
@@ -31,11 +31,10 @@ export default function AboutPage() {
   const profile = profileData as typeof profileData | null
 
   return (
-    <main className="min-h-screen px-4 py-8">
+    <>
+    <SiteHeader materialIcon="person" title="About" />
+    <main className="min-h-screen px-4 py-6 sm:py-8">
       <div className="max-w-5xl mx-auto">
-
-        {/* Back */}
-        <BackHomeLink className="inline-flex items-center gap-1.5 text-gray-400 hover:text-white text-sm transition-colors mb-8" />
 
         {!profile || (!profile.displayName && !profile.description && !profile.profileImage) ? (
           <div className="card-glass rounded-2xl p-10 text-center text-gray-400">
@@ -136,5 +135,6 @@ export default function AboutPage() {
         )}
       </div>
     </main>
+    </>
   )
 }

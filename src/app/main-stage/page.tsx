@@ -11,10 +11,8 @@
 // ?m=hard&s=hs12 → เปิดโหมด Hard และกางด่าน hs12 ให้เลย
 // ====================================================
 
-import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { apiFetch, LERICO_ORIGIN } from '@/lib/staticApi'
 import type { TEnemy, TIcon, TReward, TText } from '@/lib/infinityTower'
@@ -22,6 +20,7 @@ import type { MainStageDetail, MainStageIndex, MSArea, MSEnemy, MSStage, MSTreas
 import { GameIcon, useIconUrl } from '../infinity-tower/atlas'
 import TowerEnemyPopup from '../infinity-tower/TowerEnemyPopup'
 import { EnemySkeleton, SamLoop, Shimmer } from '../infinity-tower/TowerLoading'
+import SiteHeader from '@/components/SiteHeader'
 
 // canvas + โหลดไฟล์ .sam → ฝั่ง browser เท่านั้น
 const AreaMap = dynamic(() => import('./AreaMap'), { ssr: false })
@@ -121,7 +120,7 @@ const TYPE_ICON: Record<string, string> = { STR: '/gacha/images/Str.png', AGI: '
 const thumbOf = (code: string): TIcon => ({ url: `${LERICO_ORIGIN}/res/${code}/${code}-thum.png` })
 
 export default function MainStagePage() {
-  const { lang: siteLang, tStat } = useLanguage()
+  const { lang: siteLang } = useLanguage()
   const lang = siteLang as L
   const T: Tfn = useCallback((th, en) => (lang === 'th' ? th : en), [lang])
 
@@ -273,17 +272,7 @@ export default function MainStagePage() {
 
   return (
     <div className="min-h-screen pb-24 sm:pb-10">
-      <header ref={headerRef} className="sticky top-0 z-30 border-b border-white/10 bg-[#120a20]/95 backdrop-blur">
-        <div className="max-w-6xl mx-auto px-3 sm:px-4 h-14 flex items-center gap-2.5">
-          <Link href="/" className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-gray-300 hover:bg-white/10 hover:text-white">
-            <span className="material-icons-round text-[22px]">arrow_back</span>
-            <span className="hidden sm:inline">{tStat('Back')}</span>
-          </Link>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/home-icons/mission-main-stage.webp" alt="" width={34} height={34} className="rounded-lg ring-1 ring-white/15" />
-          <h1 className="font-[family-name:var(--font-line)] text-[17px] sm:text-lg text-white truncate">Main Stage</h1>
-          <div className="ml-auto"><LanguageSwitcher /></div>
-        </div>
+      <SiteHeader ref={headerRef} icon="/home-icons/mission-main-stage.webp" title="Main Stage">
         {/* แท็บโหมด — คอม: อยู่ในแถบบน · มือถือ: แถบล่าง */}
         <div className="hidden sm:flex max-w-6xl mx-auto px-4 pb-2.5">
           <div role="tablist" aria-label={T('ระดับความยาก', 'Difficulty')} className="flex items-center gap-1 rounded-2xl bg-black/35 p-1 ring-1 ring-white/10">
@@ -300,7 +289,7 @@ export default function MainStagePage() {
             </div>
           )}
         </div>
-      </header>
+      </SiteHeader>
 
       <main className="max-w-6xl mx-auto px-3 sm:px-4 pt-3 sm:pt-5">
         {/* ── หัวโหมด ── */}

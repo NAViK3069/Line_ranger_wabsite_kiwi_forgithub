@@ -12,9 +12,9 @@
 import { apiFetch } from '@/lib/staticApi'
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { usePageLoading } from '@/lib/pageLoading'
+import SiteHeader from '@/components/SiteHeader'
 
 type Kind = 'ranger' | 'gear'
 
@@ -95,17 +95,10 @@ export default function GachaSimulator({ initial }: { initial: Kind }) {
   usePageLoading(loading)
 
   return (
-    <main className="min-h-screen px-4 py-8">
+    <>
+    <SiteHeader icon="/home-icons/mission-gacha.webp" title="Gacha Simulator" heading={false} />
+    <main className="min-h-screen px-4 py-6 sm:py-8">
       <div className="max-w-5xl mx-auto">
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <Link href="/" className="text-gray-400 hover:text-white transition-colors flex items-center gap-1 text-sm">
-            <span className="material-icons-round text-sm">arrow_back</span>
-            {tStat('Back')}
-          </Link>
-          <LanguageSwitcher />
-        </div>
 
         <div className="text-center mb-8 sm:mb-10">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black mb-5">
@@ -216,5 +209,6 @@ export default function GachaSimulator({ initial }: { initial: Kind }) {
 
       </div>
     </main>
+    </>
   )
 }

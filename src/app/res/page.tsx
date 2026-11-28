@@ -14,12 +14,12 @@ import { apiFetch } from '@/lib/staticApi'
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { usePro } from '@/contexts/ProContext'
 import RangerAnimationPopup from '@/components/RangerAnimationPopup'
 import PlistPieces, { downloadUrl } from './PlistPieces'
 import { isLocalRes, localResUrl } from '@/lib/gameRes'
+import SiteHeader from '@/components/SiteHeader'
 
 interface DirEntry {
   name: string
@@ -698,23 +698,7 @@ export default function ResPage() {
   const { tStat } = useLanguage()
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-40 bg-[#1A0A2E]/95 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-6xl mx-auto px-4 h-12 flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm transition-colors">
-            <span className="material-icons-round text-base">arrow_back</span>
-            <span className="hidden sm:inline">{tStat('Back')}</span>
-          </Link>
-          <span className="text-white/20">|</span>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/gacha/images/LogoKiwi-48.webp" alt="Kiwi" width={50} height={48} className="h-6 w-6 object-contain" />
-          <span className="text-sm font-bold text-white">
-            <span className="hidden sm:inline">Line Ranger </span>Kiwi
-          </span>
-          <div className="ml-auto">
-            <LanguageSwitcher />
-          </div>
-        </div>
-      </header>
+      <SiteHeader materialIcon="folder_open" title="Resources" />
 
       <main className="max-w-6xl mx-auto px-4 py-6">
         {/* useSearchParams ต้องอยู่ใน Suspense — ไม่งั้น build จะบังคับให้ทั้งหน้าเป็น dynamic */}

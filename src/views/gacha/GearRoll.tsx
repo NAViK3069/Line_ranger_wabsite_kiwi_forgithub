@@ -11,11 +11,11 @@ import GearDetailPopup from '@/components/GearDetailPopup'
 import BacklightCanvas from '@/components/BacklightCanvas'
 import ChestCanvas from '@/components/ChestCanvas'
 import RubyAnimation from '@/components/RubyAnimation'
-import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useSound } from '@/contexts/SoundContext'
 import { fireConfetti } from '@/lib/confettiCelebration'
 import { usePageLoading } from '@/lib/pageLoading'
+import SiteHeader from '@/components/SiteHeader'
 
 // ─── Types ────────────────────────────────────────
 interface GearEntry {
@@ -321,6 +321,7 @@ export default function GachaGearRollPage() {
         />
       )}
 
+      <SiteHeader backHref="/gacha-gear" backLabel={tStat('Select banner')} icon="/home-icons/gacha-gear.webp" title={poolName || 'Gacha'} heading={false} />
       <main className="min-h-screen pb-12 relative overflow-x-hidden" style={{ background: 'var(--color-dark)' }}>
         {/* Background decorative blobs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -330,25 +331,6 @@ export default function GachaGearRollPage() {
 
         <div className="max-w-5xl mx-auto px-4 pt-4">
 
-          {/* ── Nav ── ปุ่มย้อนกลับ | ชื่อตู้ | เสียง+ภาษา
-              จอกว้าง: แถวเดียว ข้างซ้ายขวาเป็น flex-1 เท่ากัน ชื่อตู้จึงอยู่กึ่งกลางแถวจริงๆ
-              มือถือ: ชื่อตู้ลงมาอยู่แถวล่างเต็มความกว้าง — ยัดสามอย่างในแถวเดียวแล้ว
-              ที่เหลือให้ชื่อไม่ถึง 90px อ่านไม่ออก และปุ่มภาษาโดนบีบจนล้น */}
-          <div className="mb-8">
-            <div className="flex items-center gap-2">
-              <div className="flex-1 flex justify-start">
-                <Link href="/gacha-gear" className="text-gray-400 hover:text-white transition-colors flex items-center gap-1 text-sm">
-                  <span className="material-icons-round text-sm">arrow_back</span>
-                  {tStat('Select banner')}
-                </Link>
-              </div>
-              <p className="hidden sm:block min-w-0 truncate text-center text-gray-500 text-xs font-semibold tracking-wider">{poolName}</p>
-              <div className="flex-1 flex justify-end">
-                <LanguageSwitcher />
-              </div>
-            </div>
-            <p className="sm:hidden mt-2 truncate text-center text-gray-500 text-xs font-semibold tracking-wider">{poolName}</p>
-          </div>
 
           {/* ── Top Row: Ruby + buttons ── */}
           <div className="flex flex-wrap items-center justify-center gap-2 mb-4">

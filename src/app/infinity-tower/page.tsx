@@ -12,16 +12,15 @@
 // ?f=300 → เปิดแล้วเลื่อนไปชั้น 300 และกางรายละเอียดให้เลย
 // ====================================================
 
-import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { apiFetch } from '@/lib/staticApi'
 import type { TBattle, TEnemy, TFloor, TIcon, TowerIndex, TText, TReward } from '@/lib/infinityTower'
 import { GameIcon, useIconUrl } from './atlas'
 import TowerEnemyPopup from './TowerEnemyPopup'
 import { EnemySkeleton, FloorsLoader, preloadLoaderAnim } from './TowerLoading'
+import SiteHeader from '@/components/SiteHeader'
 
 // canvas + โหลดไฟล์ .sam → ฝั่ง browser เท่านั้น
 const TowerGate = dynamic(() => import('./TowerGate'), { ssr: false })
@@ -69,7 +68,7 @@ const CHUNK_LOADING = 6
 const CHUNK_IDLE = 12
 
 export default function InfinityTowerPage() {
-  const { lang: siteLang, tStat } = useLanguage()
+  const { lang: siteLang } = useLanguage()
   const lang = siteLang as L
   // ค่าคงที่ระหว่าง render (เปลี่ยนตามภาษาเท่านั้น) — FloorCard เป็น memo ไม่ต้อง render ใหม่ทั้ง 330 ใบ
   const T: Tfn = useCallback((th, en) => (lang === 'th' ? th : en), [lang])
@@ -292,16 +291,9 @@ export default function InfinityTowerPage() {
       <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(120%_60%_at_50%_0%,#2a0d4d_0%,#12061f_55%,#0b0414_100%)]" />
       {/* มือถือ: fixed (ยึดกับจอที่มองเห็น) — sticky ในหน้ายาวมากๆ บน Chrome Android ถูกแถบ URL บังขอบบนตอนเลื่อนขึ้น-ลง
           จึงวางช่องว่างสูงเท่าแถบไว้แทนที่ · จอใหญ่ใช้ sticky ตามเดิม (มีแถบแท็บด้วย สูงไม่คงที่) */}
-      <div aria-hidden className="sm:hidden" style={{ height: 49 }} />
-      <header ref={headerRef} className="fixed inset-x-0 top-0 sm:sticky z-40 bg-[#14071f]/95 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-6xl mx-auto px-3 sm:px-4 h-12 flex items-center gap-2.5">
-          <Link href="/" className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm transition-colors" aria-label={tStat('Back')}>
-            <span className="material-icons-round text-base">arrow_back</span>
-            <span className="hidden sm:inline">{tStat('Back')}</span>
-          </Link>
-          <GameIcon icon={titleLogo} className="h-8 w-[132px] justify-start" alt={towerName} />
-          <div className="ml-auto"><LanguageSwitcher /></div>
-        </div>
+      <div aria-hidden className="sm:hidden" style={{ height: 57 }} />
+      <SiteHeader ref={headerRef} className="max-sm:fixed max-sm:inset-x-0 max-sm:top-0"
+        icon="/home-icons/mission-infinity-tower.webp" title={towerName} heading={false}>
 
         {/* แถบเมนูคอม/แท็บเล็ต — มือถือใช้แถบล่าง MobileBar แทน */}
         {data && (
@@ -326,7 +318,7 @@ export default function InfinityTowerPage() {
             </div>
           </div>
         )}
-      </header>
+      </SiteHeader>
 
       <main className="max-w-6xl mx-auto px-3 sm:px-4 pt-3 sm:pt-5">
         {/* ── เรื่องราวของโหมด (ข้อความเกม) ── */}

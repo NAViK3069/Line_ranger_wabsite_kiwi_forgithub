@@ -5,13 +5,12 @@
 // ====================================================
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import Link from 'next/link'
 import { apiFetch } from '@/lib/staticApi'
 import RangerDetailPopup from '@/components/RangerDetailPopup'
 import GearDetailPopup from '@/components/GearDetailPopup'
-import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { usePageLoading } from '@/lib/pageLoading'
+import SiteHeader from '@/components/SiteHeader'
 
 const LEAGUES = [
   { value: 0,  label: 'Legend',     players: 200 },
@@ -211,19 +210,10 @@ export default function MetaPage() {
   )
 
   return (
-    <main className="min-h-screen px-4 py-8">
+    <>
+    <SiteHeader icon="/home-icons/mission-meta.webp" title="Meta PVP" heading={false} />
+    <main className="min-h-screen px-4 py-6 sm:py-8">
       <div className="max-w-5xl mx-auto">
-
-        {/* Back + Language */}
-        <div className="flex items-center gap-4 mb-8">
-          <Link href="/" className="text-gray-400 hover:text-white transition-colors text-sm flex items-center gap-1">
-            <span className="material-icons-round text-sm">arrow_back</span>
-            {tStat('Back')}
-          </Link>
-          <div className="ml-auto">
-            <LanguageSwitcher />
-          </div>
-        </div>
 
         {/* Header */}
         <h1 className="text-3xl md:text-4xl font-black text-center mb-2 flex items-center justify-center gap-3">
@@ -548,5 +538,6 @@ export default function MetaPage() {
         />
       )}
     </main>
+    </>
   )
 }

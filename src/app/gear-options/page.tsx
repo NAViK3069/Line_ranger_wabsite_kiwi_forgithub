@@ -10,11 +10,10 @@
 // ====================================================
 
 import dynamic from 'next/dynamic'
-import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { GEAR_OPTIONS, SAMPLE_SCENE, sceneUrl } from './options'
+import SiteHeader from '@/components/SiteHeader'
 
 // engine ของสตูดิโอใช้ canvas / Web Audio ตั้งแต่ตอนโหลดโมดูล → โหลดฝั่ง browser เท่านั้น
 // (วิดีโอสอนแต่ละออพชั่นเลือกใน GearOptionPlayer)
@@ -24,7 +23,7 @@ const GearOptionPlayer = dynamic(() => import('./GearOptionPlayer'), {
 })
 
 export default function GearOptionsPage() {
-  const { lang, tStat } = useLanguage()
+  const { lang } = useLanguage()
   const T = (th: string, en: string) => (lang === 'th' ? th : en)
 
   const [selected, setSelected] = useState(GEAR_OPTIONS[0].id)
@@ -62,18 +61,7 @@ export default function GearOptionsPage() {
   return (
     <div className="min-h-screen pb-10">
       {/* แถบบน — แบบเดียวกับหน้า /custom */}
-      <header className="sticky top-0 z-40 bg-[#1A0A2E]/95 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-5xl mx-auto px-4 h-12 flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm transition-colors">
-            <span className="material-icons-round text-base">arrow_back</span>
-            <span className="hidden sm:inline">{tStat('Back')}</span>
-          </Link>
-          <span className="text-white/20">|</span>
-          <span className="material-icons-round text-amber-300 text-xl">smart_display</span>
-          <span className="text-sm font-bold text-white truncate">{T('ออพชั่นของอุปกรณ์', 'Gear Options')}</span>
-          <div className="ml-auto"><LanguageSwitcher /></div>
-        </div>
-      </header>
+      <SiteHeader icon="/home-icons/mission-gear-options.webp" title={T('ออพชั่นของอุปกรณ์', 'Gear Options')} />
 
       <main className="max-w-5xl mx-auto px-4 pt-4 sm:pt-6">
         {/* จอวิดีโอ */}

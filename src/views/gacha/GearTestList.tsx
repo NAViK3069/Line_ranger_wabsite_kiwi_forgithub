@@ -6,6 +6,7 @@
 import { apiFetch } from '@/lib/staticApi'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import SiteHeader from '@/components/SiteHeader'
 
 interface PoolCard {
   id: string
@@ -28,16 +29,10 @@ export default function GachaGearTestPage() {
   }, [])
 
   return (
-    <main className="min-h-screen px-4 py-8">
+    <>
+    <SiteHeader icon="/home-icons/mission-gacha.webp" title="Gacha Gear Test" heading={false} />
+    <main className="min-h-screen px-4 py-6 sm:py-8">
       <div className="max-w-5xl mx-auto">
-
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <Link href="/" className="text-gray-400 hover:text-white transition-colors flex items-center gap-1 text-sm">
-            <span className="material-icons-round text-sm">arrow_back</span>
-            กลับหน้าหลัก
-          </Link>
-        </div>
 
         <div className="text-center mb-10">
           <h1 className="text-4xl md:text-5xl font-black mb-2">
@@ -126,5 +121,6 @@ export default function GachaGearTestPage() {
 
       </div>
     </main>
+    </>
   )
 }

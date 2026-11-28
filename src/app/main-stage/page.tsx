@@ -13,7 +13,7 @@
 
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { Fragment, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { apiFetch, LERICO_ORIGIN } from '@/lib/staticApi'
@@ -167,17 +167,55 @@ export default function MainStagePage() {
   }
   const pickMode = (m: StageMode) => {
     if (m === mode) return
-    setMode(m); setOpen(null); syncUrl(m, null)
+    setMode(m); setOpen(null); setTreasure(null); syncUrl(m, null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-  /** เลื่อนให้การ์ดพื้นที่ของด่านนั้นอยู่ใต้แถบเมนูพอดี */
-  const alignTo = (stage: string) => {
-    const el = document.getElementById(`st-${stage}`)?.closest('article')
+  /**
+   * เลื่อนให้ขอบบนการ์ดพื้นที่อยู่ใต้แถบเมนูพอดี (แบบหน้าหอคอย)
+   * การ์ดอื่นที่เพิ่งหุบ / รูปที่โหลดตามมา ทำให้หน้าขยับ → คอยปรับซ้ำ ~1.5 วิ · ผู้ใช้เลื่อนเอง = หยุดทันที
+   */
+  const alignStop = useRef<(() => void) | null>(null)
+  const alignArea = useCallback((areaCode: string) => {
+    alignStop.current?.()
+    const el = document.getElementById(`area-${areaCode}`)
     if (!el) return
-    const bar = headerRef.current?.getBoundingClientRect().bottom ?? 0
-    const top = el.getBoundingClientRect().top
-    if (top < bar + 4 || top > window.innerHeight * 0.6) window.scrollTo({ top: top + window.scrollY - bar - 8, behavior: 'smooth' })
+    const target = () => {
+      const bar = headerRef.current?.getBoundingClientRect().bottom ?? 0
+      return Math.max(0, el.getBoundingClientRect().top + window.scrollY - bar - 8)
+    }
+    window.scrollTo({ top: target(), behavior: 'smooth' })
+    let done = false
+    const timers: ReturnType<typeof setTimeout>[] = []
+    const stop = () => {
+      done = true
+      timers.forEach(clearTimeout)
+      removeEventListener('wheel', stop); removeEventListener('touchstart', stop); removeEventListener('keydown', stop)
+      if (alignStop.current === stop) alignStop.current = null
+    }
+    alignStop.current = stop
+    addEventListener('wheel', stop, { passive: true }); addEventListener('touchstart', stop, { passive: true }); addEventListener('keydown', stop)
+    // ให้ smooth scroll ไปก่อน แล้วค่อยแก้ส่วนที่คลาด (ไม่ใช้ requestAnimationFrame — จอที่ถูกหน่วงจะค้าง)
+    for (const t of [650, 900, 1200, 1500]) timers.push(setTimeout(() => {
+      if (done) return
+      const want = target()
+      if (Math.abs(want - window.scrollY) > 2) window.scrollTo({ top: want, behavior: 'auto' })
+      if (t === 1500) stop()
+    }, t))
+  }, [])
+  const alignTo = (stage: string) => {
+    const area = document.getElementById(`st-${stage}`)?.closest('article')?.id.replace(/^area-/, '')
+    if (area) alignArea(area)
   }
+  /** สมบัติที่กางอยู่ (รหัสพื้นที่) — เปิดได้ทีละพื้นที่ */
+  const [treasure, setTreasure] = useState<string | null>(null)
+  const pendingAlign = useRef<string | null>(null)
+  const toggleTreasure = useCallback((areaCode: string) => {
+    setTreasure(cur => {
+      const next = cur === areaCode ? null : areaCode
+      if (next) pendingAlign.current = next
+      return next
+    })
+  }, [])
   // ค่าล่าสุดของด่านที่เปิด (ให้ toggle คงที่ — AreaCard เป็น memo) · อัปเดต URL นอกตัวอัปเดต state
   // (history.replaceState ระหว่าง render ทำให้ Router ของ Next อัปเดตซ้อน → React ฟ้อง)
   const openRef = useRef(open)
@@ -187,8 +225,17 @@ export default function MainStagePage() {
     openRef.current = next
     setOpen(next)
     syncUrl(mode, next)
+    // เปิดด่าน → การ์ดพื้นที่นั้นชิดบนจอ (หลัง render — การ์ดเดิมที่หุบลงจะไม่ทำให้คลาด)
+    if (next) pendingAlign.current = document.getElementById(`st-${next}`)?.closest('article')?.id.replace(/^area-/, '') ?? null
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
+
+  useLayoutEffect(() => {
+    const a = pendingAlign.current
+    if (!a) return
+    pendingAlign.current = null
+    alignArea(a)
+  }, [open, treasure, alignArea])
 
   const areas = data?.modes[mode] ?? []
   const counts = useMemo(() => Object.fromEntries(MODES.map(m => [m, data?.modes[m].reduce((n, a) => n + a.stages.length, 0) ?? 0])) as Record<StageMode, number>, [data])
@@ -229,7 +276,8 @@ export default function MainStagePage() {
           <ol key={mode} className="it-stagger mt-3 space-y-3 sm:space-y-4">
             {areas.map((a, i) => (
               <AreaCard key={a.code} a={a} data={data} lang={lang} T={T} order={Math.min(i, 10)}
-                open={a.stages.some(s => s.code === open) ? open : null} onToggle={toggle} onEnemy={setEnemy} />
+                open={a.stages.some(s => s.code === open) ? open : null} onToggle={toggle} onEnemy={setEnemy}
+                treasureOpen={treasure === a.code} onTreasure={toggleTreasure} />
             ))}
           </ol>
         )}
@@ -315,17 +363,18 @@ function AreasSkeleton() {
   )
 }
 
-const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggle, onEnemy }: {
+const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggle, onEnemy, treasureOpen, onTreasure }: {
   a: MSArea; data: MainStageIndex; lang: L; T: Tfn; order: number
   /** ด่านที่กางอยู่ในพื้นที่นี้ (null = ไม่มี) */
   open: string | null
   onToggle: (code: string) => void; onEnemy: (e: TEnemy) => void
+  treasureOpen: boolean; onTreasure: (areaCode: string) => void
 }) {
   const st = open ? a.stages.find(s => s.code === open) ?? null : null
   const first = a.stages[0]?.no, last = a.stages[a.stages.length - 1]?.no
   return (
     <li style={{ ['--i' as string]: order }}>
-      <article className={`rounded-2xl border bg-[#181026]/95 overflow-hidden transition-colors ${st ? `${TONE[a.mode].open} shadow-[0_10px_30px_rgba(0,0,0,0.35)]` : TONE[a.mode].ring}`}>
+      <article id={`area-${a.code}`} className={`rounded-2xl border bg-[#181026]/95 overflow-hidden transition-colors ${st ? `${TONE[a.mode].open} shadow-[0_10px_30px_rgba(0,0,0,0.35)]` : TONE[a.mode].ring}`}>
         {/* มือถือ: แถวบน = ฉาก + ชื่อ/เรื่องราว · แถวล่าง = ปุ่มด่านเต็มความกว้าง (6 ปุ่ม × 2 แถว)
             จอใหญ่: ฉากซ้าย (สูงเต็มการ์ด) · ชื่อ + ปุ่มด่านขวา */}
         <div className="grid grid-cols-[150px_minmax(0,1fr)] sm:grid-cols-[200px_minmax(0,1fr)] lg:grid-cols-[240px_minmax(0,1fr)] gap-x-3 gap-y-2.5 p-3">
@@ -353,7 +402,7 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
             ))}
           </div>
         </div>
-        {a.treasure && <TreasureBar t={a.treasure} land={a.land} stages={a.stages} lang={lang} T={T} />}
+        {a.treasure && <TreasureBar t={a.treasure} land={a.land} stages={a.stages} lang={lang} T={T} open={treasureOpen} onToggle={() => onTreasure(a.code)} />}
         {st && <StageDetail key={st.code} s={st} a={a} data={data} lang={lang} T={T} onEnemy={onEnemy} />}
       </article>
     </li>
@@ -405,11 +454,12 @@ function PieceImg({ land, code, className }: { land: string; code: string; class
   )
 }
 
-function TreasureBar({ t, land, stages, lang, T }: { t: MSTreasure; land: string; stages: MSStage[]; lang: L; T: Tfn }) {
-  const [open, setOpen] = useState(false)
+function TreasureBar({ t, land, stages, lang, T, open, onToggle }: {
+  t: MSTreasure; land: string; stages: MSStage[]; lang: L; T: Tfn; open: boolean; onToggle: () => void
+}) {
   return (
     <div className="border-t border-amber-300/15 bg-gradient-to-r from-amber-400/[0.10] via-amber-400/[0.03] to-transparent">
-      <button onClick={() => setOpen(v => !v)} aria-expanded={open}
+      <button onClick={onToggle} aria-expanded={open}
         className="w-full flex items-center gap-2.5 px-3 py-2 text-left active:bg-white/[0.04] sm:hover:bg-white/[0.03]">
         <span className="relative shrink-0 flex items-center justify-center w-11 h-11 rounded-xl bg-black/30 ring-1 ring-amber-300/25">
           <span className="pointer-events-none absolute inset-1 rounded-full bg-amber-300/20 blur-md" />

@@ -75,6 +75,8 @@ interface AbilitySlot {
 interface RangerStatsResponse {
   id: string
   imageUrl: string
+  /** เอฟเฟกต์สีตอนร่ายสกิล 1 / 2 (unit.skillEffectColor1/2) — JSON เก่าไม่มี */
+  skillEffectColors?: { skill1: string | null; skill2: string | null }
   tier: 'base8' | 'ultra' | 'hyper' | 'base9'
   tierLabel: string
   tierIconKey: string
@@ -1529,6 +1531,7 @@ export default function RangerStatPanel({
           isFlyer={(stats?.abilities ?? []).some(ab => ab.code === 'ab201_flight')}
           isAirAmbush={(stats?.abilities ?? []).some(ab => ab.code === 'ab217_airatk' || ab.code === 'ab217_airatk_X')}
           skillIcons={{ skill1: iconSetOfSkill(animSkills[0]?.game), skill2: iconSetOfSkill(animSkills[1]?.game) }}
+          skillEffectColors={stats?.skillEffectColors}
           onClose={() => setShowAnimation(false)}
         />,
         document.body

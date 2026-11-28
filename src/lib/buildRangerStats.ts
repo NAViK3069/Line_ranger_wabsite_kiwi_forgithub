@@ -113,6 +113,8 @@ export interface RangerStatsResponse {
 
   /** แล็บ: ของที่ได้จากการแปรรูป + วัสดุอัพเกรดแต่ละแบบ (ตาราง unit + unit_evln_mtrl + game_factor) */
   lab: RangerLab
+  /** เอฟเฟกต์สีตอนร่ายสกิล 1 / 2 (unit.skillEffectColor1/2 → res/skill_effect_color/skill_effect_<สี>.sam) */
+  skillEffectColors?: { skill1: string | null; skill2: string | null }
 
   /** ศักยภาพ 5 ช่อง (unit.potentialStatGroup → potential_stat_group → potential_stat_info) · null = ไม่มี */
   potential: PotentialSlot[] | null
@@ -520,6 +522,7 @@ export async function buildRangerStatsResponse(
     abilities: buildAbilities(raw, rangerId),
 
     lab: labOf(unitRow),
+    skillEffectColors: { skill1: str(unitRow?.skillEffectColor1) || null, skill2: str(unitRow?.skillEffectColor2) || null },
 
     // ช่องที่ rangerData ไม่ได้ส่งมา → อ่านจากตาราง unit โดยตรง
     potential: potentialOf(str(unitRow?.potentialStatGroup)),

@@ -66,6 +66,10 @@ interface Props {
   // ไอคอนผลสกิลเหนือหัว (skill.attackedEffect + skillEffectIconType) ของสกิลที่ใช้งานได้ตัวที่ 1/2
   //   enemy = ขึ้นบนศัตรูที่โดน · self = ขึ้นบนตัวผู้ร่าย (ผลที่ targetType = SELF)
   skillIcons?: { skill1: SkillIconSet | null; skill2: SkillIconSet | null }
+  // เอฟเฟกต์สีตอนร่ายสกิล (unit.skillEffectColor1/2) — เกม (0xceff74 → 0xcf06cc): ตอนเริ่ม s_attack_ready / s2_attack_ready
+  //   สร้าง res/skill_effect_color/skill_effect_<สี>.sam เป็นลูกของยูนิต ที่ (shadowCenterX, shadowCenterY) pt
+  //   z −20 (หลังตัวละคร) · เล่น "normal" ครั้งเดียว · สเกลตามยูนิต
+  skillEffectColors?: { skill1: string | null; skill2: string | null }
   onClose: () => void
 }
 
@@ -416,6 +420,10 @@ async function loadBulletSam(samFilesList: string[], suffix: string): Promise<Bu
   const re = new RegExp(`-${suffix}\\.sam$`, 'i')
   const samUrl = samFilesList.find(u => re.test(u))
   if (!samUrl) return null
+  return loadSamAsset(samUrl)
+}
+// โหลดไฟล์ .sam + .plist + .png ชื่อเดียวกัน (anim หลัก = normal / finish ถ้ามี)
+async function loadSamAsset(samUrl: string): Promise<BulletAsset | null> {
   try {
     const prefix = samUrl.replace(/\.sam$/i, '')
     const [samBuf, plistBuf, pngBlob] = await Promise.all([
@@ -857,7 +865,7 @@ function BgStagePicker({ value, onPick, onClose }: { value: string | null; onPic
   )
 }
 
-export default function RangerAnimationPopup({ rangerId, rangerName, attackRange, skillTargets, skillAreas, skillRearMul, isFlyer, isAirAmbush, samFilesOverride, embedded = false, skillIcons, onClose }: Props) {
+export default function RangerAnimationPopup({ rangerId, rangerName, attackRange, skillTargets, skillAreas, skillRearMul, isFlyer, isAirAmbush, samFilesOverride, embedded = false, skillIcons, skillEffectColors, onClose }: Props) {
   const { tStat } = useLanguage()
   const { play, volume } = useSound()
   const [samFiles, setSamFiles] = useState<string[]>([])
@@ -947,6 +955,31 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
   const iconSheetRef = useRef<IconSheet | null>(null)
   const iconEventsRef = useRef<Record<string, { spec: SkillIconSpec; tick: number }>>({})
   const mainIconHRef = useRef(0)   // ความสูงยูนิตแบบเกมของผู้ร่าย (สูงรูป -thum.png)
+  // ── เอฟเฟกต์สีตอนร่ายสกิล: ไฟล์ต่อสี (โหลดครั้งเดียว) + สีของสกิล 1/2 ของเรนเจอร์ตัวนี้ ──
+  const auraCacheRef = useRef<Map<string, BulletAsset | null>>(new Map())
+  const auraColorsRef = useRef(skillEffectColors)
+  const auraLoadingRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    auraColorsRef.current = skillEffectColors
+    const colors = [skillEffectColors?.skill1, skillEffectColors?.skill2].filter((c): c is string => !!c)
+    for (const c of colors) {
+      if (auraCacheRef.current.has(c) || auraLoadingRef.current.has(c)) continue
+      auraLoadingRef.current.add(c)
+      // แคชระดับตัวเล่น (ล้างตอนปิด) — ผลที่โหลดเสร็จเก็บไว้เสมอ แม้สีของเรนเจอร์จะเปลี่ยนไประหว่างรอ
+      loadSamAsset(`https://rangers.lerico.net/res/skill_effect_color/skill_effect_${c}.sam`).then(a => {
+        auraLoadingRef.current.delete(c)
+        auraCacheRef.current.set(c, a)
+        drawFrameRef.current()
+      })
+    }
+  }, [skillEffectColors])
+  useEffect(() => {
+    const cache = auraCacheRef.current
+    return () => {
+      for (const a of cache.values()) { if (a) disposeSprites(a.sprites) }
+      cache.clear()
+    }
+  }, [])
   useEffect(() => {
     let alive = true
     mainIconHRef.current = 0
@@ -1129,6 +1162,35 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
     }
     return out.sort((x, y) => x.frame - y.frame)
   }, [])
+  // ── เอฟเฟกต์สีตอนร่ายสกิล: เริ่มที่ต้นท่าร่าย (เฟรมเดียวกับเสียง preparation) เล่น normal ครั้งเดียว ──
+  //   คิดจากท่า+เฟรมปัจจุบันล้วนๆ → หยุด/ย้อน/ลากหลอดแล้วภาพตรงกับเวลาเสมอ
+  const paintCastAura = (ctx: CanvasRenderingContext2D, sm: SAMParser, animName: string, frame: number, dashX: number) => {
+    const colors = auraColorsRef.current
+    if (!colors) return
+    let cues: { frame: number; kind: 'skill1' | 'skill2' }[] = []
+    const atk = ATTACK_ANIM_MAP[animName]
+    if (atk) {
+      if (atk.kind !== 'normal') cues = [{ frame: 0, kind: atk.kind }]
+    } else if (animName === '_all') {
+      if (allTriggerCacheRef.current.sam !== sm) allTriggerCacheRef.current = { sam: sm, list: allAttackTriggers(sm) }
+      for (const t of allTriggerCacheRef.current.list) if (t.kind !== 'normal') cues.push({ frame: t.prepFrame, kind: t.kind })
+    }
+    let cue: { frame: number; kind: 'skill1' | 'skill2' } | null = null
+    for (const c of cues) if (c.frame <= frame && (!cue || c.frame >= cue.frame)) cue = c
+    if (!cue) return
+    const color = colors[cue.kind]
+    const asset = color ? auraCacheRef.current.get(color) : null
+    if (!asset) return
+    const seq = asset.sam.animations[asset.normalName] ?? []
+    const fi = Math.floor((frame - cue.frame) * ((asset.sam.animRate || 24) / (sm.animRate || 24)))
+    const fr = seq[fi]
+    if (!fr) return   // เล่นจบแล้ว (ไม่วน)
+    const z = zoomRef.current
+    const mp = mainGamePos()
+    const ac = canvasCenter(asset.sam) ?? { x: 0, y: 0 }
+    // ตำแหน่งโหนด = ตำแหน่งยูนิต + (shadowCenterX, shadowCenterY) pt — ค่าตารางน้อยกว่า 1pt จึงถือว่าตรงตำแหน่งยูนิต
+    renderSAMFrame(ctx, fr, asset.sam.images, asset.sprites, originRef.current.x + dashX + (mp.x - ac.x) * z, originRef.current.y + (mp.y - ac.y) * z, z)
+  }
   const syncUnitSound = useCallback((sm: SAMParser, animName: string, frame: number) => {
     // หยุดอยู่ = เงียบ (เหมือนกด pause วิดีโอ) — ตอนกดเล่นต่อ เฟรมแรกที่วาดจะซิงก์กลับมาเอง
     if (!playingRef.current) return
@@ -1674,6 +1736,8 @@ export default function RangerAnimationPopup({ rangerId, rangerName, attackRange
       const fr = frames[frameIdxRef.current]
       // สกิล MOVE_ATTACK: ตัวละครพุ่งไปข้างหน้า (CCMoveTo ในเกม) — เลื่อนเฉพาะตอนมีฉากกระสอบทราย
       const dashX = actionDash(false) * zoomRef.current
+      // เอฟเฟกต์สีตอนร่ายสกิล — วาดก่อนตัวละคร (เกม z −20 = อยู่หลังตัว)
+      if (!viewingBulletFileRef.current) paintCastAura(ctx, s, s.animNames[animIdxRef.current], frameIdxRef.current, dashX)
       if (fr) renderSAMFrame(ctx, fr, s.images, spr, originRef.current.x + dashX, originRef.current.y, zoomRef.current, hiddenImagesRef.current)
       // ไอคอนผลสกิลเหนือหัวผู้ร่าย (บัฟตัวเอง) — ตำแหน่งยูนิต = กลางกรอบไฟล์ (+ระยะพุ่งของ MOVE_ATTACK)
       if (!viewingBulletFileRef.current) {

@@ -111,6 +111,9 @@ export interface RangerStatsResponse {
   skills: SkillSlot[]
   abilities: AbilitySlot[]
 
+  /** แล็บ: ของที่ได้จากการแปรรูป + วัสดุอัพเกรดแต่ละแบบ (ตาราง unit + unit_evln_mtrl + game_factor) */
+  lab: RangerLab
+
   /** ศักยภาพ 5 ช่อง (unit.potentialStatGroup → potential_stat_group → potential_stat_info) · null = ไม่มี */
   potential: PotentialSlot[] | null
 
@@ -188,6 +191,75 @@ function potentialOf(groupId: string): PotentialSlot[] | null {
     })
   }
   return slots.length ? slots : null
+}
+
+export interface LabMaterial {
+  code: string
+  count: number
+  /** true = วัสดุเป็นเรนเจอร์ (รูป = ไอคอนเรนเจอร์) · false = ไอเทม (evolve_icon) */
+  unit: boolean
+  name: { en: string; th: string }
+}
+export interface LabEvolution {
+  /** unit_evln_mtrl.evolveMaterialType: EVOLUTION / TRANSCEND / HYPER / ELEMENT / SWITCH_TRANSCEND / SWITCH_HYPER */
+  kind: string
+  /** ร่างที่ได้ (unitCodeAfterEvolution / …Transcendence / …Hyper) — null = ไม่เปลี่ยนร่าง */
+  target: string | null
+  targetName: { en: string; th: string } | null
+  /** เหรียญที่ใช้ — game_factor EVOLUTION_NEED_COIN_GRADE<เกรด>[_TRANSCENDENT|_HYPER] · null = ไม่มีในตาราง */
+  coin: number | null
+  materials: LabMaterial[]
+}
+export interface RangerLab {
+  /** ค่าพื้นฐานจากตาราง unit (extractionCrystal1–3Gain / extractionLeonardSoulGain) */
+  extraction: { crystal1: number; crystal2: number; crystal3: number; leonardSoul: number }
+  evolution: LabEvolution[]
+}
+
+/** ชื่อบรรทัดเดียว — ไทยต่อกันเลย (เกมตัดบรรทัดเพื่อจัดหน้า) · อังกฤษเว้นวรรค */
+const oneLineName = (v: string | undefined, sep = ' ') =>
+  (v ?? '').replace(/\s*(?:\\n|\n)\s*/g, sep).replace(/\s+/g, ' ').trim()
+
+function labOf(u: Record<string, unknown> | null): RangerLab {
+  const extraction = {
+    crystal1: n(u?.extractionCrystal1Gain), crystal2: n(u?.extractionCrystal2Gain),
+    crystal3: n(u?.extractionCrystal3Gain), leonardSoul: n(u?.extractionLeonardSoulGain),
+  }
+  if (!u) return { extraction, evolution: [] }
+  const code = str(u.unitCode)
+  const grade = n(u.grade)
+  const unitEn = gameText('en', 'UNIT'), unitTh = gameText('th', 'UNIT')
+  const itemEn = gameText('en', 'ITEM'), itemTh = gameText('th', 'ITEM')
+  const unitName = (c: string) => ({ en: oneLineName(unitEn[`${c}_nm`]) || c, th: oneLineName(unitTh[`${c}_nm`], '') })
+  const rows = gameTable('unit_evln_mtrl').filter(r => r.unitCode === code)
+  const kinds = ['EVOLUTION', 'TRANSCEND', 'HYPER', 'ELEMENT', 'SWITCH_TRANSCEND', 'SWITCH_HYPER']
+  const targetOf: Record<string, string> = {
+    EVOLUTION: str(u.unitCodeAfterEvolution), TRANSCEND: str(u.unitCodeAfterTranscendence), HYPER: str(u.unitCodeAfterHyper),
+  }
+  const coinOf = (kind: string): number | null => {
+    const suffix = kind === 'TRANSCEND' ? '_TRANSCENDENT' : kind === 'HYPER' ? '_HYPER' : kind === 'EVOLUTION' ? '' : null
+    if (suffix == null) return null
+    const v = factor(`EVOLUTION_NEED_COIN_GRADE${grade}${suffix}`, NaN)
+    return isFinite(v) ? v : null
+  }
+  const evolution: LabEvolution[] = []
+  for (const kind of kinds) {
+    const list = rows.filter(r => r.evolveMaterialType === kind).sort((a, b) => n(a.sort) - n(b.sort))
+    if (!list.length) continue
+    const target = targetOf[kind] || null
+    evolution.push({
+      kind, target, targetName: target ? unitName(target) : null, coin: coinOf(kind),
+      materials: list.map(r => {
+        const c = str(r.materialItemCode)
+        const isUnit = /^[ug]\d/.test(c)
+        return {
+          code: c, count: n(r.count), unit: isUnit,
+          name: isUnit ? unitName(c) : { en: oneLineName(itemEn[`${c}_nm`]) || c, th: oneLineName(itemTh[`${c}_nm`], '') },
+        }
+      }),
+    })
+  }
+  return { extraction, evolution }
 }
 
 let abilityIndex: Map<string, Record<string, unknown>> | null = null
@@ -445,6 +517,8 @@ export async function buildRangerStatsResponse(
 
     skills: await buildSkills(raw),
     abilities: buildAbilities(raw, rangerId),
+
+    lab: labOf(unitRow),
 
     // ช่องที่ rangerData ไม่ได้ส่งมา → อ่านจากตาราง unit โดยตรง
     potential: potentialOf(str(unitRow?.potentialStatGroup)),

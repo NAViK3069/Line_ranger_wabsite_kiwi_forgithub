@@ -12,6 +12,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import RangerStatPanel, { type RangerPanelMode } from './RangerStatPanel'
 import TalentSection from './TalentSection'
 import EvolutionSection from './EvolutionSection'
+import LabSection from './LabSection'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { useSound } from '@/contexts/SoundContext'
 
@@ -163,6 +164,9 @@ export default function GachaRangerDetailPopup({
             talentLevel={talentLevel}
             onTalentLevelChange={setTalentLevel}
           />
+
+          {/* [Lab] ของที่ได้จากการแปรรูป + วัสดุอัพเกรด — ก่อน Evolution */}
+          <LabSection rangerId={viewId} />
 
           {/* Evolution — สายร่างของเรนเจอร์ตัวนี้ กดสลับร่างได้ (self-hide ถ้าไม่มีสาย) */}
           <EvolutionSection

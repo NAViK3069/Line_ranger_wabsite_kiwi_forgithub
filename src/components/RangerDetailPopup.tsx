@@ -10,6 +10,7 @@ import { createPortal } from 'react-dom'
 import RangerStatPanel from './RangerStatPanel'
 import TalentSection from './TalentSection'
 import EvolutionSection from './EvolutionSection'
+import LabSection from './LabSection'
 import AwakeningTalentRanking from './AwakeningTalentRanking'
 import GearDetailPopup from './GearDetailPopup'
 import { useLanguage } from '@/contexts/LanguageContext'
@@ -466,6 +467,9 @@ export default function RangerDetailPopup({
               <div className="space-y-6 pt-1">
               {/* Talents — ขึ้นก่อน Gear Ranking (self-hide ถ้าเรนเจอร์ไม่มีพรสวรรค์) */}
               <TalentSection rangerId={viewId} talentLevel={topTalentLevel} />
+
+              {/* [Lab] ของที่ได้จากการแปรรูป + วัสดุอัพเกรด — ก่อน Evolution */}
+              <LabSection rangerId={viewId} />
 
               {/* Evolution — สายร่างของเรนเจอร์ตัวนี้ กดสลับร่างได้ (self-hide ถ้าไม่มีสาย) */}
               <EvolutionSection

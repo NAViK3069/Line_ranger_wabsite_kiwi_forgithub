@@ -192,6 +192,9 @@ export default function GearPickerModal({
   // ── Lazy SKILL+ fetch — gear-effects-batch สำหรับเกียร์ 8★ ในสล็อตนี้ ──
   // Map: iconUrl → SKILL+ growth (ข้อมูลจับคู่จากตารางเกม) — มีค่าแล้ว = fetch เสร็จ
   const [skillPlusMap, setSkillPlusMap] = useState<Map<string, SkillPlusEffectGrowth[]>>(new Map())
+  // slot ที่โหลดข้อมูล SKILL+ ครบแล้ว — ก่อนหน้านั้นยังจัดอันดับ Recommended ไม่ได้ → แสดงหน้าโหลดแทน
+  //   (ไม่งั้นรายการขึ้นก่อนแล้วเรียงใหม่ตอนข้อมูล SKILL+ มาถึง = กระพริบสลับตำแหน่ง)
+  const [spReadyFor, setSpReadyFor] = useState<SlotKey | null>(null)
 
   // ── Detail preview ─────────────────────────────────
   const [previewGear, setPreviewGear] = useState<GearBookItem | null>(null)
@@ -236,12 +239,12 @@ export default function GearPickerModal({
 
   // Lazy fetch SKILL+ names สำหรับ 8★/9★ gears ในสล็อตนี้ (เงื่อนไข Recommended เดียวกัน)
   useEffect(() => {
-    if (!gears.length) return
+    if (loading) return
 
     const targets = gears.filter(g =>
       (g.grade === 8 || g.grade === 9) && (!g.slot || g.slot.toUpperCase() === slot)
     )
-    if (!targets.length) return
+    if (!targets.length) { setSpReadyFor(slot); return }
 
     // chunk 20 URLs ต่อ request (หลีกเลี่ยง URL ยาวเกิน)
     const CHUNK = 20
@@ -271,11 +274,13 @@ export default function GearPickerModal({
           map.set(url, (spArr ?? []).map(sp => sp.skillPlusGrowth).filter((g): g is SkillPlusEffectGrowth => !!g))
         }
       }
+      // ตั้งพร้อมกัน (React batch) → render ครั้งเดียวด้วยลำดับสุดท้าย
       setSkillPlusMap(map)
+      setSpReadyFor(slot)
     })
 
     return () => { ctrl.abort() }
-  }, [gears, slot])
+  }, [gears, slot, loading])
 
   const elemSw = rangerElement ? (ELEM_TO_SWITCH[rangerElement.toLowerCase()] ?? null) : null
   const catSw  = rangerCategory?.toUpperCase() ?? null
@@ -375,7 +380,7 @@ export default function GearPickerModal({
 
           {/* List */}
           <div className="overflow-y-auto flex-1 px-4 pb-4 space-y-3">
-            {loading ? (
+            {loading || spReadyFor !== slot ? (
               <p className="text-gray-500 text-sm text-center py-8">{tStat('Loading...')}</p>
             ) : (
               <>

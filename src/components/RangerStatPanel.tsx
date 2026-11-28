@@ -12,7 +12,7 @@ import type { GearEffect, GearEffects } from '@/lib/pvpScraper'
 import GearDetailPopup from '@/components/GearDetailPopup'
 import RangerAnimationPopup from '@/components/RangerAnimationPopup'
 import SkillDetailSheet from '@/components/SkillDetailSheet'
-import PotentialSection, { PotentialMedal } from '@/components/PotentialSection'
+import PotentialSection from '@/components/PotentialSection'
 import { selectSwitchableEffects, absEffectValue, effectKey, DEFAULT_SLOT_ORDER, type RangerContext, type SwitchableResultMap, type SlotOrder } from '@/lib/switchableSelector'
 import { recalcGearEffects, splitSliderLevel, effectAmount } from '@/lib/gearLevelCalc'
 import {
@@ -1144,12 +1144,10 @@ export default function RangerStatPanel({
           </div>}
           {!isTower && <div className="order-7 sm:order-4 col-span-2 sm:col-span-3">
             {/* ระดับศักยภาพ = ผลรวมเลเวลทั้ง 5 ช่อง (POTENTIAL_TIP_DESC) */}
-            <div className="bg-white/5 rounded-lg px-2 py-2 sm:py-2.5 flex items-center gap-1.5 sm:gap-2 min-w-0 h-full">
-              <PotentialMedal order={1} size={24} dim={!stats.potential} />
-              <span className="text-white text-[12px] sm:text-[16px] font-semibold truncate">
-                {stats.potential
-                  ? <>{tStat('Potential')} <span className="tabular-nums">{potentialLv.reduce((a, v) => a + v, 0)}</span></>
-                  : tStat('Potential') + ' —'}
+            <div className="bg-white/5 rounded-lg px-3 py-2 sm:py-2.5 flex items-center justify-center gap-1.5 min-w-0 h-full">
+              <span className="text-white text-[12px] sm:text-[16px] font-semibold truncate">{tStat('Potential')}</span>
+              <span className="text-yellow-300 text-[12px] sm:text-[16px] font-bold tabular-nums shrink-0">
+                {stats.potential ? `+${potentialLv.reduce((a, v) => a + v, 0)}` : '—'}
               </span>
             </div>
           </div>}

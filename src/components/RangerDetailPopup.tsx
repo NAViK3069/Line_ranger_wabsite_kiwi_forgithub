@@ -345,7 +345,9 @@ export default function RangerDetailPopup({
       const style = window.getComputedStyle(bodyEl)
       const padTop = parseFloat(style.paddingTop) || 0
       const belowFold = core.nextElementSibling as HTMLElement | null
-      const firstDivider = belowFold?.querySelector('.flex.items-center') as HTMLElement | null
+      // หัวข้อ "ศักยภาพ" อยู่ในแผงหลัก (data-fold-divider) → ตัดที่นั่นก่อน · ไม่มี → divider แรกใต้แผง (Talents)
+      const firstDivider = (core.querySelector('[data-fold-divider]')
+        ?? belowFold?.querySelector('.flex.items-center')) as HTMLElement | null
       const bodyRect = bodyEl.getBoundingClientRect()
       if (firstDivider) {
         const divRect = firstDivider.getBoundingClientRect()

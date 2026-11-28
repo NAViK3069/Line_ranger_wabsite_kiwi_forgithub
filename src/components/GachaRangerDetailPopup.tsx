@@ -83,8 +83,13 @@ export default function GachaRangerDetailPopup({
         const style = window.getComputedStyle(bodyEl)
         const padTop = parseFloat(style.paddingTop) || 0
         const padBottom = parseFloat(style.paddingBottom) || 0
-        // + เผยให้เห็น divider "พรสวรรค์" ด้านล่างเป็นแถบเล็กๆ ให้รู้ว่ามีต่อ
-        const h = mainContentRef.current.offsetHeight + padTop + padBottom + 8
+        // ตัดหน้าแรกที่เส้นหัวข้อแรกใต้แผงหลัก (ศักยภาพ — data-fold-divider) ให้เห็นเส้นเต็ม + 6px
+        // เรนเจอร์ที่ไม่มีศักยภาพ → แบบเดิม: ทั้งแผง + เผย divider "พรสวรรค์" เป็นแถบเล็กๆ
+        const core = mainContentRef.current
+        const divider = core.querySelector('[data-fold-divider]') as HTMLElement | null
+        const h = divider
+          ? Math.round(divider.getBoundingClientRect().bottom - core.getBoundingClientRect().top + padTop + 6)
+          : core.offsetHeight + padTop + padBottom + 8
         // grow-only: ใช้ค่าสูงสุดเท่านั้น (popup ไม่หดหลังใส่/ถอดเกียร์)
         if (h > maxBodyHeightRef.current) {
           maxBodyHeightRef.current = h

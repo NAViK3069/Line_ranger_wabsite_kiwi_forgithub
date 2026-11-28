@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { useSound, SFX } from '@/contexts/SoundContext'
 import type { PotentialSlot } from '@/lib/rangerGameCalc'
 
 // ── เหรียญจากชีต common_ui.16 ของเกม (potential_meterial_0N.png — 78×78 ไม่หมุน) ──
@@ -61,6 +62,7 @@ export default function PotentialSection({ slots, levels, onChange, onTick }: {
   onTick: () => void
 }) {
   const { lang, tStat } = useLanguage()
+  const { play, tick } = useSound()
   const th = lang === 'th'
   const [open, setOpen] = useState<number | null>(null)
   // ตัวปรับเลเวลปิดเมื่อกดตรงไหนก็ได้นอกส่วนศักยภาพ (การ์ด + ตัวปรับ)
@@ -96,9 +98,9 @@ export default function PotentialSection({ slots, levels, onChange, onTick }: {
       <div onClick={() => setOpen(null)} className="flex items-center justify-between mb-1.5 text-[11px] text-gray-500">
         <span>{th ? 'ระดับรวม' : 'Total'} <b className="text-yellow-300 tabular-nums">{total}</b> / {TOTAL_LIMIT}</span>
         <span className="flex items-center gap-2">
-          <button type="button" onClick={() => { onTick(); onChange(slots.map(s => s.max)) }} className="hover:text-white font-semibold">MAX</button>
+          <button type="button" onClick={() => { play(SFX.max); onChange(slots.map(s => s.max)) }} className="hover:text-white font-semibold">MAX</button>
           <span className="text-gray-700">·</span>
-          <button type="button" onClick={() => { onTick(); onChange(slots.map(() => 0)) }} className="hover:text-white font-semibold">{th ? 'รีเซ็ต' : 'Reset'}</button>
+          <button type="button" onClick={() => { play(SFX.reset); onChange(slots.map(() => 0)) }} className="hover:text-white font-semibold">{th ? 'รีเซ็ต' : 'Reset'}</button>
         </span>
       </div>
 
@@ -150,23 +152,21 @@ export default function PotentialSection({ slots, levels, onChange, onTick }: {
             <span className="ml-auto shrink-0 whitespace-nowrap text-[11px] tabular-nums text-gray-300">Lv {cur} / {sel.max}</span>
           </div>
           <div className="flex items-center gap-2 mt-1.5">
-            <button type="button" aria-label="-1" onClick={() => setLv(open, cur - 1)}
+            <button type="button" aria-label="-1" onClick={() => { if (cur > 0) tick(); setLv(open, cur - 1) }}
               className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 text-gray-200 text-sm leading-none shrink-0">−</button>
             <input
               type="range" min={0} max={sel.max} step={1}
               value={cur}
-              onChange={e => setLv(open, parseInt(e.target.value, 10))}
-              onPointerUp={onTick}
-              onKeyUp={onTick}
+              onChange={e => { tick(); setLv(open, parseInt(e.target.value, 10)) }}
               aria-label={name(sel)}
               className={`flex-1 h-1.5 rounded-lg appearance-none cursor-pointer bg-white/15 accent-yellow-400`}
             />
-            <button type="button" aria-label="+1" onClick={() => setLv(open, cur + 1)}
+            <button type="button" aria-label="+1" onClick={() => { if (cur < sel.max) tick(); setLv(open, cur + 1) }}
               className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 text-gray-200 text-sm leading-none shrink-0">+</button>
           </div>
           <div className="flex gap-1 mt-1.5">
             {[0, Math.round(sel.max / 2), sel.max].map(v => (
-              <button key={v} type="button" onClick={() => { onTick(); setLv(open, v) }}
+              <button key={v} type="button" onClick={() => { play(v === sel.max && v > cur ? SFX.max : SFX.click); setLv(open, v) }}
                 className={`flex-1 rounded-md py-0.5 text-[11px] font-semibold tabular-nums ${v === cur ? 'bg-white/15 text-white' : 'bg-white/[0.04] text-gray-400 hover:bg-white/10'}`}>
                 Lv.{v}
               </button>

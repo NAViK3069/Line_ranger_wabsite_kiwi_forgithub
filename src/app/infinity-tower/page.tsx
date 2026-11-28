@@ -777,7 +777,7 @@ function MobileBar({ data, T, filter, counts, shortLabel, onFilter, onJump }: {
           {tabs.map(t => {
             const on = filter === t.v
             return (
-              <button key={t.v} onClick={() => onFilter(t.v)} aria-pressed={on}
+              <button key={t.v} onClick={() => onFilter(t.v)} aria-pressed={on} data-sound="ch_swap.ogg"
                 className={`relative flex flex-col items-center justify-center gap-0.5 h-[64px] px-0.5 transition-colors ${on ? 'text-white' : 'text-gray-400 active:bg-white/5'}`}>
                 {on && <span className="absolute top-0 left-1/2 -translate-x-1/2 h-[3px] w-8 rounded-b-full bg-fuchsia-400" />}
                 <span className={`relative flex items-center justify-center h-8 w-11 rounded-2xl transition-colors ${on ? 'bg-fuchsia-500/25' : ''}`}>
@@ -827,7 +827,7 @@ function JumpSheet({ T, max, value, onChange, desc, onDesc, onGo, onTop, onClose
         </div>
         <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-black/30 p-1 text-sm">
           {[false, true].map(v => (
-            <button key={String(v)} onClick={() => onDesc(v)} aria-pressed={desc === v}
+            <button key={String(v)} onClick={() => onDesc(v)} aria-pressed={desc === v} data-sound="click_global.ogg"
               className={`flex items-center justify-center gap-1 h-9 rounded-lg ${desc === v ? 'bg-fuchsia-500/30 text-white' : 'text-gray-400'}`}>
               <span className="material-icons-round text-[16px]">{v ? 'south' : 'north'}</span>
               {v ? T('บนลงล่าง', 'Top down') : T('ล่างขึ้นบน', 'Bottom up')}

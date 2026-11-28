@@ -24,7 +24,7 @@ import {
 import GearPickerModal, { type GearBookItem } from '@/components/GearPickerModal'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { usePro } from '@/contexts/ProContext'
-import { useSound } from '@/contexts/SoundContext'
+import { useSound, SFX } from '@/contexts/SoundContext'
 import type { AwakenAbility } from '@/server/api/ranger/awakening/[id]/route'
 import type { TriggerBasis } from '@/lib/rangerTriggerBasis'
 import type { RangerGrowthInput } from '@/lib/rangerLevelCalc'
@@ -439,7 +439,7 @@ export default function RangerStatPanel({
   tower,
 }: Props) {
   const { tRanger, tGear, tStat, lang } = useLanguage()
-  const { play } = useSound()
+  const { play, tick } = useSound()
   const { isPro } = usePro()
   const isGacha = mode === 'gacha'
   const isBook  = mode === 'book'
@@ -1221,9 +1221,7 @@ export default function RangerStatPanel({
                     max={playerMaxLevel}
                     step={1}
                     value={displayLevel}
-                    onChange={(e) => setSliderLevel(parseInt(e.target.value, 10))}
-                    onPointerUp={() => play('click_global.ogg')}
-                    onKeyUp={() => play('click_global.ogg')}
+                    onChange={(e) => { tick(); setSliderLevel(parseInt(e.target.value, 10)) }}
                     className={`w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-white/15 ${levelPopupTheme(stats.tier).accent}`}
                     aria-label="Ranger level"
                   />
@@ -1233,7 +1231,8 @@ export default function RangerStatPanel({
                       <button
                         key={lv}
                         type="button"
-                        onClick={() => { play('click_global.ogg'); setSliderLevel(lv) }}
+                        // ขึ้นเลเวล = เสียงเลเวลอัปของเกม · ลง/เท่าเดิม = คลิกปกติ
+                        onClick={() => { play(lv > displayLevel ? SFX.max : SFX.click); setSliderLevel(lv) }}
                         className={`flex-1 rounded-md py-1 text-xs font-bold tabular-nums transition-colors ${
                           lv === displayLevel ? `bg-white/20 ${levelPopupTheme(stats.tier).text}` : 'bg-white/5 text-gray-300 hover:bg-white/10'
                         }`}

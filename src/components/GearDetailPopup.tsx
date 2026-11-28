@@ -215,7 +215,7 @@ function fmtSkillPlusValue(value: string): string {
 
 export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gearSlot, league, onClose, onInstall, onRemove, onReplace, hideRangerUsage, effectLevel, rangerCtx, otherSlotsLockedNames, lockedAutoSelectionName, switchableInactiveReason, rangerSkills, skillPlusOverriddenBy, occupiedSwitchableTypes, existingSkillPlus, compareBasicEffects, selectedSwitchableOverride, onSwitchableSelect, zIndex, showLevelSlider, sliderLevel: sliderLevelProp, onSliderLevelChange, specLevel, onSpecLevelChange }: Props) {
   const { t, tGear, tRanger, tUnit, tStat } = useLanguage()
-  const { play } = useSound()
+  const { play, tick } = useSound()
   const handleClose = () => { play('click_collect_cancel.ogg'); onClose() }
   const displayGearName = tGear(gearIconUrl, gearName)
   // itemCode จาก iconUrl (เช่น .../gear_icon/eq_2607_acc_29_icon.png → eq_2607_acc_29) — ใช้กับ Spec+
@@ -490,7 +490,7 @@ export default function GearDetailPopup({ gearName, gearIconUrl, gearGrade, gear
                       max={sliderMax}
                       step={1}
                       value={clampedSlider}
-                      onChange={(e) => setSliderLevel(parseInt(e.target.value, 10))}
+                      onChange={(e) => { tick(); setSliderLevel(parseInt(e.target.value, 10)) }}
                       className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-yellow-400"
                     />
                   </div>

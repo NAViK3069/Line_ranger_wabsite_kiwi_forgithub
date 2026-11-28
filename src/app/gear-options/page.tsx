@@ -103,6 +103,7 @@ export default function GearOptionsPage() {
                 onClick={() => choose(g.id)}
                 disabled={locked}
                 aria-pressed={on}
+                data-sound="ch_swap.ogg"
                 title={locked ? T('ยังไม่มีวิดีโอ — เร็วๆ นี้', 'No video yet — coming soon') : undefined}
                 className={`relative text-left rounded-xl border px-3 py-2.5 transition-colors min-h-[52px] ${
                   locked

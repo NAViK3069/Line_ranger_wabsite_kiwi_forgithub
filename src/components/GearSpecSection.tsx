@@ -11,6 +11,7 @@
 import { apiFetch } from '@/lib/staticApi'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useLanguage } from '@/contexts/LanguageContext'
+import { useSound } from '@/contexts/SoundContext'
 
 /** ข้อความทางการสองภาษา — ภาษาที่เกมไม่มีจะไม่มีฟิลด์นั้น */
 interface Localized { en?: string; th?: string }
@@ -124,6 +125,7 @@ function specLevelIcon(level: number): string {
 
 export default function GearSpecSection({ itemCode, grade, interactive = true, lockedLevel = 5, specLevel: specLevelProp, onSpecLevelChange }: Props) {
   const { lang } = useLanguage()
+  const { tick } = useSound()
   const [data, setData] = useState<GearSpecData | null>(null)
   const [loading, setLoading] = useState(true)
   const [internalSpecLevel, setInternalSpecLevel] = useState(0)
@@ -259,7 +261,7 @@ export default function GearSpecSection({ itemCode, grade, interactive = true, l
             max={5}
             step={1}
             value={lvl}
-            onChange={(e) => setSpecLevel(parseInt(e.target.value, 10))}
+            onChange={(e) => { tick(); setSpecLevel(parseInt(e.target.value, 10)) }}
             className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-purple-400"
           />
         </div>

@@ -6,10 +6,13 @@
 //     - container=false/ไม่ระบุ (ตัวปุ่ม/การ์ดเอง) → คลิกโดนก็เล่น
 //     - container=true (แถว/กล่องที่ห่อปุ่ม) → เล่นเฉพาะเมื่อคลิกปุ่ม/ลิงก์ "ข้างใน"
 //   • เรียงข้อเจาะจง (เสียงเฉพาะ) ไว้ก่อน → ชนะข้อ click_global ทั่วไป
+//   • ก่อน RULES: [data-sound="x.ogg"] กำหนดเสียงเองต่อปุ่ม ("none" = เงียบ)
+//     และ [role="tab"] = เสียงสลับแท็บ (SFX.tab) อัตโนมัติ
+//     ทั้งสองแบบเงียบถ้าปุ่มนั้นเลือกอยู่แล้ว (aria-selected/aria-pressed="true") — กดซ้ำไม่มีอะไรเปลี่ยน
 // ====================================================
 
 import { useEffect } from 'react'
-import { useSound } from '@/contexts/SoundContext'
+import { useSound, SFX } from '@/contexts/SoundContext'
 
 interface Rule {
   classes: string[]
@@ -91,6 +94,9 @@ export default function UiClickSound() {
       const target = e.target as Element | null
       if (!target) return
 
+      // 0) data-sound / แท็บ — จัดการใน capture แล้ว
+      if (target.closest('[data-sound], [role="tab"]')) return
+
       // 1) ตัวปุ่ม/การ์ดเอง → คลิกโดนก็เล่น
       const elRule = findRule(target, ELEMENT_RULES)
       if (elRule) { play(elRule.sound); return }
@@ -102,8 +108,20 @@ export default function UiClickSound() {
         if (cRule) { play(cRule.sound); return }
       }
     }
+    // data-sound / แท็บ: อ่านสถานะใน capture phase (ก่อน React อัปเดต aria-selected ของแท็บใหม่)
+    const onClickCapture = (e: MouseEvent) => {
+      const tagged = (e.target as Element | null)?.closest<HTMLElement>('[data-sound], [role="tab"]')
+      if (!tagged || (tagged as HTMLButtonElement).disabled) return
+      const sound = tagged.dataset.sound ?? SFX.tab
+      const isOn = tagged.getAttribute('aria-selected') === 'true' || tagged.getAttribute('aria-pressed') === 'true'
+      if (sound !== 'none' && !isOn) play(sound)
+    }
+    document.addEventListener('click', onClickCapture, true)
     document.addEventListener('click', onClick)
-    return () => document.removeEventListener('click', onClick)
+    return () => {
+      document.removeEventListener('click', onClickCapture, true)
+      document.removeEventListener('click', onClick)
+    }
   }, [play])
 
   return null

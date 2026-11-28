@@ -197,6 +197,8 @@ export default function MetaPage() {
   const TabBtn = ({ mode, icon, label }: { mode: 'rangers' | 'gears'; icon: string; label: string }) => (
     <button
       onClick={() => setViewMode(mode)}
+      data-sound="ch_swap.ogg"
+      aria-pressed={viewMode === mode}
       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border transition-all ${
         viewMode === mode
           ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40'

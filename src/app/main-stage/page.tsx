@@ -570,6 +570,20 @@ function StageDetail({ s, a, data, lang, T, onEnemy }: { s: MSStage; a: MSArea; 
               {s.distance != null && <Chip label={T('ระยะสนาม', 'Field length')}><span className="material-icons-round text-[15px] text-gray-300">straighten</span>{fmt(s.distance)}</Chip>}
             </div>
           </div>
+          {/* คอม: รางวัลลอยอยู่บนฉาก (ที่ว่างด้านขวา) — มือถืออยู่ข้างล่างตามเดิม */}
+          <div className="hidden lg:flex shrink-0 items-stretch gap-2">
+            {s.first.length > 0 && (
+              <div className="relative w-[250px] overflow-hidden rounded-xl bg-gradient-to-br from-amber-500/30 via-black/55 to-black/60 p-2.5 ring-1 ring-amber-300/40 backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.45)]">
+                <span className="pointer-events-none absolute -left-6 -top-8 h-20 w-24 rounded-full bg-amber-400/30 blur-2xl" />
+                <H icon={IC.trophy}>{T('รางวัลเคลียร์ครั้งแรก', 'First clear reward')}</H>
+                <RewardList list={s.first} data={data} lang={lang} />
+              </div>
+            )}
+            <div className="w-[230px] rounded-xl bg-black/55 p-2.5 ring-1 ring-white/15 backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.45)]">
+              <H>{T('รางวัลเคลียร์ด่าน', 'Clear reward')}</H>
+              <ClearReward s={s} T={T} />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -590,22 +604,18 @@ function StageDetail({ s, a, data, lang, T, onEnemy }: { s: MSStage; a: MSArea; 
         {/* รางวัล */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {s.first.length > 0 && (
-            <section className="relative overflow-hidden rounded-xl border border-amber-300/25 bg-gradient-to-br from-amber-400/[0.14] via-amber-400/[0.04] to-transparent p-3">
+            <section className="lg:hidden relative overflow-hidden rounded-xl border border-amber-300/25 bg-gradient-to-br from-amber-400/[0.14] via-amber-400/[0.04] to-transparent p-3">
               <span className="pointer-events-none absolute -left-6 -top-6 h-20 w-24 rounded-full bg-amber-400/20 blur-2xl" />
               <H icon={IC.trophy}>{T('รางวัลเคลียร์ครั้งแรก', 'First clear reward')}</H>
               <RewardList list={s.first} data={data} lang={lang} />
             </section>
           )}
-          <section className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+          <section className="lg:hidden rounded-xl border border-white/10 bg-white/[0.03] p-3">
             <H>{T('รางวัลเคลียร์ด่าน', 'Clear reward')}</H>
-            <ul className="space-y-1.5 text-[13px]">
-              <li className="flex items-center gap-2"><GameIcon icon={IC.coin} size={26} className="mx-[3px]" /><span className="flex-1 text-gray-400">{T('เหรียญ', 'Coin')}</span><span className="font-semibold text-white">{fmt(s.reward.coin)}</span></li>
-              <li className="flex items-center gap-2"><GameIcon icon={IC.exp} size={26} className="mx-[3px]" /><span className="flex-1 text-gray-400">EXP</span><span className="font-semibold text-white">{fmt(s.reward.exp)}</span></li>
-              <li className="flex items-center gap-2"><span className="w-8 text-center text-[10px] font-bold text-gray-400">UNIT</span><span className="flex-1 text-gray-400">{T('EXP เรนเจอร์', 'Ranger EXP')}</span><span className="font-semibold text-white">{fmt(s.reward.unitExp)}</span></li>
-            </ul>
+            <ClearReward s={s} T={T} />
           </section>
           {s.drops.length > 0 && (
-            <section className={`rounded-xl border border-white/10 bg-white/[0.03] p-3 ${s.first.length ? 'md:col-span-2' : ''}`}>
+            <section className={`rounded-xl border border-white/10 bg-white/[0.03] p-3 lg:col-span-2 ${s.first.length ? 'md:col-span-2' : ''}`}>
               <H>{T('ของที่อาจได้รับ', 'Possible drops')}</H>
               <RewardGrid list={s.drops} data={data} lang={lang} />
             </section>
@@ -636,6 +646,16 @@ function StageDetail({ s, a, data, lang, T, onEnemy }: { s: MSStage; a: MSArea; 
         </section>
       </div>
     </div>
+  )
+}
+
+function ClearReward({ s, T }: { s: MSStage; T: Tfn }) {
+  return (
+    <ul className="relative space-y-1.5 text-[13px]">
+      <li className="flex items-center gap-2"><GameIcon icon={IC.coin} size={26} className="mx-[3px]" /><span className="flex-1 text-gray-300">{T('เหรียญ', 'Coin')}</span><span className="font-semibold text-white">{fmt(s.reward.coin)}</span></li>
+      <li className="flex items-center gap-2"><GameIcon icon={IC.exp} size={26} className="mx-[3px]" /><span className="flex-1 text-gray-300">EXP</span><span className="font-semibold text-white">{fmt(s.reward.exp)}</span></li>
+      <li className="flex items-center gap-2"><span className="w-8 text-center text-[10px] font-bold text-gray-400">UNIT</span><span className="flex-1 text-gray-300">{T('EXP เรนเจอร์', 'Ranger EXP')}</span><span className="font-semibold text-white">{fmt(s.reward.unitExp)}</span></li>
+    </ul>
   )
 }
 

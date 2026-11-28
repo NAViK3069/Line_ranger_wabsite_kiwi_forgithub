@@ -60,6 +60,20 @@ export interface MSStage {
   enemyCount: number
   waveCount: number
 }
+/** ชิ้นส่วนสมบัติ: กลุ่มละ 3 ระดับ (areaNN_กลุ่ม_ระดับ) — รูป res/arNN_keyitem/<code>.png */
+export interface MSTreasurePiece { code: string; name: TText }
+/**
+ * สมบัติของพื้นที่ (area.completeKeyItemCode — รูป res/arNN_keyitem/arNN_c.png)
+ * ประกอบจากชิ้นส่วน 3 กลุ่ม (keyItemCode1–3) · ความสามารถ = ข้อความ KEY_ITEM arNN_key_desc
+ * upgrade = อัปเกรดที่สมบัติชิ้นนี้ช่วย (area.rewardUpgradeType เช่น ENRG_PRDN = อัตราการผลิตแร่)
+ */
+export interface MSTreasure {
+  image: string
+  name: TText
+  ability: TText
+  upgrade: string
+  groups: { code: string; pieces: MSTreasurePiece[] }[]
+}
 export interface MSArea {
   code: string
   mode: StageMode
@@ -69,6 +83,7 @@ export interface MSArea {
   land: string
   /** ซีซั่นของพื้นที่ (area.season 1–3) — ปุ่มด่านของเกมต่างกันตามซีซั่น */
   season: number
+  treasure: MSTreasure | null
   name: TText
   story: TText | null
   stages: MSStage[]
@@ -148,10 +163,35 @@ function atLevel(u: Row | undefined, rate: Row | undefined, initial: string, per
   return Math.floor(base + (num(rate[per]) ?? 0) * (Math.min(lv, cap) - 1) + (num(rate[perMax]) ?? 0) * Math.max(0, lv - cap))
 }
 
+/**
+ * ข้อความเกมที่ตัดบรรทัดไว้ (\n) — ภาษาไทยไม่เว้นวรรคระหว่างคำ: ขึ้นบรรทัดระหว่างอักษรไทยต้องต่อกันเลย
+ * ("เพิ่มอัตรา\nการผลิตแร่ธาตุ" → "เพิ่มอัตราการผลิตแร่ธาตุ") · อื่นๆ ใช้ pick ตามปกติ (เป็นช่องว่าง)
+ */
+function pickJoin(t: ReturnType<typeof texts>, key: string, fallback = ''): TText {
+  const p = pick(t, key, fallback)
+  const raw = t.th[key]
+  if (raw) p.th = pick({ en: {}, th: { k: raw.replace(/(\p{Script=Thai})[ \t]*(?:\\n|\r?\n)[ \t]*(?=\p{Script=Thai})/gu, '$1') } }, 'k').th
+  return p
+}
+
+// ── สมบัติของพื้นที่ ──
+function treasureOf(a: Row, keyTx: ReturnType<typeof texts>): MSTreasure | null {
+  const code = str(a.areaCode)
+  const groups = [1, 2, 3].map(i => str(a[`keyItemCode${i}`])).filter(Boolean)
+  if (!groups.length) return null
+  return {
+    image: `https://rangers.lerico.net/res/${code}_keyitem/${code}_c.png`,
+    name: pickJoin(keyTx, str(a.completeKeyItemName) || `${code}_key_nm`),
+    ability: pickJoin(keyTx, str(a.completeKeyItemDesc) || `${code}_key_desc`),
+    upgrade: str(a.rewardUpgradeType),
+    groups: groups.map(g => ({ code: g, pieces: [1, 2, 3].map(k => ({ code: `${g}_${k}`, name: pickJoin(keyTx, `${g}_${k}`) })) })),
+  }
+}
+
 // ── ดัชนี ──
 export function mainStageIndex(): MainStageIndex {
   const c = ctx()
-  const areaTx = texts('AREA'), stageTx = texts('STAGE'), abTx = texts('ABILITY')
+  const areaTx = texts('AREA'), stageTx = texts('STAGE'), abTx = texts('ABILITY'), keyTx = texts('KEY_ITEM')
   const abilities = new Map(gameTable('ability').map(r => [str(r.code), r]))
   const aiOf = new Map<string, Row[]>()
   for (const a of gameTable('stage_ai')) {
@@ -197,7 +237,8 @@ export function mainStageIndex(): MainStageIndex {
     const story = storyKey && areaTx.en[storyKey] ? pick(areaTx, storyKey) : null
     modes[mode].push({
       code, mode, no: modes[mode].length + 1, land: `ar${n}`, season: num(a.season) ?? 1,
-      name: pick(areaTx, str(a.areaNameCode) || `${code}_nm`, str(a.areaName)),
+      treasure: treasureOf(a, keyTx),
+      name: pickJoin(areaTx, str(a.areaNameCode) || `${code}_nm`, str(a.areaName)),
       story: story && story.en !== str(a.areaName) ? story : null,
       stages: list.map((s, i): MSStage => {
         const sc = str(s.stageCode)

@@ -18,7 +18,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useLanguage } from '@/contexts/LanguageContext'
 import { apiFetch, LERICO_ORIGIN } from '@/lib/staticApi'
 import type { TEnemy, TIcon, TReward, TText } from '@/lib/infinityTower'
-import type { MainStageDetail, MainStageIndex, MSArea, MSEnemy, MSStage, MSTrigger, MSWave, StageMode } from '@/lib/mainStage'
+import type { MainStageDetail, MainStageIndex, MSArea, MSEnemy, MSStage, MSTreasure, MSTrigger, MSWave, StageMode } from '@/lib/mainStage'
 import { GameIcon, useIconUrl } from '../infinity-tower/atlas'
 import TowerEnemyPopup from '../infinity-tower/TowerEnemyPopup'
 import { EnemySkeleton, Shimmer } from '../infinity-tower/TowerLoading'
@@ -342,11 +342,90 @@ const AreaCard = memo(function AreaCard({ a, data, lang, T, order, open, onToggl
             </div>
           </div>
         </div>
+        {a.treasure && <TreasureBar t={a.treasure} land={a.land} lang={lang} T={T} />}
         {st && <StageDetail key={st.code} s={st} a={a} data={data} lang={lang} T={T} onEnemy={onEnemy} />}
       </article>
     </li>
   )
 })
+
+// ── สมบัติของพื้นที่ ──
+
+/** รูปชิ้นส่วน — พื้นที่ใหม่ๆ มีแค่รูประดับ 3 (เกมก็ใช้ area%d_%d_3.png) → ไม่มีรูประดับ 1/2 ใช้ระดับ 3 แทน */
+function PieceImg({ land, code, className }: { land: string; code: string; className: string }) {
+  const base = `${LERICO_ORIGIN}/res/${land}_keyitem/`
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={`${base}${code}.png`} alt="" draggable={false} loading="lazy" decoding="async" className={className}
+      onError={e => { const im = e.currentTarget, alt = `${base}${code.replace(/_\d$/, '_3')}.png`; if (im.src !== alt) im.src = alt; else im.style.visibility = 'hidden' }} />
+  )
+}
+
+function TreasureBar({ t, land, lang, T }: { t: MSTreasure; land: string; lang: L; T: Tfn }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="border-t border-amber-300/15 bg-gradient-to-r from-amber-400/[0.10] via-amber-400/[0.03] to-transparent">
+      <button onClick={() => setOpen(v => !v)} aria-expanded={open}
+        className="w-full flex items-center gap-2.5 px-3 py-2 text-left active:bg-white/[0.04] sm:hover:bg-white/[0.03]">
+        <span className="relative shrink-0 flex items-center justify-center w-11 h-11 rounded-xl bg-black/30 ring-1 ring-amber-300/25">
+          <span className="pointer-events-none absolute inset-1 rounded-full bg-amber-300/20 blur-md" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={t.image} alt="" draggable={false} loading="lazy" decoding="async" className="relative w-10 h-10 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[10.5px] font-semibold uppercase tracking-wider text-amber-200/80">{T('สมบัติของพื้นที่', 'Area treasure')}</span>
+          <span className="block truncate text-[13.5px] text-amber-50">{tx(t.name, lang)}</span>
+        </span>
+        <span className="hidden sm:inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-400/15 px-2.5 h-7 text-[12px] text-amber-100 ring-1 ring-amber-300/25">
+          <span className="material-icons-round text-[15px] text-amber-300">auto_awesome</span>{tx(t.ability, lang)}
+        </span>
+        <span className={`material-icons-round shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}>expand_more</span>
+      </button>
+      {/* มือถือ: ความสามารถอยู่บรรทัดของมันเอง */}
+      {!open && (
+        <p className="sm:hidden -mt-1 px-3 pb-2 pl-[68px] text-[12px] text-amber-100/90">
+          <span className="material-icons-round align-[-3px] mr-1 text-[14px] text-amber-300">auto_awesome</span>{tx(t.ability, lang)}
+        </p>
+      )}
+      {open && (
+        <div className="px-3 pb-3">
+          {/* สมบัติ + ความสามารถ */}
+          <div className="flex items-center gap-3 rounded-xl border border-amber-300/25 bg-black/25 p-2.5">
+            <span className="relative shrink-0 flex items-center justify-center w-16 h-16">
+              <span className="pointer-events-none absolute inset-0 rounded-full bg-amber-300/25 blur-xl" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={t.image} alt={tx(t.name, lang)} draggable={false} className="relative w-16 h-16 object-contain drop-shadow-[0_3px_6px_rgba(0,0,0,0.6)]" />
+            </span>
+            <div className="min-w-0">
+              <p className="font-[family-name:var(--font-line)] text-[16px] leading-tight text-white">{tx(t.name, lang)}</p>
+              <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-amber-200/70">{T('ความสามารถของสมบัติ', 'Treasure ability')}</p>
+              <p className="text-[13.5px] text-amber-50">{tx(t.ability, lang)}</p>
+            </div>
+          </div>
+          {/* ชิ้นส่วน 3 กลุ่ม × 3 ระดับ */}
+          <p className="mt-3 mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-300">{T('ชิ้นส่วนสมบัติ', 'Treasure pieces')}</p>
+          <ol className="space-y-1.5">
+            {t.groups.map((g, gi) => (
+              <li key={g.code} className="flex items-stretch gap-1.5 rounded-xl bg-white/[0.03] p-1.5 ring-1 ring-white/[0.07]">
+                <span className="shrink-0 flex items-center justify-center w-6 rounded-lg bg-amber-400/15 text-[12px] font-bold text-amber-200">{gi + 1}</span>
+                <div className="min-w-0 flex-1 grid grid-cols-3 gap-1">
+                  {g.pieces.map((p, k) => (
+                    <div key={p.code} className="relative flex flex-col items-center gap-0.5 rounded-lg bg-black/20 px-1 py-1.5 text-center">
+                      {k > 0 && <span className="material-icons-round absolute -left-[11px] top-[22px] text-[14px] text-amber-300/70">chevron_right</span>}
+                      <PieceImg land={land} code={p.code} className="w-11 h-11 object-contain" />
+                      <span className="text-[10.5px] leading-tight text-gray-200 line-clamp-2">{tx(p.name, lang)}</span>
+                      <span className="text-[9.5px] text-amber-300/80">{T(`ระดับ ${k + 1}`, `Lv.${k + 1}`)}</span>
+                    </div>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function StageButton({ s, b, on, onClick, T }: { s: MSStage; b: Btn; on: boolean; onClick: () => void; T: Tfn }) {
   return (
